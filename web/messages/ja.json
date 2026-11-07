@@ -889,6 +889,292 @@
       "speed": "速度"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "米ドルで請求されます。",
+      "withdrawal": "すぐに開始されます。完了すると、キャンセルする権利がなくなることに同意したものとみなされます。",
+      "refundedIfFails": "失敗した場合は全額返金されます。",
+      "saveLine": "次回以降の変換用に保存されます。請求の画面で削除できます。",
+      "orPayAnotherWay": "または別の方法で支払う",
+      "paying": "支払い中…",
+      "waitingConfirm": "お支払いの確認を待っています。このページは閉じても大丈夫です。完了すると、すぐに3D動画の作成が始まります。",
+      "declined": "お支払い方法が承認されませんでした。別の方法でお支払いください。",
+      "tooMany": "試行回数が多すぎます。ウォレットを使うか、しばらくしてからもう一度お試しください。",
+      "paidStarting": "支払い完了。3Dを開始します…",
+      "alreadyPaid": "すでに支払い済みです。",
+      "expiredRun": "このお支払いは期限切れです。準備ができたら、もう一度始めてください。",
+      "unavailable": "この地域ではまだお支払いを利用できません。",
+      "alipayLine": "Alipayで手続きを完了すると、ここに戻ります。",
+      "settleTitle": "前回の変換分を支払う",
+      "settleFoot": "お支払い後すぐにダウンロードできるようになります。",
+      "confirming": "お支払いを確認しています…",
+      "settled": "支払い完了。ダウンロードできるようになりました。",
+      "alreadySettled": "すでに支払い済みです。ダウンロードできます。",
+      "expired": "このお支払いは期限切れです。",
+      "confirmTitle": "お支払いの確認",
+      "bankWants": "銀行がこのお支払いの確認を求めています。",
+      "declinedChoose": "{label}が承認されませんでした。別の方法でお支払いください。",
+      "paymentMethod": "お支払い方法",
+      "paymentProblem": "前回のお支払いに問題があります。",
+      "underReview": "アカウントのお支払いを確認しています。",
+      "disputedRow": "銀行との異議申し立て中のため利用できません",
+      "waitingForPayment": "支払いを待っています…",
+      "finishPayment": "支払いを完了する",
+      "pausedReview": "お支払いの確認中は一時停止しています。",
+      "popAfter": "準備ができた時点で、既定のお支払い方法に請求されます。失敗した場合は請求されません。すぐに開始されます。完了すると、キャンセルする権利がなくなることに同意したものとみなされます。",
+      "popPrecharge": "開始時に、既定のお支払い方法に請求されます。順番待ちの間、または開始後1分以内ならキャンセルして全額返金されます。すぐに開始されます。完了すると、キャンセルする権利がなくなることに同意したものとみなされます。",
+      "popSheet": "次の画面でお支払い方法を選びます。失敗した場合は全額返金されます。",
+      "payToContinue": "{amount}を支払って続ける",
+      "payAndStart": "{amount}を支払って開始",
+      "paidMoreWaiting": "{amount}を支払いました。あと1件のお支払いが残っています。",
+      "settleSubtitle": "{count, plural, other {#件の変換 · 完了後に請求}}",
+      "personalUse": "個人利用向けです。商用利用はBusinessプランとStudioプランで利用できます。"
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "別のデバイスで支払う",
+      "continueAlipay": "Alipayに進む",
+      "payHereInstead": "ここで支払う",
+      "startAgain": "やり直す"
+    },
+    "checkout": {
+      "payWithCard": "カードで支払う",
+      "orAddAnotherWay": "または別の方法を追加"
+    },
+    "settle": {
+      "pay": "{amount}を支払う",
+      "payFromBalance": "残高から{amount}を支払う",
+      "balance": "残高 {amount}",
+      "tryAgain": "もう一度試す"
+    },
+    "addMethod": {
+      "title": "お支払い方法を追加",
+      "saveDeclined": "このお支払い方法を保存できませんでした。別の方法をお試しください。",
+      "saveTooMany": "試行回数が多すぎます。明日もう一度お試しください。",
+      "saveLimit": "お支払い方法は5件まで保存できます。先に1件削除してください。",
+      "makeDefault": "既定にする",
+      "saving": "保存中…",
+      "save": "お支払い方法を保存",
+      "saved": "保存しました。"
+    },
+    "limits": {
+      "line": "最初の3D動画を作るか、お支払い方法を保存すると、4件以上のプロジェクトと10 GBを超えるアップロードを保持できます。",
+      "addMethod": "お支払い方法を追加"
+    },
+    "deleteDues": {
+      "dues": "アカウントを削除する前に、完了していないお支払いがあります。",
+      "activeRuns": "アカウントを削除する前に、実行中のジョブをキャンセルするか、完了を待ってください。",
+      "deleting": "アカウントを削除しています…",
+      "pay": "{amount}を支払う"
+    },
+    "plan": {
+      "started": "{plan}を開始しました。{amount}分を利用できます。",
+      "proUnknownKeeps": "現在のProはそのまま続きます。ご希望なら、購入した場所で解約できます。",
+      "proNoteAppStore": "App StoreのProはそのまま続きます。Apple IDの設定で解約できます。",
+      "proNoteMacAppStore": "Mac App StoreのProはそのまま続きます。Apple IDの設定で解約できます。",
+      "proNoteGrant": "{app}から付与されたProは、{plan}と並行して続きます。",
+      "subtitleMonthly": "毎月{amount}分を利用可能 · いつでも解約可能。支払い済みの月の終わりまで使えます",
+      "subtitleYearly": "毎月{amount}分を利用可能 · いつでも解約可能。支払い済みの年の終わりまで使えます",
+      "companyLink": "請求書用に会社情報を追加",
+      "errorPlanActive": "すでにプランをご利用中です。別のプランを選ぶ前に、請求の画面で解約してください。",
+      "errorUnderReview": "アカウントのお支払いを確認しています。続けるにはサポートにお問い合わせください。",
+      "errorUnavailable": "現在プランを利用できません。しばらくしてからもう一度お試しください。",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "毎月請求。解約するまで{date}に更新されます。",
+      "billedYearly": "毎年請求。解約するまで{date}に更新されます。",
+      "start": "{plan}を開始 · {amount}",
+      "startYearly": "{plan}を開始 · 年{amount}"
+    },
+    "planChange": {
+      "previewFailed": "変更内容を計算できませんでした。請求はされていません。",
+      "insteadOf": "現在の{from}の代わりに",
+      "changing": "変更中…",
+      "tryAgain": "もう一度試す",
+      "changeOnDate": "{date}に{plan}へ変更",
+      "changeOnRenewal": "更新時に{plan}へ変更",
+      "payAndChange": "{amount}を支払って変更",
+      "cantChange": "現在は変更できません",
+      "workingOut": "計算中…"
+    },
+    "china": {
+      "title": "3D動画の支払い",
+      "scanWechat": "WeChatでスキャンして{amount}を支払う",
+      "paid": "支払い完了。",
+      "codeExpired": "コードの期限が切れました。",
+      "startAgain": "やり直す",
+      "payOtherDevice": "別のデバイスで支払う",
+      "opening": "開いています…",
+      "wechatPhone": "WeChatで支払うには、コンピュータを使ってください。",
+      "wechatHeadset": "コンピュータでWeChatを使って支払う"
+    },
+    "handoff": {
+      "titleComputer": "コンピュータで支払う",
+      "title": "スマートフォンまたはコンピュータで支払う",
+      "startAgain": "やり直す",
+      "payHereInstead": "ここで支払う",
+      "openLink": "このリンクを開く:",
+      "emailMe": "リンクをメールで受け取る",
+      "sentTo": "{email}に送信しました。",
+      "sentToYou": "メールを送信しました。",
+      "emailFailed": "メールを送信できませんでした。もう一度お試しください。",
+      "payingOther": "もう一方のデバイスで支払い中…",
+      "expiresIn": "有効期限まで{time}"
+    },
+    "handoffPage": {
+      "paid": "支払い完了。ヘッドセットに戻れます。",
+      "expired": "このリンクは期限切れです。ヘッドセットからやり直してください。",
+      "bad": "このリンクは使えませんでした。確認してもう一度お試しください。",
+      "limited": "試行回数が多すぎます。1分ほど待ってください。",
+      "forEmail": "{email}宛て",
+      "notFinished": "お支払いが完了していません。",
+      "opening": "開いています…",
+      "continue": "お支払いに進む"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "残高から支払い済み",
+      "spendLimitReached": "月間の利用上限に達しました。",
+      "topupSmallPrint": "使っていない資金は14日以内なら返金できます。残高は最後のチャージから12か月で失効します。",
+      "topupMin": "最低額は{amount}です。",
+      "settleFailed": "残高では足りなくなりました。別の方法でお支払いください。",
+      "paymentMethodBlocked": "このお支払い方法は使えません。別の方法を追加してください。",
+      "deletionPending": "アカウントを削除しています。",
+      "topupDaily": "本日の上限に達しました。明日もう一度お試しください。",
+      "topupDayLeft": "本日はあと{amount}までチャージできます。",
+      "autoReloadBlocked": {
+        "underReview": "お支払いの確認中は、自動チャージをオンにできません。",
+        "dispute": "銀行との異議申し立て中は、自動チャージをオンにできません。",
+        "paymentFailed": "失敗したお支払いを済ませるまで、自動チャージをオンにできません。",
+        "deletionPending": "アカウントの削除中は、自動チャージをオンにできません。"
+      },
+      "paidFromBalanceReload": "残高から支払い済み。先に{amount}をチャージします。",
+      "popBalance": "開始時に残高から{amount}を確保し、最終的な費用だけを請求します。それ以上は請求しません。失敗した変換は無料です。すぐに開始されます。完了すると、キャンセルする権利がなくなることに同意したものとみなされます。",
+      "topupMaxFirst": "最初のチャージは{amount}まで可能です。",
+      "topupMax": "1回に{amount}までチャージできます。",
+      "topupDone": "{added}をチャージしました。残高は{balance}です。",
+      "reloadConsent": "残高が{below}を下回るたびに、既定のお支払い方法に{add}を請求します。承認されない場合は、ほかの方法を試します。",
+      "reloadConsentWithMethod": "残高が{below}を下回るたびに、既定のお支払い方法({method})に{add}を請求します。承認されない場合は、ほかの方法を試します。"
+    },
+    "addFunds": {
+      "title": "資金を追加",
+      "balance": "残高",
+      "amount": "金額",
+      "other": "その他",
+      "add": "{amount}を追加"
+    },
+    "autoReload": {
+      "title": "自動チャージ",
+      "addAtLeast": "{amount}以上を指定してください。",
+      "atLeastThreshold": "しきい値({amount})以上を指定してください。",
+      "methodNeeded": "自動チャージを使うには、お支払い方法を保存してください。",
+      "saveFailed": "保存できませんでした。もう一度お試しください。",
+      "addMethod": "お支払い方法を追加",
+      "isOn": "自動チャージはオンです。",
+      "saved": "保存しました。",
+      "saving": "保存中…",
+      "save": "保存",
+      "below": "残高がこの額を下回ったら",
+      "add": "チャージ額"
+    },
+    "spending": {
+      "title": "利用額",
+      "limit": "月間の利用上限",
+      "used": "月あたり · {amount}使用済み",
+      "resets": "今月の利用額が上限に達すると、変換が止まります。毎月1日(UTC)にリセットされます。",
+      "alert": "残高がこの額を下回ったらメールで知らせる"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "週間",
+        "monthly": "月間",
+        "yearly": "年間"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ 週",
+        "monthly": "/ 月",
+        "yearly": "/ 年"
+      },
+      "perPeriod": {
+        "weekly": "週{price}",
+        "monthly": "月{price}",
+        "yearly": "年{price}"
+      },
+      "per": {
+        "weekly": "週",
+        "monthly": "月",
+        "yearly": "年"
+      },
+      "creditLine": "Proに加入すると(またはアプリのProでここに初めてサインインすると){amount}分の利用クレジットがもらえます",
+      "creditShort": "{amount}のクレジット付き",
+      "creditRules": "{days, plural, other {#日以内にお使いください。}}現金での払い戻しはできません。",
+      "creditRulesNoDays": "現金での払い戻しはできません。",
+      "terms": "解約するまで更新されます。",
+      "loadFailed": "プランを読み込めませんでした。",
+      "signIn": "Proを利用するにはサインインしてください。"
+    },
+    "list": {
+      "notOnSale": "Proはまだウェブで販売していません。iPhone、iPad、Mac、Vision Proの{app}で入手できます。",
+      "purchaseFailed": "購入を完了できませんでした。",
+      "ariaLabel": "Proプラン",
+      "save": "{pct}%お得",
+      "creditPlus": "+ {credit}",
+      "opening": "チェックアウトを開いています…",
+      "getPro": "Proを始める"
+    },
+    "screen": {
+      "included": "Proは{plan}プランに含まれています。",
+      "billing": "請求",
+      "headline": "3D動画がすべて{pct}%オフ",
+      "plusCredit": "さらに{credit}と、iPhone、iPad、Mac、Vision ProのアプリでのProも付いてきます。",
+      "plus": "さらに、iPhone、iPad、Mac、Vision ProのアプリでのProも付いてきます。",
+      "welcome": "Proへようこそ",
+      "youArePro": "Proをご利用中です",
+      "appliesToEvery": "{pct}%オフはすべての見積もりに適用されます。",
+      "backToVideo": "動画に戻る",
+      "yourProjects": "プロジェクト",
+      "managePlan": "プランを管理",
+      "manageBilling": "請求で管理",
+      "manageApple": "Apple IDの設定で管理",
+      "manageAppleDot": "Apple IDの設定で管理できます。"
+    },
+    "membership": {
+      "web": "ウェブの{plan}。",
+      "appStore": "App Storeの{plan}。",
+      "macAppStore": "Mac App Storeの{plan}。",
+      "grant": "{app}からアカウントに無料で付与されたPro。",
+      "unknown": "Proは有効です。購入した場所で管理してください。",
+      "renewsOn": "{date}に更新されます。",
+      "endsOn": "{date}に終了します。"
+    },
+    "credit": {
+      "left": "Proクレジット 残り{left} / {total} · {date}まで",
+      "notPaidOut": "現金での払い戻しはできません。",
+      "title": "Proクレジット",
+      "usedFirst": "変換のたびに、残高より先に使われます。",
+      "trial": "無料トライアルに含まれています。"
+    },
+    "period": {
+      "previewFailed": "料金を計算できませんでした。請求はされていません。",
+      "switchTo": "{name}に切り替える",
+      "dialogTitle": "Pro {name}に切り替えますか?",
+      "working": "本日の料金を計算中…",
+      "keep": "今のプランを続ける",
+      "confirmPay": "確定して{amount}を支払う",
+      "confirm": "確定"
+    },
+    "checkout": {
+      "renews": "解約するまで{price}で更新されます。",
+      "planActive": "すでにプランをご利用中です。請求の画面で管理できます。",
+      "unavailable": "現在Proを利用できません。しばらくしてからもう一度お試しください。",
+      "subtitleWithCredit": "{price}、{credit}付き",
+      "start": "Proを開始 · {price}",
+      "success": "Proが有効になりました。すべての動画がお得になります。"
+    }
+  },
   "company": {
     "form": {
       "saved": "保存しました。今後の請求書にはこの情報が使われます。",
@@ -1044,6 +1330,582 @@
       "balance": "残高",
       "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。",
       "refundable": "使わなかった残高は{days}日以内なら返金できます。"
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "いつもより時間がかかっています。",
+      "failed": "この動画を解析できませんでした。",
+      "retry": "もう一度試す",
+      "retrying": "再試行中…",
+      "contactSupport": "サポートに連絡",
+      "refresh": "更新",
+      "restartFailed": "解析を再開できませんでした。もう一度お試しください。"
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "動画の上下に黒帯が見つかりました。3Dが画面いっぱいに広がるよう、黒帯を取り除きます。",
+          "sides": "動画の左右に黒帯が見つかりました。3Dが画面いっぱいに広がるよう、黒帯を取り除きます。",
+          "all": "動画の四方に黒帯が見つかりました。3Dが画面いっぱいに広がるよう、黒帯を取り除きます。"
+        },
+        "keeping": {
+          "topBottom": "動画の上下に黒帯が見つかりました。3Dでも黒帯は残ります。",
+          "sides": "動画の左右に黒帯が見つかりました。3Dでも黒帯は残ります。",
+          "all": "動画の四方に黒帯が見つかりました。3Dでも黒帯は残ります。"
+        }
+      },
+      "perEye": "片目あたり{size}",
+      "saveError": "保存できませんでした。もう一度お試しください。",
+      "groupLabel": "黒帯",
+      "remove": "黒帯を取り除く(おすすめ)",
+      "keep": "そのまま残す",
+      "toggle": {
+        "label": "黒帯を取り除く",
+        "recommended": "おすすめ",
+        "removingSized": "動画に黒帯があります。3Dは画面いっぱいに広がるため、サイズが映像に合わせて{full}から{without}に変わります。",
+        "removing": "動画に黒帯があります。3Dは画面いっぱいに広がるため、サイズが映像に合わせて変わります。",
+        "keepingSized": "3Dでも黒帯を残します({full})。",
+        "keeping": "3Dでも黒帯を残します。"
+      },
+      "before": "元の動画",
+      "after": "3D"
+    },
+    "filmstrip": {
+      "hoverScene": "シーン{scene} · {timecode}",
+      "zoomOut": "縮小",
+      "zoomIn": "拡大",
+      "fit": "全体表示",
+      "zoomHint": "⌘/Ctrl + スクロールで拡大縮小 · スクロールで移動",
+      "fullHeightLabel": "フルハイトのタイムライン",
+      "compactLabel": "コンパクトなタイムライン",
+      "fullStrip": "フルストリップ",
+      "compactStrip": "コンパクト",
+      "pastPreview": "過去のプレビュー {label}",
+      "cutAt": "フレーム{frame}でカット"
+    },
+    "method": {
+      "tooLongForClassic": "この動画は{classic}には長すぎます。{lifelike}は長さを問わず使えるため、そのまま使っています。",
+      "unavailable": "現在{next}は利用できないため、プロジェクトは{current}のままです。",
+      "switchError": "方式を変更できませんでした。もう一度お試しください。",
+      "longerThanClassic": "この動画は{classic}で扱える長さを超えています。",
+      "priceUnavailable": "現在、料金を表示できません。",
+      "newTag": "新機能",
+      "compare": {
+        "forVideo": "この動画の場合",
+        "forVideoAt": "この動画の{quality}の場合",
+        "methodNow": "現在の{method}",
+        "price": "料金",
+        "readyIn": "完成まで",
+        "closing": "最新の3D技術です。奥行きや3Dの見た目のページで設定する必要はありません。"
+      },
+      "stayOn": "{method}のままにする",
+      "convertWith": "{method}で変換",
+      "offer": {
+        "priceTime": ":この動画で{price}、{time}。",
+        "price": ":この動画で{price}。",
+        "noPrice": "。",
+        "higher": "または{quality}で{price}",
+        "move": "切り替える"
+      }
+    },
+    "tabs": {
+      "railLabel": "ワークスペースのページ",
+      "overview": {
+        "label": "概要",
+        "hint": "動画、できあがるもの、料金、次のステップ"
+      },
+      "scenes": {
+        "label": "シーン",
+        "hint": "各シーンの開始位置を確認(無料)"
+      },
+      "depth": {
+        "label": "奥行き",
+        "hint": "任意:被写体までの距離をプレビュー"
+      },
+      "look": {
+        "label": "3Dの見た目",
+        "hint": "任意:シーンごとに3Dを調整して、ある瞬間をプレビュー"
+      },
+      "preview": {
+        "label": "プレビュー",
+        "hint": "好きな瞬間から数秒間を3Dで確認"
+      },
+      "make": {
+        "label": "3Dにする",
+        "hint": "動画全体(または一部)を3Dにする"
+      },
+      "files": {
+        "label": "ファイル",
+        "hint": "3Dファイル、見る方法、各変換の料金"
+      }
+    },
+    "shortcuts": {
+      "title": "キーボードショートカット",
+      "footer": "入力欄に入力している間、ショートカットは無効です。<kbd>Esc</kbd>キーで閉じます。",
+      "keys": {
+        "space": "スペース",
+        "click": "クリック",
+        "doubleClick": "ダブルクリック",
+        "drag": "ドラッグ",
+        "scroll": "スクロール"
+      },
+      "pages": {
+        "title": "ページ",
+        "page": "{page}ページ"
+      },
+      "playback": {
+        "title": "再生(すべてのプレビューとプレーヤー)",
+        "playPause": "再生 / 一時停止",
+        "stepFrame": "ぴったり±1フレーム移動",
+        "stepSecond": "±1秒移動"
+      },
+      "scenes": {
+        "title": "シーンの切り替え(シーンのページ)",
+        "scrub": "フィルムストリップをスクラブ",
+        "addCut": "カーソル位置のフレームにカットを追加",
+        "moveCut": "カットマーカーを移動(フレームに吸着)",
+        "removeCut": "選択したカットを削除",
+        "zoom": "再生ヘッド位置でタイムラインを拡大縮小"
+      },
+      "help": {
+        "title": "ヘルプ",
+        "toggle": "この一覧を開く / 閉じる"
+      }
+    },
+    "steps": {
+      "title": "ステップ",
+      "stepOf": "ステップ{step} / {total}",
+      "optional": "任意",
+      "status": {
+        "analyzing": "解析中…",
+        "analyzingPercent": "解析中… {percent}%",
+        "unreadable": "動画を読み取れませんでした",
+        "waiting": "待機中",
+        "ready": "準備完了",
+        "waitingInLine": "順番待ち",
+        "makingPercent": "作成中… {percent}%"
+      },
+      "action": {
+        "pickScenes": "シーンを選ぶ",
+        "freePreview": "無料プレビューを作る",
+        "previewPriced": "ある瞬間をプレビュー · {price}",
+        "preview": "ある瞬間をプレビュー",
+        "seeProgress": "進行状況を見る",
+        "make": "3Dにする",
+        "seeFiles": "3Dファイルを見る",
+        "download": "ダウンロード"
+      },
+      "secondary": {
+        "straightToMake": "または、そのまま3Dにする",
+        "checkLook": "または、先に3Dの見た目を確認する",
+        "makeAgain": "または、もう一度3Dにする"
+      }
+    },
+    "overview": {
+      "untitled": "名称未設定のプロジェクト",
+      "method": "方式",
+      "youGet": "できあがるもの",
+      "youGetValue": "Vision Pro用の空間ビデオ + サイドバイサイド",
+      "price": "料金",
+      "priceAt": "{quality}の場合",
+      "samplePrice": "サンプル:すでに3D化済み、請求なし",
+      "pricing": "この動画の料金を計算中…",
+      "analyzing": "動画を解析しています。完了すると、ここに料金が表示されます。無料です。",
+      "waiting": "動画の確認待ちです。完了すると、ここに料金が表示されます。"
+    },
+    "viewer": {
+      "thumbAlt": "最も近いサムネイル、フレーム{frame}",
+      "previewResolution": "プレビュー解像度",
+      "thumbnail": "サムネイル",
+      "proxyTitle": "フレーム単位で正確なプレビュー用プロキシ。変換には常にフル解像度の元動画({size})を使います",
+      "pauseLabel": "プレビューを一時停止",
+      "playLabel": "プレビューを再生",
+      "pause": "❚❚ 一時停止",
+      "play": "▶ 再生",
+      "stepBack": "1フレーム戻る",
+      "stepForward": "1フレーム進む",
+      "activePicture": "表示中の映像 {size}",
+      "theaterLabel": "シアタープレーヤー",
+      "compactLabel": "コンパクトプレーヤー",
+      "theater": "シアター",
+      "compact": "コンパクト",
+      "keysHint": "スペース 再生/一時停止 · ←/→ ±1フレーム · Shift ±1秒"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "ドラフト",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "最高に近い",
+        "maximum": "最大",
+        "aspectMax": "アスペクト最大",
+        "sourceNative": "元の解像度"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "カット{cut}は整数のフレームではありません",
+        "outside": "カット{cut}が範囲外です(0, {frames})",
+        "notIncreasing": "{cut}でカットが昇順になっていません"
+      },
+      "note": {
+        "outside": "フレーム{frame}ではカットできません。カットは(0, {frames})の範囲内にしてください。",
+        "exists": "フレーム{frame}にはすでにカットがあります。",
+        "unreadable": "カットリストを読み取れませんでした。"
+      },
+      "addReason": {
+        "atStart": "カットはフレーム0より後に置く必要があります。先に再生ヘッドを動かしてください",
+        "exists": "フレーム{frame}にはすでにカットがあります"
+      },
+      "saveFailed": "カットを保存できませんでした",
+      "title": "シーンのカット",
+      "description": "フレーム単位で正確なシーンの境界です。以降のステップはすべてシーンごとに奥行きを割り当てます。編集内容は保存するまでこの端末だけに残ります。",
+      "framesFps": "{frames}フレーム · {fps} fps",
+      "unsaved": "未保存の変更",
+      "fileLabel": "カットリストのファイル",
+      "import": "カットを読み込む…",
+      "export": "カットを書き出す",
+      "reset": "検出結果に戻す",
+      "saving": "保存中…",
+      "save": "カットを保存",
+      "conflict": "読み込んだ後にサーバー上のシーンリストが変更されました。最新版を読み込み直して編集をやり直してから、もう一度保存してください。",
+      "reload": "再読み込みして再適用",
+      "addTitle": "フレーム{frame}(再生ヘッド)にシーンのカットを追加",
+      "add": "+ 再生ヘッドにカットを追加",
+      "removeTitleNone": "先にタイムラインでカットマーカーを選んでください",
+      "removeTitle": "選択したカットを削除(Delete)",
+      "remove": "− カットを削除",
+      "selected": "カット{index} · {frame}",
+      "removeSelectedLabel": "選択したカットを削除",
+      "hint": "ストリップをクリックでスクラブ · ダブルクリックでカットを追加 · マーカーをクリックで選択、ドラッグで移動 · Deleteで削除",
+      "legend": {
+        "cut": "シーンのカット(新しいシーンの最初のフレーム)",
+        "playhead": "再生ヘッド"
+      },
+      "importDialog": {
+        "title": "シーンのカットを読み込む",
+        "body": "{current}個のカットを、読み込んだ{imported}個のカットに置き換えますか?置き換えた内容は保存するまでこの端末だけに残ります。",
+        "replace": "置き換える"
+      }
+    },
+    "sceneList": {
+      "label": "シーン",
+      "heading": "シーン · {count}",
+      "keyframeAlt": "シーン{scene}のキーフレーム",
+      "scene": "シーン{scene}",
+      "mergeLabel": "シーン{scene}を前のシーンに統合",
+      "mergeTitle": "フレーム{frame}のカットを削除して、このシーンをシーン{previous}に統合",
+      "merge": "統合 ←"
+    },
+    "source": {
+      "title": "元動画の詳細",
+      "rows": {
+        "file": "ファイル",
+        "size": "サイズ",
+        "container": "コンテナ",
+        "length": "長さ",
+        "resolution": "解像度",
+        "frameRate": "フレームレート",
+        "frames": "フレーム数",
+        "codec": "コーデック",
+        "bitDepth": "ビット深度",
+        "videoBitrate": "ビデオビットレート",
+        "colour": "色",
+        "rotation": "回転",
+        "bars": "黒帯",
+        "audio": "オーディオ",
+        "stereo": "空間ビデオまたは3D",
+        "camera": "カメラ"
+      },
+      "variableUpTo": "{fps} · 可変、最大{max}",
+      "variable": "{fps} · 可変",
+      "bitDepth": "{bits}ビット",
+      "none": "なし",
+      "bars": {
+        "detected": "検出",
+        "picture": "映像 {size}",
+        "removed": "3Dでは取り除きます",
+        "kept": "3Dでは残します"
+      },
+      "channels": {
+        "mono": "モノラル",
+        "stereo": "ステレオ",
+        "many": "{count}チャンネル"
+      },
+      "stereo": {
+        "mvhevc": "空間ビデオ(MV-HEVC)",
+        "sbs": "サイドバイサイド3D",
+        "tb": "トップアンドボトム3D",
+        "spatial": "空間ビデオ",
+        "flat": "いいえ、2D"
+      }
+    },
+    "load": {
+      "notAvailable": "このプロジェクトは利用できません。削除された可能性があります。"
+    },
+    "stepTab": {
+      "tips": "ⓘ ヒント",
+      "drawerLabel": "{title} — できあがるものとヒント",
+      "close": "ヒントを閉じる",
+      "lastRun": "前回の変換",
+      "files": "ファイル →",
+      "whatYouGet": "できあがるもの",
+      "tipsTitle": "ヒント"
+    },
+    "screen": {
+      "retry": "再試行",
+      "loading": "プロジェクトを読み込み中…",
+      "analyzing": "動画を準備しています。シーンを見つけてプレビューを作っています。このステップは無料で、ページは自動で更新されます。",
+      "untitled": "名称未設定のプロジェクト",
+      "copied": "コピーしました",
+      "supportInfo": "サポート用情報",
+      "supportInfoHint": "このプロジェクトのID({id})をコピーします。サポートへの連絡時にお伝えください",
+      "analyzeFailed": "解析に失敗しました",
+      "retrying": "再試行中…",
+      "retryAnalysis": "解析を再試行",
+      "shortcuts": "キーボードショートカット",
+      "filesTitle": "ファイル",
+      "filesDeletedOn": "ファイルは{date}に削除されました",
+      "filesKept": "このプロジェクトを使っている間は保持され、90日間使わないと削除されます。"
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "{sbs}ファイル:片目ごとに1つの映像が入っています。",
+      "spatial": "{spatial}ファイル:写真アプリで3D再生できます。"
+    },
+    "glasses": {
+      "title": "{name}グラスで3D動画を見る",
+      "description": "2D動画をサイドバイサイド3Dに変換して、{name}グラスで見ましょう。"
+    },
+    "pages": {
+      "glasses": {
+        "line1": "動画を3Dにして、{sbs}ファイルを選びます。",
+        "line2": "グラスをつないでいるスマートフォンまたはコンピュータで再生します。",
+        "line3": "グラスを3D(SBS)モードに切り替えます。",
+        "line4": "動画を全画面で再生します。"
+      },
+      "visionPro": {
+        "title": "{name}で3D動画を見る",
+        "description": "2D動画を空間ビデオに変換して、{name}で3D表示しましょう。",
+        "line1": "動画を3Dにして、{spatial}ファイルを選びます。",
+        "line2": "Vision Proでダウンロードするか、iPhoneまたはMacからAirDropで送ります。",
+        "line3": "ファイルまたは写真アプリで開くと、3Dで再生されます。",
+        "line4": "または、Vision ProのSafariでこのサイトを開いて「3Dで表示」を選びます。"
+      },
+      "galaxyXr": {
+        "title": "{name}で3D動画を見る",
+        "description": "2D動画をサイドバイサイド3Dに変換して、{name}で見ましょう。",
+        "line1": "動画を3Dにして、{sbs}ファイルを選びます。",
+        "line2": "ヘッドセットにコピーするか、ヘッドセットでダウンロードします。",
+        "line3": "ギャラリーまたはファイルで開き、3Dサイドバイサイドを選びます。"
+      },
+      "metaQuest": {
+        "title": "{name}で3D動画を見る",
+        "description": "2D動画をサイドバイサイド3Dに変換して、{name}で見ましょう。",
+        "fileNote": "{sbs}ファイル:片目ごとに1つの映像が入っています。4K以上の場合や、ファイルが大きすぎる場合は{half}を選んでください。",
+        "line1": "動画を3Dにして、{sbs}ファイルを選びます。",
+        "line2": "4K以上の場合や、コピーやストリーミングにはファイルが大きすぎる場合は、代わりに{half}を選びます。",
+        "line3": "Meta Questブラウザでこのサイトを開いて「3Dで表示」を選ぶか、ビデオプレーヤーでファイルを開きます。",
+        "line4": "プレーヤーで3Dサイドバイサイドを選びます。"
+      },
+      "pico": {
+        "title": "{name}で3D動画を見る",
+        "description": "2D動画をサイドバイサイド3Dに変換して、{name}で見ましょう。",
+        "line1": "動画を3Dにして、{sbs}ファイルを選びます。",
+        "line2": "Picoブラウザでこのサイトを開いて「3Dで表示」を選ぶか、ビデオプレーヤーでファイルを開きます。",
+        "line3": "プレーヤーで3D左右(サイドバイサイド)を選びます。"
+      },
+      "steamFrame": {
+        "title": "{name}で3D動画を見る",
+        "description": "2D動画をサイドバイサイド3Dに変換して、{name}で見ましょう。",
+        "line1": "動画を3Dにして、{sbs}ファイルを選びます。",
+        "line2": "ヘッドセットにコピーして、ビデオプレーヤーで開きます。",
+        "line3": "プレーヤーで3Dサイドバイサイドを選びます。"
+      },
+      "metaVrGlasses": {
+        "title": "Meta VRグラス向けの3D動画",
+        "description": "ウェブ版の{site}は、2027年春発売予定のMeta VRグラスに対応する準備ができています。",
+        "upcoming": "2027年春",
+        "line1": "Meta VRグラスは2027年春に発売予定です。",
+        "line2": "ウェブ版の{site}では、{sbs}ファイルと{spatial}ファイルを今すぐ作れます。",
+        "line3": "グラスの発売後に、見る方法をここに追加します。"
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XRグラス(XREAL、VITURE、RayNeo)",
+      "tvs": "3Dテレビ",
+      "metaVrGlasses": "Meta VRグラス(2027年春)に対応予定"
+    },
+    "headsetHint": {
+      "quest": "プレーヤーの表示オプションで、3Dサイドバイサイドを選びます。",
+      "pico": "プレーヤーのモードメニューで、3D左右(サイドバイサイド)を選びます。",
+      "galaxyxr": "プレーヤーで3Dサイドバイサイドを選びます。"
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "ルーフトップパーティー",
+        "detail": "森を見下ろす夕暮れのパーティーで、みんなが手を上げています。"
+      },
+      "driftChase": {
+        "title": "ドリフトチェイス",
+        "detail": "ドローンが、タイヤの煙の中をドリフトする車を追いかけます。"
+      },
+      "rooftopSingalong": {
+        "title": "ルーフトップ合唱",
+        "detail": "屋上で友人たちと歌い、ギターを弾き、飲み物を楽しみます。"
+      },
+      "sunsetSession": {
+        "title": "サンセットセッション",
+        "detail": "日が沈む屋上で、シンガーとバンドが演奏します。"
+      },
+      "studioTake": {
+        "title": "スタジオ録音",
+        "detail": "シンガーがマイクの前で全力で歌います。"
+      },
+      "streetDance": {
+        "title": "ストリートダンス",
+        "detail": "ガラス張りのタワーの前で、3人の友人が踊ります。縦向き。"
+      },
+      "insideTheWave": {
+        "title": "波の中",
+        "detail": "砕ける波のチューブを抜けるサーファーの視点。"
+      },
+      "fencingHall": {
+        "title": "フェンシングホール",
+        "detail": "練習場でフェンシング選手が手合わせし、ほかの選手が横を通り過ぎます。"
+      },
+      "riverStones": {
+        "title": "川の石",
+        "detail": "森の小川で、日の差す石の上を少女が渡ります。"
+      },
+      "perEye": "片目あたり{size}",
+      "downloads": {
+        "spatial": "Vision Pro(空間ビデオ)",
+        "sbs": "Quest、Pico、Galaxy XR、XRグラス(サイドバイサイド)",
+        "original": "比較用の2Dオリジナル"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "新しく3Dにするには、動画をもう一度アップロードしてください。",
+      "message": "このプロジェクトのファイルは削除されました。新しく3Dにするには、動画をもう一度アップロードしてください。"
+    },
+    "requestFailed": "リクエストに失敗しました({status})",
+    "csvDownloadFailed": "CSVをダウンロードできませんでした。",
+    "upload": {
+      "failedStatus": "アップロードに失敗しました({status})",
+      "network": "アップロード中にネットワークエラーが発生しました"
+    },
+    "eventsUnavailable": "ステータスストリームを利用できません。",
+    "cutlist": {
+      "notInteger": "「{token}」は整数のフレーム番号ではありません。カットリストには元動画のフレーム番号(整数)のみ使えます。",
+      "outOfRange": "フレーム{frame}のカットが範囲外です。この動画では(0, {frames})の範囲内にしてください。",
+      "missingStart": "CSVの行に開始フレームの値がありません:「{row}」",
+      "noScenes": "CSVにシーンが見つかりませんでした。読み込むものがありません。",
+      "noCuts": "ファイルにカットのフレームが見つかりませんでした。読み込むものがありません。"
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}{pct}% · 60 fps ×{times}({business}と{studio})"
+    },
+    "lengthLimits": "{method}:{limits}",
+    "tooLong": "この動画の長さは{m}分{s}秒です。動画は最長{max}分までです。",
+    "stopped": "アップロードが止まりました。接続を確認して、中断した場所から再開してください。",
+    "failed": "アップロードに失敗しました。もう一度お試しください。",
+    "unsupported": "対応していないファイル形式です。.mp4、.mov、.m4v、.webmの動画を選んでください。",
+    "inputLabel": "動画をアップロード",
+    "firstProject": "動画をドロップして最初のプロジェクトを始める",
+    "dragDrop": "動画をドラッグ&ドロップしてプロジェクトを始める",
+    "formats": ".mp4、.mov、.m4v、.webm · {limits}",
+    "choose": "動画を選ぶ",
+    "seePrices": "料金を見る",
+    "uploading": "{name}をアップロード中…",
+    "videoFallback": "動画",
+    "creating": "プロジェクトを作成中…",
+    "bytes": "{done} / {total}",
+    "estimating": "残り時間を計算中…",
+    "resume": "アップロードを再開({pct}%送信済み)"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "ファイルは{date}に削除されました",
+      "gettingReady": "動画を準備中",
+      "gettingReadyPct": "動画を準備中 · {pct}%",
+      "readFailed": "この動画を読み取れませんでした",
+      "tryAgain": "もう一度試す",
+      "waiting": "順番待ち",
+      "making": "3Dを作成中",
+      "makingPct": "3Dを作成中 · {pct}%",
+      "paymentNeeded": "お支払いが必要です",
+      "updatePayment": "お支払い方法を更新",
+      "ready": "3D完成",
+      "files": "ファイル",
+      "failed": "失敗(請求なし)",
+      "cancelled": "キャンセル済み · 請求なし",
+      "readyFor3d": "3Dにできます",
+      "archiveBlocked": "このプロジェクトは変換の実行中です。アーカイブするには、完了を待つかキャンセルしてください。",
+      "pinned": "固定済み",
+      "untitled": "名称未設定のプロジェクト",
+      "olderMethod": "旧方式",
+      "sample": "サンプル",
+      "sampleNoteArchived": "サンプルは削除できません。いつでもアーカイブから戻せます。",
+      "sampleNote": "見て回れる完成済みの例です。請求はされず、アーカイブもできます。",
+      "keep": "残す",
+      "unpin": "プロジェクトの固定を解除",
+      "pin": "プロジェクトを固定",
+      "rename": "プロジェクト名を変更",
+      "restore": "プロジェクトを復元",
+      "delete": "プロジェクトを削除",
+      "archive": "プロジェクトをアーカイブ",
+      "renameTitle": "プロジェクト名を変更",
+      "nameLabel": "プロジェクト名",
+      "save": "保存",
+      "deleteTitle": "このプロジェクトを完全に削除しますか?",
+      "deleteBody": "ファイルは完全に削除されます。もう一度ダウンロードすることはできず、元に戻せません。",
+      "keepProject": "プロジェクトを残す",
+      "deleteForGood": "完全に削除",
+      "archiveTitle": "プロジェクトをアーカイブ",
+      "archiveBody": "このプロジェクトをアーカイブしますか?あとで復元できます。",
+      "cancel": "キャンセル",
+      "archiveAction": "アーカイブ"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "解析中",
+        "proxy": "プレビューを作成中",
+        "scene_detect": "シーンを検出中",
+        "thumbnails": "サムネイル",
+        "profiling": "シーンを計測中"
+      },
+      "progressLabel": "解析の進行状況",
+      "failed": "解析に失敗しました",
+      "failedWith": "解析に失敗しました — {error}",
+      "done": "解析済み"
+    },
+    "list": {
+      "loadFailed": "プロジェクトを読み込めませんでした。",
+      "loadFailedWith": "プロジェクトを読み込めませんでした。{detail}",
+      "archivedFailed": "アーカイブ済みプロジェクトを読み込めませんでした。",
+      "updateFailed": "プロジェクトを更新できませんでした。",
+      "deleteFailed": "プロジェクトを削除できませんでした。もう一度お試しください。",
+      "title": "プロジェクト",
+      "hideArchived": "アーカイブを隠す",
+      "showArchived": "アーカイブを表示",
+      "dismiss": "閉じる",
+      "retry": "再試行",
+      "loading": "プロジェクトを読み込み中…",
+      "pinned": "固定済み",
+      "all": "すべてのプロジェクト",
+      "archived": "アーカイブ済み",
+      "loadingArchived": "アーカイブ済みプロジェクトを読み込み中…",
+      "noArchived": "アーカイブ済みのプロジェクトはありません。",
+      "hideArchivedCount": "アーカイブを隠す({count})",
+      "showArchivedCount": "アーカイブを表示({count})"
     }
   }
 }

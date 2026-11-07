@@ -889,6 +889,292 @@
       "speed": "Hız"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "ABD doları üzerinden tahsil edilir.",
+      "withdrawal": "Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "refundedIfFails": "Başarısız olursa tamamen iade edilir.",
+      "saveLine": "Sonraki dönüştürmeleriniz için kaydedilir. Faturalandırma’dan kaldırabilirsiniz.",
+      "orPayAnotherWay": "veya başka bir yolla ödeyin",
+      "paying": "Ödeniyor…",
+      "waitingConfirm": "Ödemenizin onaylanması bekleniyor. Bunu kapatabilirsiniz. Ödeme tamamlanır tamamlanmaz 3D videonuz başlar.",
+      "declined": "Ödeme yönteminiz reddedildi. Başka bir ödeme yolu deneyin.",
+      "tooMany": "Çok fazla deneme yapıldı. Bir cüzdan deneyin veya daha sonra tekrar deneyin.",
+      "paidStarting": "Ödendi. 3D’niz başlıyor…",
+      "alreadyPaid": "Bu zaten ödendi.",
+      "expiredRun": "Bu ödemenin süresi doldu. Hazır olduğunuzda yeniden başlayın.",
+      "unavailable": "Ödeme henüz bu bölgede kullanılamıyor.",
+      "alipayLine": "İşlemi Alipay’de tamamlayıp buraya döneceksiniz.",
+      "settleTitle": "Son dönüştürmelerinizi ödeyin",
+      "settleFoot": "Ödeme yapılır yapılmaz indirmeleriniz geri gelir.",
+      "confirming": "Ödemeniz onaylanıyor…",
+      "settled": "Ödendi. İndirmeleriniz geri geldi.",
+      "alreadySettled": "Zaten ödendi. İndirmeleriniz geri geldi.",
+      "expired": "Bu ödemenin süresi doldu.",
+      "confirmTitle": "Ödemenizi onaylayın",
+      "bankWants": "Bankanız bu ödemeyi onaylamak istiyor.",
+      "declinedChoose": "{label} reddedildi. Başka bir ödeme yolu seçin.",
+      "paymentMethod": "ödeme yönteminiz",
+      "paymentProblem": "Son ödemenizde bir sorun var.",
+      "underReview": "Hesabınızdaki bir ödemeyi kontrol ediyoruz.",
+      "disputedRow": "Bankanızla itiraz sürerken kullanılamaz",
+      "waitingForPayment": "Ödeme bekleniyor…",
+      "finishPayment": "Ödemeyi tamamla",
+      "pausedReview": "Bir ödemeyi kontrol ederken duraklatıldı.",
+      "popAfter": "Hazır olduğunda varsayılan ödeme yönteminizden tahsil edilir. Başarısız olursa tahsil edilmez. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "popPrecharge": "Başlattığınızda varsayılan ödeme yönteminizden tahsil edilir. Sırada beklerken veya ilk dakikasında iptal ederseniz tamamen iade edilir. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "popSheet": "Ödeme yolunu bir sonraki adımda seçeceksiniz. Başarısız olursa tamamen iade edilir.",
+      "payToContinue": "Devam etmek için {amount} ödeyin",
+      "payAndStart": "{amount} ödeyip başlatın",
+      "paidMoreWaiting": "{amount} ödendi. Bir ödeme daha bekliyor.",
+      "settleSubtitle": "{count, plural, other {# dönüştürme · tamamlandıktan sonra tahsil edildi}}",
+      "personalUse": "Kişisel kullanım içindir. Ticari kullanım Business ve Studio planlarıyla gelir."
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "Başka bir cihazda öde",
+      "continueAlipay": "Alipay ile devam et",
+      "payHereInstead": "Bunun yerine burada öde",
+      "startAgain": "Yeniden başla"
+    },
+    "checkout": {
+      "payWithCard": "Kartla öde",
+      "orAddAnotherWay": "veya başka bir yol ekleyin"
+    },
+    "settle": {
+      "pay": "{amount} öde",
+      "payFromBalance": "{amount} bakiyenizden öde",
+      "balance": "Bakiye {amount}",
+      "tryAgain": "Tekrar dene"
+    },
+    "addMethod": {
+      "title": "Ödeme yöntemi ekle",
+      "saveDeclined": "Bu ödeme yöntemini kaydedemedik. Başka birini deneyin.",
+      "saveTooMany": "Çok fazla deneme yapıldı. Yarın tekrar deneyin.",
+      "saveLimit": "En fazla 5 ödeme yöntemi kaydedebilirsiniz. Önce birini kaldırın.",
+      "makeDefault": "Bunu varsayılan yap",
+      "saving": "Kaydediliyor…",
+      "save": "Ödeme yöntemini kaydet",
+      "saved": "Kaydedildi."
+    },
+    "limits": {
+      "line": "3’ten fazla proje ve 10 GB’tan fazla yükleme saklamak için ilk 3D videonuzu yapın veya bir ödeme yöntemi kaydedin.",
+      "addMethod": "Ödeme yöntemi ekle"
+    },
+    "deleteDues": {
+      "dues": "Hesabınızı silmeden önce tamamlanması gereken bir ödeme var.",
+      "activeRuns": "Hesabınızı silmeden önce çalışan işlerinizi iptal edin veya bitmesini bekleyin.",
+      "deleting": "Hesabınız siliniyor…",
+      "pay": "{amount} öde"
+    },
+    "plan": {
+      "started": "{plan} etkin. {amount} kullanım hakkı hazır.",
+      "proUnknownKeeps": "Mevcut Pro’nuz çalışmaya devam eder. İsterseniz satın aldığınız yerden iptal edin.",
+      "proNoteAppStore": "App Store Pro’nuz çalışmaya devam eder. Apple ID ayarlarınızdan iptal edebilirsiniz.",
+      "proNoteMacAppStore": "Mac App Store Pro’nuz çalışmaya devam eder. Apple ID ayarlarınızdan iptal edebilirsiniz.",
+      "proNoteGrant": "{app} uygulamasından gelen Pro’nuz {plan} ile birlikte çalışmaya devam eder.",
+      "subtitleMonthly": "Her ay {amount} kullanım · istediğiniz zaman iptal edin; ödenen ayın sonuna kadar sürer",
+      "subtitleYearly": "Her ay {amount} kullanım · istediğiniz zaman iptal edin; ödenen yılın sonuna kadar sürer",
+      "companyLink": "Fatura için şirket bilgilerinizi ekleyin",
+      "errorPlanActive": "Zaten bir planınız var. Başka bir plan seçmeden önce Faturalandırma’dan iptal edin.",
+      "errorUnderReview": "Hesabınızdaki bir ödemeyi kontrol ediyoruz. Devam etmek için destekle iletişime geçin.",
+      "errorUnavailable": "Planlar şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "Aylık faturalandırılır. İptal edene kadar {date} tarihinde yenilenir.",
+      "billedYearly": "Yıllık faturalandırılır. İptal edene kadar {date} tarihinde yenilenir.",
+      "start": "{plan} başlat · {amount}",
+      "startYearly": "{plan} başlat · yıllık {amount}"
+    },
+    "planChange": {
+      "previewFailed": "Değişiklik hesaplanamadı. Tahsilat yapılmadı.",
+      "insteadOf": "Mevcut {from} planınız yerine",
+      "changing": "Değiştiriliyor…",
+      "tryAgain": "Tekrar dene",
+      "changeOnDate": "{date} tarihinde {plan} planına geç",
+      "changeOnRenewal": "Yenilemede {plan} planına geç",
+      "payAndChange": "{amount} öde ve değiştir",
+      "cantChange": "Şu anda değiştirilemiyor",
+      "workingOut": "Hesaplanıyor…"
+    },
+    "china": {
+      "title": "3D videonuz için ödeme yapın",
+      "scanWechat": "{amount} ödemek için WeChat ile tarayın",
+      "paid": "Ödendi.",
+      "codeExpired": "Kodun süresi doldu.",
+      "startAgain": "Yeniden başla",
+      "payOtherDevice": "Başka bir cihazda öde",
+      "opening": "Açılıyor…",
+      "wechatPhone": "WeChat ile ödemek için bir bilgisayar kullanın.",
+      "wechatHeadset": "WeChat ile bir bilgisayardan ödeyin"
+    },
+    "handoff": {
+      "titleComputer": "Bir bilgisayarda öde",
+      "title": "Telefonunuzda veya bilgisayarınızda ödeyin",
+      "startAgain": "Yeniden başla",
+      "payHereInstead": "Bunun yerine burada öde",
+      "openLink": "Bu bağlantıyı açın:",
+      "emailMe": "Bağlantıyı e-postayla gönder",
+      "sentTo": "{email} adresine gönderildi.",
+      "sentToYou": "E-postanıza gönderildi.",
+      "emailFailed": "E-posta gönderilemedi. Tekrar deneyin.",
+      "payingOther": "Diğer cihazınızda ödeme yapılıyor…",
+      "expiresIn": "{time} içinde sona erer"
+    },
+    "handoffPage": {
+      "paid": "Ödendi. Başlığınıza geri dönebilirsiniz.",
+      "expired": "Bu bağlantının süresi doldu. Başlığınızdan yeniden başlayın.",
+      "bad": "Bu bağlantı çalışmadı. Kontrol edip tekrar deneyin.",
+      "limited": "Çok fazla deneme. Bir dakika bekleyin.",
+      "forEmail": "{email} için",
+      "notFinished": "Ödeme tamamlanmadı.",
+      "opening": "Açılıyor…",
+      "continue": "Ödemeye devam et"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "Bakiyenizden ödendi",
+      "spendLimitReached": "Aylık harcama sınırınıza ulaştınız.",
+      "topupSmallPrint": "Harcanmamış tutarlar 14 gün içinde iade edilebilir. Bakiyeniz son yüklemenizden 12 ay sonra sona erer.",
+      "topupMin": "En az {amount} olmalıdır.",
+      "settleFailed": "Bakiyeniz artık bunu karşılamıyor. Başka bir yolla ödeyin.",
+      "paymentMethodBlocked": "Bu ödeme yöntemi kullanılamaz. Başka bir tane ekleyin.",
+      "deletionPending": "Hesabınız siliniyor.",
+      "topupDaily": "Bugünkü sınıra ulaştınız. Yarın tekrar deneyin.",
+      "topupDayLeft": "Bugün en fazla {amount} daha ekleyebilirsiniz.",
+      "autoReloadBlocked": {
+        "underReview": "Bir ödemeyi kontrol ederken otomatik yükleme açılamaz.",
+        "dispute": "Bir banka itirazı açıkken otomatik yükleme açılamaz.",
+        "paymentFailed": "Başarısız bir ödeme ödenene kadar otomatik yükleme açılamaz.",
+        "deletionPending": "Hesabınız silinirken otomatik yükleme açılamaz."
+      },
+      "paidFromBalanceReload": "Bakiyenizden ödendi. Önce {amount} ekleyeceğiz.",
+      "popBalance": "Başladığında bakiyenizden {amount} ayırırız ve yalnızca nihai maliyeti alırız, asla fazlasını değil. Başarısız dönüştürmeler ücretsizdir. Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "topupMaxFirst": "İlk yüklemenizde en fazla {amount} ekleyebilirsiniz.",
+      "topupMax": "Bir seferde en fazla {amount} ekleyebilirsiniz.",
+      "topupDone": "{added} eklendi. Bakiyeniz {balance}.",
+      "reloadConsent": "Bakiyeniz {below} altına düştüğünde varsayılan ödeme yönteminizden her seferinde {add} tahsil ederiz. Reddedilirse diğerlerini deneriz.",
+      "reloadConsentWithMethod": "Bakiyeniz {below} altına düştüğünde varsayılan ödeme yönteminizden ({method}) her seferinde {add} tahsil ederiz. Reddedilirse diğerlerini deneriz."
+    },
+    "addFunds": {
+      "title": "Bakiye ekle",
+      "balance": "Bakiye",
+      "amount": "Tutar",
+      "other": "Diğer",
+      "add": "{amount} ekle"
+    },
+    "autoReload": {
+      "title": "Otomatik yükleme",
+      "addAtLeast": "En az {amount} ekleyin.",
+      "atLeastThreshold": "En az eşik kadar ({amount}) ekleyin.",
+      "methodNeeded": "Otomatik yüklemeyi kullanmak için bir ödeme yöntemi kaydedin.",
+      "saveFailed": "Kaydedilemedi. Tekrar deneyin.",
+      "addMethod": "Ödeme yöntemi ekle",
+      "isOn": "Otomatik yükleme açık.",
+      "saved": "Kaydedildi.",
+      "saving": "Kaydediliyor…",
+      "save": "Kaydet",
+      "below": "Bakiyem şunun altına düştüğünde",
+      "add": "Ekle"
+    },
+    "spending": {
+      "title": "Harcama",
+      "limit": "Aylık harcama sınırı",
+      "used": "aylık · {amount} kullanıldı",
+      "resets": "Bu ayki harcama sınıra ulaşınca dönüştürmeler durur. Ayın 1’inde (UTC) sıfırlanır.",
+      "alert": "Bakiyem şunun altına düşünce bana e-posta gönder"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "Haftalık",
+        "monthly": "Aylık",
+        "yearly": "Yıllık"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ hafta",
+        "monthly": "/ ay",
+        "yearly": "/ yıl"
+      },
+      "perPeriod": {
+        "weekly": "haftada {price}",
+        "monthly": "ayda {price}",
+        "yearly": "yılda {price}"
+      },
+      "per": {
+        "weekly": "haftada",
+        "monthly": "ayda",
+        "yearly": "yılda"
+      },
+      "creditLine": "Pro’ya katıldığınızda {amount} kullanım kredisi (veya uygulamadaki Pro ile burada ilk kez giriş yaptığınızda)",
+      "creditShort": "Başlangıç için {amount} kredi",
+      "creditRules": "{days, plural, other {# gün içinde kullanın.}} Nakit olarak ödenmez.",
+      "creditRulesNoDays": "Nakit olarak ödenmez.",
+      "terms": "İptal edene kadar yenilenir.",
+      "loadFailed": "Planlar yüklenemedi.",
+      "signIn": "Pro almak için giriş yapın."
+    },
+    "list": {
+      "notOnSale": "Pro henüz web’de satışta değil. iPhone, iPad, Mac veya Vision Pro’daki {app} uygulamasından edinin.",
+      "purchaseFailed": "Satın alma tamamlanmadı.",
+      "ariaLabel": "Pro planları",
+      "save": "%{pct} tasarruf",
+      "creditPlus": "+ {credit}",
+      "opening": "Ödeme açılıyor…",
+      "getPro": "Pro’yu edin"
+    },
+    "screen": {
+      "included": "Pro, {plan} planınıza dahildir.",
+      "billing": "Faturalandırma",
+      "headline": "Her 3D videoda %{pct} indirim",
+      "plusCredit": "Ayrıca {credit} ve iPhone, iPad, Mac ile Vision Pro’daki uygulamada Pro.",
+      "plus": "Ayrıca iPhone, iPad, Mac ve Vision Pro’daki uygulamada Pro.",
+      "welcome": "Pro’ya hoş geldiniz",
+      "youArePro": "Artık Pro’sunuz",
+      "appliesToEvery": "%{pct} indirim her teklife uygulanır.",
+      "backToVideo": "Videonuza dön",
+      "yourProjects": "Projeleriniz",
+      "managePlan": "Planı yönet",
+      "manageBilling": "Faturalandırma’dan yönet",
+      "manageApple": "Apple ID ayarlarınızdan yönetin",
+      "manageAppleDot": "Apple ID ayarlarınızdan yönetin."
+    },
+    "membership": {
+      "web": "Web’de {plan}.",
+      "appStore": "App Store üzerinden {plan}.",
+      "macAppStore": "Mac App Store üzerinden {plan}.",
+      "grant": "Pro, hesabınıza {app} tarafından ücretsiz verildi.",
+      "unknown": "Pro etkin. Satın aldığınız yerden yönetin.",
+      "renewsOn": "{date} tarihinde yenilenir.",
+      "endsOn": "{date} tarihinde sona erer."
+    },
+    "credit": {
+      "left": "{total} Pro kredisinden {left} kaldı · {date} tarihine kadar kullanın",
+      "notPaidOut": "Nakit olarak ödenmez.",
+      "title": "Pro kredisi",
+      "usedFirst": "Her dönüştürmede bakiyenizden önce kullanılır.",
+      "trial": "Ücretsiz denemenize dahildir."
+    },
+    "period": {
+      "previewFailed": "Fiyat hesaplanamadı. Tahsilat yapılmadı.",
+      "switchTo": "{name} planına geç",
+      "dialogTitle": "Pro {name} planına geçilsin mi?",
+      "working": "Bugünkü fiyat hesaplanıyor…",
+      "keep": "Planımı koru",
+      "confirmPay": "Onayla ve {amount} öde",
+      "confirm": "Onayla"
+    },
+    "checkout": {
+      "renews": "İptal edene kadar {price} üzerinden yenilenir.",
+      "planActive": "Zaten bir planınız var. Faturalandırma’dan yönetin.",
+      "unavailable": "Pro şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
+      "subtitleWithCredit": "{price}, {credit} ile",
+      "start": "Pro’yu başlat · {price}",
+      "success": "Pro etkin. Artık her video daha ucuz."
+    }
+  },
   "company": {
     "form": {
       "saved": "Kaydedildi. Sonraki faturalarınızda bu bilgiler kullanılacak.",
@@ -1044,6 +1330,582 @@
       "balance": "Bakiye",
       "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin.",
       "refundable": "Harcanmamış para {days} gün içinde iade edilebilir."
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "Bu her zamankinden uzun sürüyor.",
+      "failed": "Bu videoyu analiz edemedik.",
+      "retry": "Tekrar dene",
+      "retrying": "Tekrar deneniyor…",
+      "contactSupport": "Destekle iletişime geç",
+      "refresh": "Yenile",
+      "restartFailed": "Analiz yeniden başlatılamadı. Lütfen tekrar deneyin."
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "Videonuzun üstünde ve altında siyah bantlar bulundu. 3D’niz kareyi doldursun diye bunları kaldıracağız.",
+          "sides": "Videonuzun solunda ve sağında siyah bantlar bulundu. 3D’niz kareyi doldursun diye bunları kaldıracağız.",
+          "all": "Videonuzun dört kenarında siyah bantlar bulundu. 3D’niz kareyi doldursun diye bunları kaldıracağız."
+        },
+        "keeping": {
+          "topBottom": "Videonuzun üstünde ve altında siyah bantlar bulundu. 3D’niz bunları korur.",
+          "sides": "Videonuzun solunda ve sağında siyah bantlar bulundu. 3D’niz bunları korur.",
+          "all": "Videonuzun dört kenarında siyah bantlar bulundu. 3D’niz bunları korur."
+        }
+      },
+      "perEye": "Göz başına {size}",
+      "saveError": "Kaydedilemedi. Tekrar deneyin.",
+      "groupLabel": "Siyah bantlar",
+      "remove": "Bantları kaldır (önerilir)",
+      "keep": "Koru",
+      "toggle": {
+        "label": "Siyah bantları kaldır",
+        "recommended": "Önerilir",
+        "removingSized": "Videonuzda siyah bantlar var. 3D kareyi doldurur, bu yüzden boyutu görüntüye uyacak şekilde değişir: {full} yerine {without}.",
+        "removing": "Videonuzda siyah bantlar var. 3D kareyi doldurur, bu yüzden boyutu görüntüye uyacak şekilde değişir.",
+        "keepingSized": "3D siyah bantları korur, {full} boyutunda.",
+        "keeping": "3D siyah bantları korur."
+      },
+      "before": "Videonuz",
+      "after": "3D’niz"
+    },
+    "filmstrip": {
+      "hoverScene": "Sahne {scene} · {timecode}",
+      "zoomOut": "Uzaklaştır",
+      "zoomIn": "Yakınlaştır",
+      "fit": "Sığdır",
+      "zoomHint": "Yakınlaştırmak için ⌘/Ctrl + kaydırın · gezinmek için kaydırın",
+      "fullHeightLabel": "Tam yükseklikte zaman çizelgesi",
+      "compactLabel": "Kompakt zaman çizelgesi",
+      "fullStrip": "Tam şerit",
+      "compactStrip": "Kompakt şerit",
+      "pastPreview": "Geçmiş önizleme {label}",
+      "cutAt": "{frame}. karede kesim"
+    },
+    "method": {
+      "tooLongForClassic": "Bu video {classic} için çok uzun. {lifelike} her uzunluktaki videoyla çalışır, bu yüzden onu koruduk.",
+      "unavailable": "{next} şu anda kullanılamıyor, bu yüzden projeniz {current} yöntemini koruyor.",
+      "switchError": "Yöntem değiştirilemedi. Lütfen tekrar deneyin.",
+      "longerThanClassic": "Bu video, {classic} yönteminin işleyebileceğinden uzun.",
+      "priceUnavailable": "Fiyat şu anda kullanılamıyor.",
+      "newTag": "Yeni",
+      "compare": {
+        "forVideo": "Bu video için",
+        "forVideoAt": "Bu video için, {quality} kalitesinde",
+        "methodNow": "Şimdi {method}",
+        "price": "Fiyat",
+        "readyIn": "Hazır olma süresi",
+        "closing": "En yeni 3D teknolojimiz. Ayarlanacak Derinlik veya 3D görünüm sayfası yok."
+      },
+      "stayOn": "{method} ile kal",
+      "convertWith": "{method} ile dönüştür",
+      "offer": {
+        "priceTime": ": bu video için {price}, {time}.",
+        "price": ": bu video için {price}.",
+        "noPrice": ".",
+        "higher": "veya {price} karşılığında {quality}",
+        "move": "Geç"
+      }
+    },
+    "tabs": {
+      "railLabel": "Çalışma alanı sayfaları",
+      "overview": {
+        "label": "Genel bakış",
+        "hint": "Videonuz, alacaklarınız, fiyat ve sonraki adım"
+      },
+      "scenes": {
+        "label": "Sahneler",
+        "hint": "Her sahnenin nerede başladığını kontrol edin — ücretsiz"
+      },
+      "depth": {
+        "label": "Derinlik",
+        "hint": "İsteğe bağlı: her şeyin ne kadar uzakta olduğunu önizleyin"
+      },
+      "look": {
+        "label": "3D görünüm",
+        "hint": "İsteğe bağlı: 3D’yi sahne başına ayarlayın ve bir anı önizleyin"
+      },
+      "preview": {
+        "label": "Önizleme",
+        "hint": "Herhangi bir andan birkaç saniyeyi 3D görün"
+      },
+      "make": {
+        "label": "3D yap",
+        "hint": "Tüm videoyu (veya bir bölümünü) 3D yapın"
+      },
+      "files": {
+        "label": "Dosyalar",
+        "hint": "3D dosyalarınız, nasıl izleneceği ve her dönüştürmenin maliyeti"
+      }
+    },
+    "shortcuts": {
+      "title": "Klavye kısayolları",
+      "footer": "Kısayollar bir alana yazarken yok sayılır. Kapatmak için <kbd>Esc</kbd> tuşuna basın.",
+      "keys": {
+        "space": "Boşluk",
+        "click": "Tıkla",
+        "doubleClick": "2×Tıkla",
+        "drag": "Sürükle",
+        "scroll": "Kaydır"
+      },
+      "pages": {
+        "title": "Sayfalar",
+        "page": "{page} sayfası"
+      },
+      "playback": {
+        "title": "Oynatma (tüm önizlemeler ve oynatıcılar)",
+        "playPause": "Oynat / duraklat",
+        "stepFrame": "Tam ±1 kare ilerle",
+        "stepSecond": "±1 saniye ilerle"
+      },
+      "scenes": {
+        "title": "Sahne değişiklikleri (Sahneler sayfası)",
+        "scrub": "Film şeridinde gez",
+        "addCut": "İmleç karesine kesim ekle",
+        "moveCut": "Kesim işaretini taşı (karelere oturur)",
+        "removeCut": "Seçili kesimi kaldır",
+        "zoom": "Zaman çizelgesini oynatma çizgisinde yakınlaştır"
+      },
+      "help": {
+        "title": "Yardım",
+        "toggle": "Bu sayfayı aç/kapat"
+      }
+    },
+    "steps": {
+      "title": "Adımlarınız",
+      "stepOf": "Adım {step} / {total}",
+      "optional": "İsteğe bağlı",
+      "status": {
+        "analyzing": "Analiz ediliyor…",
+        "analyzingPercent": "Analiz ediliyor… %{percent}",
+        "unreadable": "Video okunamadı",
+        "waiting": "Bekliyor",
+        "ready": "Hazır",
+        "waitingInLine": "Sırada bekliyor",
+        "makingPercent": "Yapılıyor… %{percent}"
+      },
+      "action": {
+        "pickScenes": "Sahneleri seç",
+        "freePreview": "Ücretsiz önizleme yap",
+        "previewPriced": "Bir anı önizle · {price}",
+        "preview": "Bir anı önizle",
+        "seeProgress": "İlerlemeyi gör",
+        "make": "3D yap",
+        "seeFiles": "3D dosyalarını gör",
+        "download": "İndir"
+      },
+      "secondary": {
+        "straightToMake": "veya doğrudan 3D yap’a geçin",
+        "checkLook": "veya önce 3D görünümü kontrol edin",
+        "makeAgain": "veya yeniden 3D yapın"
+      }
+    },
+    "overview": {
+      "untitled": "Adsız proje",
+      "method": "Yöntem",
+      "youGet": "Alacağınız",
+      "youGetValue": "Vision Pro uzamsal video + yan yana",
+      "price": "Fiyat",
+      "priceAt": "{quality} kalitesinde",
+      "samplePrice": "Örnek: zaten 3D, ücretlendirilmez",
+      "pricing": "Bu videonun fiyatı hesaplanıyor…",
+      "analyzing": "Videonuzu analiz ediyoruz. Bittiğinde fiyatlar burada görünür. Ücretsiz.",
+      "waiting": "Videonuz incelenmeyi bekliyor. Bittiğinde fiyatlar burada görünür."
+    },
+    "viewer": {
+      "thumbAlt": "en yakın küçük resim, kare {frame}",
+      "previewResolution": "Önizleme çözünürlüğü",
+      "thumbnail": "Küçük resim",
+      "proxyTitle": "Kare hassasiyetinde önizleme vekili — dönüştürmeler her zaman tam çözünürlüklü kaynağı kullanır ({size})",
+      "pauseLabel": "Önizlemeyi duraklat",
+      "playLabel": "Önizlemeyi oynat",
+      "pause": "❚❚ Duraklat",
+      "play": "▶ Oynat",
+      "stepBack": "Bir kare geri",
+      "stepForward": "Bir kare ileri",
+      "activePicture": "etkin görüntü {size}",
+      "theaterLabel": "Tiyatro oynatıcı",
+      "compactLabel": "Kompakt oynatıcı",
+      "theater": "Tiyatro",
+      "compact": "Kompakt",
+      "keysHint": "Boşluk oynat/duraklat · ←/→ ±1 kare · Shift ±1 sn"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "Taslak",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "Çok yüksek",
+        "maximum": "En yüksek",
+        "aspectMax": "en boy oranı üst sınırı",
+        "sourceNative": "kaynak çözünürlüğü"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "{cut} kesimi tam sayı bir kare değil",
+        "outside": "{cut} kesimi (0, {frames}) aralığının dışında",
+        "notIncreasing": "kesimler {cut} noktasında kesin artan değil"
+      },
+      "note": {
+        "outside": "{frame}. karede kesilemez — kesimler (0, {frames}) aralığında olmalı.",
+        "exists": "{frame}. karede zaten bir kesim var.",
+        "unreadable": "Kesim listesi okunamadı."
+      },
+      "addReason": {
+        "atStart": "Kesimler 0. kareden sonra olmalı — önce oynatma çizgisini taşıyın",
+        "exists": "{frame}. karede zaten bir kesim var"
+      },
+      "saveFailed": "kesimler kaydedilemedi",
+      "title": "Sahne kesimleri",
+      "description": "Kare hassasiyetinde sahne sınırları — sonraki her adım derinliği sahne başına eşler. Değişiklikler kaydedilene kadar yerel kalır.",
+      "framesFps": "{frames} kare · {fps} fps",
+      "unsaved": "Kaydedilmemiş değişiklikler",
+      "fileLabel": "Kesim listesi dosyası",
+      "import": "Kesimleri içe aktar…",
+      "export": "Kesimleri dışa aktar",
+      "reset": "Algılananlara sıfırla",
+      "saving": "Kaydediliyor…",
+      "save": "Kesimleri kaydet",
+      "conflict": "Sahne listesi siz yükledikten sonra sunucuda değişti. En son sürümü yeniden yükleyip düzenlemelerinizi tekrar uygulayın, sonra yeniden kaydedin.",
+      "reload": "Yeniden yükle ve uygula",
+      "addTitle": "{frame}. karede (oynatma çizgisi) sahne kesimi ekle",
+      "add": "+ Oynatma çizgisine kesim ekle",
+      "removeTitleNone": "Önce zaman çizelgesinde bir kesim işareti seçin",
+      "removeTitle": "Seçili kesimi kaldır (Delete)",
+      "remove": "− Kesimi kaldır",
+      "selected": "Kesim {index} · {frame}",
+      "removeSelectedLabel": "Seçili kesimi kaldır",
+      "hint": "Gezinmek için şeride tıklayın · kesim eklemek için çift tıklayın · seçmek için işarete tıklayın, taşımak için sürükleyin · Delete kaldırır",
+      "legend": {
+        "cut": "sahne kesimi — yeni bir sahnenin ilk karesi",
+        "playhead": "oynatma çizgisi"
+      },
+      "importDialog": {
+        "title": "Sahne kesimlerini içe aktar",
+        "body": "{current} kesim, içe aktarılan {imported} kesimle değiştirilsin mi? Değişiklik kaydedene kadar yerel kalır.",
+        "replace": "Değiştir"
+      }
+    },
+    "sceneList": {
+      "label": "Sahneler",
+      "heading": "Sahneler · {count}",
+      "keyframeAlt": "sahne {scene} anahtar karesi",
+      "scene": "Sahne {scene}",
+      "mergeLabel": "{scene}. sahneyi önceki sahneyle birleştir",
+      "mergeTitle": "{frame}. karedeki kesimi kaldır, bu sahneyi {previous}. sahneyle birleştir",
+      "merge": "Birleştir ←"
+    },
+    "source": {
+      "title": "Kaynak ayrıntıları",
+      "rows": {
+        "file": "Dosya",
+        "size": "Boyut",
+        "container": "Kapsayıcı",
+        "length": "Süre",
+        "resolution": "Çözünürlük",
+        "frameRate": "Kare hızı",
+        "frames": "Kareler",
+        "codec": "Kodek",
+        "bitDepth": "Bit derinliği",
+        "videoBitrate": "Video bit hızı",
+        "colour": "Renk",
+        "rotation": "Döndürme",
+        "bars": "Siyah bantlar",
+        "audio": "Ses",
+        "stereo": "Uzamsal veya 3D",
+        "camera": "Kamera"
+      },
+      "variableUpTo": "{fps} · değişken, en fazla {max}",
+      "variable": "{fps} · değişken",
+      "bitDepth": "{bits} bit",
+      "none": "Yok",
+      "bars": {
+        "detected": "Algılandı",
+        "picture": "görüntü {size}",
+        "removed": "3D’nizde kaldırıldı",
+        "kept": "3D’nizde korundu"
+      },
+      "channels": {
+        "mono": "mono",
+        "stereo": "stereo",
+        "many": "{count} kanal"
+      },
+      "stereo": {
+        "mvhevc": "Uzamsal video (MV-HEVC)",
+        "sbs": "Yan yana 3D",
+        "tb": "Üst ve alt 3D",
+        "spatial": "Uzamsal video",
+        "flat": "Hayır, 2D"
+      }
+    },
+    "load": {
+      "notAvailable": "Bu proje kullanılamıyor. Kaldırılmış olabilir."
+    },
+    "stepTab": {
+      "tips": "ⓘ İpuçları",
+      "drawerLabel": "{title} — alacaklarınız ve ipuçları",
+      "close": "İpuçlarını kapat",
+      "lastRun": "Son dönüştürme",
+      "files": "Dosyalar →",
+      "whatYouGet": "Alacağınız",
+      "tipsTitle": "İpuçları"
+    },
+    "screen": {
+      "retry": "Tekrar dene",
+      "loading": "Proje yükleniyor…",
+      "analyzing": "Videonuz hazırlanıyor: sahneleri bulunuyor ve önizleme yapılıyor. Bu adım ücretsizdir ve sayfa kendiliğinden güncellenir.",
+      "untitled": "Adsız proje",
+      "copied": "Kopyalandı",
+      "supportInfo": "Destek bilgisi",
+      "supportInfoHint": "Bu projenin kimliğini ({id}) kopyalar — destekle yazışırken belirtin",
+      "analyzeFailed": "Analiz başarısız",
+      "retrying": "Tekrar deneniyor…",
+      "retryAnalysis": "Analizi tekrar dene",
+      "shortcuts": "Klavye kısayolları",
+      "filesTitle": "Dosyalar",
+      "filesDeletedOn": "Dosyalar {date} tarihinde silindi",
+      "filesKept": "Bu projeyi kullandığınız sürece saklanır; 90 gün kullanılmazsa silinir."
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "{sbs} dosyası: her göz için bir görüntü.",
+      "spatial": "{spatial} dosyası: Fotoğraflar’da 3D oynatılır."
+    },
+    "glasses": {
+      "title": "{name} gözlüklerde 3D video izleyin",
+      "description": "2D videolarınızı yan yana 3D’ye çevirin ve {name} gözlüklerde izleyin."
+    },
+    "pages": {
+      "glasses": {
+        "line1": "Herhangi bir videoyu 3D yapın ve {sbs} dosyasını seçin.",
+        "line2": "Gözlüklerinizin bağlı olduğu telefonda veya bilgisayarda oynatın.",
+        "line3": "Gözlükleri 3D (SBS) moduna alın.",
+        "line4": "Videoyu tam ekran oynatın."
+      },
+      "visionPro": {
+        "title": "{name} ile 3D video izleyin",
+        "description": "2D videolarınızı uzamsal videoya çevirin ve {name} ile 3D izleyin.",
+        "line1": "Herhangi bir videoyu 3D yapın ve {spatial} dosyasını seçin.",
+        "line2": "Vision Pro’ya indirin veya iPhone ya da Mac’inizden AirDrop ile gönderin.",
+        "line3": "Dosyalar veya Fotoğraflar’da açın. 3D oynatılır.",
+        "line4": "Ya da Vision Pro’da Safari’de bu siteyi açıp 3D Görüntüle’yi seçin."
+      },
+      "galaxyXr": {
+        "title": "{name} ile 3D video izleyin",
+        "description": "2D videolarınızı yan yana 3D’ye çevirin ve {name} ile izleyin.",
+        "line1": "Herhangi bir videoyu 3D yapın ve {sbs} dosyasını seçin.",
+        "line2": "Başlığa kopyalayın veya doğrudan orada indirin.",
+        "line3": "Galeri veya Dosyalar’da açın, sonra 3D yan yana’yı seçin."
+      },
+      "metaQuest": {
+        "title": "{name} ile 3D video izleyin",
+        "description": "2D videolarınızı yan yana 3D’ye çevirin ve {name} ile izleyin.",
+        "fileNote": "{sbs} dosyası: her göz için bir görüntü. 4K ve üzerinde veya dosya çok büyük olduğunda {half} seçin.",
+        "line1": "Herhangi bir videoyu 3D yapın ve {sbs} dosyasını seçin.",
+        "line2": "4K ve üzerinde veya dosya kopyalamak ya da akıtmak için çok büyük olduğunda bunun yerine {half} seçin.",
+        "line3": "Bu siteyi Meta Quest Tarayıcı’da açıp 3D Görüntüle’yi seçin ya da dosyayı bir video oynatıcıda açın.",
+        "line4": "Oynatıcıda 3D yan yana’yı seçin."
+      },
+      "pico": {
+        "title": "{name} ile 3D video izleyin",
+        "description": "2D videolarınızı yan yana 3D’ye çevirin ve {name} ile izleyin.",
+        "line1": "Herhangi bir videoyu 3D yapın ve {sbs} dosyasını seçin.",
+        "line2": "Bu siteyi Pico Tarayıcı’da açıp 3D Görüntüle’yi seçin ya da dosyayı bir video oynatıcıda açın.",
+        "line3": "Oynatıcıda 3D sol-sağ’ı (yan yana) seçin."
+      },
+      "steamFrame": {
+        "title": "{name} ile 3D video izleyin",
+        "description": "2D videolarınızı yan yana 3D’ye çevirin ve {name} ile izleyin.",
+        "line1": "Herhangi bir videoyu 3D yapın ve {sbs} dosyasını seçin.",
+        "line2": "Başlığa kopyalayın ve bir video oynatıcıda açın.",
+        "line3": "Oynatıcıda 3D yan yana’yı seçin."
+      },
+      "metaVrGlasses": {
+        "title": "Meta VR Glasses için 3D videolar",
+        "description": "Web’deki {site}, 2027 baharında beklenen Meta VR Glasses için hazır.",
+        "upcoming": "2027 baharı",
+        "line1": "Meta VR Glasses’ın 2027 baharında çıkması bekleniyor.",
+        "line2": "Web’deki {site} bugün {sbs} ve {spatial} dosyaları üretir.",
+        "line3": "Gözlükler çıktığında nasıl izleneceğini buraya ekleyeceğiz."
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XR gözlükler (XREAL, VITURE, RayNeo)",
+      "tvs": "3D TV’ler",
+      "metaVrGlasses": "Meta VR Glasses için hazır, 2027 baharı"
+    },
+    "headsetHint": {
+      "quest": "Oynatıcının görünüm seçeneklerinde 3D yan yana’yı seçin.",
+      "pico": "Oynatıcının mod menüsünde 3D sol-sağ’ı (yan yana) seçin.",
+      "galaxyxr": "Oynatıcıda 3D yan yana’yı seçin."
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "Çatı partisi",
+        "detail": "Ormanın üstünde gün batımı partisinde havaya kalkan eller."
+      },
+      "driftChase": {
+        "title": "Drift takibi",
+        "detail": "Bir drone, lastik dumanı bulutları arasında drift yapan bir arabayı kovalıyor."
+      },
+      "rooftopSingalong": {
+        "title": "Çatıda ortak şarkı",
+        "detail": "Bir çatıda arkadaşlarla şarkı, gitar ve içecekler."
+      },
+      "sunsetSession": {
+        "title": "Gün batımı seansı",
+        "detail": "Güneş batarken çatıda bir şarkıcı ve grubu."
+      },
+      "studioTake": {
+        "title": "Stüdyo kaydı",
+        "detail": "Bir şarkıcı mikrofonda her şeyini veriyor."
+      },
+      "streetDance": {
+        "title": "Sokak dansı",
+        "detail": "Üç arkadaş cam bir kulenin önünde dans ediyor. Dikey."
+      },
+      "insideTheWave": {
+        "title": "Dalganın içinde",
+        "detail": "Kırılan bir dalganın tünelinden bir sörfçünün bakışı."
+      },
+      "fencingHall": {
+        "title": "Eskrim salonu",
+        "detail": "Kılıççılar antrenman salonunda çarpışıyor, diğerleri yanlarından geçiyor."
+      },
+      "riverStones": {
+        "title": "Dere taşları",
+        "detail": "Bir kız, orman deresinin güneşli taşlarına basarak karşıya geçiyor."
+      },
+      "perEye": "Göz başına {size}",
+      "downloads": {
+        "spatial": "Vision Pro (uzamsal video)",
+        "sbs": "Quest, Pico, Galaxy XR, XR gözlükler (yan yana)",
+        "original": "2D orijinal, karşılaştırmak için"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "Yeni 3D yapmak için videoyu yeniden yükleyin.",
+      "message": "Bu projenin dosyaları silindi. Yeni 3D yapmak için videoyu yeniden yükleyin."
+    },
+    "requestFailed": "istek başarısız ({status})",
+    "csvDownloadFailed": "CSV indirilemedi.",
+    "upload": {
+      "failedStatus": "yükleme başarısız ({status})",
+      "network": "yükleme ağ hatası"
+    },
+    "eventsUnavailable": "Durum akışı kullanılamıyor.",
+    "cutlist": {
+      "notInteger": "\"{token}\" tam sayı bir kare indeksi değil — kesim listeleri yalnızca tam kaynak kare numaraları taşır.",
+      "outOfRange": "{frame}. karedeki kesim aralık dışında — bu video için kesimler (0, {frames}) aralığında olmalı.",
+      "missingStart": "Bir CSV satırında Start Frame değeri eksik: \"{row}\"",
+      "noScenes": "CSV’de sahne bulunamadı — içe aktarılacak bir şey yok.",
+      "noCuts": "Dosyada kesim karesi bulunamadı — içe aktarılacak bir şey yok."
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}%{pct} · 60 fps ×{times} ({business} ve {studio})"
+    },
+    "lengthLimits": "{method}: {limits}",
+    "tooLong": "Bu video {m} dk {s} sn uzunluğunda. Videolar en fazla {max} dakika olabilir.",
+    "stopped": "Yükleme durdu — bağlantınızı kontrol edin, sonra kaldığı yerden sürdürün.",
+    "failed": "Yükleme başarısız — lütfen tekrar deneyin.",
+    "unsupported": "Desteklenmeyen dosya türü — .mp4, .mov, .m4v veya .webm video seçin.",
+    "inputLabel": "Video yükle",
+    "firstProject": "İlk projenizi başlatmak için bir video bırakın",
+    "dragDrop": "Proje başlatmak için bir videoyu sürükleyip bırakın",
+    "formats": ".mp4, .mov, .m4v veya .webm · {limits}",
+    "choose": "Video seç",
+    "seePrices": "Fiyatları gör",
+    "uploading": "{name} yükleniyor…",
+    "videoFallback": "video",
+    "creating": "Proje oluşturuluyor…",
+    "bytes": "{done} / {total}",
+    "estimating": "Kalan süre tahmin ediliyor…",
+    "resume": "Yüklemeyi sürdür (%{pct} gönderildi)"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "Dosyalar {date} tarihinde silindi",
+      "gettingReady": "Videonuz hazırlanıyor",
+      "gettingReadyPct": "Videonuz hazırlanıyor · %{pct}",
+      "readFailed": "Bu video okunamadı",
+      "tryAgain": "Tekrar dene",
+      "waiting": "Sırada bekliyor",
+      "making": "3D yapılıyor",
+      "makingPct": "3D yapılıyor · %{pct}",
+      "paymentNeeded": "Ödeme gerekli",
+      "updatePayment": "Ödeme yöntemini güncelle",
+      "ready": "3D hazır",
+      "files": "Dosyalar",
+      "failed": "Başarısız, tahsil edilmedi",
+      "cancelled": "İptal edildi · tahsil edilmedi",
+      "readyFor3d": "3D için hazır",
+      "archiveBlocked": "Bu projede devam eden bir dönüştürme var. Arşivlemeden önce bitmesini bekleyin veya iptal edin.",
+      "pinned": "Sabitlendi",
+      "untitled": "Adsız proje",
+      "olderMethod": "Eski yöntem",
+      "sample": "Örnek",
+      "sampleNoteArchived": "Örnek silinemez. İstediğiniz zaman arşivden çıkarabilirsiniz.",
+      "sampleNote": "Göz atmanız için tamamlanmış bir örnek. Ücretlendirilmez ve arşivleyebilirsiniz.",
+      "keep": "Koru",
+      "unpin": "Projenin sabitlemesini kaldır",
+      "pin": "Projeyi sabitle",
+      "rename": "Projeyi yeniden adlandır",
+      "restore": "Projeyi geri yükle",
+      "delete": "Projeyi sil",
+      "archive": "Projeyi arşivle",
+      "renameTitle": "Projeyi yeniden adlandır",
+      "nameLabel": "Proje adı",
+      "save": "Kaydet",
+      "deleteTitle": "Bu proje kalıcı olarak silinsin mi?",
+      "deleteBody": "Dosyaları kalıcı olarak kaldırılır. Bunları bir daha indiremezsiniz ve bu geri alınamaz.",
+      "keepProject": "Projeyi koru",
+      "deleteForGood": "Kalıcı olarak sil",
+      "archiveTitle": "Projeyi arşivle",
+      "archiveBody": "Bu proje arşivlensin mi? Daha sonra geri yükleyebilirsiniz.",
+      "cancel": "İptal",
+      "archiveAction": "Arşivle"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "Analiz ediliyor",
+        "proxy": "Önizleme oluşturuluyor",
+        "scene_detect": "Sahneler algılanıyor",
+        "thumbnails": "Küçük resimler",
+        "profiling": "Sahneler ölçülüyor"
+      },
+      "progressLabel": "Analiz ilerlemesi",
+      "failed": "Analiz başarısız",
+      "failedWith": "Analiz başarısız — {error}",
+      "done": "Analiz edildi"
+    },
+    "list": {
+      "loadFailed": "Projeleriniz yüklenemedi.",
+      "loadFailedWith": "Projeleriniz yüklenemedi. {detail}",
+      "archivedFailed": "Arşivlenmiş projeler yüklenemedi.",
+      "updateFailed": "Proje güncellenemedi.",
+      "deleteFailed": "Proje silinemedi. Lütfen tekrar deneyin.",
+      "title": "Projeler",
+      "hideArchived": "Arşivlenenleri gizle",
+      "showArchived": "Arşivlenenleri göster",
+      "dismiss": "Kapat",
+      "retry": "Tekrar dene",
+      "loading": "Projeler yükleniyor…",
+      "pinned": "Sabitlenenler",
+      "all": "Tüm projeler",
+      "archived": "Arşivlenenler",
+      "loadingArchived": "Arşivlenmiş projeler yükleniyor…",
+      "noArchived": "Arşivlenmiş proje yok.",
+      "hideArchivedCount": "Arşivlenenleri gizle ({count})",
+      "showArchivedCount": "Arşivlenenleri göster ({count})"
     }
   }
 }

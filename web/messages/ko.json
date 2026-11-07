@@ -889,6 +889,292 @@
       "speed": "속도"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "미국 달러로 결제돼요.",
+      "withdrawal": "바로 시작돼요. 완료되면 청약 철회 권리를 잃는 데 동의하는 거예요.",
+      "refundedIfFails": "실패하면 전액 환불돼요.",
+      "saveLine": "다음 변환을 위해 저장돼요. 결제 내역에서 삭제할 수 있어요.",
+      "orPayAnotherWay": "또는 다른 방법으로 결제",
+      "paying": "결제 중…",
+      "waitingConfirm": "결제 확인을 기다리고 있어요. 이 창은 닫아도 돼요. 결제가 끝나면 바로 3D 영상 작업이 시작돼요.",
+      "declined": "결제 수단이 거절됐어요. 다른 방법으로 결제해 보세요.",
+      "tooMany": "시도 횟수가 너무 많아요. 지갑 결제를 이용하거나 나중에 다시 시도해 주세요.",
+      "paidStarting": "결제 완료. 3D 작업을 시작해요…",
+      "alreadyPaid": "이미 결제됐어요.",
+      "expiredRun": "결제 시간이 만료됐어요. 준비되면 다시 시작해 주세요.",
+      "unavailable": "이 지역에서는 아직 결제할 수 없어요.",
+      "alipayLine": "Alipay에서 결제를 마친 뒤 이 화면으로 돌아와 주세요.",
+      "settleTitle": "지난 변환 결제하기",
+      "settleFoot": "결제가 끝나면 바로 다운로드할 수 있어요.",
+      "confirming": "결제를 확인하는 중…",
+      "settled": "결제 완료. 다운로드를 다시 쓸 수 있어요.",
+      "alreadySettled": "이미 결제됐어요. 다운로드를 다시 쓸 수 있어요.",
+      "expired": "결제 시간이 만료됐어요.",
+      "confirmTitle": "결제 확인",
+      "bankWants": "은행에서 이 결제의 확인을 요청해요.",
+      "declinedChoose": "{label}이(가) 거절됐어요. 다른 결제 방법을 선택해 주세요.",
+      "paymentMethod": "결제 수단",
+      "paymentProblem": "마지막 결제에 문제가 있어요.",
+      "underReview": "계정의 결제를 확인하고 있어요.",
+      "disputedRow": "은행에 이의 제기 중이라 사용할 수 없어요",
+      "waitingForPayment": "결제 대기 중…",
+      "finishPayment": "결제 완료하기",
+      "pausedReview": "결제를 확인하는 동안 일시 중지돼요.",
+      "popAfter": "준비되면 기본 결제 수단으로 결제돼요. 실패하면 결제되지 않아요. 바로 시작돼요. 완료되면 청약 철회 권리를 잃는 데 동의하는 거예요.",
+      "popPrecharge": "시작할 때 기본 결제 수단으로 결제돼요. 대기 중이거나 시작 후 1분 안에 취소하면 전액 환불돼요. 바로 시작돼요. 완료되면 청약 철회 권리를 잃는 데 동의하는 거예요.",
+      "popSheet": "다음 단계에서 결제 방법을 선택해요. 실패하면 전액 환불돼요.",
+      "payToContinue": "{amount} 결제하고 계속하기",
+      "payAndStart": "{amount} 결제하고 시작",
+      "paidMoreWaiting": "{amount} 결제 완료. 결제 한 건이 더 남아 있어요.",
+      "settleSubtitle": "{count, plural, other {변환 #건 · 완료 후 결제}}",
+      "personalUse": "개인용이에요. 상업적 이용은 Business와 Studio 플랜에서 가능해요."
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "다른 기기에서 결제",
+      "continueAlipay": "Alipay로 계속",
+      "payHereInstead": "여기서 결제",
+      "startAgain": "다시 시작"
+    },
+    "checkout": {
+      "payWithCard": "카드로 결제",
+      "orAddAnotherWay": "또는 다른 방법 추가"
+    },
+    "settle": {
+      "pay": "{amount} 결제",
+      "payFromBalance": "잔액에서 {amount} 결제",
+      "balance": "잔액 {amount}",
+      "tryAgain": "다시 시도"
+    },
+    "addMethod": {
+      "title": "결제 수단 추가",
+      "saveDeclined": "이 결제 수단을 저장하지 못했어요. 다른 수단을 시도해 주세요.",
+      "saveTooMany": "시도 횟수가 너무 많아요. 내일 다시 시도해 주세요.",
+      "saveLimit": "결제 수단은 최대 5개까지 저장할 수 있어요. 먼저 하나를 삭제해 주세요.",
+      "makeDefault": "기본 결제 수단으로 설정",
+      "saving": "저장 중…",
+      "save": "결제 수단 저장",
+      "saved": "저장했어요."
+    },
+    "limits": {
+      "line": "첫 3D 영상을 만들거나 결제 수단을 저장하면 프로젝트 3개, 업로드 10GB를 넘게 보관할 수 있어요.",
+      "addMethod": "결제 수단 추가"
+    },
+    "deleteDues": {
+      "dues": "계정을 삭제하려면 먼저 결제를 마쳐야 해요.",
+      "activeRuns": "계정을 삭제하기 전에 진행 중인 작업을 취소하거나 끝날 때까지 기다려 주세요.",
+      "deleting": "계정을 삭제하는 중…",
+      "pay": "{amount} 결제"
+    },
+    "plan": {
+      "started": "{plan}이(가) 시작됐어요. 사용 가능 금액은 {amount}예요.",
+      "proUnknownKeeps": "현재 Pro는 계속 유지돼요. 원하면 구매한 곳에서 해지해 주세요.",
+      "proNoteAppStore": "App Store의 Pro는 계속 유지돼요. Apple ID 설정에서 해지할 수 있어요.",
+      "proNoteMacAppStore": "Mac App Store의 Pro는 계속 유지돼요. Apple ID 설정에서 해지할 수 있어요.",
+      "proNoteGrant": "{app}에서 받은 Pro는 {plan}과(와) 함께 계속 유지돼요.",
+      "subtitleMonthly": "매달 {amount} 사용 가능 · 언제든 해지 가능, 결제한 달이 끝날 때까지 이용할 수 있어요",
+      "subtitleYearly": "매달 {amount} 사용 가능 · 언제든 해지 가능, 결제한 해가 끝날 때까지 이용할 수 있어요",
+      "companyLink": "청구서용 회사 정보 추가",
+      "errorPlanActive": "이미 플랜을 이용 중이에요. 다른 플랜을 선택하려면 결제 내역에서 먼저 해지해 주세요.",
+      "errorUnderReview": "계정의 결제를 확인하고 있어요. 계속하려면 지원팀에 문의해 주세요.",
+      "errorUnavailable": "지금은 플랜을 이용할 수 없어요. 나중에 다시 시도해 주세요.",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "매월 결제돼요. 해지하기 전까지 {date}에 갱신돼요.",
+      "billedYearly": "매년 결제돼요. 해지하기 전까지 {date}에 갱신돼요.",
+      "start": "{plan} 시작 · {amount}",
+      "startYearly": "{plan} 시작 · 연 {amount}"
+    },
+    "planChange": {
+      "previewFailed": "변경 내용을 계산하지 못했어요. 결제는 되지 않았어요.",
+      "insteadOf": "현재 {from} 대신",
+      "changing": "변경 중…",
+      "tryAgain": "다시 시도",
+      "changeOnDate": "{date}에 {plan}(으)로 변경",
+      "changeOnRenewal": "갱신 시 {plan}(으)로 변경",
+      "payAndChange": "{amount} 결제하고 변경",
+      "cantChange": "지금은 변경할 수 없어요",
+      "workingOut": "계산하는 중…"
+    },
+    "china": {
+      "title": "3D 영상 결제",
+      "scanWechat": "WeChat으로 스캔해 {amount} 결제",
+      "paid": "결제 완료.",
+      "codeExpired": "코드가 만료됐어요.",
+      "startAgain": "다시 시작",
+      "payOtherDevice": "다른 기기에서 결제",
+      "opening": "여는 중…",
+      "wechatPhone": "WeChat으로 결제하려면 컴퓨터를 사용해 주세요.",
+      "wechatHeadset": "컴퓨터에서 WeChat으로 결제"
+    },
+    "handoff": {
+      "titleComputer": "컴퓨터에서 결제",
+      "title": "휴대폰이나 컴퓨터에서 결제",
+      "startAgain": "다시 시작",
+      "payHereInstead": "여기서 결제",
+      "openLink": "이 링크를 열어 주세요:",
+      "emailMe": "링크를 이메일로 받기",
+      "sentTo": "{email}(으)로 보냈어요.",
+      "sentToYou": "이메일로 보냈어요.",
+      "emailFailed": "이메일을 보내지 못했어요. 다시 시도해 주세요.",
+      "payingOther": "다른 기기에서 결제 중…",
+      "expiresIn": "{time} 후 만료"
+    },
+    "handoffPage": {
+      "paid": "결제 완료. 헤드셋으로 돌아가셔도 돼요.",
+      "expired": "링크가 만료됐어요. 헤드셋에서 다시 시작해 주세요.",
+      "bad": "링크가 작동하지 않아요. 확인하고 다시 시도해 주세요.",
+      "limited": "시도 횟수가 너무 많아요. 1분 뒤에 다시 시도해 주세요.",
+      "forEmail": "{email}용",
+      "notFinished": "결제가 끝나지 않았어요.",
+      "opening": "여는 중…",
+      "continue": "결제 계속하기"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "잔액으로 결제됨",
+      "spendLimitReached": "월 사용 한도에 도달했어요.",
+      "topupSmallPrint": "사용하지 않은 금액은 14일 안에 환불받을 수 있어요. 마지막 충전 후 12개월이 지나면 잔액이 만료돼요.",
+      "topupMin": "최소 금액은 {amount}예요.",
+      "settleFailed": "잔액이 부족해요. 다른 방법으로 결제해 주세요.",
+      "paymentMethodBlocked": "이 결제 수단은 사용할 수 없어요. 다른 수단을 추가해 주세요.",
+      "deletionPending": "계정을 삭제하는 중이에요.",
+      "topupDaily": "오늘 한도에 도달했어요. 내일 다시 시도해 주세요.",
+      "topupDayLeft": "오늘 {amount}까지 더 충전할 수 있어요.",
+      "autoReloadBlocked": {
+        "underReview": "결제를 확인하는 동안에는 자동 충전을 켤 수 없어요.",
+        "dispute": "은행 이의 제기가 진행되는 동안에는 자동 충전을 켤 수 없어요.",
+        "paymentFailed": "실패한 결제를 완료하기 전에는 자동 충전을 켤 수 없어요.",
+        "deletionPending": "계정을 삭제하는 동안에는 자동 충전을 켤 수 없어요."
+      },
+      "paidFromBalanceReload": "잔액으로 결제됨. 먼저 {amount}을(를) 충전해요.",
+      "popBalance": "시작할 때 잔액에서 {amount}을(를) 확보하고, 최종 비용만 차감해요. 더 청구하지 않아요. 실패한 변환은 비용이 들지 않아요. 바로 시작돼요. 완료되면 청약 철회 권리를 잃는 데 동의하는 거예요.",
+      "topupMaxFirst": "첫 충전은 {amount}까지 가능해요.",
+      "topupMax": "한 번에 {amount}까지 충전할 수 있어요.",
+      "topupDone": "{added}을(를) 충전했어요. 잔액은 {balance}예요.",
+      "reloadConsent": "잔액이 {below} 아래로 내려갈 때마다 기본 결제 수단으로 {add}을(를) 결제해요. 거절되면 다른 수단을 시도해요.",
+      "reloadConsentWithMethod": "잔액이 {below} 아래로 내려갈 때마다 기본 결제 수단({method})으로 {add}을(를) 결제해요. 거절되면 다른 수단을 시도해요."
+    },
+    "addFunds": {
+      "title": "충전",
+      "balance": "잔액",
+      "amount": "금액",
+      "other": "직접 입력",
+      "add": "{amount} 충전"
+    },
+    "autoReload": {
+      "title": "자동 충전",
+      "addAtLeast": "{amount} 이상 충전해 주세요.",
+      "atLeastThreshold": "기준 금액({amount}) 이상으로 충전해 주세요.",
+      "methodNeeded": "자동 충전을 쓰려면 결제 수단을 저장해 주세요.",
+      "saveFailed": "저장하지 못했어요. 다시 시도해 주세요.",
+      "addMethod": "결제 수단 추가",
+      "isOn": "자동 충전이 켜져 있어요.",
+      "saved": "저장했어요.",
+      "saving": "저장 중…",
+      "save": "저장",
+      "below": "잔액이 다음 금액 아래로 내려가면",
+      "add": "충전 금액"
+    },
+    "spending": {
+      "title": "사용 내역",
+      "limit": "월 사용 한도",
+      "used": "월 · {amount} 사용",
+      "resets": "이번 달 사용액이 한도에 도달하면 변환이 멈춰요. 매월 1일(UTC)에 초기화돼요.",
+      "alert": "잔액이 다음 금액 아래로 내려가면 이메일 받기"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "주간",
+        "monthly": "월간",
+        "yearly": "연간"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ 주",
+        "monthly": "/ 월",
+        "yearly": "/ 년"
+      },
+      "perPeriod": {
+        "weekly": "주 {price}",
+        "monthly": "월 {price}",
+        "yearly": "연 {price}"
+      },
+      "per": {
+        "weekly": "주",
+        "monthly": "월",
+        "yearly": "연"
+      },
+      "creditLine": "Pro 가입 시 {amount} 사용 크레딧 제공 (앱의 Pro로 이곳에 처음 로그인할 때도 제공돼요)",
+      "creditShort": "시작 크레딧 {amount}",
+      "creditRules": "{days, plural, other {#일 안에 사용해 주세요.}} 현금으로 지급되지 않아요.",
+      "creditRulesNoDays": "현금으로 지급되지 않아요.",
+      "terms": "해지하기 전까지 갱신돼요.",
+      "loadFailed": "플랜을 불러오지 못했어요.",
+      "signIn": "Pro를 이용하려면 로그인해 주세요."
+    },
+    "list": {
+      "notOnSale": "웹에서는 아직 Pro를 판매하지 않아요. iPhone, iPad, Mac, Vision Pro의 {app}에서 이용해 주세요.",
+      "purchaseFailed": "구매를 완료하지 못했어요.",
+      "ariaLabel": "Pro 플랜",
+      "save": "{pct}% 할인",
+      "creditPlus": "+ {credit}",
+      "opening": "결제 화면을 여는 중…",
+      "getPro": "Pro 시작하기"
+    },
+    "screen": {
+      "included": "{plan} 플랜에 Pro가 포함되어 있어요.",
+      "billing": "결제 내역",
+      "headline": "모든 3D 영상 {pct}% 할인",
+      "plusCredit": "{credit} 제공, iPhone, iPad, Mac, Vision Pro 앱에서도 Pro를 쓸 수 있어요.",
+      "plus": "iPhone, iPad, Mac, Vision Pro 앱에서도 Pro를 쓸 수 있어요.",
+      "welcome": "Pro에 오신 것을 환영해요",
+      "youArePro": "Pro 이용 중",
+      "appliesToEvery": "{pct}% 할인이 모든 견적에 적용돼요.",
+      "backToVideo": "영상으로 돌아가기",
+      "yourProjects": "내 프로젝트",
+      "managePlan": "플랜 관리",
+      "manageBilling": "결제 내역에서 관리",
+      "manageApple": "Apple ID 설정에서 관리",
+      "manageAppleDot": "Apple ID 설정에서 관리해 주세요."
+    },
+    "membership": {
+      "web": "웹에서 이용 중인 {plan}.",
+      "appStore": "App Store에서 이용 중인 {plan}.",
+      "macAppStore": "Mac App Store에서 이용 중인 {plan}.",
+      "grant": "{app}에서 무료로 제공한 Pro예요.",
+      "unknown": "Pro를 이용 중이에요. 구매한 곳에서 관리해 주세요.",
+      "renewsOn": "{date}에 갱신돼요.",
+      "endsOn": "{date}에 종료돼요."
+    },
+    "credit": {
+      "left": "Pro 크레딧 {total} 중 {left} 남음 · {date}까지 사용",
+      "notPaidOut": "현금으로 지급되지 않아요.",
+      "title": "Pro 크레딧",
+      "usedFirst": "모든 변환에서 잔액보다 먼저 사용돼요.",
+      "trial": "무료 체험에 포함되어 있어요."
+    },
+    "period": {
+      "previewFailed": "가격을 계산하지 못했어요. 결제는 되지 않았어요.",
+      "switchTo": "{name}(으)로 변경",
+      "dialogTitle": "Pro {name}(으)로 변경할까요?",
+      "working": "오늘 가격을 계산하는 중…",
+      "keep": "현재 플랜 유지",
+      "confirmPay": "확인하고 {amount} 결제",
+      "confirm": "확인"
+    },
+    "checkout": {
+      "renews": "해지하기 전까지 {price}에 갱신돼요.",
+      "planActive": "이미 플랜을 이용 중이에요. 결제 내역에서 관리해 주세요.",
+      "unavailable": "지금은 Pro를 이용할 수 없어요. 나중에 다시 시도해 주세요.",
+      "subtitleWithCredit": "{price}, {credit} 포함",
+      "start": "Pro 시작 · {price}",
+      "success": "Pro가 시작됐어요. 이제 모든 영상이 더 저렴해요."
+    }
+  },
   "company": {
     "form": {
       "saved": "저장했어요. 다음 인보이스부터 이 정보가 사용돼요.",
@@ -1044,6 +1330,582 @@
       "balance": "잔액",
       "addFunds": "{amount}부터 충전해서 잔액으로 변환 비용을 결제하세요.",
       "refundable": "사용하지 않은 금액은 {days}일 안에 환불받을 수 있어요."
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "평소보다 오래 걸리고 있어요.",
+      "failed": "이 영상을 분석하지 못했어요.",
+      "retry": "다시 시도",
+      "retrying": "다시 시도하는 중…",
+      "contactSupport": "지원팀 문의",
+      "refresh": "새로고침",
+      "restartFailed": "분석을 다시 시작하지 못했어요. 다시 시도해 주세요."
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "영상 위아래에 검은 띠가 있어요. 3D가 화면을 가득 채우도록 제거할게요.",
+          "sides": "영상 좌우에 검은 띠가 있어요. 3D가 화면을 가득 채우도록 제거할게요.",
+          "all": "영상 사방에 검은 띠가 있어요. 3D가 화면을 가득 채우도록 제거할게요."
+        },
+        "keeping": {
+          "topBottom": "영상 위아래에 검은 띠가 있어요. 3D에서도 그대로 유지돼요.",
+          "sides": "영상 좌우에 검은 띠가 있어요. 3D에서도 그대로 유지돼요.",
+          "all": "영상 사방에 검은 띠가 있어요. 3D에서도 그대로 유지돼요."
+        }
+      },
+      "perEye": "눈당 {size}",
+      "saveError": "저장하지 못했어요. 다시 시도해 주세요.",
+      "groupLabel": "검은 띠",
+      "remove": "띠 제거 (권장)",
+      "keep": "그대로 두기",
+      "toggle": {
+        "label": "검은 띠 제거",
+        "recommended": "권장",
+        "removingSized": "영상에 검은 띠가 있어요. 3D가 화면을 가득 채우므로 크기가 화면에 맞게 바뀌어요: {full} 대신 {without}.",
+        "removing": "영상에 검은 띠가 있어요. 3D가 화면을 가득 채우므로 크기가 화면에 맞게 바뀌어요.",
+        "keepingSized": "3D에 검은 띠가 유지돼요. 크기는 {full}예요.",
+        "keeping": "3D에 검은 띠가 유지돼요."
+      },
+      "before": "내 영상",
+      "after": "내 3D"
+    },
+    "filmstrip": {
+      "hoverScene": "장면 {scene} · {timecode}",
+      "zoomOut": "축소",
+      "zoomIn": "확대",
+      "fit": "맞춤",
+      "zoomHint": "⌘/Ctrl + 스크롤로 확대·축소 · 스크롤로 이동",
+      "fullHeightLabel": "전체 높이 타임라인",
+      "compactLabel": "간략 타임라인",
+      "fullStrip": "전체 스트립",
+      "compactStrip": "간략 스트립",
+      "pastPreview": "지난 미리보기 {label}",
+      "cutAt": "프레임 {frame}에서 자르기"
+    },
+    "method": {
+      "tooLongForClassic": "이 영상은 {classic}으로 처리하기엔 너무 길어요. {lifelike}은(는) 길이에 상관없이 쓸 수 있어서 그대로 두었어요.",
+      "unavailable": "지금은 {next}을(를) 쓸 수 없어서 프로젝트는 {current}을(를) 유지해요.",
+      "switchError": "방식을 바꾸지 못했어요. 다시 시도해 주세요.",
+      "longerThanClassic": "이 영상은 {classic}이 처리할 수 있는 길이보다 길어요.",
+      "priceUnavailable": "지금은 가격을 확인할 수 없어요.",
+      "newTag": "신규",
+      "compare": {
+        "forVideo": "이 영상 기준",
+        "forVideoAt": "이 영상 기준, {quality}",
+        "methodNow": "현재 {method}",
+        "price": "가격",
+        "readyIn": "소요 시간",
+        "closing": "가장 새로운 3D 기술이에요. 깊이나 3D 룩 페이지를 설정할 필요가 없어요."
+      },
+      "stayOn": "{method} 유지",
+      "convertWith": "{method}(으)로 변환",
+      "offer": {
+        "priceTime": ": 이 영상은 {price}, {time}.",
+        "price": ": 이 영상은 {price}.",
+        "noPrice": ".",
+        "higher": "또는 {price}에 {quality}",
+        "move": "변경"
+      }
+    },
+    "tabs": {
+      "railLabel": "작업 페이지",
+      "overview": {
+        "label": "개요",
+        "hint": "내 영상, 결과물, 가격, 다음 단계"
+      },
+      "scenes": {
+        "label": "장면",
+        "hint": "각 장면의 시작 지점을 확인해요 — 무료"
+      },
+      "depth": {
+        "label": "깊이",
+        "hint": "선택 사항: 모든 것이 얼마나 먼지 미리보기"
+      },
+      "look": {
+        "label": "3D 룩",
+        "hint": "선택 사항: 장면별로 3D를 조정하고 한 장면을 미리보기"
+      },
+      "preview": {
+        "label": "미리보기",
+        "hint": "원하는 지점의 몇 초를 3D로 확인해요"
+      },
+      "make": {
+        "label": "3D로 만들기",
+        "hint": "영상 전체(또는 일부)를 3D로 만들어요"
+      },
+      "files": {
+        "label": "파일",
+        "hint": "3D 파일, 감상 방법, 변환별 비용"
+      }
+    },
+    "shortcuts": {
+      "title": "키보드 단축키",
+      "footer": "입력란에 입력하는 중에는 단축키가 무시돼요. <kbd>Esc</kbd>를 누르면 닫혀요.",
+      "keys": {
+        "space": "스페이스",
+        "click": "클릭",
+        "doubleClick": "더블 클릭",
+        "drag": "드래그",
+        "scroll": "스크롤"
+      },
+      "pages": {
+        "title": "페이지",
+        "page": "{page} 페이지"
+      },
+      "playback": {
+        "title": "재생 (모든 미리보기와 플레이어)",
+        "playPause": "재생 / 일시정지",
+        "stepFrame": "정확히 ±1프레임 이동",
+        "stepSecond": "±1초 이동"
+      },
+      "scenes": {
+        "title": "장면 전환 (장면 페이지)",
+        "scrub": "필름스트립 탐색",
+        "addCut": "커서 위치 프레임에 컷 추가",
+        "moveCut": "컷 마커 이동 (프레임에 맞춰짐)",
+        "removeCut": "선택한 컷 삭제",
+        "zoom": "재생 헤드 기준으로 타임라인 확대·축소"
+      },
+      "help": {
+        "title": "도움말",
+        "toggle": "이 창 열기/닫기"
+      }
+    },
+    "steps": {
+      "title": "진행 단계",
+      "stepOf": "{total}단계 중 {step}단계",
+      "optional": "선택",
+      "status": {
+        "analyzing": "분석 중…",
+        "analyzingPercent": "분석 중… {percent}%",
+        "unreadable": "영상을 읽지 못했어요",
+        "waiting": "대기 중",
+        "ready": "준비됨",
+        "waitingInLine": "대기열에서 기다리는 중",
+        "makingPercent": "만드는 중… {percent}%"
+      },
+      "action": {
+        "pickScenes": "장면 선택",
+        "freePreview": "무료 미리보기 만들기",
+        "previewPriced": "한 장면 미리보기 · {price}",
+        "preview": "한 장면 미리보기",
+        "seeProgress": "진행 상황 보기",
+        "make": "3D로 만들기",
+        "seeFiles": "3D 파일 보기",
+        "download": "다운로드"
+      },
+      "secondary": {
+        "straightToMake": "또는 바로 3D로 만들기",
+        "checkLook": "또는 먼저 3D 룩 확인",
+        "makeAgain": "또는 3D로 다시 만들기"
+      }
+    },
+    "overview": {
+      "untitled": "제목 없는 프로젝트",
+      "method": "방식",
+      "youGet": "결과물",
+      "youGetValue": "Vision Pro 공간 비디오 + 사이드 바이 사이드",
+      "price": "가격",
+      "priceAt": "{quality} 기준",
+      "samplePrice": "샘플: 이미 3D이며 요금이 청구되지 않아요",
+      "pricing": "이 영상의 가격을 계산하는 중…",
+      "analyzing": "영상을 분석하고 있어요. 끝나면 가격이 여기에 표시돼요. 무료예요.",
+      "waiting": "영상이 분석을 기다리고 있어요. 끝나면 가격이 여기에 표시돼요."
+    },
+    "viewer": {
+      "thumbAlt": "가장 가까운 썸네일, 프레임 {frame}",
+      "previewResolution": "미리보기 해상도",
+      "thumbnail": "썸네일",
+      "proxyTitle": "프레임 단위로 정확한 미리보기 프록시 — 변환은 항상 원본 해상도({size})를 사용해요",
+      "pauseLabel": "미리보기 일시정지",
+      "playLabel": "미리보기 재생",
+      "pause": "❚❚ 일시정지",
+      "play": "▶ 재생",
+      "stepBack": "한 프레임 뒤로",
+      "stepForward": "한 프레임 앞으로",
+      "activePicture": "현재 화면 {size}",
+      "theaterLabel": "극장 모드 플레이어",
+      "compactLabel": "간략 플레이어",
+      "theater": "극장",
+      "compact": "간략",
+      "keysHint": "스페이스 재생/일시정지 · ←/→ ±1프레임 · Shift ±1초"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "초안",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "매우 높음",
+        "maximum": "최대",
+        "aspectMax": "비율 최대",
+        "sourceNative": "원본 그대로"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "컷 {cut}은(는) 정수 프레임이 아니에요",
+        "outside": "컷 {cut}이(가) (0, {frames}) 범위를 벗어났어요",
+        "notIncreasing": "{cut}에서 컷이 엄격하게 증가하지 않아요"
+      },
+      "note": {
+        "outside": "프레임 {frame}에서는 자를 수 없어요 — 컷은 (0, {frames}) 범위 안에 있어야 해요.",
+        "exists": "프레임 {frame}에 이미 컷이 있어요.",
+        "unreadable": "컷 목록을 읽지 못했어요."
+      },
+      "addReason": {
+        "atStart": "컷은 프레임 0 뒤에 있어야 해요 — 먼저 재생 헤드를 옮겨 주세요",
+        "exists": "프레임 {frame}에 이미 컷이 있어요"
+      },
+      "saveFailed": "컷을 저장하지 못했어요",
+      "title": "장면 컷",
+      "description": "프레임 단위로 정확한 장면 경계예요 — 이후 모든 단계에서 장면별로 깊이를 계산해요. 저장하기 전까지 수정 내용은 이 기기에만 남아요.",
+      "framesFps": "{frames}프레임 · {fps} fps",
+      "unsaved": "저장하지 않은 변경 사항",
+      "fileLabel": "컷 목록 파일",
+      "import": "컷 가져오기…",
+      "export": "컷 내보내기",
+      "reset": "감지된 상태로 되돌리기",
+      "saving": "저장 중…",
+      "save": "컷 저장",
+      "conflict": "불러온 뒤 서버의 장면 목록이 바뀌었어요. 최신 버전을 다시 불러와 수정 내용을 다시 적용한 다음 저장해 주세요.",
+      "reload": "다시 불러와 적용",
+      "addTitle": "프레임 {frame}(재생 헤드)에 장면 컷 추가",
+      "add": "+ 재생 헤드에 컷 추가",
+      "removeTitleNone": "먼저 타임라인에서 컷 마커를 선택해 주세요",
+      "removeTitle": "선택한 컷 삭제 (Delete)",
+      "remove": "− 컷 삭제",
+      "selected": "컷 {index} · {frame}",
+      "removeSelectedLabel": "선택한 컷 삭제",
+      "hint": "스트립을 클릭해 탐색 · 더블 클릭해 컷 추가 · 마커를 클릭해 선택하고 드래그해 이동 · Delete로 삭제",
+      "legend": {
+        "cut": "장면 컷 — 새 장면의 첫 프레임",
+        "playhead": "재생 헤드"
+      },
+      "importDialog": {
+        "title": "장면 컷 가져오기",
+        "body": "컷 {current}개를 가져온 컷 {imported}개로 바꿀까요? 저장하기 전까지 이 기기에만 남아요.",
+        "replace": "바꾸기"
+      }
+    },
+    "sceneList": {
+      "label": "장면",
+      "heading": "장면 · {count}",
+      "keyframeAlt": "장면 {scene} 키프레임",
+      "scene": "장면 {scene}",
+      "mergeLabel": "장면 {scene}을(를) 이전 장면에 합치기",
+      "mergeTitle": "프레임 {frame}의 컷을 삭제하고 이 장면을 장면 {previous}에 합쳐요",
+      "merge": "합치기 ←"
+    },
+    "source": {
+      "title": "원본 정보",
+      "rows": {
+        "file": "파일",
+        "size": "크기",
+        "container": "컨테이너",
+        "length": "길이",
+        "resolution": "해상도",
+        "frameRate": "프레임 속도",
+        "frames": "프레임",
+        "codec": "코덱",
+        "bitDepth": "비트 심도",
+        "videoBitrate": "비디오 비트레이트",
+        "colour": "색상",
+        "rotation": "회전",
+        "bars": "검은 띠",
+        "audio": "오디오",
+        "stereo": "공간 또는 3D",
+        "camera": "카메라"
+      },
+      "variableUpTo": "{fps} · 가변, 최대 {max}",
+      "variable": "{fps} · 가변",
+      "bitDepth": "{bits}비트",
+      "none": "없음",
+      "bars": {
+        "detected": "감지됨",
+        "picture": "화면 {size}",
+        "removed": "3D에서 제거됨",
+        "kept": "3D에서 유지됨"
+      },
+      "channels": {
+        "mono": "모노",
+        "stereo": "스테레오",
+        "many": "{count}채널"
+      },
+      "stereo": {
+        "mvhevc": "공간 비디오 (MV-HEVC)",
+        "sbs": "사이드 바이 사이드 3D",
+        "tb": "상하 3D",
+        "spatial": "공간 비디오",
+        "flat": "아니요, 2D"
+      }
+    },
+    "load": {
+      "notAvailable": "이 프로젝트를 사용할 수 없어요. 삭제되었을 수 있어요."
+    },
+    "stepTab": {
+      "tips": "ⓘ 팁",
+      "drawerLabel": "{title} — 결과물과 팁",
+      "close": "팁 닫기",
+      "lastRun": "마지막 변환",
+      "files": "파일 →",
+      "whatYouGet": "결과물",
+      "tipsTitle": "팁"
+    },
+    "screen": {
+      "retry": "다시 시도",
+      "loading": "프로젝트를 불러오는 중…",
+      "analyzing": "영상을 준비하고 있어요. 장면을 찾고 미리보기를 만들어요. 이 단계는 무료이고, 페이지는 저절로 업데이트돼요.",
+      "untitled": "제목 없는 프로젝트",
+      "copied": "복사됨",
+      "supportInfo": "지원 정보",
+      "supportInfoHint": "이 프로젝트의 ID({id})를 복사해요 — 지원팀에 알려 주세요",
+      "analyzeFailed": "분석 실패",
+      "retrying": "다시 시도하는 중…",
+      "retryAnalysis": "분석 다시 시도",
+      "shortcuts": "키보드 단축키",
+      "filesTitle": "파일",
+      "filesDeletedOn": "{date}에 파일이 삭제됨",
+      "filesKept": "프로젝트를 사용하는 동안 보관되고, 90일 동안 사용하지 않으면 삭제돼요."
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "{sbs} 파일: 눈마다 화면이 하나씩 들어 있어요.",
+      "spatial": "{spatial} 파일: 사진 앱에서 3D로 재생돼요."
+    },
+    "glasses": {
+      "title": "{name} 글래스로 3D 영상 보기",
+      "description": "2D 영상을 사이드 바이 사이드 3D로 바꿔 {name} 글래스로 감상해 보세요."
+    },
+    "pages": {
+      "glasses": {
+        "line1": "영상을 3D로 만들고 {sbs} 파일을 선택하세요.",
+        "line2": "글래스와 연결된 휴대폰이나 컴퓨터에서 재생하세요.",
+        "line3": "글래스를 3D(SBS) 모드로 전환하세요.",
+        "line4": "영상을 전체 화면으로 재생하세요."
+      },
+      "visionPro": {
+        "title": "{name}에서 3D 영상 보기",
+        "description": "2D 영상을 공간 비디오로 바꿔 {name}에서 3D로 감상해 보세요.",
+        "line1": "영상을 3D로 만들고 {spatial} 파일을 선택하세요.",
+        "line2": "Vision Pro에서 다운로드하거나 iPhone 또는 Mac에서 AirDrop으로 보내세요.",
+        "line3": "파일 앱이나 사진 앱에서 열면 3D로 재생돼요.",
+        "line4": "또는 Vision Pro의 Safari에서 이 사이트를 열고 3D로 보기를 선택하세요."
+      },
+      "galaxyXr": {
+        "title": "{name}에서 3D 영상 보기",
+        "description": "2D 영상을 사이드 바이 사이드 3D로 바꿔 {name}에서 감상해 보세요.",
+        "line1": "영상을 3D로 만들고 {sbs} 파일을 선택하세요.",
+        "line2": "헤드셋으로 복사하거나 헤드셋에서 바로 다운로드하세요.",
+        "line3": "갤러리나 파일 앱에서 열고 3D 좌우 분할을 선택하세요."
+      },
+      "metaQuest": {
+        "title": "{name}에서 3D 영상 보기",
+        "description": "2D 영상을 사이드 바이 사이드 3D로 바꿔 {name}에서 감상해 보세요.",
+        "fileNote": "{sbs} 파일: 눈마다 화면이 하나씩 들어 있어요. 4K 이상이거나 파일이 너무 크면 {half}을(를) 선택하세요.",
+        "line1": "영상을 3D로 만들고 {sbs} 파일을 선택하세요.",
+        "line2": "4K 이상이거나 파일이 너무 커서 복사하거나 스트리밍하기 어렵다면 대신 {half}을(를) 선택하세요.",
+        "line3": "Meta Quest 브라우저에서 이 사이트를 열고 3D로 보기를 선택하거나, 동영상 플레이어에서 파일을 여세요.",
+        "line4": "플레이어에서 3D 사이드 바이 사이드를 선택하세요."
+      },
+      "pico": {
+        "title": "{name}에서 3D 영상 보기",
+        "description": "2D 영상을 사이드 바이 사이드 3D로 바꿔 {name}에서 감상해 보세요.",
+        "line1": "영상을 3D로 만들고 {sbs} 파일을 선택하세요.",
+        "line2": "Pico 브라우저에서 이 사이트를 열고 3D로 보기를 선택하거나, 동영상 플레이어에서 파일을 여세요.",
+        "line3": "플레이어에서 3D 좌우(사이드 바이 사이드)를 선택하세요."
+      },
+      "steamFrame": {
+        "title": "{name}에서 3D 영상 보기",
+        "description": "2D 영상을 사이드 바이 사이드 3D로 바꿔 {name}에서 감상해 보세요.",
+        "line1": "영상을 3D로 만들고 {sbs} 파일을 선택하세요.",
+        "line2": "헤드셋으로 복사한 뒤 동영상 플레이어에서 여세요.",
+        "line3": "플레이어에서 3D 사이드 바이 사이드를 선택하세요."
+      },
+      "metaVrGlasses": {
+        "title": "Meta VR Glasses용 3D 영상",
+        "description": "웹의 {site}은(는) 2027년 봄 출시 예정인 Meta VR Glasses를 지원할 준비가 되어 있어요.",
+        "upcoming": "2027년 봄",
+        "line1": "Meta VR Glasses는 2027년 봄 출시 예정이에요.",
+        "line2": "웹의 {site}에서는 지금도 {sbs}와 {spatial} 파일을 만들 수 있어요.",
+        "line3": "글래스가 출시되면 감상 방법을 여기에 추가할게요."
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XR 글래스 (XREAL, VITURE, RayNeo)",
+      "tvs": "3D TV",
+      "metaVrGlasses": "Meta VR Glasses 지원 준비 완료, 2027년 봄"
+    },
+    "headsetHint": {
+      "quest": "플레이어의 보기 옵션에서 3D 사이드 바이 사이드를 선택하세요.",
+      "pico": "플레이어의 모드 메뉴에서 3D 좌우(사이드 바이 사이드)를 선택하세요.",
+      "galaxyxr": "플레이어에서 3D 사이드 바이 사이드를 선택하세요."
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "옥상 파티",
+        "detail": "숲 위로 해가 지는 파티에서 손을 높이 든 사람들."
+      },
+      "driftChase": {
+        "title": "드리프트 추격",
+        "detail": "드론이 타이어 연기 구름 속에서 드리프트하는 자동차를 쫓아요."
+      },
+      "rooftopSingalong": {
+        "title": "옥상 떼창",
+        "detail": "옥상에서 친구들과 노래하고, 기타를 치고, 한잔해요."
+      },
+      "sunsetSession": {
+        "title": "선셋 세션",
+        "detail": "해가 지는 옥상에서 공연하는 가수와 밴드."
+      },
+      "studioTake": {
+        "title": "스튜디오 테이크",
+        "detail": "마이크 앞에서 온 힘을 다해 노래하는 가수."
+      },
+      "streetDance": {
+        "title": "스트리트 댄스",
+        "detail": "유리 타워 앞에서 춤추는 친구 세 명. 세로 영상이에요."
+      },
+      "insideTheWave": {
+        "title": "파도 속으로",
+        "detail": "부서지는 파도의 통로를 지나는 서퍼의 시선."
+      },
+      "fencingHall": {
+        "title": "펜싱 훈련장",
+        "detail": "훈련장에서 겨루는 펜싱 선수들과 그 옆을 지나가는 사람들."
+      },
+      "riverStones": {
+        "title": "강가의 돌",
+        "detail": "숲속 개울가의 햇살 비치는 돌 위를 건너는 소녀."
+      },
+      "perEye": "눈당 {size}",
+      "downloads": {
+        "spatial": "Vision Pro (공간 비디오)",
+        "sbs": "Quest, Pico, Galaxy XR, XR 글래스 (사이드 바이 사이드)",
+        "original": "비교용 2D 원본"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "영상을 다시 업로드해 새 3D를 만들어 보세요.",
+      "message": "이 프로젝트의 파일이 삭제되었어요. 영상을 다시 업로드해 새 3D를 만들어 보세요."
+    },
+    "requestFailed": "요청 실패 ({status})",
+    "csvDownloadFailed": "CSV를 다운로드하지 못했어요.",
+    "upload": {
+      "failedStatus": "업로드 실패 ({status})",
+      "network": "업로드 중 네트워크 오류"
+    },
+    "eventsUnavailable": "상태 스트림을 사용할 수 없어요.",
+    "cutlist": {
+      "notInteger": "\"{token}\"은(는) 정수 프레임 번호가 아니에요 — 컷 목록에는 원본의 정수 프레임 번호만 넣을 수 있어요.",
+      "outOfRange": "프레임 {frame}의 컷이 범위를 벗어났어요 — 이 영상에서 컷은 (0, {frames}) 범위 안에 있어야 해요.",
+      "missingStart": "CSV 행에 시작 프레임 값이 없어요: \"{row}\"",
+      "noScenes": "CSV에서 장면을 찾지 못했어요 — 가져올 내용이 없어요.",
+      "noCuts": "파일에서 컷 프레임을 찾지 못했어요 — 가져올 내용이 없어요."
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}{pct}% · 60 fps ×{times} ({business}, {studio})"
+    },
+    "lengthLimits": "{method}: {limits}",
+    "tooLong": "이 영상은 길이가 {m}분 {s}초예요. 영상은 최대 {max}분까지 가능해요.",
+    "stopped": "업로드가 중단되었어요 — 연결을 확인한 뒤 멈춘 곳부터 이어서 올려 주세요.",
+    "failed": "업로드에 실패했어요. 다시 시도해 주세요.",
+    "unsupported": "지원하지 않는 파일 형식이에요. .mp4, .mov, .m4v, .webm 영상을 선택해 주세요.",
+    "inputLabel": "영상 업로드",
+    "firstProject": "영상을 끌어다 놓고 첫 프로젝트를 시작하세요",
+    "dragDrop": "영상을 끌어다 놓아 프로젝트 시작",
+    "formats": ".mp4, .mov, .m4v, .webm · {limits}",
+    "choose": "영상 선택",
+    "seePrices": "가격 보기",
+    "uploading": "{name} 업로드 중…",
+    "videoFallback": "영상",
+    "creating": "프로젝트를 만드는 중…",
+    "bytes": "{total} 중 {done}",
+    "estimating": "남은 시간을 계산하는 중…",
+    "resume": "업로드 이어서 하기 ({pct}% 전송됨)"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "{date}에 파일이 삭제됨",
+      "gettingReady": "영상을 준비하는 중",
+      "gettingReadyPct": "영상을 준비하는 중 · {pct}%",
+      "readFailed": "이 영상을 읽지 못했어요",
+      "tryAgain": "다시 시도",
+      "waiting": "대기열에서 기다리는 중",
+      "making": "3D 만드는 중",
+      "makingPct": "3D 만드는 중 · {pct}%",
+      "paymentNeeded": "결제 필요",
+      "updatePayment": "결제 수단 업데이트",
+      "ready": "3D 완료",
+      "files": "파일",
+      "failed": "실패, 결제되지 않음",
+      "cancelled": "취소됨 · 결제되지 않음",
+      "readyFor3d": "3D 변환 준비 완료",
+      "archiveBlocked": "이 프로젝트는 변환이 진행 중이에요. 끝날 때까지 기다리거나 취소한 뒤 보관해 주세요.",
+      "pinned": "고정됨",
+      "untitled": "제목 없는 프로젝트",
+      "olderMethod": "이전 방식",
+      "sample": "샘플",
+      "sampleNoteArchived": "샘플은 삭제할 수 없어요. 언제든 보관 해제할 수 있어요.",
+      "sampleNote": "둘러볼 수 있는 완성된 예시예요. 요금이 청구되지 않고, 보관할 수 있어요.",
+      "keep": "유지",
+      "unpin": "프로젝트 고정 해제",
+      "pin": "프로젝트 고정",
+      "rename": "프로젝트 이름 변경",
+      "restore": "프로젝트 복원",
+      "delete": "프로젝트 삭제",
+      "archive": "프로젝트 보관",
+      "renameTitle": "프로젝트 이름 변경",
+      "nameLabel": "프로젝트 이름",
+      "save": "저장",
+      "deleteTitle": "이 프로젝트를 완전히 삭제할까요?",
+      "deleteBody": "파일이 완전히 삭제돼요. 다시 다운로드할 수 없고, 되돌릴 수 없어요.",
+      "keepProject": "프로젝트 유지",
+      "deleteForGood": "완전히 삭제",
+      "archiveTitle": "프로젝트 보관",
+      "archiveBody": "이 프로젝트를 보관할까요? 나중에 복원할 수 있어요.",
+      "cancel": "취소",
+      "archiveAction": "보관"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "분석 중",
+        "proxy": "미리보기 만드는 중",
+        "scene_detect": "장면 감지 중",
+        "thumbnails": "썸네일",
+        "profiling": "장면 측정 중"
+      },
+      "progressLabel": "분석 진행률",
+      "failed": "분석 실패",
+      "failedWith": "분석 실패 — {error}",
+      "done": "분석 완료"
+    },
+    "list": {
+      "loadFailed": "프로젝트를 불러오지 못했어요.",
+      "loadFailedWith": "프로젝트를 불러오지 못했어요. {detail}",
+      "archivedFailed": "보관한 프로젝트를 불러오지 못했어요.",
+      "updateFailed": "프로젝트를 업데이트하지 못했어요.",
+      "deleteFailed": "프로젝트를 삭제하지 못했어요. 다시 시도해 주세요.",
+      "title": "프로젝트",
+      "hideArchived": "보관함 숨기기",
+      "showArchived": "보관함 보기",
+      "dismiss": "닫기",
+      "retry": "다시 시도",
+      "loading": "프로젝트를 불러오는 중…",
+      "pinned": "고정됨",
+      "all": "모든 프로젝트",
+      "archived": "보관됨",
+      "loadingArchived": "보관한 프로젝트를 불러오는 중…",
+      "noArchived": "보관한 프로젝트가 없어요.",
+      "hideArchivedCount": "보관함 숨기기 ({count})",
+      "showArchivedCount": "보관함 보기 ({count})"
     }
   }
 }

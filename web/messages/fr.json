@@ -889,6 +889,292 @@
       "speed": "Vitesse"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "Facturé en dollars US.",
+      "withdrawal": "Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "refundedIfFails": "Remboursé intégralement en cas d’échec.",
+      "saveLine": "Enregistré pour vos prochaines conversions. Vous pouvez le retirer dans Facturation.",
+      "orPayAnotherWay": "ou payer autrement",
+      "paying": "Paiement en cours…",
+      "waitingConfirm": "En attente de la confirmation de votre paiement. Vous pouvez fermer cette page. Votre vidéo 3D démarre dès qu’il est validé.",
+      "declined": "Votre moyen de paiement a été refusé. Essayez un autre moyen de paiement.",
+      "tooMany": "Trop de tentatives. Essayez un portefeuille électronique ou réessayez plus tard.",
+      "paidStarting": "Payé. Votre 3D démarre…",
+      "alreadyPaid": "Ce paiement est déjà effectué.",
+      "expiredRun": "Ce paiement a expiré. Recommencez quand vous voulez.",
+      "unavailable": "Le paiement n’est pas encore disponible dans cette région.",
+      "alipayLine": "Vous terminerez dans Alipay, puis vous reviendrez ici.",
+      "settleTitle": "Payer vos dernières conversions",
+      "settleFoot": "Vos téléchargements reviennent dès que c’est payé.",
+      "confirming": "Confirmation de votre paiement…",
+      "settled": "Payé. Vos téléchargements sont de retour.",
+      "alreadySettled": "Déjà payé. Vos téléchargements sont de retour.",
+      "expired": "Ce paiement a expiré.",
+      "confirmTitle": "Confirmer votre paiement",
+      "bankWants": "Votre banque demande de confirmer ce paiement.",
+      "declinedChoose": "Votre {label} a été refusé. Choisissez un autre moyen de paiement.",
+      "paymentMethod": "moyen de paiement",
+      "paymentProblem": "Un problème est survenu avec votre dernier paiement.",
+      "underReview": "Nous vérifions un paiement sur votre compte.",
+      "disputedRow": "Indisponible pendant une contestation auprès de votre banque",
+      "waitingForPayment": "En attente du paiement…",
+      "finishPayment": "Terminer le paiement",
+      "pausedReview": "En pause pendant la vérification d’un paiement.",
+      "popAfter": "Prélevé sur votre moyen de paiement par défaut quand c’est prêt. Pas de prélèvement en cas d’échec. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "popPrecharge": "Prélevé sur votre moyen de paiement par défaut au lancement. Annulez pendant l’attente ou dans la première minute pour un remboursement intégral. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "popSheet": "Vous choisirez ensuite comment payer. Remboursé intégralement en cas d’échec.",
+      "payToContinue": "Payer {amount} pour continuer",
+      "payAndStart": "Payer {amount} et lancer",
+      "paidMoreWaiting": "{amount} payé. Un autre paiement est en attente.",
+      "settleSubtitle": "{count, plural, one {# conversion · facturée après son traitement} other {# conversions · facturées après leur traitement}}",
+      "personalUse": "Pour un usage personnel. L’usage commercial est inclus dans les forfaits Business et Studio."
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "Payer sur un autre appareil",
+      "continueAlipay": "Continuer vers Alipay",
+      "payHereInstead": "Payer ici",
+      "startAgain": "Recommencer"
+    },
+    "checkout": {
+      "payWithCard": "Payer par carte",
+      "orAddAnotherWay": "ou ajouter un autre moyen"
+    },
+    "settle": {
+      "pay": "Payer {amount}",
+      "payFromBalance": "Payer {amount} avec votre solde",
+      "balance": "Solde {amount}",
+      "tryAgain": "Réessayer"
+    },
+    "addMethod": {
+      "title": "Ajouter un moyen de paiement",
+      "saveDeclined": "Impossible d’enregistrer ce moyen de paiement. Essayez-en un autre.",
+      "saveTooMany": "Trop de tentatives. Réessayez demain.",
+      "saveLimit": "Vous pouvez enregistrer jusqu’à 5 moyens de paiement. Retirez-en un d’abord.",
+      "makeDefault": "Définir par défaut",
+      "saving": "Enregistrement…",
+      "save": "Enregistrer le moyen de paiement",
+      "saved": "Enregistré."
+    },
+    "limits": {
+      "line": "Créez votre première vidéo 3D ou enregistrez un moyen de paiement pour conserver plus de 3 projets et 10 Go d’envois.",
+      "addMethod": "Ajouter un moyen de paiement"
+    },
+    "deleteDues": {
+      "dues": "Un paiement reste à régler avant de pouvoir supprimer votre compte.",
+      "activeRuns": "Annulez vos tâches en cours ou attendez leur fin avant de supprimer votre compte.",
+      "deleting": "Suppression de votre compte…",
+      "pay": "Payer {amount}"
+    },
+    "plan": {
+      "started": "{plan} est activé. {amount} d’utilisation prêts.",
+      "proUnknownKeeps": "Votre Pro actuel continue. Annulez-le là où vous l’avez acheté si vous le souhaitez.",
+      "proNoteAppStore": "Votre Pro de l’App Store continue. Vous pouvez l’annuler dans les réglages de votre identifiant Apple.",
+      "proNoteMacAppStore": "Votre Pro du Mac App Store continue. Vous pouvez l’annuler dans les réglages de votre identifiant Apple.",
+      "proNoteGrant": "Votre Pro de {app} continue en parallèle de {plan}.",
+      "subtitleMonthly": "{amount} d’utilisation par mois · résiliable à tout moment ; valable jusqu’à la fin du mois payé",
+      "subtitleYearly": "{amount} d’utilisation par mois · résiliable à tout moment ; valable jusqu’à la fin de l’année payée",
+      "companyLink": "Ajouter les informations de votre entreprise pour les factures",
+      "errorPlanActive": "Vous avez déjà un forfait. Annulez-le dans Facturation avant d’en choisir un autre.",
+      "errorUnderReview": "Nous vérifions un paiement sur votre compte. Contactez l’assistance pour continuer.",
+      "errorUnavailable": "Les forfaits ne sont pas disponibles pour le moment. Réessayez plus tard.",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "Facturé chaque mois. Renouvellement le {date} jusqu’à résiliation.",
+      "billedYearly": "Facturé chaque année. Renouvellement le {date} jusqu’à résiliation.",
+      "start": "Démarrer {plan} · {amount}",
+      "startYearly": "Démarrer {plan} · {amount} par an"
+    },
+    "planChange": {
+      "previewFailed": "Impossible de calculer le changement. Rien n’a été prélevé.",
+      "insteadOf": "Au lieu de votre {from}",
+      "changing": "Changement…",
+      "tryAgain": "Réessayer",
+      "changeOnDate": "Passer à {plan} le {date}",
+      "changeOnRenewal": "Passer à {plan} au renouvellement",
+      "payAndChange": "Payer {amount} et changer",
+      "cantChange": "Changement impossible pour le moment",
+      "workingOut": "Calcul en cours…"
+    },
+    "china": {
+      "title": "Payer votre vidéo 3D",
+      "scanWechat": "Scannez avec WeChat pour payer {amount}",
+      "paid": "Payé.",
+      "codeExpired": "Le code a expiré.",
+      "startAgain": "Recommencer",
+      "payOtherDevice": "Payer sur un autre appareil",
+      "opening": "Ouverture…",
+      "wechatPhone": "Pour payer avec WeChat, utilisez un ordinateur.",
+      "wechatHeadset": "Payer avec WeChat sur un ordinateur"
+    },
+    "handoff": {
+      "titleComputer": "Payer sur un ordinateur",
+      "title": "Payer sur votre téléphone ou ordinateur",
+      "startAgain": "Recommencer",
+      "payHereInstead": "Payer ici",
+      "openLink": "Ouvrez ce lien :",
+      "emailMe": "M’envoyer le lien par e-mail",
+      "sentTo": "Envoyé à {email}.",
+      "sentToYou": "Envoyé à votre adresse e-mail.",
+      "emailFailed": "Impossible d’envoyer l’e-mail. Réessayez.",
+      "payingOther": "Paiement en cours sur votre autre appareil…",
+      "expiresIn": "Expire dans {time}"
+    },
+    "handoffPage": {
+      "paid": "Payé. Vous pouvez retourner à votre casque.",
+      "expired": "Ce lien a expiré. Recommencez depuis votre casque.",
+      "bad": "Ce lien n’a pas fonctionné. Vérifiez-le et réessayez.",
+      "limited": "Trop d’essais. Patientez une minute.",
+      "forEmail": "Pour {email}",
+      "notFinished": "Paiement non terminé.",
+      "opening": "Ouverture…",
+      "continue": "Continuer vers le paiement"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "Payé avec votre solde",
+      "spendLimitReached": "Vous avez atteint votre plafond de dépenses mensuel.",
+      "topupSmallPrint": "Les fonds non dépensés sont remboursables sous 14 jours. Votre solde expire 12 mois après votre dernière recharge.",
+      "topupMin": "Le minimum est de {amount}.",
+      "settleFailed": "Votre solde ne suffit plus. Payez autrement.",
+      "paymentMethodBlocked": "Ce moyen de paiement est inutilisable. Ajoutez-en un autre.",
+      "deletionPending": "Votre compte est en cours de suppression.",
+      "topupDaily": "Vous avez atteint la limite du jour. Réessayez demain.",
+      "topupDayLeft": "Vous pouvez encore ajouter jusqu’à {amount} aujourd’hui.",
+      "autoReloadBlocked": {
+        "underReview": "La recharge auto ne peut pas être activée pendant la vérification d’un paiement.",
+        "dispute": "La recharge auto ne peut pas être activée tant qu’une contestation bancaire est ouverte.",
+        "paymentFailed": "La recharge auto ne peut pas être activée tant qu’un paiement refusé n’est pas réglé.",
+        "deletionPending": "La recharge auto ne peut pas être activée pendant la suppression de votre compte."
+      },
+      "paidFromBalanceReload": "Payé avec votre solde. Nous ajouterons d’abord {amount}.",
+      "popBalance": "Nous réservons {amount} sur votre solde au lancement et ne prélevons que le coût final, jamais plus. Les conversions échouées ne coûtent rien. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "topupMaxFirst": "Vous pouvez ajouter jusqu’à {amount} pour votre première recharge.",
+      "topupMax": "Vous pouvez ajouter jusqu’à {amount} à la fois.",
+      "topupDone": "{added} ajoutés. Votre solde est de {balance}.",
+      "reloadConsent": "Nous prélèverons {add} sur votre moyen de paiement par défaut chaque fois que votre solde passe sous {below}. S’il est refusé, nous essaierons vos autres moyens.",
+      "reloadConsentWithMethod": "Nous prélèverons {add} sur votre moyen de paiement par défaut ({method}) chaque fois que votre solde passe sous {below}. S’il est refusé, nous essaierons vos autres moyens."
+    },
+    "addFunds": {
+      "title": "Ajouter des fonds",
+      "balance": "Solde",
+      "amount": "Montant",
+      "other": "Autre",
+      "add": "Ajouter {amount}"
+    },
+    "autoReload": {
+      "title": "Recharge auto",
+      "addAtLeast": "Ajoutez au moins {amount}.",
+      "atLeastThreshold": "Ajoutez au moins autant que le seuil ({amount}).",
+      "methodNeeded": "Enregistrez un moyen de paiement pour utiliser la recharge auto.",
+      "saveFailed": "Enregistrement impossible. Réessayez.",
+      "addMethod": "Ajouter un moyen de paiement",
+      "isOn": "La recharge auto est activée.",
+      "saved": "Enregistré.",
+      "saving": "Enregistrement…",
+      "save": "Enregistrer",
+      "below": "Quand mon solde passe sous",
+      "add": "Ajouter"
+    },
+    "spending": {
+      "title": "Dépenses",
+      "limit": "Plafond de dépenses mensuel",
+      "used": "par mois · {amount} utilisés",
+      "resets": "Les conversions s’arrêtent quand les dépenses du mois l’atteignent. Remise à zéro le 1er (UTC).",
+      "alert": "M’envoyer un e-mail quand mon solde passe sous"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "Hebdomadaire",
+        "monthly": "Mensuel",
+        "yearly": "Annuel"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ semaine",
+        "monthly": "/ mois",
+        "yearly": "/ an"
+      },
+      "perPeriod": {
+        "weekly": "{price} par semaine",
+        "monthly": "{price} par mois",
+        "yearly": "{price} par an"
+      },
+      "per": {
+        "weekly": "par semaine",
+        "monthly": "par mois",
+        "yearly": "par an"
+      },
+      "creditLine": "{amount} de crédit d’utilisation en rejoignant Pro (ou à votre première connexion ici avec Pro depuis l’app)",
+      "creditShort": "{amount} de crédit pour commencer",
+      "creditRules": "{days, plural, other {À utiliser sous # jours.}} Non remboursable en argent.",
+      "creditRulesNoDays": "Non remboursable en argent.",
+      "terms": "Renouvelé jusqu’à résiliation.",
+      "loadFailed": "Les forfaits ne se sont pas chargés.",
+      "signIn": "Connectez-vous pour obtenir Pro."
+    },
+    "list": {
+      "notOnSale": "Pro n’est pas encore en vente sur le web. Obtenez-le dans {app} sur iPhone, iPad, Mac ou Vision Pro.",
+      "purchaseFailed": "L’achat n’a pas abouti.",
+      "ariaLabel": "Forfaits Pro",
+      "save": "Économisez {pct} %",
+      "creditPlus": "+ {credit}",
+      "opening": "Ouverture du paiement…",
+      "getPro": "Obtenir Pro"
+    },
+    "screen": {
+      "included": "Pro est inclus dans votre forfait {plan}.",
+      "billing": "Facturation",
+      "headline": "{pct} % de remise sur chaque vidéo 3D",
+      "plusCredit": "Plus {credit}, et Pro dans l’app sur iPhone, iPad, Mac et Vision Pro.",
+      "plus": "Plus Pro dans l’app sur iPhone, iPad, Mac et Vision Pro.",
+      "welcome": "Bienvenue dans Pro",
+      "youArePro": "Vous êtes Pro",
+      "appliesToEvery": "La remise de {pct} % s’applique à chaque devis.",
+      "backToVideo": "Retour à votre vidéo",
+      "yourProjects": "Vos projets",
+      "managePlan": "Gérer le forfait",
+      "manageBilling": "Gérer dans Facturation",
+      "manageApple": "Gérer dans les réglages de votre identifiant Apple",
+      "manageAppleDot": "Gérer dans les réglages de votre identifiant Apple."
+    },
+    "membership": {
+      "web": "{plan} sur le web.",
+      "appStore": "{plan} via l’App Store.",
+      "macAppStore": "{plan} via le Mac App Store.",
+      "grant": "Pro offert à votre compte par {app}, sans frais.",
+      "unknown": "Pro est actif. Gérez-le là où vous l’avez acheté.",
+      "renewsOn": "Renouvellement le {date}.",
+      "endsOn": "Se termine le {date}."
+    },
+    "credit": {
+      "left": "{left} de crédit Pro restants sur {total} · à utiliser avant le {date}",
+      "notPaidOut": "Non remboursable en argent.",
+      "title": "Crédit Pro",
+      "usedFirst": "Utilisé avant votre solde à chaque conversion.",
+      "trial": "Votre essai gratuit l’inclut."
+    },
+    "period": {
+      "previewFailed": "Impossible de calculer le prix. Rien n’a été prélevé.",
+      "switchTo": "Passer à {name}",
+      "dialogTitle": "Passer à Pro {name} ?",
+      "working": "Calcul du prix du jour…",
+      "keep": "Garder mon forfait",
+      "confirmPay": "Confirmer et payer {amount}",
+      "confirm": "Confirmer"
+    },
+    "checkout": {
+      "renews": "Renouvelé à {price} jusqu’à résiliation.",
+      "planActive": "Vous avez déjà un forfait. Gérez-le dans Facturation.",
+      "unavailable": "Pro n’est pas disponible pour le moment. Réessayez plus tard.",
+      "subtitleWithCredit": "{price}, avec {credit}",
+      "start": "Démarrer Pro · {price}",
+      "success": "Pro est activé. Chaque vidéo coûte moins cher."
+    }
+  },
   "company": {
     "form": {
       "saved": "Enregistré. Vos prochaines factures utiliseront ces coordonnées.",
@@ -1044,6 +1330,582 @@
       "balance": "Solde",
       "addFunds": "Ajoutez des fonds dès {amount} et payez vos conversions avec votre solde.",
       "refundable": "Les fonds non dépensés sont remboursables sous {days} jours."
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "Cela prend plus de temps que d’habitude.",
+      "failed": "Nous n’avons pas pu analyser cette vidéo.",
+      "retry": "Réessayer",
+      "retrying": "Nouvel essai…",
+      "contactSupport": "Contacter l’assistance",
+      "refresh": "Actualiser",
+      "restartFailed": "Impossible de relancer l’analyse. Veuillez réessayer."
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "Des bandes noires ont été trouvées en haut et en bas de votre vidéo. Nous les retirerons pour que votre 3D remplisse l’image.",
+          "sides": "Des bandes noires ont été trouvées à gauche et à droite de votre vidéo. Nous les retirerons pour que votre 3D remplisse l’image.",
+          "all": "Des bandes noires ont été trouvées sur tous les côtés de votre vidéo. Nous les retirerons pour que votre 3D remplisse l’image."
+        },
+        "keeping": {
+          "topBottom": "Des bandes noires ont été trouvées en haut et en bas de votre vidéo. Votre 3D les conserve.",
+          "sides": "Des bandes noires ont été trouvées à gauche et à droite de votre vidéo. Votre 3D les conserve.",
+          "all": "Des bandes noires ont été trouvées sur tous les côtés de votre vidéo. Votre 3D les conserve."
+        }
+      },
+      "perEye": "{size} par œil",
+      "saveError": "Enregistrement impossible. Réessayez.",
+      "groupLabel": "Bandes noires",
+      "remove": "Retirer les bandes (recommandé)",
+      "keep": "Les conserver",
+      "toggle": {
+        "label": "Retirer les bandes noires",
+        "recommended": "Recommandé",
+        "removingSized": "Votre vidéo a des bandes noires. La 3D remplit l’image, donc sa taille s’adapte à l’image : {without} au lieu de {full}.",
+        "removing": "Votre vidéo a des bandes noires. La 3D remplit l’image, donc sa taille s’adapte à l’image.",
+        "keepingSized": "La 3D conserve les bandes noires, en {full}.",
+        "keeping": "La 3D conserve les bandes noires."
+      },
+      "before": "Votre vidéo",
+      "after": "Votre 3D"
+    },
+    "filmstrip": {
+      "hoverScene": "Scène {scene} · {timecode}",
+      "zoomOut": "Zoom arrière",
+      "zoomIn": "Zoom avant",
+      "fit": "Ajuster",
+      "zoomHint": "⌘/Ctrl + molette pour zoomer · molette pour défiler",
+      "fullHeightLabel": "Timeline pleine hauteur",
+      "compactLabel": "Timeline compacte",
+      "fullStrip": "Bande complète",
+      "compactStrip": "Bande compacte",
+      "pastPreview": "Aperçu passé {label}",
+      "cutAt": "Coupure à l’image {frame}"
+    },
+    "method": {
+      "tooLongForClassic": "Cette vidéo est trop longue pour {classic}. {lifelike} accepte les vidéos de toute durée, nous l’avons donc conservé.",
+      "unavailable": "{next} n’est pas disponible pour le moment, votre projet garde donc {current}.",
+      "switchError": "Impossible de changer de méthode. Veuillez réessayer.",
+      "longerThanClassic": "Cette vidéo dépasse la durée que {classic} peut traiter.",
+      "priceUnavailable": "Prix indisponible pour le moment.",
+      "newTag": "Nouveau",
+      "compare": {
+        "forVideo": "Pour cette vidéo",
+        "forVideoAt": "Pour cette vidéo en {quality}",
+        "methodNow": "{method} actuel",
+        "price": "Prix",
+        "readyIn": "Prêt en",
+        "closing": "Notre technologie 3D la plus récente. Aucune page Profondeur ni Rendu 3D à régler."
+      },
+      "stayOn": "Rester sur {method}",
+      "convertWith": "Convertir avec {method}",
+      "offer": {
+        "priceTime": " : {price}, {time} pour cette vidéo.",
+        "price": " : {price} pour cette vidéo.",
+        "noPrice": ".",
+        "higher": "ou {quality} pour {price}",
+        "move": "Passer"
+      }
+    },
+    "tabs": {
+      "railLabel": "Pages de l’espace de travail",
+      "overview": {
+        "label": "Aperçu général",
+        "hint": "Votre vidéo, ce que vous obtiendrez, le prix et l’étape suivante"
+      },
+      "scenes": {
+        "label": "Scènes",
+        "hint": "Vérifiez où commence chaque scène — gratuit"
+      },
+      "depth": {
+        "label": "Profondeur",
+        "hint": "Facultatif : prévisualisez la distance de chaque élément"
+      },
+      "look": {
+        "label": "Rendu 3D",
+        "hint": "Facultatif : ajustez la 3D par scène et prévisualisez un instant"
+      },
+      "preview": {
+        "label": "Aperçu",
+        "hint": "Voyez quelques secondes en 3D à partir de n’importe quel instant"
+      },
+      "make": {
+        "label": "Passer en 3D",
+        "hint": "Passez toute la vidéo (ou une partie) en 3D"
+      },
+      "files": {
+        "label": "Fichiers",
+        "hint": "Vos fichiers 3D, comment les regarder et ce que chaque conversion a coûté"
+      }
+    },
+    "shortcuts": {
+      "title": "Raccourcis clavier",
+      "footer": "Les raccourcis sont ignorés pendant la saisie dans un champ. Appuyez sur <kbd>Échap</kbd> pour fermer.",
+      "keys": {
+        "space": "Espace",
+        "click": "Clic",
+        "doubleClick": "2×Clic",
+        "drag": "Glisser",
+        "scroll": "Molette"
+      },
+      "pages": {
+        "title": "Pages",
+        "page": "Page {page}"
+      },
+      "playback": {
+        "title": "Lecture (chaque aperçu et lecteur)",
+        "playPause": "Lecture / pause",
+        "stepFrame": "Avancer exactement de ±1 image",
+        "stepSecond": "Avancer de ±1 seconde"
+      },
+      "scenes": {
+        "title": "Changements de scène (page Scènes)",
+        "scrub": "Parcourir la pellicule",
+        "addCut": "Ajouter une coupure à l’image du curseur",
+        "moveCut": "Déplacer un repère de coupure (aimanté aux images)",
+        "removeCut": "Supprimer la coupure sélectionnée",
+        "zoom": "Zoomer la timeline sur la tête de lecture"
+      },
+      "help": {
+        "title": "Aide",
+        "toggle": "Afficher / masquer cette fiche"
+      }
+    },
+    "steps": {
+      "title": "Vos étapes",
+      "stepOf": "Étape {step} sur {total}",
+      "optional": "Facultatif",
+      "status": {
+        "analyzing": "Analyse…",
+        "analyzingPercent": "Analyse… {percent} %",
+        "unreadable": "Vidéo illisible",
+        "waiting": "En attente",
+        "ready": "Prêt",
+        "waitingInLine": "En file d’attente",
+        "makingPercent": "Création… {percent} %"
+      },
+      "action": {
+        "pickScenes": "Choisir les scènes",
+        "freePreview": "Créer un aperçu gratuit",
+        "previewPriced": "Aperçu d’un instant · {price}",
+        "preview": "Aperçu d’un instant",
+        "seeProgress": "Voir la progression",
+        "make": "Passer en 3D",
+        "seeFiles": "Voir les fichiers 3D",
+        "download": "Télécharger"
+      },
+      "secondary": {
+        "straightToMake": "ou passer directement en 3D",
+        "checkLook": "ou vérifier d’abord le rendu 3D",
+        "makeAgain": "ou repasser en 3D"
+      }
+    },
+    "overview": {
+      "untitled": "Projet sans titre",
+      "method": "Méthode",
+      "youGet": "Vous obtiendrez",
+      "youGetValue": "Vidéo spatiale Vision Pro + côte à côte",
+      "price": "Prix",
+      "priceAt": "En {quality}",
+      "samplePrice": "Un exemple : déjà en 3D, jamais facturé",
+      "pricing": "Calcul du prix de cette vidéo…",
+      "analyzing": "Nous analysons votre vidéo. Les prix apparaissent ici une fois terminé. Gratuit.",
+      "waiting": "Votre vidéo attend d’être examinée. Les prix apparaissent ici une fois terminé."
+    },
+    "viewer": {
+      "thumbAlt": "miniature la plus proche, image {frame}",
+      "previewResolution": "Résolution de l’aperçu",
+      "thumbnail": "Miniature",
+      "proxyTitle": "Aperçu proxy à l’image près — les conversions utilisent toujours la source en pleine résolution ({size})",
+      "pauseLabel": "Mettre l’aperçu en pause",
+      "playLabel": "Lire l’aperçu",
+      "pause": "❚❚ Pause",
+      "play": "▶ Lecture",
+      "stepBack": "Reculer d’une image",
+      "stepForward": "Avancer d’une image",
+      "activePicture": "image active {size}",
+      "theaterLabel": "Lecteur cinéma",
+      "compactLabel": "Lecteur compact",
+      "theater": "Cinéma",
+      "compact": "Compact",
+      "keysHint": "Espace lecture/pause · ←/→ ±1 image · Maj ±1 s"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "Brouillon",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "Très élevée",
+        "maximum": "Maximale",
+        "aspectMax": "max. selon le format",
+        "sourceNative": "natif de la source"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "la coupure {cut} n’est pas un numéro d’image entier",
+        "outside": "coupure {cut} hors de (0, {frames})",
+        "notIncreasing": "coupures non strictement croissantes à {cut}"
+      },
+      "note": {
+        "outside": "Impossible de couper à l’image {frame} — les coupures doivent être comprises dans (0, {frames}).",
+        "exists": "Il y a déjà une coupure à l’image {frame}.",
+        "unreadable": "Impossible de lire la liste des coupures."
+      },
+      "addReason": {
+        "atStart": "Les coupures doivent suivre l’image 0 — déplacez d’abord la tête de lecture",
+        "exists": "Il y a déjà une coupure à l’image {frame}"
+      },
+      "saveFailed": "échec de l’enregistrement des coupures",
+      "title": "Coupures de scène",
+      "description": "Limites de scène à l’image près — chaque étape suivante associe la profondeur par scène. Les modifications restent locales jusqu’à l’enregistrement.",
+      "framesFps": "{frames} images · {fps} i/s",
+      "unsaved": "Modifications non enregistrées",
+      "fileLabel": "Fichier de liste de coupures",
+      "import": "Importer des coupures…",
+      "export": "Exporter les coupures",
+      "reset": "Revenir aux détectées",
+      "saving": "Enregistrement…",
+      "save": "Enregistrer les coupures",
+      "conflict": "La liste des scènes a changé sur le serveur depuis son chargement. Rechargez la dernière version et réappliquez vos modifications, puis enregistrez à nouveau.",
+      "reload": "Recharger et réappliquer",
+      "addTitle": "Ajouter une coupure de scène à l’image {frame} (tête de lecture)",
+      "add": "+ Ajouter une coupure ici",
+      "removeTitleNone": "Sélectionnez d’abord un repère de coupure sur la timeline",
+      "removeTitle": "Supprimer la coupure sélectionnée (Suppr)",
+      "remove": "− Supprimer la coupure",
+      "selected": "Coupure {index} · {frame}",
+      "removeSelectedLabel": "Supprimer la coupure sélectionnée",
+      "hint": "Cliquez sur la bande pour parcourir · double-clic pour ajouter une coupure · cliquez sur un repère pour le sélectionner, glissez pour le déplacer · Suppr le supprime",
+      "legend": {
+        "cut": "coupure de scène — première image d’une nouvelle scène",
+        "playhead": "tête de lecture"
+      },
+      "importDialog": {
+        "title": "Importer des coupures de scène",
+        "body": "Remplacer {current} coupures par {imported} coupures importées ? Le remplacement reste local jusqu’à l’enregistrement.",
+        "replace": "Remplacer"
+      }
+    },
+    "sceneList": {
+      "label": "Scènes",
+      "heading": "Scènes · {count}",
+      "keyframeAlt": "image clé de la scène {scene}",
+      "scene": "Scène {scene}",
+      "mergeLabel": "Fusionner la scène {scene} avec la précédente",
+      "mergeTitle": "Supprimer la coupure à l’image {frame} et fusionner cette scène avec la scène {previous}",
+      "merge": "Fusionner ←"
+    },
+    "source": {
+      "title": "Détails de la source",
+      "rows": {
+        "file": "Fichier",
+        "size": "Taille",
+        "container": "Conteneur",
+        "length": "Durée",
+        "resolution": "Résolution",
+        "frameRate": "Cadence",
+        "frames": "Images",
+        "codec": "Codec",
+        "bitDepth": "Profondeur de bits",
+        "videoBitrate": "Débit vidéo",
+        "colour": "Couleur",
+        "rotation": "Rotation",
+        "bars": "Bandes noires",
+        "audio": "Audio",
+        "stereo": "Spatial ou 3D",
+        "camera": "Caméra"
+      },
+      "variableUpTo": "{fps} · variable, jusqu’à {max}",
+      "variable": "{fps} · variable",
+      "bitDepth": "{bits} bits",
+      "none": "Aucun",
+      "bars": {
+        "detected": "Détectées",
+        "picture": "image {size}",
+        "removed": "retirées dans votre 3D",
+        "kept": "conservées dans votre 3D"
+      },
+      "channels": {
+        "mono": "mono",
+        "stereo": "stéréo",
+        "many": "{count} canaux"
+      },
+      "stereo": {
+        "mvhevc": "Vidéo spatiale (MV-HEVC)",
+        "sbs": "3D côte à côte",
+        "tb": "3D haut et bas",
+        "spatial": "Vidéo spatiale",
+        "flat": "Non, 2D"
+      }
+    },
+    "load": {
+      "notAvailable": "Ce projet n’est pas disponible. Il a peut-être été supprimé."
+    },
+    "stepTab": {
+      "tips": "ⓘ Conseils",
+      "drawerLabel": "{title} — ce que vous obtenez et conseils",
+      "close": "Fermer les conseils",
+      "lastRun": "Dernière conversion",
+      "files": "Fichiers →",
+      "whatYouGet": "Ce que vous obtenez",
+      "tipsTitle": "Conseils"
+    },
+    "screen": {
+      "retry": "Réessayer",
+      "loading": "Chargement du projet…",
+      "analyzing": "Préparation de votre vidéo : recherche des scènes et création d’un aperçu. Cette étape est gratuite et la page se met à jour toute seule.",
+      "untitled": "Projet sans titre",
+      "copied": "Copié",
+      "supportInfo": "Infos pour l’assistance",
+      "supportInfoHint": "Copie l’identifiant de ce projet ({id}) — communiquez-le à l’assistance",
+      "analyzeFailed": "Échec de l’analyse",
+      "retrying": "Nouvel essai…",
+      "retryAnalysis": "Relancer l’analyse",
+      "shortcuts": "Raccourcis clavier",
+      "filesTitle": "Fichiers",
+      "filesDeletedOn": "Fichiers supprimés le {date}",
+      "filesKept": "Conservés tant que vous utilisez ce projet ; supprimés après 90 jours sans utilisation."
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "Un fichier {sbs} : une image pour chaque œil.",
+      "spatial": "Un fichier {spatial} : se lit en 3D dans Photos."
+    },
+    "glasses": {
+      "title": "Regarder des vidéos 3D sur les lunettes {name}",
+      "description": "Transformez vos vidéos 2D en 3D côte à côte et regardez-les sur les lunettes {name}."
+    },
+    "pages": {
+      "glasses": {
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {sbs}.",
+        "line2": "Lisez-le sur le téléphone ou l’ordinateur auquel vos lunettes sont connectées.",
+        "line3": "Passez les lunettes en mode 3D (SBS).",
+        "line4": "Lisez la vidéo en plein écran."
+      },
+      "visionPro": {
+        "title": "Regarder des vidéos 3D sur {name}",
+        "description": "Transformez vos vidéos 2D en vidéo spatiale et regardez-les en 3D sur {name}.",
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {spatial}.",
+        "line2": "Téléchargez-le sur Vision Pro, ou envoyez-le par AirDrop depuis votre iPhone ou Mac.",
+        "line3": "Ouvrez-le dans Fichiers ou Photos. Il se lit en 3D.",
+        "line4": "Ou ouvrez ce site dans Safari sur Vision Pro et sélectionnez Voir en 3D."
+      },
+      "galaxyXr": {
+        "title": "Regarder des vidéos 3D sur {name}",
+        "description": "Transformez vos vidéos 2D en 3D côte à côte et regardez-les sur {name}.",
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {sbs}.",
+        "line2": "Copiez-le sur le casque, ou téléchargez-le directement dessus.",
+        "line3": "Ouvrez-le dans Galerie ou Fichiers, puis choisissez 3D côte à côte."
+      },
+      "metaQuest": {
+        "title": "Regarder des vidéos 3D sur {name}",
+        "description": "Transformez vos vidéos 2D en 3D côte à côte et regardez-les sur {name}.",
+        "fileNote": "Un fichier {sbs} : une image pour chaque œil. En 4K et au-delà, ou si un fichier est trop volumineux, choisissez {half}.",
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {sbs}.",
+        "line2": "En 4K et au-delà, ou si le fichier est trop volumineux pour être copié ou diffusé, choisissez plutôt {half}.",
+        "line3": "Ouvrez ce site dans le navigateur Meta Quest et sélectionnez Voir en 3D, ou ouvrez le fichier dans un lecteur vidéo.",
+        "line4": "Dans le lecteur, choisissez 3D côte à côte."
+      },
+      "pico": {
+        "title": "Regarder des vidéos 3D sur {name}",
+        "description": "Transformez vos vidéos 2D en 3D côte à côte et regardez-les sur {name}.",
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {sbs}.",
+        "line2": "Ouvrez ce site dans le navigateur Pico et sélectionnez Voir en 3D, ou ouvrez le fichier dans un lecteur vidéo.",
+        "line3": "Dans le lecteur, choisissez 3D gauche-droite (côte à côte)."
+      },
+      "steamFrame": {
+        "title": "Regarder des vidéos 3D sur {name}",
+        "description": "Transformez vos vidéos 2D en 3D côte à côte et regardez-les sur {name}.",
+        "line1": "Passez n’importe quelle vidéo en 3D et choisissez le fichier {sbs}.",
+        "line2": "Copiez-le sur le casque et ouvrez-le dans un lecteur vidéo.",
+        "line3": "Dans le lecteur, choisissez 3D côte à côte."
+      },
+      "metaVrGlasses": {
+        "title": "Vidéos 3D pour les Meta VR Glasses",
+        "description": "{site} sur le web est prêt pour les Meta VR Glasses, attendues au printemps 2027.",
+        "upcoming": "printemps 2027",
+        "line1": "Les Meta VR Glasses sont attendues au printemps 2027.",
+        "line2": "{site} sur le web crée dès aujourd’hui des fichiers {sbs} et {spatial}.",
+        "line3": "Nous ajouterons ici comment les regarder à la sortie des lunettes."
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "Lunettes XR (XREAL, VITURE, RayNeo)",
+      "tvs": "TV 3D",
+      "metaVrGlasses": "Prêt pour les Meta VR Glasses, printemps 2027"
+    },
+    "headsetHint": {
+      "quest": "Dans les options d’affichage du lecteur, choisissez 3D côte à côte.",
+      "pico": "Dans le menu de mode du lecteur, choisissez 3D gauche-droite (côte à côte).",
+      "galaxyxr": "Dans le lecteur, choisissez 3D côte à côte."
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "Fête sur le toit",
+        "detail": "Les mains en l’air lors d’une fête au coucher du soleil au-dessus de la forêt."
+      },
+      "driftChase": {
+        "title": "Poursuite en drift",
+        "detail": "Un drone poursuit une voiture en dérapage dans des nuages de fumée de pneus."
+      },
+      "rooftopSingalong": {
+        "title": "Chansons sur le toit",
+        "detail": "Chant, guitare et verres entre amis sur un toit."
+      },
+      "sunsetSession": {
+        "title": "Session au coucher du soleil",
+        "detail": "Une chanteuse et son groupe sur un toit au coucher du soleil."
+      },
+      "studioTake": {
+        "title": "Prise en studio",
+        "detail": "Une chanteuse se donne à fond devant le micro."
+      },
+      "streetDance": {
+        "title": "Danse de rue",
+        "detail": "Trois amis dansent devant une tour de verre. Format portrait."
+      },
+      "insideTheWave": {
+        "title": "Dans la vague",
+        "detail": "La vue d’un surfeur dans le tube d’une vague qui déferle."
+      },
+      "fencingHall": {
+        "title": "Salle d’escrime",
+        "detail": "Des escrimeurs s’affrontent dans une salle d’entraînement pendant que d’autres passent."
+      },
+      "riverStones": {
+        "title": "Pierres de rivière",
+        "detail": "Une fille traverse des pierres ensoleillées au bord d’un ruisseau en forêt."
+      },
+      "perEye": "{size} par œil",
+      "downloads": {
+        "spatial": "Vision Pro (vidéo spatiale)",
+        "sbs": "Quest, Pico, Galaxy XR, lunettes XR (côte à côte)",
+        "original": "Original 2D, pour comparer"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "Importez à nouveau la vidéo pour créer une nouvelle 3D.",
+      "message": "Les fichiers de ce projet ont été supprimés. Importez à nouveau la vidéo pour créer une nouvelle 3D."
+    },
+    "requestFailed": "échec de la requête ({status})",
+    "csvDownloadFailed": "Impossible de télécharger le CSV.",
+    "upload": {
+      "failedStatus": "échec de l’envoi ({status})",
+      "network": "erreur réseau pendant l’envoi"
+    },
+    "eventsUnavailable": "Le flux d’état n’est pas disponible.",
+    "cutlist": {
+      "notInteger": "« {token} » n’est pas un numéro d’image entier — les listes de coupures n’acceptent que des numéros d’image entiers de la source.",
+      "outOfRange": "La coupure à l’image {frame} est hors limites — les coupures doivent être comprises dans (0, {frames}) pour cette vidéo.",
+      "missingStart": "Il manque la valeur Start Frame dans une ligne du CSV : « {row} »",
+      "noScenes": "Aucune scène trouvée dans le CSV — rien à importer.",
+      "noCuts": "Aucune image de coupure trouvée dans le fichier — rien à importer."
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 i/s {sign}{pct} % · 60 i/s ×{times} ({business} et {studio})"
+    },
+    "lengthLimits": "{method} : {limits}",
+    "tooLong": "Cette vidéo dure {m} min {s} s. Les vidéos peuvent durer {max} minutes au maximum.",
+    "stopped": "L’envoi s’est arrêté — vérifiez votre connexion, puis reprenez là où il s’était arrêté.",
+    "failed": "Échec de l’envoi — veuillez réessayer.",
+    "unsupported": "Type de fichier non pris en charge — choisissez une vidéo .mp4, .mov, .m4v ou .webm.",
+    "inputLabel": "Importer une vidéo",
+    "firstProject": "Déposez une vidéo pour démarrer votre premier projet",
+    "dragDrop": "Glissez-déposez une vidéo pour démarrer un projet",
+    "formats": ".mp4, .mov, .m4v ou .webm · {limits}",
+    "choose": "Choisir une vidéo",
+    "seePrices": "Voir les prix",
+    "uploading": "Envoi de {name}…",
+    "videoFallback": "vidéo",
+    "creating": "Création du projet…",
+    "bytes": "{done} sur {total}",
+    "estimating": "Estimation du temps restant…",
+    "resume": "Reprendre l’envoi ({pct} % envoyé)"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "Fichiers supprimés le {date}",
+      "gettingReady": "Préparation de votre vidéo",
+      "gettingReadyPct": "Préparation de votre vidéo · {pct} %",
+      "readFailed": "Impossible de lire cette vidéo",
+      "tryAgain": "Réessayer",
+      "waiting": "En file d’attente",
+      "making": "Création de la 3D",
+      "makingPct": "Création de la 3D · {pct} %",
+      "paymentNeeded": "Paiement requis",
+      "updatePayment": "Mettre à jour le moyen de paiement",
+      "ready": "3D prête",
+      "files": "Fichiers",
+      "failed": "Échec, non facturé",
+      "cancelled": "Annulé · non facturé",
+      "readyFor3d": "Prêt pour la 3D",
+      "archiveBlocked": "Ce projet a une conversion en cours. Attendez sa fin ou annulez-la avant d’archiver.",
+      "pinned": "Épinglé",
+      "untitled": "Projet sans titre",
+      "olderMethod": "Ancienne méthode",
+      "sample": "Exemple",
+      "sampleNoteArchived": "L’exemple ne peut pas être supprimé. Désarchivez-le à tout moment.",
+      "sampleNote": "Un exemple terminé à découvrir. Il n’est pas facturé et vous pouvez l’archiver.",
+      "keep": "Conserver",
+      "unpin": "Désépingler le projet",
+      "pin": "Épingler le projet",
+      "rename": "Renommer le projet",
+      "restore": "Restaurer le projet",
+      "delete": "Supprimer le projet",
+      "archive": "Archiver le projet",
+      "renameTitle": "Renommer le projet",
+      "nameLabel": "Nom du projet",
+      "save": "Enregistrer",
+      "deleteTitle": "Supprimer définitivement ce projet ?",
+      "deleteBody": "Ses fichiers sont supprimés définitivement. Vous ne pourrez plus les télécharger, et cette action est irréversible.",
+      "keepProject": "Garder le projet",
+      "deleteForGood": "Supprimer définitivement",
+      "archiveTitle": "Archiver le projet",
+      "archiveBody": "Archiver ce projet ? Vous pourrez le restaurer plus tard.",
+      "cancel": "Annuler",
+      "archiveAction": "Archiver"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "Analyse",
+        "proxy": "Création de l’aperçu",
+        "scene_detect": "Détection des scènes",
+        "thumbnails": "Miniatures",
+        "profiling": "Mesure des scènes"
+      },
+      "progressLabel": "Progression de l’analyse",
+      "failed": "Échec de l’analyse",
+      "failedWith": "Échec de l’analyse — {error}",
+      "done": "Analysé"
+    },
+    "list": {
+      "loadFailed": "Impossible de charger vos projets.",
+      "loadFailedWith": "Impossible de charger vos projets. {detail}",
+      "archivedFailed": "Échec du chargement des projets archivés.",
+      "updateFailed": "Échec de la mise à jour du projet.",
+      "deleteFailed": "Impossible de supprimer le projet. Veuillez réessayer.",
+      "title": "Projets",
+      "hideArchived": "Masquer les archivés",
+      "showArchived": "Afficher les archivés",
+      "dismiss": "Ignorer",
+      "retry": "Réessayer",
+      "loading": "Chargement des projets…",
+      "pinned": "Épinglés",
+      "all": "Tous les projets",
+      "archived": "Archivés",
+      "loadingArchived": "Chargement des projets archivés…",
+      "noArchived": "Aucun projet archivé.",
+      "hideArchivedCount": "Masquer les archivés ({count})",
+      "showArchivedCount": "Afficher les archivés ({count})"
     }
   }
 }

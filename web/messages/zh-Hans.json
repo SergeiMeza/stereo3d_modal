@@ -889,6 +889,292 @@
       "speed": "速度"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "以美元扣款。",
+      "withdrawal": "将立即开始。你同意：转换完成后，你将不再享有取消的权利。",
+      "refundedIfFails": "失败将全额退款。",
+      "saveLine": "已保存，下次转换可直接使用。你可以在账单中移除。",
+      "orPayAnotherWay": "或使用其他方式支付",
+      "paying": "支付中…",
+      "waitingConfirm": "正在等待支付确认，你可以关闭此页面。支付一完成，你的 3D 视频就会开始制作。",
+      "declined": "你的支付方式被拒绝了。请换一种方式支付。",
+      "tooMany": "尝试次数过多。请使用电子钱包，或稍后再试。",
+      "paidStarting": "已支付，正在开始生成 3D…",
+      "alreadyPaid": "这笔款项已支付。",
+      "expiredRun": "此次支付已过期。准备好后请重新开始。",
+      "unavailable": "此地区暂不支持支付。",
+      "alipayLine": "你将在支付宝中完成支付，然后返回此处。",
+      "settleTitle": "支付你最近的转换",
+      "settleFoot": "支付完成后，你的下载将立即恢复。",
+      "confirming": "正在确认你的支付…",
+      "settled": "已支付，你的下载已恢复。",
+      "alreadySettled": "已支付过，你的下载已恢复。",
+      "expired": "此次支付已过期。",
+      "confirmTitle": "确认你的支付",
+      "bankWants": "你的银行需要确认这笔支付。",
+      "declinedChoose": "你的{label}被拒绝了。请选择其他支付方式。",
+      "paymentMethod": "支付方式",
+      "paymentProblem": "你上一笔支付出现了问题。",
+      "underReview": "我们正在核查你账户上的一笔支付。",
+      "disputedRow": "因银行争议暂不可用",
+      "waitingForPayment": "等待支付…",
+      "finishPayment": "完成支付",
+      "pausedReview": "核查支付期间已暂停。",
+      "popAfter": "准备就绪后，将从你的默认支付方式扣款；失败则不扣款。将立即开始。你同意：转换完成后，你将不再享有取消的权利。",
+      "popPrecharge": "开始时将从你的默认支付方式扣款。排队等待期间或开始后的第一分钟内取消，可全额退款。将立即开始。你同意：转换完成后，你将不再享有取消的权利。",
+      "popSheet": "接下来你将选择支付方式。失败将全额退款。",
+      "payToContinue": "支付 {amount} 以继续",
+      "payAndStart": "支付 {amount} 并开始",
+      "paidMoreWaiting": "已支付 {amount}。还有一笔待支付。",
+      "settleSubtitle": "{count, plural, other {# 次转换 · 完成后扣款}}",
+      "personalUse": "仅限个人使用。商业用途需选择 Business 和 Studio 套餐。"
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "在其他设备上支付",
+      "continueAlipay": "前往支付宝",
+      "payHereInstead": "改在此处支付",
+      "startAgain": "重新开始"
+    },
+    "checkout": {
+      "payWithCard": "银行卡支付",
+      "orAddAnotherWay": "或添加其他方式"
+    },
+    "settle": {
+      "pay": "支付 {amount}",
+      "payFromBalance": "用余额支付 {amount}",
+      "balance": "余额 {amount}",
+      "tryAgain": "重试"
+    },
+    "addMethod": {
+      "title": "添加支付方式",
+      "saveDeclined": "无法保存此支付方式。请换一个。",
+      "saveTooMany": "尝试次数过多。请明天再试。",
+      "saveLimit": "最多可保存 5 个支付方式。请先移除一个。",
+      "makeDefault": "设为默认",
+      "saving": "保存中…",
+      "save": "保存支付方式",
+      "saved": "已保存。"
+    },
+    "limits": {
+      "line": "生成你的第一个 3D 视频或保存一个支付方式，即可保留超过 3 个项目和 10 GB 的上传内容。",
+      "addMethod": "添加支付方式"
+    },
+    "deleteDues": {
+      "dues": "删除账户前，你需要先完成一笔支付。",
+      "activeRuns": "删除账户前，请先取消或等待正在运行的任务完成。",
+      "deleting": "正在删除你的账户…",
+      "pay": "支付 {amount}"
+    },
+    "plan": {
+      "started": "{plan}已开通，{amount} 用量已就绪。",
+      "proUnknownKeeps": "你现有的 Pro 会继续有效。如需取消，请在购买处操作。",
+      "proNoteAppStore": "你的 App Store Pro 会继续有效。你可以在 Apple ID 设置中取消。",
+      "proNoteMacAppStore": "你的 Mac App Store Pro 会继续有效。你可以在 Apple ID 设置中取消。",
+      "proNoteGrant": "你来自 {app} 的 Pro 将与{plan}并行有效。",
+      "subtitleMonthly": "每月 {amount} 用量 · 可随时取消，有效期至已付费月份结束",
+      "subtitleYearly": "每月 {amount} 用量 · 可随时取消，有效期至已付费年份结束",
+      "companyLink": "添加公司信息以开具发票",
+      "errorPlanActive": "你已有一个套餐。请先在账单中取消，再选择其他套餐。",
+      "errorUnderReview": "我们正在核查你账户上的一笔支付。请联系支持以继续。",
+      "errorUnavailable": "套餐暂时不可用。请稍后再试。",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "按月计费。{date} 续费，直至你取消。",
+      "billedYearly": "按年计费。{date} 续费，直至你取消。",
+      "start": "开通{plan} · {amount}",
+      "startYearly": "开通{plan} · 每年 {amount}"
+    },
+    "planChange": {
+      "previewFailed": "无法计算变更费用。未扣款。",
+      "insteadOf": "替代你的{from}",
+      "changing": "变更中…",
+      "tryAgain": "重试",
+      "changeOnDate": "{date}变更为{plan}",
+      "changeOnRenewal": "续费时变更为{plan}",
+      "payAndChange": "支付 {amount} 并变更",
+      "cantChange": "暂时无法变更",
+      "workingOut": "计算中…"
+    },
+    "china": {
+      "title": "支付你的 3D 视频",
+      "scanWechat": "用微信扫码支付 {amount}",
+      "paid": "已支付。",
+      "codeExpired": "二维码已过期。",
+      "startAgain": "重新开始",
+      "payOtherDevice": "在其他设备上支付",
+      "opening": "正在打开…",
+      "wechatPhone": "如需使用微信支付，请使用电脑。",
+      "wechatHeadset": "在电脑上使用微信支付"
+    },
+    "handoff": {
+      "titleComputer": "在电脑上支付",
+      "title": "在手机或电脑上支付",
+      "startAgain": "重新开始",
+      "payHereInstead": "改在此处支付",
+      "openLink": "打开此链接：",
+      "emailMe": "把链接发到我的邮箱",
+      "sentTo": "已发送至 {email}。",
+      "sentToYou": "已发送至你的邮箱。",
+      "emailFailed": "邮件发送失败。请重试。",
+      "payingOther": "正在你的另一台设备上支付…",
+      "expiresIn": "{time}后过期"
+    },
+    "handoffPage": {
+      "paid": "已支付。你可以返回头显了。",
+      "expired": "此链接已过期。请在头显上重新开始。",
+      "bad": "此链接无法使用。请检查后重试。",
+      "limited": "尝试次数过多。请等待一分钟。",
+      "forEmail": "为 {email}",
+      "notFinished": "支付未完成。",
+      "opening": "正在打开…",
+      "continue": "继续支付"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "已用余额支付",
+      "spendLimitReached": "你已达到每月消费上限。",
+      "topupSmallPrint": "未使用的资金可在 14 天内退还。余额在你最后一次充值 12 个月后过期。",
+      "topupMin": "最低 {amount}。",
+      "settleFailed": "你的余额已不足以支付。请换一种方式支付。",
+      "paymentMethodBlocked": "此支付方式无法使用。请添加其他方式。",
+      "deletionPending": "你的账户正在删除中。",
+      "topupDaily": "你已达到今日上限。请明天再试。",
+      "topupDayLeft": "今天最多还可充值 {amount}。",
+      "autoReloadBlocked": {
+        "underReview": "我们核查支付期间，无法开启自动充值。",
+        "dispute": "银行争议未结案期间，无法开启自动充值。",
+        "paymentFailed": "在支付失败的款项付清前，无法开启自动充值。",
+        "deletionPending": "账户删除期间，无法开启自动充值。"
+      },
+      "paidFromBalanceReload": "已用余额支付。我们会先充值 {amount}。",
+      "popBalance": "开始时我们会从你的余额中预留 {amount}，最终只扣实际费用，不会多扣。失败的转换不收费。将立即开始。你同意：转换完成后，你将不再享有取消的权利。",
+      "topupMaxFirst": "首次充值最多可充 {amount}。",
+      "topupMax": "单次最多可充 {amount}。",
+      "topupDone": "已充值 {added}。你的余额为 {balance}。",
+      "reloadConsent": "每当你的余额低于 {below}，我们会从你的默认支付方式扣款 {add}。若被拒绝，将尝试你的其他支付方式。",
+      "reloadConsentWithMethod": "每当你的余额低于 {below}，我们会从你的默认支付方式（{method}）扣款 {add}。若被拒绝，将尝试你的其他支付方式。"
+    },
+    "addFunds": {
+      "title": "充值",
+      "balance": "余额",
+      "amount": "金额",
+      "other": "其他",
+      "add": "充值 {amount}"
+    },
+    "autoReload": {
+      "title": "自动充值",
+      "addAtLeast": "至少充值 {amount}。",
+      "atLeastThreshold": "充值金额不得低于触发金额（{amount}）。",
+      "methodNeeded": "保存一个支付方式后才能使用自动充值。",
+      "saveFailed": "无法保存。请重试。",
+      "addMethod": "添加支付方式",
+      "isOn": "自动充值已开启。",
+      "saved": "已保存。",
+      "saving": "保存中…",
+      "save": "保存",
+      "below": "当我的余额低于",
+      "add": "充值"
+    },
+    "spending": {
+      "title": "消费",
+      "limit": "每月消费上限",
+      "used": "每月 · 已用 {amount}",
+      "resets": "本月消费达到上限后，转换将停止。每月 1 日（UTC）重置。",
+      "alert": "余额低于以下金额时邮件通知我"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "每周",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ 周",
+        "monthly": "/ 月",
+        "yearly": "/ 年"
+      },
+      "perPeriod": {
+        "weekly": "每周 {price}",
+        "monthly": "每月 {price}",
+        "yearly": "每年 {price}"
+      },
+      "per": {
+        "weekly": "每周",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "creditLine": "加入 Pro（或首次在此用 App 中的 Pro 登录）即送 {amount} 用量额度",
+      "creditShort": "开通即送 {amount} 额度",
+      "creditRules": "{days, plural, other {请在 # 天内使用。}}不可提现。",
+      "creditRulesNoDays": "不可提现。",
+      "terms": "续费直至你取消。",
+      "loadFailed": "套餐未能加载。",
+      "signIn": "登录以获取 Pro。"
+    },
+    "list": {
+      "notOnSale": "网页版暂未销售 Pro。请在 iPhone、iPad、Mac 或 Vision Pro 上的 {app} 中获取。",
+      "purchaseFailed": "购买未成功。",
+      "ariaLabel": "Pro 套餐",
+      "save": "省 {pct}%",
+      "creditPlus": "+ {credit}",
+      "opening": "正在打开结账…",
+      "getPro": "获取 Pro"
+    },
+    "screen": {
+      "included": "你的{plan}套餐已包含 Pro。",
+      "billing": "账单",
+      "headline": "每个 3D 视频立减 {pct}%",
+      "plusCredit": "另送 {credit}，并可在 iPhone、iPad、Mac 和 Vision Pro 的 App 中使用 Pro。",
+      "plus": "并可在 iPhone、iPad、Mac 和 Vision Pro 的 App 中使用 Pro。",
+      "welcome": "欢迎使用 Pro",
+      "youArePro": "你已是 Pro",
+      "appliesToEvery": "所有报价均享 {pct}% 优惠。",
+      "backToVideo": "返回你的视频",
+      "yourProjects": "你的项目",
+      "managePlan": "管理套餐",
+      "manageBilling": "在账单中管理",
+      "manageApple": "在 Apple ID 设置中管理",
+      "manageAppleDot": "在 Apple ID 设置中管理。"
+    },
+    "membership": {
+      "web": "网页版{plan}。",
+      "appStore": "通过 App Store 开通的{plan}。",
+      "macAppStore": "通过 Mac App Store 开通的{plan}。",
+      "grant": "由 {app} 免费赠送给你账户的 Pro。",
+      "unknown": "Pro 已生效。请在购买处管理。",
+      "renewsOn": "{date}续费。",
+      "endsOn": "{date}结束。"
+    },
+    "credit": {
+      "left": "Pro 额度剩余 {left}（共 {total}）· 请于 {date} 前使用",
+      "notPaidOut": "不可提现。",
+      "title": "Pro 额度",
+      "usedFirst": "每次转换都会优先使用，之后才动用余额。",
+      "trial": "免费试用已包含此额度。"
+    },
+    "period": {
+      "previewFailed": "无法计算价格。未扣款。",
+      "switchTo": "切换为{name}",
+      "dialogTitle": "切换为 Pro {name}？",
+      "working": "正在计算今日价格…",
+      "keep": "保留我的套餐",
+      "confirmPay": "确认并支付 {amount}",
+      "confirm": "确认"
+    },
+    "checkout": {
+      "renews": "按 {price} 续费，直至你取消。",
+      "planActive": "你已有一个套餐。请在账单中管理。",
+      "unavailable": "Pro 暂时不可用。请稍后再试。",
+      "subtitleWithCredit": "{price}，含 {credit}",
+      "start": "开通 Pro · {price}",
+      "success": "Pro 已开通，现在每个视频都更便宜了。"
+    }
+  },
   "company": {
     "form": {
       "saved": "已保存。之后的发票将使用这些信息。",
@@ -1044,6 +1330,582 @@
       "balance": "余额",
       "addFunds": "充值 {amount} 起，用余额支付转换。",
       "refundable": "未花完的余额可在 {days} 天内退款。"
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "耗时比平时更长。",
+      "failed": "无法分析此视频。",
+      "retry": "重试",
+      "retrying": "正在重试…",
+      "contactSupport": "联系支持",
+      "refresh": "刷新",
+      "restartFailed": "无法重新开始分析，请重试。"
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "在视频的上方和下方发现黑边。我们会将其移除，让你的 3D 铺满画面。",
+          "sides": "在视频的左侧和右侧发现黑边。我们会将其移除，让你的 3D 铺满画面。",
+          "all": "在视频的四周发现黑边。我们会将其移除，让你的 3D 铺满画面。"
+        },
+        "keeping": {
+          "topBottom": "在视频的上方和下方发现黑边。你的 3D 会保留黑边。",
+          "sides": "在视频的左侧和右侧发现黑边。你的 3D 会保留黑边。",
+          "all": "在视频的四周发现黑边。你的 3D 会保留黑边。"
+        }
+      },
+      "perEye": "每眼 {size}",
+      "saveError": "无法保存。请重试。",
+      "groupLabel": "黑边",
+      "remove": "移除黑边（推荐）",
+      "keep": "保留",
+      "toggle": {
+        "label": "移除黑边",
+        "recommended": "推荐",
+        "removingSized": "你的视频有黑边。3D 会铺满画面，因此尺寸会随画面调整：{without}，原为 {full}。",
+        "removing": "你的视频有黑边。3D 会铺满画面，因此尺寸会随画面调整。",
+        "keepingSized": "3D 会保留黑边，尺寸为 {full}。",
+        "keeping": "3D 会保留黑边。"
+      },
+      "before": "你的视频",
+      "after": "你的 3D"
+    },
+    "filmstrip": {
+      "hoverScene": "场景 {scene} · {timecode}",
+      "zoomOut": "缩小",
+      "zoomIn": "放大",
+      "fit": "适合",
+      "zoomHint": "⌘/Ctrl + 滚动缩放 · 滚动平移",
+      "fullHeightLabel": "全高时间线",
+      "compactLabel": "紧凑时间线",
+      "fullStrip": "完整条带",
+      "compactStrip": "紧凑条带",
+      "pastPreview": "过往预览 {label}",
+      "cutAt": "在第 {frame} 帧切分"
+    },
+    "method": {
+      "tooLongForClassic": "此视频对{classic}来说太长了。{lifelike}支持任意时长的视频，因此我们保留了它。",
+      "unavailable": "{next}暂时不可用，因此你的项目保留{current}。",
+      "switchError": "无法更改方式。请重试。",
+      "longerThanClassic": "此视频的时长超出{classic}的上限。",
+      "priceUnavailable": "价格暂时不可用。",
+      "newTag": "新",
+      "compare": {
+        "forVideo": "针对此视频",
+        "forVideoAt": "针对此视频，{quality}",
+        "methodNow": "当前为{method}",
+        "price": "价格",
+        "readyIn": "完成时间",
+        "closing": "我们最新的 3D 技术。无需设置深度页面或 3D 效果页面。"
+      },
+      "stayOn": "继续使用{method}",
+      "convertWith": "使用{method}转换",
+      "offer": {
+        "priceTime": "：此视频 {price}，{time}。",
+        "price": "：此视频 {price}。",
+        "noPrice": "。",
+        "higher": "或 {quality}，{price}",
+        "move": "切换"
+      }
+    },
+    "tabs": {
+      "railLabel": "工作区页面",
+      "overview": {
+        "label": "概览",
+        "hint": "你的视频、你将获得的内容、价格和下一步"
+      },
+      "scenes": {
+        "label": "场景",
+        "hint": "查看每个场景的起点 — 免费"
+      },
+      "depth": {
+        "label": "深度",
+        "hint": "可选：预览画面中各处的远近"
+      },
+      "look": {
+        "label": "3D 效果",
+        "hint": "可选：按场景调整 3D 并预览某一刻"
+      },
+      "preview": {
+        "label": "预览",
+        "hint": "从任意时刻查看几秒钟的 3D 效果"
+      },
+      "make": {
+        "label": "生成 3D",
+        "hint": "将整个视频（或一部分）生成 3D"
+      },
+      "files": {
+        "label": "文件",
+        "hint": "你的 3D 文件、观看方式，以及每次转换的费用"
+      }
+    },
+    "shortcuts": {
+      "title": "键盘快捷键",
+      "footer": "在输入框中输入时，快捷键不会生效。按 <kbd>Esc</kbd> 关闭。",
+      "keys": {
+        "space": "空格",
+        "click": "点按",
+        "doubleClick": "双击",
+        "drag": "拖移",
+        "scroll": "滚动"
+      },
+      "pages": {
+        "title": "页面",
+        "page": "{page}页面"
+      },
+      "playback": {
+        "title": "播放（所有预览和播放器）",
+        "playPause": "播放 / 暂停",
+        "stepFrame": "精确前进或后退 1 帧",
+        "stepSecond": "前进或后退 1 秒"
+      },
+      "scenes": {
+        "title": "场景切分（场景页面）",
+        "scrub": "拖动胶片条",
+        "addCut": "在光标所在帧添加切分点",
+        "moveCut": "移动切分标记（自动吸附到帧）",
+        "removeCut": "移除所选切分点",
+        "zoom": "以播放头为中心缩放时间线"
+      },
+      "help": {
+        "title": "帮助",
+        "toggle": "显示或隐藏此面板"
+      }
+    },
+    "steps": {
+      "title": "你的步骤",
+      "stepOf": "第 {step} 步，共 {total} 步",
+      "optional": "可选",
+      "status": {
+        "analyzing": "分析中…",
+        "analyzingPercent": "分析中… {percent}%",
+        "unreadable": "无法读取视频",
+        "waiting": "等待中",
+        "ready": "已就绪",
+        "waitingInLine": "排队中",
+        "makingPercent": "生成中… {percent}%"
+      },
+      "action": {
+        "pickScenes": "选择场景",
+        "freePreview": "生成免费预览",
+        "previewPriced": "预览某一刻 · {price}",
+        "preview": "预览某一刻",
+        "seeProgress": "查看进度",
+        "make": "生成 3D",
+        "seeFiles": "查看 3D 文件",
+        "download": "下载"
+      },
+      "secondary": {
+        "straightToMake": "或直接生成 3D",
+        "checkLook": "或先查看 3D 效果",
+        "makeAgain": "或重新生成 3D"
+      }
+    },
+    "overview": {
+      "untitled": "未命名项目",
+      "method": "方式",
+      "youGet": "你将获得",
+      "youGetValue": "Vision Pro 空间视频 + 左右格式",
+      "price": "价格",
+      "priceAt": "{quality}",
+      "samplePrice": "示例：已是 3D，不收费",
+      "pricing": "正在为此视频报价…",
+      "analyzing": "我们正在分析你的视频。完成后价格会显示在这里。免费。",
+      "waiting": "你的视频正在等待查看。完成后价格会显示在这里。"
+    },
+    "viewer": {
+      "thumbAlt": "最接近的缩略图，第 {frame} 帧",
+      "previewResolution": "预览分辨率",
+      "thumbnail": "缩略图",
+      "proxyTitle": "精确到帧的预览代理 — 转换始终使用全分辨率源文件（{size}）",
+      "pauseLabel": "暂停预览",
+      "playLabel": "播放预览",
+      "pause": "❚❚ 暂停",
+      "play": "▶ 播放",
+      "stepBack": "后退一帧",
+      "stepForward": "前进一帧",
+      "activePicture": "当前画面 {size}",
+      "theaterLabel": "影院播放器",
+      "compactLabel": "紧凑播放器",
+      "theater": "影院",
+      "compact": "紧凑",
+      "keysHint": "空格 播放/暂停 · ←/→ ±1 帧 · Shift ±1 秒"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "草稿",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "很高",
+        "maximum": "最高",
+        "aspectMax": "按比例最大",
+        "sourceNative": "源文件原生"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "切分点 {cut} 不是整数帧",
+        "outside": "切分点 {cut} 超出范围 (0, {frames})",
+        "notIncreasing": "切分点在 {cut} 处未严格递增"
+      },
+      "note": {
+        "outside": "无法在第 {frame} 帧切分 — 切分点必须在 (0, {frames}) 范围内。",
+        "exists": "第 {frame} 帧已有切分点。",
+        "unreadable": "无法读取切分列表。"
+      },
+      "addReason": {
+        "atStart": "切分点必须在第 0 帧之后 — 请先移动播放头",
+        "exists": "第 {frame} 帧已有切分点"
+      },
+      "saveFailed": "保存切分点失败",
+      "title": "场景切分",
+      "description": "精确到帧的场景边界 — 之后每一步都会按场景映射深度。修改在保存前仅保留在本地。",
+      "framesFps": "{frames} 帧 · {fps} fps",
+      "unsaved": "有未保存的更改",
+      "fileLabel": "切分列表文件",
+      "import": "导入切分点…",
+      "export": "导出切分点",
+      "reset": "恢复为检测结果",
+      "saving": "保存中…",
+      "save": "保存切分点",
+      "conflict": "自你加载以来，服务器上的场景列表已更改。请重新加载最新版本并重新应用你的修改，然后再次保存。",
+      "reload": "重新加载并应用",
+      "addTitle": "在第 {frame} 帧（播放头处）添加场景切分点",
+      "add": "+ 在播放头处添加切分点",
+      "removeTitleNone": "请先在时间线上选择一个切分标记",
+      "removeTitle": "移除所选切分点（Delete）",
+      "remove": "− 移除切分点",
+      "selected": "切分点 {index} · {frame}",
+      "removeSelectedLabel": "移除所选切分点",
+      "hint": "点按条带拖动定位 · 双击添加切分点 · 点按标记可选中，拖动可移动 · Delete 键移除",
+      "legend": {
+        "cut": "场景切分 — 新场景的第一帧",
+        "playhead": "播放头"
+      },
+      "importDialog": {
+        "title": "导入场景切分点",
+        "body": "用导入的 {imported} 个切分点替换当前的 {current} 个？替换在保存前仅保留在本地。",
+        "replace": "替换"
+      }
+    },
+    "sceneList": {
+      "label": "场景",
+      "heading": "场景 · {count}",
+      "keyframeAlt": "场景 {scene} 关键帧",
+      "scene": "场景 {scene}",
+      "mergeLabel": "将场景 {scene} 合并到上一个场景",
+      "mergeTitle": "移除第 {frame} 帧的切分点，将此场景合并到场景 {previous}",
+      "merge": "合并 ←"
+    },
+    "source": {
+      "title": "源文件详情",
+      "rows": {
+        "file": "文件",
+        "size": "大小",
+        "container": "封装格式",
+        "length": "时长",
+        "resolution": "分辨率",
+        "frameRate": "帧率",
+        "frames": "帧数",
+        "codec": "编码",
+        "bitDepth": "位深",
+        "videoBitrate": "视频码率",
+        "colour": "色彩",
+        "rotation": "旋转",
+        "bars": "黑边",
+        "audio": "音频",
+        "stereo": "空间或 3D",
+        "camera": "相机"
+      },
+      "variableUpTo": "{fps} · 可变，最高 {max}",
+      "variable": "{fps} · 可变",
+      "bitDepth": "{bits} 位",
+      "none": "无",
+      "bars": {
+        "detected": "已检测到",
+        "picture": "画面 {size}",
+        "removed": "已在你的 3D 中移除",
+        "kept": "已在你的 3D 中保留"
+      },
+      "channels": {
+        "mono": "单声道",
+        "stereo": "立体声",
+        "many": "{count} 声道"
+      },
+      "stereo": {
+        "mvhevc": "空间视频 (MV-HEVC)",
+        "sbs": "左右格式 3D",
+        "tb": "上下格式 3D",
+        "spatial": "空间视频",
+        "flat": "否，2D"
+      }
+    },
+    "load": {
+      "notAvailable": "此项目不可用，可能已被移除。"
+    },
+    "stepTab": {
+      "tips": "ⓘ 提示",
+      "drawerLabel": "{title} — 你将获得的内容和提示",
+      "close": "关闭提示",
+      "lastRun": "上次转换",
+      "files": "文件 →",
+      "whatYouGet": "你将获得",
+      "tipsTitle": "提示"
+    },
+    "screen": {
+      "retry": "重试",
+      "loading": "正在加载项目…",
+      "analyzing": "正在准备你的视频：查找场景并生成预览。这一步免费，页面会自动更新。",
+      "untitled": "未命名项目",
+      "copied": "已拷贝",
+      "supportInfo": "支持信息",
+      "supportInfoHint": "拷贝此项目的 ID（{id}）— 联系支持时请提供",
+      "analyzeFailed": "分析失败",
+      "retrying": "正在重试…",
+      "retryAnalysis": "重新分析",
+      "shortcuts": "键盘快捷键",
+      "filesTitle": "文件",
+      "filesDeletedOn": "文件已于 {date}删除",
+      "filesKept": "使用此项目期间会保留；90 天未使用后将删除。"
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "{sbs}文件：每只眼睛一幅画面。",
+      "spatial": "{spatial}文件：在“照片”中以 3D 播放。"
+    },
+    "glasses": {
+      "title": "在 {name} 眼镜上观看 3D 视频",
+      "description": "将你的 2D 视频转为左右格式 3D，并在 {name} 眼镜上观看。"
+    },
+    "pages": {
+      "glasses": {
+        "line1": "将任意视频生成 3D，并选择{sbs}文件。",
+        "line2": "在与眼镜相连的手机或电脑上播放。",
+        "line3": "将眼镜切换到 3D (SBS) 模式。",
+        "line4": "全屏播放视频。"
+      },
+      "visionPro": {
+        "title": "在 {name} 上观看 3D 视频",
+        "description": "将你的 2D 视频转为空间视频，并在 {name} 上以 3D 观看。",
+        "line1": "将任意视频生成 3D，并选择{spatial}文件。",
+        "line2": "在 Vision Pro 上下载，或从 iPhone 或 Mac 隔空投送。",
+        "line3": "在“文件”或“照片”中打开，即可以 3D 播放。",
+        "line4": "或在 Vision Pro 的 Safari 中打开本网站，选择“以 3D 查看”。"
+      },
+      "galaxyXr": {
+        "title": "在 {name} 上观看 3D 视频",
+        "description": "将你的 2D 视频转为左右格式 3D，并在 {name} 上观看。",
+        "line1": "将任意视频生成 3D，并选择{sbs}文件。",
+        "line2": "拷贝到头显，或直接在头显上下载。",
+        "line3": "在“图库”或“文件”中打开，然后选择 3D 左右格式。"
+      },
+      "metaQuest": {
+        "title": "在 {name} 上观看 3D 视频",
+        "description": "将你的 2D 视频转为左右格式 3D，并在 {name} 上观看。",
+        "fileNote": "{sbs}文件：每只眼睛一幅画面。4K 及以上，或文件过大时，请选择{half}。",
+        "line1": "将任意视频生成 3D，并选择{sbs}文件。",
+        "line2": "4K 及以上，或文件过大无法拷贝或串流时，请改选{half}。",
+        "line3": "在 Meta Quest 浏览器中打开本网站并选择“以 3D 查看”，或用视频播放器打开文件。",
+        "line4": "在播放器中选择 3D 左右格式。"
+      },
+      "pico": {
+        "title": "在 {name} 上观看 3D 视频",
+        "description": "将你的 2D 视频转为左右格式 3D，并在 {name} 上观看。",
+        "line1": "将任意视频生成 3D，并选择{sbs}文件。",
+        "line2": "在 Pico 浏览器中打开本网站并选择“以 3D 查看”，或用视频播放器打开文件。",
+        "line3": "在播放器中选择 3D 左右（左右格式）。"
+      },
+      "steamFrame": {
+        "title": "在 {name} 上观看 3D 视频",
+        "description": "将你的 2D 视频转为左右格式 3D，并在 {name} 上观看。",
+        "line1": "将任意视频生成 3D，并选择{sbs}文件。",
+        "line2": "拷贝到头显，并用视频播放器打开。",
+        "line3": "在播放器中选择 3D 左右格式。"
+      },
+      "metaVrGlasses": {
+        "title": "适用于 Meta VR Glasses 的 3D 视频",
+        "description": "网页版 {site} 已为预计 2027 年春季推出的 Meta VR Glasses 做好准备。",
+        "upcoming": "2027 年春季",
+        "line1": "Meta VR Glasses 预计于 2027 年春季推出。",
+        "line2": "网页版 {site} 现在即可生成{sbs}和{spatial}文件。",
+        "line3": "眼镜上市后，我们会在此补充观看方式。"
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XR 眼镜（XREAL、VITURE、RayNeo）",
+      "tvs": "3D 电视",
+      "metaVrGlasses": "已适配 Meta VR Glasses，2027 年春季"
+    },
+    "headsetHint": {
+      "quest": "在播放器的视图选项中，选择 3D 左右格式。",
+      "pico": "在播放器的模式菜单中，选择 3D 左右（左右格式）。",
+      "galaxyxr": "在播放器中选择 3D 左右格式。"
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "屋顶派对",
+        "detail": "日落派对上，人们在森林上方高举双手。"
+      },
+      "driftChase": {
+        "title": "漂移追逐",
+        "detail": "无人机穿过轮胎烟雾，追拍一辆漂移的汽车。"
+      },
+      "rooftopSingalong": {
+        "title": "屋顶合唱",
+        "detail": "朋友们在屋顶上唱歌、弹吉他、小酌。"
+      },
+      "sunsetSession": {
+        "title": "日落演出",
+        "detail": "夕阳西下，一位歌手和她的乐队在屋顶演出。"
+      },
+      "studioTake": {
+        "title": "录音棚现场",
+        "detail": "一位歌手在麦克风前倾情演唱。"
+      },
+      "streetDance": {
+        "title": "街舞",
+        "detail": "三位朋友在玻璃大楼前跳舞。竖屏。"
+      },
+      "insideTheWave": {
+        "title": "浪筒之中",
+        "detail": "冲浪者视角，穿过卷浪的浪筒。"
+      },
+      "fencingHall": {
+        "title": "击剑馆",
+        "detail": "训练馆内，击剑手对练，其他人从旁走过。"
+      },
+      "riverStones": {
+        "title": "河中石",
+        "detail": "一个女孩踩着林间溪流中阳光下的石头走过。"
+      },
+      "perEye": "每眼 {size}",
+      "downloads": {
+        "spatial": "Vision Pro（空间视频）",
+        "sbs": "Quest、Pico、Galaxy XR、XR 眼镜（左右格式）",
+        "original": "2D 原片，用于对比"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "请重新上传视频以生成新的 3D。",
+      "message": "此项目的文件已被删除。请重新上传视频以生成新的 3D。"
+    },
+    "requestFailed": "请求失败 ({status})",
+    "csvDownloadFailed": "无法下载 CSV。",
+    "upload": {
+      "failedStatus": "上传失败 ({status})",
+      "network": "上传网络错误"
+    },
+    "eventsUnavailable": "状态流不可用。",
+    "cutlist": {
+      "notInteger": "“{token}”不是整数帧序号 — 切分列表只能使用源视频的整数帧号。",
+      "outOfRange": "第 {frame} 帧的切分点超出范围 — 此视频的切分点必须在 (0, {frames}) 范围内。",
+      "missingStart": "CSV 中有一行缺少起始帧的值：“{row}”",
+      "noScenes": "CSV 中没有找到场景 — 没有可导入的内容。",
+      "noCuts": "文件中没有找到切分帧 — 没有可导入的内容。"
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}{pct}% · 60 fps ×{times}（{business}和{studio}）"
+    },
+    "lengthLimits": "{method}：{limits}",
+    "tooLong": "此视频时长为 {m} 分 {s} 秒。视频最长不能超过 {max} 分钟。",
+    "stopped": "上传已中断 — 请检查网络连接，然后从中断处继续。",
+    "failed": "上传失败，请重试。",
+    "unsupported": "不支持的文件类型 — 请选择 .mp4、.mov、.m4v 或 .webm 视频。",
+    "inputLabel": "上传视频",
+    "firstProject": "拖入视频，开始你的第一个项目",
+    "dragDrop": "拖放视频以开始项目",
+    "formats": ".mp4、.mov、.m4v 或 .webm · {limits}",
+    "choose": "选择视频",
+    "seePrices": "查看价格",
+    "uploading": "正在上传 {name}…",
+    "videoFallback": "视频",
+    "creating": "正在创建项目…",
+    "bytes": "{done} / {total}",
+    "estimating": "正在估算剩余时间…",
+    "resume": "继续上传（已发送 {pct}%）"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "文件已于 {date}删除",
+      "gettingReady": "正在准备你的视频",
+      "gettingReadyPct": "正在准备你的视频 · {pct}%",
+      "readFailed": "无法读取此视频",
+      "tryAgain": "重试",
+      "waiting": "排队中",
+      "making": "生成 3D 中",
+      "makingPct": "生成 3D 中 · {pct}%",
+      "paymentNeeded": "需要支付",
+      "updatePayment": "更新支付方式",
+      "ready": "3D 已完成",
+      "files": "文件",
+      "failed": "失败，未扣款",
+      "cancelled": "已取消 · 未扣款",
+      "readyFor3d": "可生成 3D",
+      "archiveBlocked": "此项目有正在进行的转换。请等待完成或取消后再归档。",
+      "pinned": "已置顶",
+      "untitled": "未命名项目",
+      "olderMethod": "旧版方式",
+      "sample": "示例",
+      "sampleNoteArchived": "示例无法删除。你可以随时取消归档。",
+      "sampleNote": "一个已完成的示例，供你随意查看。不收费，你也可以将其归档。",
+      "keep": "保留",
+      "unpin": "取消置顶项目",
+      "pin": "置顶项目",
+      "rename": "重命名项目",
+      "restore": "恢复项目",
+      "delete": "删除项目",
+      "archive": "归档项目",
+      "renameTitle": "重命名项目",
+      "nameLabel": "项目名称",
+      "save": "保存",
+      "deleteTitle": "永久删除此项目？",
+      "deleteBody": "其文件将被永久移除。你将无法再次下载，且此操作无法撤销。",
+      "keepProject": "保留项目",
+      "deleteForGood": "永久删除",
+      "archiveTitle": "归档项目",
+      "archiveBody": "归档此项目？你之后可以恢复。",
+      "cancel": "取消",
+      "archiveAction": "归档"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "分析中",
+        "proxy": "生成预览",
+        "scene_detect": "检测场景",
+        "thumbnails": "缩略图",
+        "profiling": "测量场景"
+      },
+      "progressLabel": "分析进度",
+      "failed": "分析失败",
+      "failedWith": "分析失败 — {error}",
+      "done": "已分析"
+    },
+    "list": {
+      "loadFailed": "无法加载你的项目。",
+      "loadFailedWith": "无法加载你的项目。{detail}",
+      "archivedFailed": "无法加载已归档的项目。",
+      "updateFailed": "更新项目失败。",
+      "deleteFailed": "无法删除项目。请重试。",
+      "title": "项目",
+      "hideArchived": "隐藏已归档",
+      "showArchived": "显示已归档",
+      "dismiss": "关闭",
+      "retry": "重试",
+      "loading": "正在加载项目…",
+      "pinned": "已置顶",
+      "all": "全部项目",
+      "archived": "已归档",
+      "loadingArchived": "正在加载已归档的项目…",
+      "noArchived": "没有已归档的项目。",
+      "hideArchivedCount": "隐藏已归档（{count}）",
+      "showArchivedCount": "显示已归档（{count}）"
     }
   }
 }

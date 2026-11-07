@@ -889,6 +889,292 @@
       "speed": "速度"
     }
   },
+  "pay": {
+    "copy": {
+      "chargedInUsd": "以美元收費。",
+      "withdrawal": "立即開始。完成後，你即同意放棄取消的權利。",
+      "refundedIfFails": "若失敗，將全額退款。",
+      "saveLine": "已儲存供下次轉換使用。你可以在「帳務」中移除。",
+      "orPayAnotherWay": "或使用其他付款方式",
+      "paying": "付款中…",
+      "waitingConfirm": "正在等待付款確認。你可以關閉此頁面，付款完成後會立即開始製作你的 3D 影片。",
+      "declined": "你的付款方式被拒絕。請改用其他付款方式。",
+      "tooMany": "嘗試次數過多。請改用電子錢包，或稍後再試。",
+      "paidStarting": "已付款。正在開始製作你的 3D…",
+      "alreadyPaid": "此項目已付款。",
+      "expiredRun": "此付款已過期。準備好後請重新開始。",
+      "unavailable": "此地區暫不支援付款。",
+      "alipayLine": "你將在支付寶完成付款，然後回到這裡。",
+      "settleTitle": "支付最近的轉換費用",
+      "settleFoot": "付款完成後，你的下載檔案會立即恢復。",
+      "confirming": "正在確認你的付款…",
+      "settled": "已付款。你的下載檔案已恢復。",
+      "alreadySettled": "已付款。你的下載檔案已恢復。",
+      "expired": "此付款已過期。",
+      "confirmTitle": "確認你的付款",
+      "bankWants": "你的銀行需要確認這筆付款。",
+      "declinedChoose": "你的{label}被拒絕。請選擇其他付款方式。",
+      "paymentMethod": "付款方式",
+      "paymentProblem": "你最近一筆付款有問題。",
+      "underReview": "我們正在檢查你帳號上的一筆付款。",
+      "disputedRow": "與銀行發生爭議期間無法使用",
+      "waitingForPayment": "等待付款中…",
+      "finishPayment": "完成付款",
+      "pausedReview": "檢查付款期間已暫停。",
+      "popAfter": "準備好後會向你的預設付款方式收費。若失敗則不收費。立即開始。完成後，你即同意放棄取消的權利。",
+      "popPrecharge": "開始時會向你的預設付款方式收費。在排隊等候期間或開始後的第一分鐘內取消，可全額退款。立即開始。完成後，你即同意放棄取消的權利。",
+      "popSheet": "接下來你將選擇付款方式。若失敗，將全額退款。",
+      "payToContinue": "支付 {amount} 以繼續",
+      "payAndStart": "支付 {amount} 並開始",
+      "paidMoreWaiting": "已支付 {amount}。還有一筆付款在等待。",
+      "settleSubtitle": "{count, plural, other {# 次轉換 · 完成後收費}}",
+      "personalUse": "僅供個人使用。商業用途請選擇 Business 與 Studio 方案。"
+    },
+    "sheet": {
+      "title": "{action} · {amount}",
+      "payOtherDevice": "在其他裝置上付款",
+      "continueAlipay": "前往支付寶",
+      "payHereInstead": "改在此處付款",
+      "startAgain": "重新開始"
+    },
+    "checkout": {
+      "payWithCard": "使用信用卡付款",
+      "orAddAnotherWay": "或新增其他付款方式"
+    },
+    "settle": {
+      "pay": "支付 {amount}",
+      "payFromBalance": "用餘額支付 {amount}",
+      "balance": "餘額 {amount}",
+      "tryAgain": "再試一次"
+    },
+    "addMethod": {
+      "title": "新增付款方式",
+      "saveDeclined": "無法儲存此付款方式。請改用其他付款方式。",
+      "saveTooMany": "嘗試次數過多。請明天再試。",
+      "saveLimit": "最多可儲存 5 個付款方式。請先移除一個。",
+      "makeDefault": "設為我的預設",
+      "saving": "儲存中…",
+      "save": "儲存付款方式",
+      "saved": "已儲存。"
+    },
+    "limits": {
+      "line": "製作你的第一支 3D 影片，或儲存一個付款方式，即可保留超過 3 個專案與 10 GB 的上傳內容。",
+      "addMethod": "新增付款方式"
+    },
+    "deleteDues": {
+      "dues": "刪除帳號前，你還有一筆付款需要完成。",
+      "activeRuns": "刪除帳號前，請先取消或等待進行中的工作完成。",
+      "deleting": "正在刪除你的帳號…",
+      "pay": "支付 {amount}"
+    },
+    "plan": {
+      "started": "{plan}已啟用。{amount} 的用量已備妥。",
+      "proUnknownKeeps": "你目前的 Pro 會繼續有效。如有需要，請在購買處取消。",
+      "proNoteAppStore": "你的 App Store Pro 會繼續有效。你可以在 Apple ID 設定中取消。",
+      "proNoteMacAppStore": "你的 Mac App Store Pro 會繼續有效。你可以在 Apple ID 設定中取消。",
+      "proNoteGrant": "你來自 {app} 的 Pro 會與{plan}並行有效。",
+      "subtitleMonthly": "每月 {amount} 用量 · 隨時可取消；有效期至已付費月份結束",
+      "subtitleYearly": "每月 {amount} 用量 · 隨時可取消；有效期至已付費年度結束",
+      "companyLink": "新增公司資料以開立發票",
+      "errorPlanActive": "你已有方案。請先在「帳務」中取消，再選擇其他方案。",
+      "errorUnderReview": "我們正在檢查你帳號上的一筆付款。請聯絡支援團隊以繼續。",
+      "errorUnavailable": "目前無法使用方案。請稍後再試。",
+      "title": "{plan} · {price} {per}",
+      "billedMonthly": "按月計費。於 {date} 續訂，直到你取消。",
+      "billedYearly": "按年計費。於 {date} 續訂，直到你取消。",
+      "start": "開始 {plan} · {amount}",
+      "startYearly": "開始 {plan} · 每年 {amount}"
+    },
+    "planChange": {
+      "previewFailed": "無法計算變更內容。未收取任何費用。",
+      "insteadOf": "取代你目前的{from}",
+      "changing": "變更中…",
+      "tryAgain": "再試一次",
+      "changeOnDate": "於 {date} 變更為{plan}",
+      "changeOnRenewal": "續訂時變更為{plan}",
+      "payAndChange": "支付 {amount} 並變更",
+      "cantChange": "目前無法變更",
+      "workingOut": "計算中…"
+    },
+    "china": {
+      "title": "支付你的 3D 影片費用",
+      "scanWechat": "用微信掃碼支付 {amount}",
+      "paid": "已付款。",
+      "codeExpired": "二維碼已過期。",
+      "startAgain": "重新開始",
+      "payOtherDevice": "在其他裝置上付款",
+      "opening": "開啟中…",
+      "wechatPhone": "若要使用微信付款，請使用電腦。",
+      "wechatHeadset": "請在電腦上使用微信付款"
+    },
+    "handoff": {
+      "titleComputer": "在電腦上付款",
+      "title": "在手機或電腦上付款",
+      "startAgain": "重新開始",
+      "payHereInstead": "改在此處付款",
+      "openLink": "開啟此連結：",
+      "emailMe": "將連結寄給我",
+      "sentTo": "已寄至 {email}。",
+      "sentToYou": "已寄至你的電子郵件。",
+      "emailFailed": "無法寄出電子郵件。請再試一次。",
+      "payingOther": "正在你的另一台裝置上付款…",
+      "expiresIn": "{time}後到期"
+    },
+    "handoffPage": {
+      "paid": "已付款。你可以回到你的頭戴裝置了。",
+      "expired": "此連結已過期。請從你的頭戴裝置重新開始。",
+      "bad": "此連結無法使用。請檢查後再試一次。",
+      "limited": "嘗試次數過多。請稍候一分鐘。",
+      "forEmail": "給 {email}",
+      "notFinished": "付款未完成。",
+      "opening": "開啟中…",
+      "continue": "前往付款"
+    }
+  },
+  "balance": {
+    "copy": {
+      "paidFromBalance": "用餘額支付",
+      "spendLimitReached": "你已達到每月支出上限。",
+      "topupSmallPrint": "未使用的款項可在 14 天內退款。你的餘額將在最後一次儲值後 12 個月到期。",
+      "topupMin": "最低金額為 {amount}。",
+      "settleFailed": "你的餘額已不足以支付。請改用其他付款方式。",
+      "paymentMethodBlocked": "此付款方式無法使用。請新增其他付款方式。",
+      "deletionPending": "你的帳號正在刪除中。",
+      "topupDaily": "你已達到今日上限。請明天再試。",
+      "topupDayLeft": "今天還可再儲值 {amount}。",
+      "autoReloadBlocked": {
+        "underReview": "檢查付款期間無法開啟自動儲值。",
+        "dispute": "銀行爭議處理期間無法開啟自動儲值。",
+        "paymentFailed": "在失敗的付款補繳之前，無法開啟自動儲值。",
+        "deletionPending": "帳號刪除期間無法開啟自動儲值。"
+      },
+      "paidFromBalanceReload": "已用餘額支付。我們會先儲值 {amount}。",
+      "popBalance": "開始時，我們會從你的餘額保留 {amount}，且只扣除最終費用，絕不多收。失敗的轉換不收費。立即開始。完成後，你即同意放棄取消的權利。",
+      "topupMaxFirst": "首次儲值最多可儲值 {amount}。",
+      "topupMax": "單次最多可儲值 {amount}。",
+      "topupDone": "已儲值 {added}。你的餘額為 {balance}。",
+      "reloadConsent": "每當你的餘額低於 {below}，我們就會向你的預設付款方式收取 {add}。若被拒絕，我們會嘗試你的其他付款方式。",
+      "reloadConsentWithMethod": "每當你的餘額低於 {below}，我們就會向你的預設付款方式（{method}）收取 {add}。若被拒絕，我們會嘗試你的其他付款方式。"
+    },
+    "addFunds": {
+      "title": "儲值",
+      "balance": "餘額",
+      "amount": "金額",
+      "other": "其他",
+      "add": "儲值 {amount}"
+    },
+    "autoReload": {
+      "title": "自動儲值",
+      "addAtLeast": "至少儲值 {amount}。",
+      "atLeastThreshold": "儲值金額至少要等於門檻（{amount}）。",
+      "methodNeeded": "請先儲存付款方式，才能使用自動儲值。",
+      "saveFailed": "無法儲存。請再試一次。",
+      "addMethod": "新增付款方式",
+      "isOn": "自動儲值已開啟。",
+      "saved": "已儲存。",
+      "saving": "儲存中…",
+      "save": "儲存",
+      "below": "當我的餘額低於",
+      "add": "儲值"
+    },
+    "spending": {
+      "title": "支出",
+      "limit": "每月支出上限",
+      "used": "每月 · 已使用 {amount}",
+      "resets": "本月支出達到上限時，轉換將會停止。於每月 1 日（UTC）重設。",
+      "alert": "餘額低於以下金額時寄電子郵件通知我"
+    }
+  },
+  "pro": {
+    "plans": {
+      "name": {
+        "weekly": "每週",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "proName": "Pro {name}",
+      "cadence": {
+        "weekly": "/ 週",
+        "monthly": "/ 月",
+        "yearly": "/ 年"
+      },
+      "perPeriod": {
+        "weekly": "每週 {price}",
+        "monthly": "每月 {price}",
+        "yearly": "每年 {price}"
+      },
+      "per": {
+        "weekly": "每週",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "creditLine": "加入 Pro（或首次在此以 App 的 Pro 登入）即可獲得 {amount} 用量額度",
+      "creditShort": "首次贈送 {amount} 額度",
+      "creditRules": "{days, plural, other {請於 # 天內使用。}}額度不可兌現。",
+      "creditRulesNoDays": "額度不可兌現。",
+      "terms": "持續續訂，直到你取消。",
+      "loadFailed": "方案載入失敗。",
+      "signIn": "請登入以取得 Pro。"
+    },
+    "list": {
+      "notOnSale": "Pro 尚未在網頁上架。請在 iPhone、iPad、Mac 或 Vision Pro 上的 {app} 取得。",
+      "purchaseFailed": "購買未成功。",
+      "ariaLabel": "Pro 方案",
+      "save": "節省 {pct}%",
+      "creditPlus": "+ {credit}",
+      "opening": "正在開啟結帳…",
+      "getPro": "取得 Pro"
+    },
+    "screen": {
+      "included": "你的{plan}方案已包含 Pro。",
+      "billing": "帳務",
+      "headline": "每支 3D 影片 {pct}% 折扣",
+      "plusCredit": "另贈 {credit}，並可在 iPhone、iPad、Mac 與 Vision Pro 的 App 中使用 Pro。",
+      "plus": "另可在 iPhone、iPad、Mac 與 Vision Pro 的 App 中使用 Pro。",
+      "welcome": "歡迎加入 Pro",
+      "youArePro": "你已是 Pro",
+      "appliesToEvery": "{pct}% 折扣適用於每一筆報價。",
+      "backToVideo": "回到你的影片",
+      "yourProjects": "你的專案",
+      "managePlan": "管理方案",
+      "manageBilling": "在「帳務」中管理",
+      "manageApple": "在 Apple ID 設定中管理",
+      "manageAppleDot": "在 Apple ID 設定中管理。"
+    },
+    "membership": {
+      "web": "網頁版{plan}。",
+      "appStore": "透過 App Store 的{plan}。",
+      "macAppStore": "透過 Mac App Store 的{plan}。",
+      "grant": "{app} 已免費贈送 Pro 給你的帳號。",
+      "unknown": "Pro 已啟用。請在你購買的地方管理。",
+      "renewsOn": "於 {date} 續訂。",
+      "endsOn": "於 {date} 結束。"
+    },
+    "credit": {
+      "left": "Pro 額度剩餘 {left}／{total} · 請於 {date} 前使用",
+      "notPaidOut": "額度不可兌現。",
+      "title": "Pro 額度",
+      "usedFirst": "每次轉換都會先使用，再扣餘額。",
+      "trial": "你的免費試用已包含。"
+    },
+    "period": {
+      "previewFailed": "無法計算價格。未收取任何費用。",
+      "switchTo": "切換為{name}",
+      "dialogTitle": "切換為 Pro {name}？",
+      "working": "正在計算今日價格…",
+      "keep": "保留我的方案",
+      "confirmPay": "確認並支付 {amount}",
+      "confirm": "確認"
+    },
+    "checkout": {
+      "renews": "以 {price} 續訂，直到你取消。",
+      "planActive": "你已有方案。請在「帳務」中管理。",
+      "unavailable": "目前無法使用 Pro。請稍後再試。",
+      "subtitleWithCredit": "{price}，含{credit}",
+      "start": "開始 Pro · {price}",
+      "success": "Pro 已啟用。現在每支影片都更便宜。"
+    }
+  },
   "company": {
     "form": {
       "saved": "已儲存。之後的發票會使用這些資料。",
@@ -1044,6 +1330,582 @@
       "balance": "餘額",
       "addFunds": "儲值 {amount} 起，並以餘額支付轉換費用。",
       "refundable": "未花用的款項可在 {days} 天內退款。"
+    }
+  },
+  "workspace": {
+    "analyze": {
+      "slow": "這比平常花的時間久。",
+      "failed": "無法分析此影片。",
+      "retry": "再試一次",
+      "retrying": "再試一次…",
+      "contactSupport": "聯絡支援團隊",
+      "refresh": "重新整理",
+      "restartFailed": "無法重新開始分析，請再試一次。"
+    },
+    "bars": {
+      "notice": {
+        "removing": {
+          "topBottom": "在影片的上方與下方發現黑邊。我們會移除黑邊，讓你的 3D 填滿畫面。",
+          "sides": "在影片的左右兩側發現黑邊。我們會移除黑邊，讓你的 3D 填滿畫面。",
+          "all": "在影片的四周發現黑邊。我們會移除黑邊，讓你的 3D 填滿畫面。"
+        },
+        "keeping": {
+          "topBottom": "在影片的上方與下方發現黑邊。你的 3D 會保留黑邊。",
+          "sides": "在影片的左右兩側發現黑邊。你的 3D 會保留黑邊。",
+          "all": "在影片的四周發現黑邊。你的 3D 會保留黑邊。"
+        }
+      },
+      "perEye": "每眼 {size}",
+      "saveError": "無法儲存。請再試一次。",
+      "groupLabel": "黑邊",
+      "remove": "移除黑邊（建議）",
+      "keep": "保留黑邊",
+      "toggle": {
+        "label": "移除黑邊",
+        "recommended": "建議",
+        "removingSized": "你的影片有黑邊。3D 會填滿畫面，因此尺寸會配合畫面調整：{without}，而非 {full}。",
+        "removing": "你的影片有黑邊。3D 會填滿畫面，因此尺寸會配合畫面調整。",
+        "keepingSized": "3D 會保留黑邊，尺寸為 {full}。",
+        "keeping": "3D 會保留黑邊。"
+      },
+      "before": "你的影片",
+      "after": "你的 3D"
+    },
+    "filmstrip": {
+      "hoverScene": "場景 {scene} · {timecode}",
+      "zoomOut": "縮小",
+      "zoomIn": "放大",
+      "fit": "符合視窗",
+      "zoomHint": "⌘/Ctrl + 捲動可縮放 · 捲動可平移",
+      "fullHeightLabel": "全高時間軸",
+      "compactLabel": "精簡時間軸",
+      "fullStrip": "完整縮圖列",
+      "compactStrip": "精簡縮圖列",
+      "pastPreview": "過去的預覽 {label}",
+      "cutAt": "在第 {frame} 格切割"
+    },
+    "method": {
+      "tooLongForClassic": "此影片太長，無法使用{classic}。{lifelike}支援任何長度的影片，因此我們已保留。",
+      "unavailable": "目前無法使用{next}，所以你的專案會保留{current}。",
+      "switchError": "無法變更方式。請再試一次。",
+      "longerThanClassic": "此影片超過{classic}可處理的長度。",
+      "priceUnavailable": "目前無法取得價格。",
+      "newTag": "新",
+      "compare": {
+        "forVideo": "針對此影片",
+        "forVideoAt": "針對此影片（{quality}）",
+        "methodNow": "目前的{method}",
+        "price": "價格",
+        "readyIn": "完成時間",
+        "closing": "我們最新的 3D 技術。無需設定深度或 3D 外觀頁面。"
+      },
+      "stayOn": "繼續使用{method}",
+      "convertWith": "改用{method}轉換",
+      "offer": {
+        "priceTime": "：此影片 {price}，{time}。",
+        "price": "：此影片 {price}。",
+        "noPrice": "。",
+        "higher": "或以 {price} 使用{quality}",
+        "move": "改用"
+      }
+    },
+    "tabs": {
+      "railLabel": "工作區頁面",
+      "overview": {
+        "label": "總覽",
+        "hint": "你的影片、你會得到什麼、價格與下一步"
+      },
+      "scenes": {
+        "label": "場景",
+        "hint": "檢查每個場景的起點 — 免費"
+      },
+      "depth": {
+        "label": "深度",
+        "hint": "選用：預覽每樣物體有多遠"
+      },
+      "look": {
+        "label": "3D 外觀",
+        "hint": "選用：逐場景調整 3D，並預覽某個片刻"
+      },
+      "preview": {
+        "label": "預覽",
+        "hint": "從任一時刻觀看幾秒的 3D"
+      },
+      "make": {
+        "label": "製作 3D",
+        "hint": "將整支影片（或一部分）製作成 3D"
+      },
+      "files": {
+        "label": "檔案",
+        "hint": "你的 3D 檔案、觀看方式，以及每次轉換的費用"
+      }
+    },
+    "shortcuts": {
+      "title": "鍵盤快速鍵",
+      "footer": "在欄位中輸入時，快速鍵會被忽略。按 <kbd>Esc</kbd> 關閉。",
+      "keys": {
+        "space": "空白鍵",
+        "click": "點擊",
+        "doubleClick": "點兩下",
+        "drag": "拖曳",
+        "scroll": "捲動"
+      },
+      "pages": {
+        "title": "頁面",
+        "page": "{page}頁面"
+      },
+      "playback": {
+        "title": "播放（所有預覽與播放器）",
+        "playPause": "播放 / 暫停",
+        "stepFrame": "精確前進或後退 1 格",
+        "stepSecond": "前進或後退 1 秒"
+      },
+      "scenes": {
+        "title": "場景切換（場景頁面）",
+        "scrub": "拖曳瀏覽縮圖列",
+        "addCut": "在游標所在格新增切割點",
+        "moveCut": "移動切割標記（自動對齊影格）",
+        "removeCut": "移除所選切割點",
+        "zoom": "在播放頭位置縮放時間軸"
+      },
+      "help": {
+        "title": "說明",
+        "toggle": "切換此面板"
+      }
+    },
+    "steps": {
+      "title": "你的步驟",
+      "stepOf": "第 {step} 步，共 {total} 步",
+      "optional": "選用",
+      "status": {
+        "analyzing": "分析中…",
+        "analyzingPercent": "分析中… {percent}%",
+        "unreadable": "無法讀取影片",
+        "waiting": "等待中",
+        "ready": "就緒",
+        "waitingInLine": "排隊等候中",
+        "makingPercent": "製作中… {percent}%"
+      },
+      "action": {
+        "pickScenes": "選擇場景",
+        "freePreview": "製作免費預覽",
+        "previewPriced": "預覽某個片刻 · {price}",
+        "preview": "預覽某個片刻",
+        "seeProgress": "查看進度",
+        "make": "製作 3D",
+        "seeFiles": "查看 3D 檔案",
+        "download": "下載"
+      },
+      "secondary": {
+        "straightToMake": "或直接前往製作 3D",
+        "checkLook": "或先檢查 3D 外觀",
+        "makeAgain": "或重新製作 3D"
+      }
+    },
+    "overview": {
+      "untitled": "未命名專案",
+      "method": "方式",
+      "youGet": "你會得到",
+      "youGetValue": "Vision Pro 空間影片 + 左右格式",
+      "price": "價格",
+      "priceAt": "{quality} 畫質",
+      "samplePrice": "範例：已是 3D，不會計費",
+      "pricing": "正在為此影片計價…",
+      "analyzing": "我們正在分析你的影片。完成後價格會顯示在這裡。免費。",
+      "waiting": "你的影片正在等待檢視。完成後價格會顯示在這裡。"
+    },
+    "viewer": {
+      "thumbAlt": "最接近的縮圖，第 {frame} 格",
+      "previewResolution": "預覽解析度",
+      "thumbnail": "縮圖",
+      "proxyTitle": "逐格精確的預覽代理檔 — 轉換一律使用完整解析度的原始檔（{size}）",
+      "pauseLabel": "暫停預覽",
+      "playLabel": "播放預覽",
+      "pause": "❚❚ 暫停",
+      "play": "▶ 播放",
+      "stepBack": "後退一格",
+      "stepForward": "前進一格",
+      "activePicture": "實際畫面 {size}",
+      "theaterLabel": "劇院播放器",
+      "compactLabel": "精簡播放器",
+      "theater": "劇院",
+      "compact": "精簡",
+      "keysHint": "空白鍵 播放/暫停 · ←/→ ±1 格 · Shift ±1 秒"
+    },
+    "depthRes": {
+      "label": "{value} — {name}",
+      "names": {
+        "draft": "草稿",
+        "standard": "Standard",
+        "high": "High",
+        "veryHigh": "極高",
+        "maximum": "最大",
+        "aspectMax": "依長寬比最大",
+        "sourceNative": "原始解析度"
+      }
+    },
+    "cuts": {
+      "invalid": {
+        "notInteger": "切割點 {cut} 不是整數影格",
+        "outside": "切割點 {cut} 超出範圍 (0, {frames})",
+        "notIncreasing": "切割點未嚴格遞增，位於 {cut}"
+      },
+      "note": {
+        "outside": "無法在第 {frame} 格切割 — 切割點必須在 (0, {frames}) 之內。",
+        "exists": "第 {frame} 格已有切割點。",
+        "unreadable": "無法讀取切割清單。"
+      },
+      "addReason": {
+        "atStart": "切割點必須在第 0 格之後 — 請先移動播放頭",
+        "exists": "第 {frame} 格已有切割點"
+      },
+      "saveFailed": "儲存切割點失敗",
+      "title": "場景切割點",
+      "description": "逐格精確的場景邊界 — 之後每個步驟都會依場景對應深度。儲存前，編輯內容只會保留在本機。",
+      "framesFps": "{frames} 格 · {fps} fps",
+      "unsaved": "有尚未儲存的變更",
+      "fileLabel": "切割清單檔案",
+      "import": "匯入切割點…",
+      "export": "匯出切割點",
+      "reset": "重設為偵測結果",
+      "saving": "儲存中…",
+      "save": "儲存切割點",
+      "conflict": "自你載入後，伺服器上的場景清單已變更。請重新載入最新版本並重新套用你的編輯，然後再次儲存。",
+      "reload": "重新載入並重新套用",
+      "addTitle": "在第 {frame} 格（播放頭）新增場景切割點",
+      "add": "+ 在播放頭新增切割點",
+      "removeTitleNone": "請先在時間軸上選取切割標記",
+      "removeTitle": "移除所選切割點（Delete）",
+      "remove": "− 移除切割點",
+      "selected": "切割點 {index} · {frame}",
+      "removeSelectedLabel": "移除所選切割點",
+      "hint": "點擊縮圖列可瀏覽 · 點兩下新增切割點 · 點擊標記可選取，拖曳可移動 · Delete 移除",
+      "legend": {
+        "cut": "場景切割點 — 新場景的第一格",
+        "playhead": "播放頭"
+      },
+      "importDialog": {
+        "title": "匯入場景切割點",
+        "body": "要將 {current} 個切割點取代為匯入的 {imported} 個切割點嗎？在你儲存之前，取代內容只會保留在本機。",
+        "replace": "取代"
+      }
+    },
+    "sceneList": {
+      "label": "場景",
+      "heading": "場景 · {count}",
+      "keyframeAlt": "場景 {scene} 的關鍵影格",
+      "scene": "場景 {scene}",
+      "mergeLabel": "將場景 {scene} 合併到上一個場景",
+      "mergeTitle": "移除第 {frame} 格的切割點，將此場景合併到場景 {previous}",
+      "merge": "合併 ←"
+    },
+    "source": {
+      "title": "來源詳細資料",
+      "rows": {
+        "file": "檔案",
+        "size": "大小",
+        "container": "容器格式",
+        "length": "長度",
+        "resolution": "解析度",
+        "frameRate": "影格率",
+        "frames": "影格數",
+        "codec": "編碼",
+        "bitDepth": "位元深度",
+        "videoBitrate": "影片位元率",
+        "colour": "色彩",
+        "rotation": "旋轉",
+        "bars": "黑邊",
+        "audio": "音訊",
+        "stereo": "空間或 3D",
+        "camera": "相機"
+      },
+      "variableUpTo": "{fps} · 可變，最高 {max}",
+      "variable": "{fps} · 可變",
+      "bitDepth": "{bits} 位元",
+      "none": "無",
+      "bars": {
+        "detected": "已偵測到",
+        "picture": "畫面 {size}",
+        "removed": "已在你的 3D 中移除",
+        "kept": "已在你的 3D 中保留"
+      },
+      "channels": {
+        "mono": "單聲道",
+        "stereo": "立體聲",
+        "many": "{count} 個聲道"
+      },
+      "stereo": {
+        "mvhevc": "空間影片 (MV-HEVC)",
+        "sbs": "左右格式 3D",
+        "tb": "上下格式 3D",
+        "spatial": "空間影片",
+        "flat": "否，2D"
+      }
+    },
+    "load": {
+      "notAvailable": "此專案無法使用。可能已被移除。"
+    },
+    "stepTab": {
+      "tips": "ⓘ 提示",
+      "drawerLabel": "{title} — 你會得到什麼與提示",
+      "close": "關閉提示",
+      "lastRun": "上次轉換",
+      "files": "檔案 →",
+      "whatYouGet": "你會得到",
+      "tipsTitle": "提示"
+    },
+    "screen": {
+      "retry": "重試",
+      "loading": "正在載入專案…",
+      "analyzing": "正在準備你的影片：找出場景並製作預覽。這個步驟免費，頁面會自動更新。",
+      "untitled": "未命名專案",
+      "copied": "已複製",
+      "supportInfo": "支援資訊",
+      "supportInfoHint": "複製此專案的 ID（{id}）— 聯絡支援團隊時請提供",
+      "analyzeFailed": "分析失敗",
+      "retrying": "重試中…",
+      "retryAnalysis": "重試分析",
+      "shortcuts": "鍵盤快速鍵",
+      "filesTitle": "檔案",
+      "filesDeletedOn": "檔案已於 {date} 刪除",
+      "filesKept": "使用此專案期間會保留檔案；閒置 90 天後刪除。"
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "{sbs}檔案：每隻眼睛各一個畫面。",
+      "spatial": "{spatial}檔案：在「照片」中以 3D 播放。"
+    },
+    "glasses": {
+      "title": "在 {name} 眼鏡上觀看 3D 影片",
+      "description": "將你的 2D 影片轉成左右格式 3D，並在 {name} 眼鏡上觀看。"
+    },
+    "pages": {
+      "glasses": {
+        "line1": "將任何影片製作成 3D，並選擇{sbs}檔案。",
+        "line2": "在與眼鏡連接的手機或電腦上播放。",
+        "line3": "將眼鏡切換為 3D (SBS) 模式。",
+        "line4": "以全螢幕播放影片。"
+      },
+      "visionPro": {
+        "title": "在 {name} 上觀看 3D 影片",
+        "description": "將你的 2D 影片轉成空間影片，並在 {name} 上以 3D 觀看。",
+        "line1": "將任何影片製作成 3D，並選擇{spatial}檔案。",
+        "line2": "在 Vision Pro 上下載，或從你的 iPhone 或 Mac 以 AirDrop 傳送。",
+        "line3": "在「檔案」或「照片」中開啟。它會以 3D 播放。",
+        "line4": "或在 Vision Pro 的 Safari 中開啟本網站，然後選擇「以 3D 檢視」。"
+      },
+      "galaxyXr": {
+        "title": "在 {name} 上觀看 3D 影片",
+        "description": "將你的 2D 影片轉成左右格式 3D，並在 {name} 上觀看。",
+        "line1": "將任何影片製作成 3D，並選擇{sbs}檔案。",
+        "line2": "複製到頭戴裝置，或直接在裝置上下載。",
+        "line3": "在「相簿」或「檔案」中開啟，然後選擇 3D 左右並排。"
+      },
+      "metaQuest": {
+        "title": "在 {name} 上觀看 3D 影片",
+        "description": "將你的 2D 影片轉成左右格式 3D，並在 {name} 上觀看。",
+        "fileNote": "{sbs}檔案：每隻眼睛各一個畫面。4K 以上，或檔案太大時，請選擇{half}。",
+        "line1": "將任何影片製作成 3D，並選擇{sbs}檔案。",
+        "line2": "4K 以上，或檔案太大而無法複製或串流時，請改選{half}。",
+        "line3": "在 Meta Quest 瀏覽器中開啟本網站並選擇「以 3D 檢視」，或用影片播放器開啟檔案。",
+        "line4": "在播放器中選擇 3D 左右並排。"
+      },
+      "pico": {
+        "title": "在 {name} 上觀看 3D 影片",
+        "description": "將你的 2D 影片轉成左右格式 3D，並在 {name} 上觀看。",
+        "line1": "將任何影片製作成 3D，並選擇{sbs}檔案。",
+        "line2": "在 Pico 瀏覽器中開啟本網站並選擇「以 3D 檢視」，或用影片播放器開啟檔案。",
+        "line3": "在播放器中選擇 3D 左右（左右格式）。"
+      },
+      "steamFrame": {
+        "title": "在 {name} 上觀看 3D 影片",
+        "description": "將你的 2D 影片轉成左右格式 3D，並在 {name} 上觀看。",
+        "line1": "將任何影片製作成 3D，並選擇{sbs}檔案。",
+        "line2": "複製到頭戴裝置，並用影片播放器開啟。",
+        "line3": "在播放器中選擇 3D 左右並排。"
+      },
+      "metaVrGlasses": {
+        "title": "Meta VR 眼鏡的 3D 影片",
+        "description": "網頁版 {site} 已為預計 2027 年春季推出的 Meta VR 眼鏡做好準備。",
+        "upcoming": "2027 年春季",
+        "line1": "Meta VR 眼鏡預計於 2027 年春季推出。",
+        "line2": "網頁版 {site} 現在就能製作{sbs}與{spatial}檔案。",
+        "line3": "眼鏡上市後，我們會在這裡新增觀看方式。"
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XR 眼鏡（XREAL、VITURE、RayNeo）",
+      "tvs": "3D 電視",
+      "metaVrGlasses": "已為 Meta VR 眼鏡做好準備，2027 年春季"
+    },
+    "headsetHint": {
+      "quest": "在播放器的檢視選項中選擇 3D 左右並排。",
+      "pico": "在播放器的模式選單中選擇 3D 左右（左右格式）。",
+      "galaxyxr": "在播放器中選擇 3D 左右並排。"
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "屋頂派對",
+        "detail": "日落派對上高舉雙手，腳下是一片森林。"
+      },
+      "driftChase": {
+        "title": "漂移追逐",
+        "detail": "無人機穿過輪胎煙霧，追拍一輛漂移的汽車。"
+      },
+      "rooftopSingalong": {
+        "title": "屋頂合唱",
+        "detail": "與朋友在屋頂上唱歌、彈吉他、喝飲料。"
+      },
+      "sunsetSession": {
+        "title": "日落演出",
+        "detail": "夕陽西下，歌手與她的樂團在屋頂上演出。"
+      },
+      "studioTake": {
+        "title": "錄音室演唱",
+        "detail": "歌手對著麥克風全力演唱。"
+      },
+      "streetDance": {
+        "title": "街舞",
+        "detail": "三位朋友在玻璃大樓前跳舞。直式。"
+      },
+      "insideTheWave": {
+        "title": "浪中穿行",
+        "detail": "衝浪者視角，穿過正在破碎的浪管。"
+      },
+      "fencingHall": {
+        "title": "擊劍館",
+        "detail": "擊劍手在訓練館中對練，其他人從旁走過。"
+      },
+      "riverStones": {
+        "title": "河中石頭",
+        "detail": "女孩踩著陽光下的石頭，穿過森林溪流。"
+      },
+      "perEye": "每眼 {size}",
+      "downloads": {
+        "spatial": "Vision Pro（空間影片）",
+        "sbs": "Quest、Pico、Galaxy XR、XR 眼鏡（左右格式）",
+        "original": "2D 原始影片，供比較"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "請重新上傳影片，以製作新的 3D。",
+      "message": "此專案的檔案已被刪除。請重新上傳影片，以製作新的 3D。"
+    },
+    "requestFailed": "請求失敗 ({status})",
+    "csvDownloadFailed": "無法下載 CSV。",
+    "upload": {
+      "failedStatus": "上傳失敗 ({status})",
+      "network": "上傳網路錯誤"
+    },
+    "eventsUnavailable": "無法使用狀態串流。",
+    "cutlist": {
+      "notInteger": "「{token}」不是整數影格索引 — 切割清單只能使用原始影片的整數影格編號。",
+      "outOfRange": "第 {frame} 格的切割點超出範圍 — 此影片的切割點必須在 (0, {frames}) 之內。",
+      "missingStart": "CSV 的某一列缺少起始影格值：「{row}」",
+      "noScenes": "CSV 中找不到任何場景 — 沒有可匯入的內容。",
+      "noCuts": "檔案中找不到任何切割影格 — 沒有可匯入的內容。"
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}{pct}% · 60 fps ×{times}（{business}與{studio}）"
+    },
+    "lengthLimits": "{method}：{limits}",
+    "tooLong": "此影片長 {m} 分 {s} 秒。影片最長為 {max} 分鐘。",
+    "stopped": "上傳已中斷 — 請檢查網路連線，然後從中斷處繼續。",
+    "failed": "上傳失敗 — 請再試一次。",
+    "unsupported": "不支援的檔案類型 — 請選擇 .mp4、.mov、.m4v 或 .webm 影片。",
+    "inputLabel": "上傳影片",
+    "firstProject": "拖入影片以開始你的第一個專案",
+    "dragDrop": "拖放影片以開始專案",
+    "formats": ".mp4、.mov、.m4v 或 .webm · {limits}",
+    "choose": "選擇影片",
+    "seePrices": "查看價格",
+    "uploading": "正在上傳 {name}…",
+    "videoFallback": "影片",
+    "creating": "正在建立專案…",
+    "bytes": "{done} / {total}",
+    "estimating": "正在估算剩餘時間…",
+    "resume": "繼續上傳（已傳送 {pct}%）"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "檔案已於 {date} 刪除",
+      "gettingReady": "正在準備你的影片",
+      "gettingReadyPct": "正在準備你的影片 · {pct}%",
+      "readFailed": "無法讀取此影片",
+      "tryAgain": "再試一次",
+      "waiting": "排隊等候中",
+      "making": "製作 3D 中",
+      "makingPct": "製作 3D 中 · {pct}%",
+      "paymentNeeded": "需要付款",
+      "updatePayment": "更新付款方式",
+      "ready": "3D 已完成",
+      "files": "檔案",
+      "failed": "失敗，未收費",
+      "cancelled": "已取消 · 未收費",
+      "readyFor3d": "可製作 3D",
+      "archiveBlocked": "此專案有轉換正在進行。請等待完成或取消後，再封存。",
+      "pinned": "已釘選",
+      "untitled": "未命名專案",
+      "olderMethod": "舊版方式",
+      "sample": "範例",
+      "sampleNoteArchived": "範例無法刪除。你隨時可以取消封存。",
+      "sampleNote": "一個已完成的範例，供你參考。不會計費，也可以封存。",
+      "keep": "保留",
+      "unpin": "取消釘選專案",
+      "pin": "釘選專案",
+      "rename": "重新命名專案",
+      "restore": "還原專案",
+      "delete": "刪除專案",
+      "archive": "封存專案",
+      "renameTitle": "重新命名專案",
+      "nameLabel": "專案名稱",
+      "save": "儲存",
+      "deleteTitle": "要永久刪除此專案嗎？",
+      "deleteBody": "專案的檔案將被永久移除。你將無法再次下載，且此操作無法復原。",
+      "keepProject": "保留專案",
+      "deleteForGood": "永久刪除",
+      "archiveTitle": "封存專案",
+      "archiveBody": "要封存此專案嗎？你之後可以還原。",
+      "cancel": "取消",
+      "archiveAction": "封存"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "分析中",
+        "proxy": "建立預覽中",
+        "scene_detect": "偵測場景中",
+        "thumbnails": "縮圖",
+        "profiling": "測量場景中"
+      },
+      "progressLabel": "分析進度",
+      "failed": "分析失敗",
+      "failedWith": "分析失敗 — {error}",
+      "done": "已分析"
+    },
+    "list": {
+      "loadFailed": "無法載入你的專案。",
+      "loadFailedWith": "無法載入你的專案。{detail}",
+      "archivedFailed": "無法載入已封存的專案。",
+      "updateFailed": "無法更新專案。",
+      "deleteFailed": "無法刪除專案。請再試一次。",
+      "title": "專案",
+      "hideArchived": "隱藏已封存",
+      "showArchived": "顯示已封存",
+      "dismiss": "關閉",
+      "retry": "重試",
+      "loading": "正在載入專案…",
+      "pinned": "已釘選",
+      "all": "所有專案",
+      "archived": "已封存",
+      "loadingArchived": "正在載入已封存的專案…",
+      "noArchived": "沒有已封存的專案。",
+      "hideArchivedCount": "隱藏已封存（{count}）",
+      "showArchivedCount": "顯示已封存（{count}）"
     }
   }
 }
