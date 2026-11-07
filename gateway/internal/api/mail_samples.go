@@ -3,6 +3,7 @@ package api
 import (
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -33,6 +34,20 @@ func MailSamples(site, lang string) []MailSample {
 		l := p.Mail.layout(lang)
 		out = append(out, MailSample{ID: p.ID, Group: p.Group, Where: p.Where, Kind: p.Mail.Kind, Subject: l.FullSubject(),
 			SubjectBody: l.Subject, Text: l.Text(), HTML: l.HTML(), Lang: lang})
+	}
+	// the two mails outside customerMail: the file notice and the reset
+	now := time.Date(2026, 11, 3, 9, 0, 0, 0, time.UTC)
+	a, b := now.Add(14*24*time.Hour), now.Add(16*24*time.Hour)
+	fk := fileNoticeLayout([]*store.Project{{ID: "b959de66a207", Name: "Kyoto walk", FilesDeleteAt: &b}, {ID: "p1", FilesDeleteAt: &a}},
+		14*24*time.Hour, now, site, 90*24*time.Hour, lang)
+	fk.Lang = lang
+	reset := mail.ResetLayout(lang, site+"/reset-password?oob=sample")
+	for _, x := range []struct {
+		id, group, kind string
+		l               mail.Layout
+	}{{"FK1 file notice", "other", "FK1", fk}, {"Password reset", "security", "RESET", reset}} {
+		out = append(out, MailSample{ID: x.id, Group: x.group, Where: "both", Kind: x.kind, Subject: x.l.FullSubject(),
+			SubjectBody: x.l.Subject, Text: x.l.Text(), HTML: x.l.HTML(), Lang: lang})
 	}
 	return out
 }
