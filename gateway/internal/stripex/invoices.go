@@ -33,6 +33,7 @@ type Invoice struct {
 	Number           string            `json:"number"`
 	Total            int64             `json:"total"`
 	AmountPaid       int64             `json:"amount_paid"`
+	AmountDue        int64             `json:"amount_due"`
 	Currency         string            `json:"currency"`
 	Created          int64             `json:"created"`
 	HostedInvoiceURL string            `json:"hosted_invoice_url"`

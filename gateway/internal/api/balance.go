@@ -320,6 +320,7 @@ func (s *Service) applyTopupPayment(ctx context.Context, topupID string, out str
 // debts paid from the balance (N9).
 func (s *Service) afterTopup(ctx context.Context, t *store.Topup, promoted []string, fx store.BalanceEffects) {
 	s.notePaidOnce(ctx, t.UID)
+	s.payRequestsAfterTopup(ctx, t) // D7: its pay link, a failed reload's links
 	if t.PaidWith != "" {
 		if cust, err := s.Store.GetCustomer(ctx, t.UID); err == nil && cust.DefaultPaymentMethod == t.PaidWith {
 			s.noteMethodPaid(ctx, t.UID, t.PaidWith) // T24

@@ -43,11 +43,12 @@ type offFake struct {
 	lostAnswers int
 	subs        map[string]map[string]any // subscription id → {customer, status, metadata, default_payment_method}
 	subSets     []map[string]string       // POST /v1/subscriptions/{id} forms
+	invoices    map[string]map[string]any // invoice id → {status, amount_due, hosted_invoice_url}
 }
 
 func newOffFake(t *testing.T) *offFake {
 	return &offFake{t: t, outcome: map[string]string{}, methods: map[string][]string{}, pis: map[string]map[string]any{},
-		idem: map[string][2]any{}, subs: map[string]map[string]any{}}
+		idem: map[string][2]any{}, subs: map[string]map[string]any{}, invoices: map[string]map[string]any{}}
 }
 
 func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
@@ -209,6 +210,12 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			sub["default_payment_method"] = form["default_payment_method"]
 		}
 		reply(200, f.subs[id])
+	case strings.HasPrefix(p, "/v1/invoices/") && r.Method == http.MethodGet:
+		if inv := f.invoices[strings.TrimPrefix(p, "/v1/invoices/")]; inv != nil {
+			reply(200, inv)
+			return
+		}
+		reply(404, map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "resource_missing"}})
 	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
 		f.n++
 		f.sessions = append(f.sessions, form)

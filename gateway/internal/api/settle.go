@@ -438,7 +438,8 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 			}
 		}
 	}
-	s.recordSettleCharge(ctx, done) // C6: one invoice, a line per run
+	s.recordSettleCharge(ctx, done)       // C6: one invoice, a line per run
+	s.payRequestsAfterSettle(ctx, st.UID) // D7: the dues links close once nothing is owed
 	if st.Trigger == settleSoftRety {
 		s.mailDownloadsBack(ctx, "E5_"+settleID, st.UID, out.AmountReceived)
 	}

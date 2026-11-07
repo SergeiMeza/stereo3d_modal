@@ -43,6 +43,7 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		out["promo_regrants"] = recs
 	}
 	out["grants"] = s.adminGrantsJSON(ctx, uid)
+	out["pay_requests"] = s.adminPayRequests(ctx, uid)              // D7
 	if d, err := s.Store.GetAccountDeletion(ctx, uid); err == nil { // the 48-hour wait
 		out["deletion"] = adminDeletionJSON(d)
 	}
