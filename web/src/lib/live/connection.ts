@@ -5,7 +5,9 @@
  * - connect, apply every event (the snapshot first) into the live atoms;
  * - a broken stream reconnects with exponential backoff and jitter, from
  *   the server's `retry:` up to 30 s, resuming with Last-Event-ID; `bye`
- *   reconnects after its retry_ms;
+ *   (max_age, listener, and restart on the gateway's SIGTERM with a
+ *   jittered 1–3 s) reconnects after its retry_ms, never as an error
+ *   backoff and without the poll;
  * - only while the stream is down, one slow poll (15 s) of the GET routes
  *   fills the same atoms, starting with one read at once;
  * - a stream that goes quiet (no event and no heartbeat for STALE_MS; the

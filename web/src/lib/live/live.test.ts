@@ -358,6 +358,48 @@ describe("LiveConnection", () => {
       c.stop();
     });
 
+    it("bye restart (SIGTERM, gateway a729c05): back after its jittered retry_ms, never an error backoff", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      streams[0].push(snapshotAt(10, 0.3));
+      streams[0].push(msg("bye", 11, { reason: "restart", retry_ms: 1700 }));
+      streams[0].end();
+      await flush();
+      // a server going away on purpose: connecting, not down, and no poll
+      expect(store.get(liveStatusAtom)).toBe("connecting");
+      await vi.advanceTimersByTimeAsync(1699);
+      expect(opened).toEqual([null]);
+      await vi.advanceTimersByTimeAsync(1);
+      expect(opened).toEqual([null, "11"]);
+      expect(store.get(liveStatusAtom)).toBe("open");
+      expect(polls).toBe(0);
+      // the bye wasn't counted: a real break afterwards backs off from the
+      // first step (jitter 0: half of 2 s)
+      streams.at(-1)!.fail();
+      await flush();
+      expect(store.get(liveStatusAtom)).toBe("down");
+      await vi.advanceTimersByTimeAsync(1000);
+      expect(opened).toEqual([null, "11", "11"]);
+      c.stop();
+    });
+
+    it("several restarts in a row each come back after their own retry_ms", async () => {
+      const c = new LiveConnection(store, transport, { random: () => 0 });
+      c.start();
+      await flush();
+      for (const [i, ms] of [[1, 1000], [2, 3000], [3, 2200]] as const) {
+        streams.at(-1)!.push(msg("bye", i, { reason: "restart", retry_ms: ms }));
+        streams.at(-1)!.end();
+        await flush();
+        await vi.advanceTimersByTimeAsync(ms);
+        expect(opened).toHaveLength(i + 1);
+        expect(store.get(liveStatusAtom)).toBe("open");
+      }
+      expect(polls).toBe(0);
+      c.stop();
+    });
+
     it("drops one after another never start a second poller", async () => {
       refuse = true;
       const c = new LiveConnection(store, transport, { random: () => 0 });
