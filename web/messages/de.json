@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Abrechnung in US-Dollar.",
-      "withdrawal": "Mit der Zahlung bittest du uns, sofort zu starten, und stimmst zu, dass dein Widerrufsrecht erlischt, sobald die Leistung vollständig erbracht ist.",
+      "withdrawal": "Mit der Zahlung bittest du uns, sofort zu starten, und dein Recht zum Abbrechen endet, sobald dein 3D-Video fertig ist.",
       "refundedIfFails": "Vollständige Erstattung, falls es fehlschlägt.",
       "saveLine": "Für deine nächsten Umwandlungen gespeichert. Du kannst sie unter Abrechnung entfernen.",
       "orPayAnotherWay": "oder anders bezahlen",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "Warte auf Zahlung…",
       "finishPayment": "Zahlung abschließen",
       "pausedReview": "Pausiert, während wir eine Zahlung prüfen.",
-      "popAfter": "Wird deiner Standardzahlungsart belastet, sobald es fertig ist. Keine Belastung, wenn es fehlschlägt. Es startet sofort. Du stimmst zu, dass dein Widerrufsrecht erlischt, sobald es abgeschlossen ist.",
-      "popPrecharge": "Wird deiner Standardzahlungsart beim Start belastet. Brich ab, solange es in der Warteschlange ist oder in der ersten Minute, und du bekommst alles zurück. Es startet sofort. Du stimmst zu, dass dein Widerrufsrecht erlischt, sobald es abgeschlossen ist.",
+      "popAfter": "Wird deiner Standardzahlungsart belastet, sobald die Umwandlung fertig ist, nie bei einem Fehlschlag. Mit dem Start bittest du uns, sofort zu beginnen, und dein Recht zum Abbrechen endet, sobald sie fertig ist.",
+      "popPrecharge": "Wird deiner Standardzahlungsart beim Start belastet. Brich ab, solange die Umwandlung in der Warteschlange ist oder in ihrer ersten Minute, und du bekommst alles zurück. Mit dem Start bittest du uns, sofort zu beginnen, und dein Recht zum Abbrechen endet, sobald sie fertig ist.",
       "popSheet": "Als Nächstes wählst du, wie du bezahlst. Vollständige Erstattung, falls es fehlschlägt.",
       "payToContinue": "{amount} zahlen und weiter",
       "payAndStart": "{amount} zahlen und starten",
@@ -1417,7 +1417,7 @@
         "deletionPending": "Automatisches Aufladen kann nicht aktiviert werden, solange dein Konto gelöscht wird."
       },
       "paidFromBalanceReload": "Vom Guthaben bezahlt. Wir laden zuerst {amount} auf.",
-      "popBalance": "Beim Start reservieren wir {amount} deines Guthabens und buchen nur die tatsächlichen Kosten ab, nie mehr. Fehlgeschlagene Umwandlungen kosten nichts. Es startet sofort. Du stimmst zu, dass dein Widerrufsrecht erlischt, sobald es abgeschlossen ist.",
+      "popBalance": "Beim Start reservieren wir {amount} deines Guthabens und buchen nur die tatsächlichen Kosten ab, nie mehr. Bei einem Fehlschlag wird nichts abgebucht. Mit dem Start bittest du uns, sofort zu beginnen, und dein Recht zum Abbrechen endet, sobald die Umwandlung fertig ist.",
       "topupMaxFirst": "Für die erste Aufladung kannst du bis zu {amount} aufladen.",
       "topupMax": "Du kannst bis zu {amount} auf einmal aufladen.",
       "topupDone": "{added} aufgeladen. Dein Guthaben beträgt {balance}.",
@@ -1977,7 +1977,7 @@
         "paidAtStart": "Beim Start bezahlt. Bei einem Fehler vollständig erstattet.",
         "paidAtStartRefunded": "Diese Umwandlung wurde beim Start bezahlt und wird deshalb vollständig erstattet."
       },
-      "cancelFailed": "Abbruch fehlgeschlagen",
+      "cancelFailed": "Abbrechen hat nicht geklappt. Versuch es noch einmal.",
       "estimated": "Geschätzt: {duration}",
       "allFiles": "Alle Dateien",
       "cancel": "Abbrechen",
@@ -2163,8 +2163,8 @@
       "payBeforePublic": "Du zahlst, bevor eine Umwandlung startet.",
       "roundedUp": "Jede angefangene Minute zählt als volle Minute.",
       "rule": "Umwandlungen über {amount}: Abbuchung beim Start, Erstattung bei Fehlschlag. Umwandlungen bis {amount}: Abbuchung nach Fertigstellung. Fehlgeschlagene Umwandlungen kosten nichts.",
-      "cancelBefore": "Die Abbuchung erfolgt beim Start. Brich jederzeit ab, solange es wartet oder in der ersten Minute, und du bekommst alles zurück.",
-      "cancelAfter": "Umwandlungen bis {amount} werden nach Fertigstellung abgebucht. Brich jederzeit ab, solange es wartet oder in der ersten Minute, und du zahlst nichts."
+      "cancelBefore": "Die Abbuchung erfolgt beim Start. Brich ab, solange die Umwandlung wartet oder in ihrer ersten Minute ist, und du bekommst alles zurück.",
+      "cancelAfter": "Umwandlungen bis {amount}, wie diese, werden nach Fertigstellung abgebucht. Brich ab, solange die Umwandlung wartet oder in ihrer ersten Minute ist, und du zahlst nichts."
     },
     "payment": {
       "refunded": "Erstattet",

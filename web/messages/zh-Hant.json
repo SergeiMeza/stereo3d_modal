@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "以美元收費。",
-      "withdrawal": "付款即表示你要求我們立即開始，並同意完成後不可撤回。",
+      "withdrawal": "付款即表示你要求我們立即開始，你的 3D 影片完成時，取消的權利即告結束。",
       "refundedIfFails": "若失敗，將全額退款。",
       "saveLine": "已儲存供下次轉換使用。你可以在「帳務」中移除。",
       "orPayAnotherWay": "或使用其他付款方式",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "等待付款中…",
       "finishPayment": "完成付款",
       "pausedReview": "檢查付款期間已暫停。",
-      "popAfter": "準備好後會向你的預設付款方式收費。若失敗則不收費。立即開始。完成後，你即同意放棄取消的權利。",
-      "popPrecharge": "開始時會向你的預設付款方式收費。在排隊等候期間或開始後的第一分鐘內取消，可全額退款。立即開始。完成後，你即同意放棄取消的權利。",
+      "popAfter": "完成後會向你的預設付款方式收費，失敗則不收費。開始轉換即表示你要求我們立即開始，轉換完成時，取消的權利即告結束。",
+      "popPrecharge": "開始時會向你的預設付款方式收費。在排隊等候期間或開始後的第一分鐘內取消，可全額退款。開始轉換即表示你要求我們立即開始，轉換完成時，取消的權利即告結束。",
       "popSheet": "接下來你將選擇付款方式。若失敗，將全額退款。",
       "payToContinue": "支付 {amount} 以繼續",
       "payAndStart": "支付 {amount} 並開始",
@@ -1417,7 +1417,7 @@
         "deletionPending": "帳號刪除期間無法開啟自動儲值。"
       },
       "paidFromBalanceReload": "已用餘額支付。我們會先儲值 {amount}。",
-      "popBalance": "開始時，我們會從你的餘額保留 {amount}，且只扣除最終費用，絕不多收。失敗的轉換不收費。立即開始。完成後，你即同意放棄取消的權利。",
+      "popBalance": "開始時，我們會從你的餘額保留 {amount}，且只扣除最終費用，絕不多收。失敗則不扣款。開始轉換即表示你要求我們立即開始，轉換完成時，取消的權利即告結束。",
       "topupMaxFirst": "首次儲值最多可儲值 {amount}。",
       "topupMax": "單次最多可儲值 {amount}。",
       "topupDone": "已儲值 {added}。你的餘額為 {balance}。",
@@ -1977,7 +1977,7 @@
         "paidAtStart": "轉換開始時已付款。若失敗會全額退款。",
         "paidAtStartRefunded": "此轉換在開始時已付款，因此全額退款。"
       },
-      "cancelFailed": "取消失敗",
+      "cancelFailed": "無法取消，請再試一次。",
       "estimated": "預估：{duration}",
       "allFiles": "所有檔案",
       "cancel": "取消",
@@ -2164,7 +2164,7 @@
       "roundedUp": "不足一分鐘以一分鐘計。",
       "rule": "超過 {amount} 的轉換：開始時收費，失敗則退款。{amount} 以下的轉換：完成後收費。失敗的轉換不收費。",
       "cancelBefore": "開始時收費。在排隊等候期間或開始後的第一分鐘內取消，可全額退款。",
-      "cancelAfter": "{amount} 以下的轉換在完成後收費。在排隊等候期間或開始後的第一分鐘內取消，無需付款。"
+      "cancelAfter": "{amount} 以下的轉換（例如這一次）在完成後收費。在排隊等候期間或開始後的第一分鐘內取消，無需付款。"
     },
     "payment": {
       "refunded": "已退款",

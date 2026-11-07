@@ -1220,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Facturé en dollars US.",
-      "withdrawal": "En payant, vous demandez à démarrer immédiatement et acceptez de perdre votre droit de rétractation une fois le service fourni.",
+      "withdrawal": "En payant, vous nous demandez de démarrer tout de suite, et votre droit d’annuler prend fin lorsque votre vidéo 3D est prête.",
       "refundedIfFails": "Remboursé intégralement en cas d’échec.",
       "saveLine": "Enregistré pour vos prochaines conversions. Vous pouvez le retirer dans Facturation.",
       "orPayAnotherWay": "ou payer autrement",
@@ -1249,8 +1249,8 @@
       "waitingForPayment": "En attente du paiement…",
       "finishPayment": "Terminer le paiement",
       "pausedReview": "En pause pendant la vérification d’un paiement.",
-      "popAfter": "Prélevé sur votre moyen de paiement par défaut quand c’est prêt. Pas de prélèvement en cas d’échec. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
-      "popPrecharge": "Prélevé sur votre moyen de paiement par défaut au lancement. Annulez pendant l’attente ou dans la première minute pour un remboursement intégral. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "popAfter": "Prélevé sur votre moyen de paiement par défaut quand c’est prêt, jamais en cas d’échec. En lançant la conversion, vous nous demandez de commencer tout de suite, et votre droit d’annuler prend fin lorsqu’elle est prête.",
+      "popPrecharge": "Prélevé sur votre moyen de paiement par défaut au lancement. Annulez pendant l’attente ou dans la première minute pour un remboursement intégral. En lançant la conversion, vous nous demandez de commencer tout de suite, et votre droit d’annuler prend fin lorsqu’elle est prête.",
       "popSheet": "Vous choisirez ensuite comment payer. Remboursé intégralement en cas d’échec.",
       "payToContinue": "Payer {amount} pour continuer",
       "payAndStart": "Payer {amount} et lancer",
@@ -1417,7 +1417,7 @@
         "deletionPending": "La recharge auto ne peut pas être activée pendant la suppression de votre compte."
       },
       "paidFromBalanceReload": "Payé avec votre solde. Nous ajouterons d’abord {amount}.",
-      "popBalance": "Nous réservons {amount} sur votre solde au lancement et ne prélevons que le coût final, jamais plus. Les conversions échouées ne coûtent rien. Le traitement démarre tout de suite. Vous acceptez de perdre votre droit de rétractation une fois terminé.",
+      "popBalance": "Nous réservons {amount} sur votre solde au lancement et ne prélevons que le coût final, jamais plus. Rien n’est prélevé en cas d’échec. En lançant la conversion, vous nous demandez de commencer tout de suite, et votre droit d’annuler prend fin lorsqu’elle est prête.",
       "topupMaxFirst": "Vous pouvez ajouter jusqu’à {amount} pour votre première recharge.",
       "topupMax": "Vous pouvez ajouter jusqu’à {amount} à la fois.",
       "topupDone": "{added} ajoutés. Votre solde est de {balance}.",
@@ -1977,7 +1977,7 @@
         "paidAtStart": "Payée au démarrage. Remboursée intégralement en cas d’échec.",
         "paidAtStartRefunded": "Cette conversion a été payée au démarrage, elle est donc remboursée intégralement."
       },
-      "cancelFailed": "échec de l’annulation",
+      "cancelFailed": "Annulation impossible. Réessayez.",
       "estimated": "Estimation : {duration}",
       "allFiles": "Tous les fichiers",
       "cancel": "Annuler",
@@ -2163,8 +2163,8 @@
       "payBeforePublic": "Vous payez avant le début d’une conversion.",
       "roundedUp": "Chaque minute commencée compte comme une minute entière.",
       "rule": "Conversions de plus de {amount} : débitées au lancement, remboursées en cas d’échec. Conversions de {amount} ou moins : débitées une fois terminées. Une conversion échouée ne coûte rien.",
-      "cancelBefore": "Débité au lancement. Annulez à tout moment pendant l’attente, ou dans la première minute, pour un remboursement complet.",
-      "cancelAfter": "Les conversions de {amount} ou moins sont débitées une fois terminées. Annulez à tout moment pendant l’attente, ou dans la première minute, et vous ne payez rien."
+      "cancelBefore": "Débité au lancement. Annulez pendant l’attente ou dans la première minute pour un remboursement intégral.",
+      "cancelAfter": "Les conversions de {amount} ou moins, comme celle-ci, sont débitées une fois terminées. Annulez pendant l’attente ou dans la première minute et vous ne payez rien."
     },
     "payment": {
       "refunded": "Remboursé",
