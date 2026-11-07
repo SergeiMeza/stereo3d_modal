@@ -754,8 +754,28 @@ func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents in
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey("settle_" + c.env + "_" + settleID)
+	params.SetIdempotencyKey(c.SettleChargeKey(settleID))
 	return paymentintent.New(params)
+}
+
+// SettleChargeKey is the idempotency key of a settle's off-session charge.
+func (c *Client) SettleChargeKey(settleID string) string { return "settle_" + c.env + "_" + settleID }
+
+// FindSettleCharge looks for the PaymentIntent a settle's charge made
+// (metadata settle_id) among the customer's PaymentIntents created since
+// `since` (B5: an answer lost to a timeout). nil when there is none. A
+// list read, never a create: re-driving a settle never charges again.
+func (c *Client) FindSettleCharge(customerID, settleID string, since time.Time) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
+	params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Add(-5 * time.Minute).Unix()}
+	params.AddExpand("data.payment_method")
+	it := paymentintent.List(params)
+	for it.Next() {
+		if pi := it.PaymentIntent(); pi.Metadata["settle_id"] == settleID && pi.Metadata["env"] == c.env {
+			return pi, nil
+		}
+	}
+	return nil, it.Err()
 }
 
 // CreateAlipayPayment creates and confirms an Alipay PaymentIntent

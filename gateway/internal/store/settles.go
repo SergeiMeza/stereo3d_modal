@@ -64,9 +64,15 @@ type Settle struct {
 	// Pricing; nil: USD).
 	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
 	Error       string       `firestore:"error,omitempty" json:"-"`
-	CreatedAt   time.Time    `firestore:"created_at" json:"created_at"`
-	UpdatedAt   time.Time    `firestore:"updated_at" json:"-"`
-	PaidAt      *time.Time   `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
+	// The off-session charge, recorded before it is sent (B5): a lost
+	// answer is found again by the sweep instead of charged a second time.
+	ChargeKey        string     `firestore:"charge_key,omitempty" json:"-"`
+	ChargePM         string     `firestore:"charge_pm,omitempty" json:"-"`
+	ChargeCustomerID string     `firestore:"charge_customer_id,omitempty" json:"-"`
+	ChargeStartedAt  *time.Time `firestore:"charge_started_at,omitempty" json:"-"`
+	CreatedAt        time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt        time.Time  `firestore:"updated_at" json:"-"`
+	PaidAt           *time.Time `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
 }
 
 // Runs counts the runs a settle pays for.

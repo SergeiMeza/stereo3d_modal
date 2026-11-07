@@ -38,6 +38,9 @@ type offFake struct {
 	cancels  []string
 	sessions []map[string]string
 	n        int
+	// lostAnswers: the next n creates charge, then answer 500 (a timeout
+	// after Stripe took the money).
+	lostAnswers int
 }
 
 func newOffFake(t *testing.T) *offFake {
@@ -61,6 +64,19 @@ func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
 		return 402, map[string]any{"error": map[string]any{"type": "card_error", "code": "card_declined",
 			"decline_code": code, "message": "Your card was declined.", "payment_intent": f.piJSON(pi)}}
 	}
+}
+
+// succeeded counts the PaymentIntents that took money.
+func (f *offFake) succeeded() int {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	n := 0
+	for _, pi := range f.pis {
+		if pi["status"] == "succeeded" {
+			n++
+		}
+	}
+	return n
 }
 
 func (f *offFake) piJSON(pi map[string]any) map[string]any {
@@ -114,7 +130,23 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			"client_secret": id + "_secret_x", "created": time.Now().Unix()}
 		f.pis[id] = pi
 		f.creates = append(f.creates, form)
-		reply(f.charge(pi, form["payment_method"]))
+		code, body := f.charge(pi, form["payment_method"])
+		if f.lostAnswers > 0 {
+			f.lostAnswers--
+			delete(f.idem, key) // Stripe would replay; the gateway never asks
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"type": "api_error", "message": "timeout"}})
+			return
+		}
+		reply(code, body)
+	case p == "/v1/payment_intents" && r.Method == http.MethodGet:
+		data := []any{}
+		for i := f.n; i >= 1; i-- {
+			if pi := f.pis[fmt.Sprintf("pi_off_%d", i)]; pi != nil && pi["customer"] == r.URL.Query().Get("customer") {
+				data = append(data, f.piJSON(pi))
+			}
+		}
+		reply(200, map[string]any{"object": "list", "data": data, "has_more": false, "url": p})
 	case strings.HasPrefix(p, "/v1/payment_intents/") && strings.HasSuffix(p, "/confirm"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/payment_intents/"), "/confirm")
 		pi := f.pis[id]
