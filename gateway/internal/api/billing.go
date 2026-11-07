@@ -357,6 +357,9 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 	// v7 N13: the prepaid balance (web only; the apps don't read it).
 	resp["balance"] = s.balanceSummary(ctx, user.UID, nil)
 	resp["pro_credit"] = s.ensureProCredit(ctx, user.UID) // PRO-01: this month's Pro credit, granted when due; null without paid Pro
+	// whether the one-time Pro credit can still come (billing UX 2026-11-07:
+	// pro_credit null also means a refunded credit, which never comes back)
+	resp["pro_credit_eligible"] = s.proCreditEligible(ctx, user.UID)
 	if p := s.planJSON(ctx, user.UID); p != nil {
 		resp["plan"] = p // pricing 2026-11: Business / Studio
 	}

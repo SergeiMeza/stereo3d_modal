@@ -349,3 +349,56 @@ func TestProCreditOff(t *testing.T) {
 		t.Fatalf("prod %+v", v)
 	}
 }
+
+// pro_credit_eligible (billing UX 2026-11-07): true only while the
+// one-time credit can still come — a fresh account; false once granted,
+// after a refund took it back (pro_credit reads null then too), and for
+// a purchase whose credit went to another account (same keying as the
+// grant).
+func TestProCreditEligible(t *testing.T) {
+	s, rc := proCreditService(t)
+	ctx := context.Background()
+	now := time.Now().UTC()
+	fresh0 := "u" + store.NewID()
+	if !s.proCreditEligible(ctx, fresh0) {
+		t.Fatal("a fresh account isn't eligible")
+	}
+	// granted: not eligible any more
+	a := "u" + store.NewID()
+	tx := "tx_" + a
+	rc.set(a, rcSub("pro_subs_1m_v1", "app_store", "normal", tx, now.AddDate(0, 0, -5), now.AddDate(0, 0, 25), nil))
+	if !s.proCreditEligible(ctx, a) {
+		t.Fatal("eligible before the grant")
+	}
+	if v := fresh(s, a); v == nil || !v.Granted {
+		t.Fatalf("grant %+v", v)
+	}
+	if s.proCreditEligible(ctx, a) {
+		t.Fatal("eligible after the grant")
+	}
+	// refunded: pro_credit null, still not eligible
+	rc.set(a, rcSub("pro_subs_1m_v1", "app_store", "normal", tx, now.AddDate(0, 0, -5), now.AddDate(0, 0, 25), map[string]any{"refunded_at": ts(now)}))
+	if v := fresh(s, a); v != nil {
+		t.Fatalf("refunded view %+v", v)
+	}
+	if s.proCreditEligible(ctx, a) {
+		t.Fatal("eligible after a refund")
+	}
+	// the same purchase on another account: its credit went to a
+	b := "u" + store.NewID()
+	rc.set(a, map[string]any{"subscriber": map[string]any{"entitlements": map[string]any{}, "subscriptions": map[string]any{}}})
+	rc.set(b, rcSub("pro_subs_1m_v1", "app_store", "normal", tx, now.AddDate(0, 0, -5), now.AddDate(0, 0, 25), nil))
+	s.RevenueCat.Forget(b)
+	if s.proCreditEligible(ctx, b) {
+		t.Fatal("eligible on a purchase whose credit went to another account")
+	}
+	// the billing read carries it
+	w := httptest.NewRecorder()
+	s.Store.PutCustomer(ctx, fresh0, &store.Customer{StripeCustomerID: "cus_1"})
+	s.HandleGetBilling(w, httptest.NewRequest("GET", "/v1/billing", nil), &AuthedUser{UID: fresh0})
+	var out map[string]any
+	json.Unmarshal(w.Body.Bytes(), &out)
+	if out["pro_credit_eligible"] != true {
+		t.Fatalf("billing %d %v", w.Code, out["pro_credit_eligible"])
+	}
+}

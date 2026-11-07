@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
@@ -315,4 +316,53 @@ func (s *Service) proCreditAdminJSON(ctx context.Context, uid string, cust *stor
 		out["refunds"], out["refund_flag"] = cust.ProRefunds, cust.ProRefundFlag
 	}
 	return out
+}
+
+// proCreditEligible: the one-time Pro credit can still be granted to this
+// account (the web says "your $20 credit covers this video" only then).
+// False when the credit is off, the account ever had a grant (granted,
+// being granted or removed by a refund) or its once-per-account entry,
+// it's being deleted, a Business or Studio plan is active, or the Pro it
+// holds is a purchase whose credit went to another account or was
+// refunded — the same keying as the grant (once_<hash of the original
+// transaction>).
+func (s *Service) proCreditEligible(ctx context.Context, uid string) bool {
+	rates := s.rates(ctx)
+	if s.Store == nil || len(rates.ProCreditCents) == 0 || uid == "" {
+		return false
+	}
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		return false
+	}
+	if err != nil {
+		cust = nil
+	}
+	if cust != nil && (cust.AccountDeleted || cust.DeletionPending) {
+		return false
+	}
+	now := time.Now().UTC()
+	if cust != nil && cust.Plan.Active(now) && (cust.Plan.Tier == pricing.TierBusiness || cust.Plan.Tier == pricing.TierStudio) {
+		return false
+	}
+	grants, err := s.Store.ListProCreditGrants(ctx, uid, 24)
+	if err != nil {
+		return false
+	}
+	if len(grants) > 0 {
+		return false // any grant, a refunded one included: once per account
+	}
+	if done, err := s.Store.EntryExists(ctx, uid, "procredit_once_"+uid); err != nil || done {
+		return false
+	}
+	if src := s.proCreditSourceOf(ctx, cust, s.proRCStatus(ctx, uid), now); src != nil {
+		hash := store.ProKeyHash(src.Key)
+		if cust != nil && slices.Contains(cust.ProRefundedKeys, hash) {
+			return false
+		}
+		if g, err := s.Store.GetProCreditGrant(ctx, store.ProCreditOnceID(hash)); err == nil && g.UID != uid {
+			return false // this purchase's credit went to another account
+		}
+	}
+	return true
 }

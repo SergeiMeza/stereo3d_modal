@@ -98,6 +98,23 @@ func (s *Store) ClaimProCreditGrant(ctx context.Context, g *ProCreditGrant) (*Pr
 	return out, err
 }
 
+// GetProCreditGrant reads one grant (ErrNotFound when there is none).
+func (s *Store) GetProCreditGrant(ctx context.Context, id string) (*ProCreditGrant, error) {
+	snap, err := s.fs.Collection(proCreditGrantsCol(s.env)).Doc(id).Get(ctx)
+	if status.Code(err) == codes.NotFound {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	var g ProCreditGrant
+	if err := snap.DataTo(&g); err != nil {
+		return nil, err
+	}
+	g.ID = snap.Ref.ID
+	return &g, nil
+}
+
 // MarkProCreditGrant sets a grant's state (granted; removed with the cents
 // taken back).
 func (s *Store) MarkProCreditGrant(ctx context.Context, id, state string, removedCents int64, at time.Time) error {
