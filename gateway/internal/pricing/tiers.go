@@ -429,7 +429,16 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		q = r.composeTier(base(listPerMin), base(tierPerMin), in.Tier, addOns, true)
 		bd["fps_factor"] = round4(fpsF)
 	}
-	total := q.Final - in.CreditCents
+	// the launch offer: after the plan or Pro discount, on the whole run
+	campaign := r.campaignCents(in, q.Final)
+	bd["campaign_cents"] = campaign
+	if campaign > 0 {
+		bd["campaign_label"], bd["campaign_pct"] = r.CampaignLabel(), round4(r.CampaignShare())
+		if r.Campaign.Label != "" {
+			bd["campaign_name"] = r.Campaign.Label
+		}
+	}
+	total := q.Final - campaign - in.CreditCents
 	if floor := r.MinimumFor(in.Step); total < floor {
 		total = floor
 	}

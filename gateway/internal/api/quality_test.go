@@ -118,3 +118,42 @@ func TestQuoteQualityWeb(t *testing.T) {
 		t.Fatalf("high %v %v", high["quote"], high["quality"])
 	}
 }
+
+// The launch offer reaches a web run's quote at 1080p and 1440p; an app
+// caller's quote and a 4K run get nothing.
+func TestCampaignQuote(t *testing.T) {
+	ctx := context.Background()
+	s := &Service{Pricing: pricing.NewStatic(pricing.DefaultsFor("test"))}
+	p := lifelikeProject()
+	quote := func(body string, web bool) map[string]any {
+		t.Helper()
+		var req stepConvReq
+		json.Unmarshal([]byte(body), &req)
+		req.web = web
+		params, err := s.resolveParams(ctx, &req, p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		q, _, qerr := s.quoteStep(ctx, p, params, store.StepProduction, 0)
+		if qerr != nil {
+			t.Fatal(qerr)
+		}
+		return q.Breakdown
+	}
+	if bd := quote(`{"step":"production","preset":"qhd"}`, true); bd["campaign_cents"].(int64) <= 0 || bd["campaign_label"] != "Launch offer −25%" {
+		t.Fatalf("web qhd %v", bd)
+	}
+	if bd := quote(`{"step":"production","preset":"1080p","quality":"master"}`, true); bd["campaign_cents"].(int64) <= 0 {
+		t.Fatalf("web 1080p master %v", bd)
+	}
+	if bd := quote(`{"step":"production","preset":"qhd"}`, false); bd["campaign_cents"] != int64(0) {
+		t.Fatalf("app %v", bd)
+	}
+	if bd := quote(`{"step":"production","preset":"4k"}`, true); bd["campaign_cents"] != int64(0) {
+		t.Fatalf("4k %v", bd)
+	}
+	c := &store.Conversion{Quote: store.Quote{Breakdown: map[string]any{"campaign_cents": int64(120)}}}
+	if adminRunJSON(c)["campaign_cents"] != int64(120) {
+		t.Fatal("admin line")
+	}
+}

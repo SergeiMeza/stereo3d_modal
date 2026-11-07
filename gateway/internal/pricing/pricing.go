@@ -227,8 +227,10 @@ type Rates struct {
 	// pro_discount_pct off every paid web run (production, both methods;
 	// not previews), before the bulk discount; the per-run minimum stays.
 	// Off unless pro_discount_enabled (test defaults it on).
-	ProDiscountEnabled bool    `firestore:"pro_discount_enabled"`
-	ProDiscountPct     float64 `firestore:"pro_discount_pct"`
+	ProDiscountEnabled bool `firestore:"pro_discount_enabled"`
+	// Campaign: the launch offer (campaign.go); nil = none.
+	Campaign       *CampaignDef `firestore:"campaign"`
+	ProDiscountPct float64      `firestore:"pro_discount_pct"`
 	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
 	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
 	// File keeping (S3D-24), see the accessors: days without use before a
@@ -742,6 +744,12 @@ type StepInputs struct {
 	Express     bool
 	FreePreview bool
 	Units       int
+	// Web: the run comes from the web app (the launch campaign is web
+	// only); OutputPreset the run's output preset when the price row
+	// differs; Now the quote's time (zero = now).
+	Web          bool
+	OutputPreset string
+	Now          time.Time
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
@@ -836,6 +844,7 @@ func DefaultsFor(env string) *Rates {
 		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
 		r.FoveationEnabled = true
 		r.ProDiscountEnabled = true
+		r.Campaign = testCampaign()
 		r.LifelikeSourceCropEnabled = true // BL-03
 		r.LifelikeIntroEnabled = true      // BL-25, live on lifelike3d-test
 		applyTestTierDefaults(r)           // 2026-11 pricing, test only
@@ -1497,6 +1506,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	}
 	if rates.TierPricing {
 		rates.publicTiers(out, enabled)
+		out["campaign"] = rates.PublicCampaign(time.Now())
 	}
 	return out
 }

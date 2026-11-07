@@ -1073,7 +1073,8 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster && params.OutputQuality == "", params.Express
-		in.Quality = params.OutputQuality // high +30% / master +50%, one per run
+		in.Quality = params.OutputQuality                   // high +30% / master +50%, one per run
+		in.Web, in.OutputPreset = params.Web, params.Preset // the launch offer: web only, by output preset
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
 			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free

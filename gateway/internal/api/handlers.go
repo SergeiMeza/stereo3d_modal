@@ -1085,6 +1085,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if c.Params.OutputQuality != "" {
 		resp["quality"] = c.Params.OutputQuality // standard | high | master (web Lifelike)
 	}
+	if cents := campaignCentsOf(c); cents > 0 {
+		resp["campaign_cents"] = cents // the launch offer (also in quote.breakdown)
+	}
 	if len(c.OutputsMedia) > 0 {
 		resp["outputs_media"] = c.OutputsMedia // {name: {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source}}
 	}

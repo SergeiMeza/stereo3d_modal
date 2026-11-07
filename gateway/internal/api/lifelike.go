@@ -741,6 +741,7 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	if err != nil {
 		return params, err
 	}
+	params.Web = req.web // the launch campaign is web only
 	rates := s.Pricing.Rates(ctx)
 	// HDR output is automatic and free (owner 2026-11-05): every Lifelike
 	// run of an HDR source gets it while the switch is on. A request's

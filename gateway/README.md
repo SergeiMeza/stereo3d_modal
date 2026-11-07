@@ -955,6 +955,27 @@ processing anywhere, 100 newest; a run that leaves it gets its final
 A viewer's ticket is refused there and an admin ticket on `/v1/events`;
 each open is audited (`events_stream`).
 
+### Launch campaign (owner 2026-11-07, TEST)
+
+Config `campaign {enabled, pct, max_preset, starts_at, ends_at?, label}`
+on `config/pricing_{env}` (`pct` 25 or 0.25; `ends_at` absent = open
+ended). TEST's defaults run it: 25%, `max_preset: qhd` (1080p and 1440p;
+"2K" is 2560×1440, there's no 2K preset; 3K and above get nothing), from
+2026-11-07 to 2027-01-11T07:59:59Z (the end of Jan 10, Pacific), label
+"Launch offer until Jan 10". Prod has none until the release sets it.
+Web Lifelike production runs only (`params.web`, from the request's
+Origin); previews, the app paths and the mobile one-shot get nothing.
+Order: the plan or Pro price, then the offer on the whole run (base plus
+add-ons: High/Master quality, Foveated, express), then the per-run
+minimum, then credit and balance pay first. Quote breakdown:
+`campaign_cents` (0 when it doesn't apply), `campaign_label` ("Launch
+offer −25%"), `campaign_pct`, `campaign_name`; the run also carries
+`campaign_cents`. `GET /v1/pricing` → `campaign {active, pct, percent,
+max_preset, presets, starts_at, ends_at, label}`. Console: run rows carry
+`campaign_cents`; `GET /v1/admin/campaign` → `{campaign, totals {runs,
+quoted_cents, discounted_runs, discounted_cents, by_state}, by_month,
+truncated}` (discounted = succeeded runs).
+
 ### Source details (owner 2026-11-07)
 
 Projects carry `source_details` for the web's Source panel:

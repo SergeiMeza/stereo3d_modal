@@ -461,3 +461,9 @@ func (s *Store) HasImageQuota(ctx context.Context, uid string) (bool, error) {
 	}
 	return err == nil, err
 }
+
+// ListCampaignRuns lists the runs whose quote carried the launch offer
+// (quote.breakdown.campaign_cents > 0), at most limit.
+func (s *Store) ListCampaignRuns(ctx context.Context, limit int) ([]*Conversion, error) {
+	return s.collect(s.fs.Collection(conversionsCol(s.env)).Where("quote.breakdown.campaign_cents", ">", 0).Limit(limit).Documents(ctx))
+}

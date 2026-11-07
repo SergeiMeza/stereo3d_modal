@@ -55,6 +55,8 @@ func adminRunJSON(c *store.Conversion) map[string]any {
 // bitrate_requested (projects' runs: auto, match_source, Mbit/s or
 // master), outputs_media and the worker's output_bit_depth (+ reason).
 func addRunMedia(out map[string]any, c *store.Conversion) {
+	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
+	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
 	out["quality"] = nilIfEmpty(c.Params.OutputQuality)
 	out["bitrate_requested"] = nil
 	if c.ProjectID != "" {
