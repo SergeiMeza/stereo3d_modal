@@ -209,3 +209,24 @@ func (s *Store) ListPayRequests(ctx context.Context, uid, state string, limit in
 	}
 	return s.collectPayRequests(q.Limit(limit).Documents(ctx))
 }
+
+// PlanChangeFails counts a step-up quote's failed payments (its
+// idempotency key moves on with each, so the customer's own retry is never
+// answered from Stripe's cache of the last 402).
+func (s *Store) PlanChangeFails(ctx context.Context, base string) int {
+	snap, err := s.fs.Collection("plan_change_tries_" + s.env).Doc(base).Get(ctx)
+	if err != nil {
+		return 0
+	}
+	n, _ := snap.DataAt("fails")
+	if v, ok := n.(int64); ok {
+		return int(v)
+	}
+	return 0
+}
+
+// AddPlanChangeFail records one more failed payment of base.
+func (s *Store) AddPlanChangeFail(ctx context.Context, base string) {
+	_, _ = s.fs.Collection("plan_change_tries_"+s.env).Doc(base).Set(ctx, map[string]any{"fails": firestore.Increment(1),
+		"at": time.Now().UTC()}, firestore.MergeAll)
+}
