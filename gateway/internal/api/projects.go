@@ -54,6 +54,9 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		GCSKey string `json:"gcs_key"`
 		Name   string `json:"name"`
 		Method string `json:"method"`
+		// SourceFilename: the file's name on the device (optional; else
+		// the name the upload was created with).
+		SourceFilename string `json:"source_filename"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -126,8 +129,11 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		Name:      strings.TrimSpace(req.Name),
 		Method:    method,
 		Workspace: ws.ID,
-		Source:    store.Source{GCSKey: req.GCSKey, Bytes: size},
+		Source:    store.Source{GCSKey: req.GCSKey, Bytes: size, Filename: cleanFilename(req.SourceFilename)},
 		Analyze:   store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
+	}
+	if p.Source.Filename == "" {
+		p.Source.Filename = s.Store.UploadName(ctx, uploadIDFromKey(req.GCSKey), user.UID)
 	}
 	noteUse(p, time.Now().UTC(), s.rates(ctx).FileKeep()) // S3D-24 clock
 	if err := s.Store.CreateProject(ctx, p); err != nil {
@@ -1709,6 +1715,7 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	if p.Probe != nil {
 		resp["probe"] = p.Probe
 	}
+	resp["source_details"] = sourceDetailsJSON(p, s.hdrOn(context.Background()))
 	if projectMethod(p) == store.MethodLifelike {
 		resp["qualities"] = lifelikeQualities(p, s.enabledLifelikePresets()) // S3D-04: what this source offers
 	}

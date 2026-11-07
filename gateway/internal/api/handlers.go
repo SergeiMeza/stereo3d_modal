@@ -199,6 +199,12 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 	// The upload id doubles as the conversion id the client passes back.
 	id := store.NewID()
 	key := s.GCS.UploadKey(user.UID, id, ext)
+	if name := cleanFilename(req.Filename); name != "" && slices.Contains(videoExts, ext) && s.Store != nil {
+		// the project made from it shows the device's file name
+		if err := s.Store.PutUploadName(ctx, id, user.UID, name); err != nil {
+			httpx.Log(ctx).Warn("upload name not kept", "upload_id", id, "err", err)
+		}
+	}
 	if req.Resumable {
 		session, err := s.GCS.StartResumableUpload(ctx, key, req.ContentType, r.Header.Get("Origin"))
 		if err != nil {

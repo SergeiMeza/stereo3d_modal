@@ -1022,6 +1022,7 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		if dr != nil && dr.Range == probe.RangeDV5 {
 			return s.rejectSource(ctx, p, errDolbyVision5Text)
 		}
+		details := s.sourceDetailsOf(ctx, p) // the source details panel (owner 2026-11-07)
 		credit := rates.AnalyzeCreditCents
 		now := time.Now().UTC()
 		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
@@ -1044,6 +1045,7 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			if dr != nil {
 				pp.Probe.DynamicRange, pp.Probe.DynamicRangeBase = dr.Range, dr.Base
 			}
+			pp.Probe.Details = details
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL
 			cuts := meta.SceneCuts

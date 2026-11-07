@@ -169,6 +169,9 @@ type Source struct {
 	// PricingFPS: the rate the run was priced at without a target (the
 	// counted rate when a VFR source's is higher than FPS; 0 = FPS).
 	PricingFPS float64 `firestore:"pricing_fps,omitempty" json:"-"`
+	// Filename: the file's name on the user's device, as the upload named
+	// it (projects since 2026-11-07; "" = unknown).
+	Filename string `firestore:"filename,omitempty" json:"-"`
 }
 
 // Params is the clamped, whitelisted subset forwarded to Modal. Trim and
@@ -776,6 +779,35 @@ type Probe struct {
 	// analysis; shown only while HDR output is on (projectResponse).
 	DynamicRange     string `firestore:"dynamic_range,omitempty" json:"-"`
 	DynamicRangeBase string `firestore:"dynamic_range_base,omitempty" json:"-"`
+	// Details: the source details panel's facts (owner 2026-11-07), read
+	// by the gateway's ffprobe at analysis; nil on projects analyzed
+	// before (no backfill).
+	Details *SourceDetails `firestore:"details,omitempty" json:"-"`
+}
+
+// SourceDetails is what the gateway's ffprobe read of the source file at
+// analysis, beside the analysis' own probe. Zero values are unknown.
+type SourceDetails struct {
+	Container      string  `firestore:"container,omitempty"`
+	DurationS      float64 `firestore:"duration_s,omitempty"`
+	Codec          string  `firestore:"codec,omitempty"`
+	Profile        string  `firestore:"profile,omitempty"`
+	BitDepth       int     `firestore:"bit_depth,omitempty"`
+	PixFmt         string  `firestore:"pix_fmt,omitempty"`
+	VideoBitRate   int64   `firestore:"video_bit_rate,omitempty"`
+	ColorTransfer  string  `firestore:"color_transfer,omitempty"`
+	ColorPrimaries string  `firestore:"color_primaries,omitempty"`
+	Rotation       int     `firestore:"rotation,omitempty"`
+	HasAudio       bool    `firestore:"has_audio"`
+	AudioCodec     string  `firestore:"audio_codec,omitempty"`
+	AudioChannels  int     `firestore:"audio_channels,omitempty"`
+	AudioRate      int     `firestore:"audio_sample_rate,omitempty"`
+	AudioBitRate   int64   `firestore:"audio_bit_rate,omitempty"`
+	Spatial        bool    `firestore:"spatial,omitempty"`
+	StereoLayout   string  `firestore:"stereo_layout,omitempty"` // mvhevc | sbs | tb
+	StereoFrom     string  `firestore:"stereo_from,omitempty"`   // vexu | st3d | side_data | tags
+	CameraMake     string  `firestore:"camera_make,omitempty"`
+	CameraModel    string  `firestore:"camera_model,omitempty"`
 }
 
 // CountedFPS is the counted frames over the duration (0 = not counted).

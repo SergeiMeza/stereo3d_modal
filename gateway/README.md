@@ -955,6 +955,27 @@ processing anywhere, 100 newest; a run that leaves it gets its final
 A viewer's ticket is refused there and an admin ticket on `/v1/events`;
 each open is audited (`events_stream`).
 
+### Source details (owner 2026-11-07)
+
+Projects carry `source_details` for the web's Source panel:
+`{details_read, file {name, bytes, container, duration_s}, video {width,
+height, fps, fps_rational, vfr, frames, counted_frames, codec, profile,
+bit_depth, bitrate_bps, color_transfer, color_primaries, rotation},
+source_crop, audio {codec, channels, sample_rate, bitrate_bps} | null,
+stereo {spatial, layout: mvhevc | sbs | tb | null} | null, camera {make,
+model} | null}`. Size, rate, frames and the stream's bit rate come from
+the analysis' probe; the rest from the gateway's own ffprobe at analysis
+(`project.probe.details`) plus a range read of the moov box for `vexu`
+(Apple spatial) and `st3d` (ffprobe 5.1 reports neither). Colour
+(transfer, primaries) is shown to viewers only while HDR output is on,
+like `dynamic_range`. Location tags are never read. `details_read: false`
+on projects analyzed before (no backfill): codec, audio, stereo and camera
+are then unknown, not absent. `file.name` is the device's file name: from
+`POST /v1/projects {source_filename}` or the name `POST /v1/uploads` was
+given (kept in `upload_names_{env}` until then). The console's run
+lookup and evidence runs carry `source {probe, source_bytes, has_bars,
+crop, remove_bars, dynamic_range, source_details}`.
+
 ### Black bars (BL-03, owner 2026-11-03)
 
 Lifelike runs take letterbox and pillarbox bars off by default; the user

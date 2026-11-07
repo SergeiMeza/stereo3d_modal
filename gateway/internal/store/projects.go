@@ -316,3 +316,31 @@ func (s *Store) ListUserSamples(ctx context.Context, uid string) ([]*Project, er
 	}
 	return out, nil
 }
+
+func uploadNamesCol(env string) string { return "upload_names_" + env }
+
+// PutUploadName keeps an upload's file name (the device's) until the
+// project is made from it; best effort.
+func (s *Store) PutUploadName(ctx context.Context, uploadID, uid, name string) error {
+	_, err := s.fs.Collection(uploadNamesCol(s.env)).Doc(uploadID).Set(ctx, map[string]any{
+		"uid": uid, "name": name, "created_at": time.Now().UTC(),
+		"expires_at": time.Now().UTC().Add(30 * 24 * time.Hour), // a TTL policy may take it
+	})
+	return err
+}
+
+// UploadName is the name an upload of uid's was given ("" = none).
+func (s *Store) UploadName(ctx context.Context, uploadID, uid string) string {
+	snap, err := s.fs.Collection(uploadNamesCol(s.env)).Doc(uploadID).Get(ctx)
+	if err != nil {
+		return ""
+	}
+	var d struct {
+		UID  string `firestore:"uid"`
+		Name string `firestore:"name"`
+	}
+	if snap.DataTo(&d) != nil || d.UID != uid {
+		return ""
+	}
+	return d.Name
+}

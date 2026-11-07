@@ -39,6 +39,7 @@ func (s *Service) evidenceFor(ctx context.Context, cs *store.Case) map[string]an
 	var runs []map[string]any
 	var jobIDs []string
 	var from, to time.Time
+	projects := map[string]*store.Project{}
 	for _, id := range cs.Related.ConversionIDs {
 		c, err := s.Store.GetConversion(ctx, id)
 		if err != nil {
@@ -61,6 +62,7 @@ func (s *Service) evidenceFor(ctx context.Context, cs *store.Case) map[string]an
 			"priority": c.Modal.Priority, "max_gpu_workers": c.Modal.GPUWorkers, "express_cost_factor": c.Modal.ExpressCostFactor,
 		}
 		addRunMedia(r, c)
+		r["source"] = s.adminSourceJSON(ctx, c.ProjectID, projects)
 		if c.Error != nil {
 			r["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage, "internal": c.Error.InternalMessage}
 		}
