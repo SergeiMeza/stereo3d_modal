@@ -987,10 +987,8 @@
       "typeToConfirm": "Saisissez {word} pour supprimer définitivement votre compte",
       "deleting": "Suppression…",
       "button": "Supprimer le compte",
-      "refundFirst": "Nous rendons d’abord votre solde de {amount} à votre moyen de paiement.",
-      "refundAndDelete": "Rembourser et supprimer",
-      "returning": "Nous vous rendons {amount} ; votre compte est supprimé une fois cela terminé.",
       "note": "Tout ce que vous devez encore est d’abord débité de votre moyen de paiement enregistré. Vos projets, vidéos et fichiers 3D sont retirés de votre compte immédiatement ; les enregistrements de facturation sont conservés pour l’assistance.",
+      "balanceLost": "Votre solde non dépensé de {amount} sera perdu à la suppression de votre compte.",
       "paymentNeededAmount": "Paiement requis ({amount}) : mettez à jour votre moyen de paiement dans Facturation, puis supprimez votre compte.",
       "paymentNeeded": "Paiement requis : mettez à jour votre moyen de paiement dans Facturation, puis supprimez votre compte.",
       "failed": "Impossible de supprimer le compte."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "Payé avec votre solde",
       "spendLimitReached": "Vous avez atteint votre plafond de dépenses mensuel.",
-      "topupSmallPrint": "Les fonds non dépensés sont remboursables sous 14 jours. Votre solde expire 12 mois après votre dernière recharge.",
+      "topupSmallPrint": "Votre solde expire 12 mois après votre dernière recharge.",
       "topupMin": "Le minimum est de {amount}.",
       "settleFailed": "Votre solde ne suffit plus. Payez autrement.",
       "paymentMethodBlocked": "Ce moyen de paiement est inutilisable. Ajoutez-en un autre.",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "Résilier le forfait",
       "done": "Terminé",
       "title": "Demander un remboursement",
-      "intro": "Choisissez ce qui est concerné. Une personne examine chaque demande. Vous pouvez demander dans les {days} jours suivant un paiement.",
-      "nothing": "Aucun paiement des {days} derniers jours ne peut être remboursé.",
+      "intro": "Choisissez l’objet de votre demande et dites-nous ce qui s’est passé. Nous examinons chaque demande.",
+      "nothing": "Il n’y a rien à choisir pour le moment. <link>Signalez un problème</link> si quelque chose ne va pas.",
       "planLabel": "Forfait {name}",
       "paidDetail": "{amount} · payé le {date}",
+      "balanceLabel": "Solde non dépensé",
+      "balanceDetail": "{amount} non dépensés",
       "alreadyAsked": "· déjà demandé",
       "noteLabel": "Que s’est-il passé ? (facultatif)",
       "cancel": "Annuler",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "Remboursements",
       "reportProblem": "Un souci avec un paiement ou une conversion ? <link>Signaler un problème</link>",
       "reportSubject": "{app} : signaler un problème",
-      "needRefund": "Besoin d’un remboursement ? <button>Demander un remboursement</button> · demandez dans les {days} jours suivant un paiement, même après résiliation. Une personne examine chaque demande.",
-      "askWithin": "Demandez un remboursement dans les {days} jours suivant un paiement, même après résiliation. Une personne examine chaque demande.",
+      "needRefund": "Besoin d’un remboursement ? <button>Demander un remboursement</button>. Nous examinons chaque demande.",
       "appStore": "{pro} de l’App Store est remboursé par Apple. <link>Demander un remboursement à Apple</link>",
       "yourRequests": "Vos demandes",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "{seconds} s chacun.",
       "eachNoRollover": "{seconds} s chacun, sans report.",
       "balance": "Solde",
-      "addFunds": "Ajoutez des fonds dès {amount} et payez vos conversions avec votre solde.",
-      "refundable": "Les fonds non dépensés sont remboursables sous {days} jours."
+      "addFunds": "Ajoutez des fonds dès {amount} et payez vos conversions avec votre solde."
     }
   },
   "meta": {

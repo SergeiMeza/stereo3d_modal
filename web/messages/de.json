@@ -987,10 +987,8 @@
       "typeToConfirm": "Tippe {word}, um dein Konto endgültig zu löschen",
       "deleting": "Wird gelöscht …",
       "button": "Konto löschen",
-      "refundFirst": "Wir erstatten dir zuerst dein Guthaben von {amount} auf deine Zahlungsmethode.",
-      "refundAndDelete": "Erstatten und löschen",
-      "returning": "Wir erstatten dir {amount}; dein Konto wird danach gelöscht.",
       "note": "Was du noch schuldest, wird zuerst von deiner gespeicherten Zahlungsmethode abgebucht. Deine Projekte, Videos und 3D-Dateien werden sofort aus deinem Konto entfernt; Abrechnungsdaten bleiben für den Support erhalten.",
+      "balanceLost": "Dein nicht verbrauchtes Guthaben von {amount} geht verloren, wenn dein Konto gelöscht wird.",
       "paymentNeededAmount": "Zahlung nötig ({amount}): Aktualisiere deine Zahlungsmethode unter Abrechnung und lösche dann dein Konto.",
       "paymentNeeded": "Zahlung nötig: Aktualisiere deine Zahlungsmethode unter Abrechnung und lösche dann dein Konto.",
       "failed": "Das Konto konnte nicht gelöscht werden."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "Vom Guthaben bezahlt",
       "spendLimitReached": "Du hast dein monatliches Ausgabenlimit erreicht.",
-      "topupSmallPrint": "Nicht verbrauchte Beträge können innerhalb von 14 Tagen erstattet werden. Dein Guthaben verfällt 12 Monate nach deiner letzten Aufladung.",
+      "topupSmallPrint": "Dein Guthaben verfällt 12 Monate nach deiner letzten Aufladung.",
       "topupMin": "Das Minimum ist {amount}.",
       "settleFailed": "Dein Guthaben reicht nicht mehr aus. Bezahle anders.",
       "paymentMethodBlocked": "Dieses Zahlungsmittel kann nicht verwendet werden. Füge ein anderes hinzu.",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "Plan kündigen",
       "done": "Fertig",
       "title": "Erstattung anfragen",
-      "intro": "Wähle, worum es geht. Ein Mensch prüft jede Anfrage. Du kannst bis {days} Tage nach einer Zahlung anfragen.",
-      "nothing": "Zahlungen der letzten {days} Tage können nicht erstattet werden.",
+      "intro": "Wähle, worum es geht, und erzähle uns, was passiert ist. Wir prüfen jede Anfrage.",
+      "nothing": "Im Moment gibt es hier nichts zur Auswahl. <link>Melde ein Problem</link>, wenn etwas nicht stimmt.",
       "planLabel": "Plan {name}",
       "paidDetail": "{amount} · bezahlt am {date}",
+      "balanceLabel": "Nicht verbrauchtes Guthaben",
+      "balanceDetail": "{amount} nicht verbraucht",
       "alreadyAsked": "· schon angefragt",
       "noteLabel": "Was ist passiert? (optional)",
       "cancel": "Abbrechen",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "Erstattungen",
       "reportProblem": "Stimmt etwas mit einer Zahlung oder Umwandlung nicht? <link>Problem melden</link>",
       "reportSubject": "{app}: Problem melden",
-      "needRefund": "Erstattung nötig? <button>Erstattung anfragen</button> · bis {days} Tage nach einer Zahlung, auch nach der Kündigung. Ein Mensch prüft jede Anfrage.",
-      "askWithin": "Frage eine Erstattung bis {days} Tage nach einer Zahlung an, auch nach der Kündigung. Ein Mensch prüft jede Anfrage.",
+      "needRefund": "Erstattung nötig? <button>Erstattung anfragen</button>. Wir prüfen jede Anfrage.",
       "appStore": "{pro} aus dem App Store wird von Apple erstattet. <link>Bei Apple eine Erstattung anfragen</link>",
       "yourRequests": "Deine Anfragen",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "je {seconds} s.",
       "eachNoRollover": "je {seconds} s, nicht übertragbar.",
       "balance": "Guthaben",
-      "addFunds": "Lade ab {amount} Guthaben auf und bezahle Umwandlungen davon.",
-      "refundable": "Nicht ausgegebenes Guthaben kann innerhalb von {days} Tagen erstattet werden."
+      "addFunds": "Lade ab {amount} Guthaben auf und bezahle Umwandlungen davon."
     }
   },
   "meta": {

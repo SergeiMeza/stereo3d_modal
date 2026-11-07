@@ -987,10 +987,8 @@
       "typeToConfirm": "계정을 영구 삭제하려면 {word}을(를) 입력하세요",
       "deleting": "삭제 중…",
       "button": "계정 삭제",
-      "refundFirst": "먼저 잔액 {amount}을 결제 수단으로 돌려 드려요.",
-      "refundAndDelete": "환불하고 삭제",
-      "returning": "{amount}을 돌려 드리는 중이에요. 완료되면 계정이 삭제돼요.",
       "note": "아직 내지 않은 금액이 있으면 먼저 저장된 결제 수단으로 결제돼요. 프로젝트, 영상, 3D 파일은 계정에서 즉시 삭제되고, 결제 기록은 지원을 위해 보관돼요.",
+      "balanceLost": "계정을 삭제하면 사용하지 않은 잔액 {amount}이(가) 사라져요.",
       "paymentNeededAmount": "결제가 필요해요({amount}). 결제에서 결제 수단을 업데이트한 뒤 계정을 삭제하세요.",
       "paymentNeeded": "결제가 필요해요. 결제에서 결제 수단을 업데이트한 뒤 계정을 삭제하세요.",
       "failed": "계정을 삭제하지 못했어요."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "잔액으로 결제됨",
       "spendLimitReached": "월 사용 한도에 도달했어요.",
-      "topupSmallPrint": "사용하지 않은 금액은 14일 안에 환불받을 수 있어요. 마지막 충전 후 12개월이 지나면 잔액이 만료돼요.",
+      "topupSmallPrint": "마지막 충전 후 12개월이 지나면 잔액이 만료돼요.",
       "topupMin": "최소 금액은 {amount}예요.",
       "settleFailed": "잔액이 부족해요. 다른 방법으로 결제해 주세요.",
       "paymentMethodBlocked": "이 결제 수단은 사용할 수 없어요. 다른 수단을 추가해 주세요.",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "플랜 해지",
       "done": "완료",
       "title": "환불 요청",
-      "intro": "해당 항목을 선택하세요. 모든 요청은 담당자가 검토해요. 결제 후 {days}일 안에 요청할 수 있어요.",
-      "nothing": "최근 {days}일 안에 결제한 환불 가능 항목이 없어요.",
+      "intro": "어떤 건인지 선택하고 무슨 일이 있었는지 알려 주세요. 요청은 하나하나 살펴봐요.",
+      "nothing": "지금은 선택할 항목이 없어요. 문제가 있다면 <link>문제 신고</link>를 눌러 주세요.",
       "planLabel": "{name} 플랜",
       "paidDetail": "{amount} · {date} 결제",
+      "balanceLabel": "사용하지 않은 잔액",
+      "balanceDetail": "{amount} 미사용",
       "alreadyAsked": "· 이미 요청함",
       "noteLabel": "어떤 일이 있었나요? (선택)",
       "cancel": "취소",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "환불",
       "reportProblem": "결제나 변환에 문제가 있나요? <link>문제 신고</link>",
       "reportSubject": "{app}: 문제 신고",
-      "needRefund": "환불이 필요하세요? <button>환불 요청</button> · 결제 후 {days}일 안에, 해지한 뒤에도 요청할 수 있어요. 모든 요청은 담당자가 검토해요.",
-      "askWithin": "결제 후 {days}일 안에, 해지한 뒤에도 환불을 요청할 수 있어요. 모든 요청은 담당자가 검토해요.",
+      "needRefund": "환불이 필요하세요? <button>환불 요청</button>. 요청은 하나하나 살펴봐요.",
       "appStore": "App Store의 {pro}는 Apple에서 환불해 줘요. <link>Apple에 환불 요청</link>",
       "yourRequests": "내 요청",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "각 {seconds}초.",
       "eachNoRollover": "각 {seconds}초, 이월 없음.",
       "balance": "잔액",
-      "addFunds": "{amount}부터 충전해서 잔액으로 변환 비용을 결제하세요.",
-      "refundable": "사용하지 않은 금액은 {days}일 안에 환불받을 수 있어요."
+      "addFunds": "{amount}부터 충전해서 잔액으로 변환 비용을 결제하세요."
     }
   },
   "meta": {

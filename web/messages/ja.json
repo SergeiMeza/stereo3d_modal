@@ -987,10 +987,8 @@
       "typeToConfirm": "アカウントを完全に削除するには{word}と入力してください",
       "deleting": "削除中…",
       "button": "アカウントを削除",
-      "refundFirst": "先に、残高{amount}をお支払い方法へ返金します。",
-      "refundAndDelete": "返金して削除",
-      "returning": "{amount}を返金しています。完了するとアカウントが削除されます。",
       "note": "未払いの金額がある場合は、先に保存済みのお支払い方法に請求されます。プロジェクト、動画、3Dファイルはアカウントからすぐに削除されます。請求記録はサポートのため保管されます。",
+      "balanceLost": "アカウントを削除すると、未使用の残高{amount}は失われます。",
       "paymentNeededAmount": "お支払いが必要です（{amount}）：お支払いでお支払い方法を更新してから、アカウントを削除してください。",
       "paymentNeeded": "お支払いが必要です：お支払いでお支払い方法を更新してから、アカウントを削除してください。",
       "failed": "アカウントを削除できませんでした。"
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "残高から支払い済み",
       "spendLimitReached": "月間の利用上限に達しました。",
-      "topupSmallPrint": "使っていない資金は14日以内なら返金できます。残高は最後のチャージから12か月で失効します。",
+      "topupSmallPrint": "残高は最後のチャージから12か月で失効します。",
       "topupMin": "最低額は{amount}です。",
       "settleFailed": "残高では足りなくなりました。別の方法でお支払いください。",
       "paymentMethodBlocked": "このお支払い方法は使えません。別の方法を追加してください。",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "プランを解約",
       "done": "完了",
       "title": "返金を申請",
-      "intro": "対象を選んでください。すべての申請を担当者が確認します。お支払いから{days}日以内に申請できます。",
-      "nothing": "過去{days}日以内に支払ったもので、返金できるものはありません。",
+      "intro": "対象を選んで、何があったかをお知らせください。申請は一件ずつ確認します。",
+      "nothing": "現在選べるものはありません。問題がある場合は<link>問題を報告</link>してください。",
       "planLabel": "{name}プラン",
       "paidDetail": "{amount} · {date}にお支払い",
+      "balanceLabel": "未使用の残高",
+      "balanceDetail": "未使用 {amount}",
       "alreadyAsked": "· 申請済み",
       "noteLabel": "何がありましたか？（任意）",
       "cancel": "キャンセル",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "返金",
       "reportProblem": "お支払いや変換に問題がありますか？<link>問題を報告</link>",
       "reportSubject": "{app}：問題の報告",
-      "needRefund": "返金が必要ですか？<button>返金を申請</button> · お支払いから{days}日以内、解約後でも申請できます。すべての申請を担当者が確認します。",
-      "askWithin": "お支払いから{days}日以内、解約後でも返金を申請できます。すべての申請を担当者が確認します。",
+      "needRefund": "返金が必要ですか？<button>返金を申請</button>。申請は一件ずつ確認します。",
       "appStore": "App Storeの{pro}の返金はAppleが行います。<link>Appleに返金を依頼</link>",
       "yourRequests": "あなたの申請",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "1回{seconds}秒。",
       "eachNoRollover": "1回{seconds}秒、繰り越しなし。",
       "balance": "残高",
-      "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。",
-      "refundable": "使わなかった残高は{days}日以内なら返金できます。"
+      "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。"
     }
   },
   "meta": {

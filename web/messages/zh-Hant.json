@@ -987,10 +987,8 @@
       "typeToConfirm": "輸入 {word} 以永久刪除您的帳號",
       "deleting": "刪除中…",
       "button": "刪除帳號",
-      "refundFirst": "我們會先將您 {amount} 的餘額退回付款方式。",
-      "refundAndDelete": "退款並刪除",
-      "returning": "我們正在退回您的 {amount}；完成後即會刪除帳號。",
       "note": "您尚未付清的款項會先從已儲存的付款方式扣款。您的專案、影片和 3D 檔案會立即從帳號中移除；帳務紀錄會保留供客服使用。",
+      "balanceLost": "刪除帳號後，你未使用的 {amount} 餘額將會遺失。",
       "paymentNeededAmount": "需要付款（{amount}）：請在帳務頁面更新付款方式，然後刪除帳號。",
       "paymentNeeded": "需要付款：請在帳務頁面更新付款方式，然後刪除帳號。",
       "failed": "無法刪除帳號。"
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "用餘額支付",
       "spendLimitReached": "你已達到每月支出上限。",
-      "topupSmallPrint": "未使用的款項可在 14 天內退款。你的餘額將在最後一次儲值後 12 個月到期。",
+      "topupSmallPrint": "你的餘額將在最後一次儲值後 12 個月到期。",
       "topupMin": "最低金額為 {amount}。",
       "settleFailed": "你的餘額已不足以支付。請改用其他付款方式。",
       "paymentMethodBlocked": "此付款方式無法使用。請新增其他付款方式。",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "取消方案",
       "done": "完成",
       "title": "申請退款",
-      "intro": "選擇要退款的項目。每項申請都由專人審核。您可在付款後 {days} 天內提出。",
-      "nothing": "過去 {days} 天內沒有可退款的付款。",
+      "intro": "選擇申請的項目，並告訴我們發生了什麼事。我們會逐一查看每個申請。",
+      "nothing": "目前沒有可選的項目。如有問題，請<link>回報問題</link>。",
       "planLabel": "{name} 方案",
       "paidDetail": "{amount} · {date} 付款",
+      "balanceLabel": "未使用的餘額",
+      "balanceDetail": "未使用 {amount}",
       "alreadyAsked": "· 已申請",
       "noteLabel": "發生了什麼事？（選填）",
       "cancel": "取消",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "退款",
       "reportProblem": "付款或轉換有問題？<link>回報問題</link>",
       "reportSubject": "{app}：回報問題",
-      "needRefund": "需要退款？<button>申請退款</button> · 付款後 {days} 天內可提出，取消後也可以。每項申請都由專人審核。",
-      "askWithin": "付款後 {days} 天內可申請退款，取消後也可以。每項申請都由專人審核。",
+      "needRefund": "需要退款？<button>申請退款</button>。我們會逐一查看每個申請。",
       "appStore": "App Store 的 {pro} 由 Apple 退款。<link>向 Apple 申請退款</link>",
       "yourRequests": "您的申請",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "每次 {seconds} 秒。",
       "eachNoRollover": "每次 {seconds} 秒，不累積。",
       "balance": "餘額",
-      "addFunds": "儲值 {amount} 起，並以餘額支付轉換費用。",
-      "refundable": "未花用的款項可在 {days} 天內退款。"
+      "addFunds": "儲值 {amount} 起，並以餘額支付轉換費用。"
     }
   },
   "meta": {
