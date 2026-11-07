@@ -146,12 +146,39 @@ type eventStream struct {
 	lastProgress map[string]string
 	lastFormats  map[string]string
 	runsOnly     bool // the console's stream
+	// jobs: the project job watchers this stream holds (live_jobs.go),
+	// project id → release.
+	jobs map[string]func()
 }
 
 func newEventStream(s *Service, w io.Writer, flush func() error) *eventStream {
 	return &eventStream{s: s, w: w, flush: flush, sent: map[string]int64{}, lastFull: map[string]string{},
 		lastState: map[string]string{}, progressAt: map[string]time.Time{}, pending: map[string]*store.WatchedDoc{},
-		lastProgress: map[string]string{}, lastFormats: map[string]string{}}
+		lastProgress: map[string]string{}, lastFormats: map[string]string{}, jobs: map[string]func(){}}
+}
+
+// trackJobs holds a job watcher for a shown project while its analyze or
+// shot profiling runs, and lets go when it stops or leaves the window.
+func (e *eventStream) trackJobs(d store.WatchedDoc) {
+	if e.runsOnly || e.s == nil {
+		return
+	}
+	running := !d.Removed && jobRunning(d.Project)
+	switch release, held := e.jobs[d.ID]; {
+	case running && !held:
+		e.jobs[d.ID] = e.s.watchProjectJobs(d.ID)
+	case !running && held:
+		release()
+		delete(e.jobs, d.ID)
+	}
+}
+
+// releaseJobs lets go of every watcher (the stream ended).
+func (e *eventStream) releaseJobs() {
+	for id, release := range e.jobs {
+		release()
+		delete(e.jobs, id)
+	}
 }
 
 func (e *eventStream) write(ev sseEvent) error {
@@ -282,6 +309,7 @@ func (e *eventStream) handle(d store.WatchedDoc, now time.Time) error {
 			"project_id": c.ProjectID, "version": ver, "state": c.State, "run": full}})
 	case "project":
 		key := projectKey(d.ID)
+		e.trackJobs(d)
 		if d.Removed || d.Project == nil || ver <= e.sent[key] {
 			return nil
 		}
@@ -438,6 +466,7 @@ func (e *eventStream) remember(d store.WatchedDoc) {
 		}
 	case d.Kind == "project":
 		e.sent[projectKey(d.ID)] = ver
+		e.trackJobs(d)
 	case d.Kind == "handoff":
 		e.sent["handoff:"+d.ID] = ver
 	case d.Kind == "settle":
@@ -555,6 +584,7 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, specs []st
 	}()
 	es := newEventStream(s, w, rc.Flush)
 	es.runsOnly = runsOnly
+	defer es.releaseJobs()
 	var initial []store.WatchedDoc
 	ready := map[int]bool{}
 	var early []store.WatchedDoc // changes before every first batch

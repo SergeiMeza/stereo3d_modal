@@ -91,6 +91,84 @@ func (s *Store) CountOwnProjects(ctx context.Context, uid string, upTo int) (int
 	return n, nil
 }
 
+// Live job progress on a project (analyze, profile): written at most every
+// ProgressMinGap unless it moved at least ProgressMinStep (or the stage
+// changed), so a job costs a few writes a minute however many viewers or
+// instances poll it.
+const (
+	ProgressMinGap  = 5 * time.Second
+	ProgressMinStep = 0.05
+)
+
+// Job kinds for SetJobProgress.
+const (
+	JobAnalyze = "analyze"
+	JobProfile = "profile"
+)
+
+// JobProgress is a running job's live progress.
+type JobProgress struct {
+	Progress   float64
+	Stage      string
+	ETASeconds int64 // analyze only
+}
+
+// SetJobProgress writes a running job's progress onto its project (only
+// the progress fields; updated_at stays) when the job is still the
+// project's running one and the change passes the throttle. true when it
+// wrote.
+func (s *Store) SetJobProgress(ctx context.Context, projectID, kind, jobID string, jp JobProgress, now time.Time) (bool, error) {
+	wrote := false
+	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		wrote = false
+		snap, err := tx.Get(s.projDoc(projectID))
+		if status.Code(err) == codes.NotFound {
+			return ErrNotFound
+		}
+		if err != nil {
+			return err
+		}
+		var p Project
+		if err := snap.DataTo(&p); err != nil {
+			return err
+		}
+		var cur JobProgress
+		var at *time.Time
+		switch kind {
+		case JobAnalyze:
+			if p.Analyze.State != AnalyzeRunning || p.Analyze.JobID != jobID {
+				return nil
+			}
+			cur, at = JobProgress{p.Analyze.Progress, p.Analyze.Stage, p.Analyze.ETASeconds}, p.Analyze.ProgressAt
+		case JobProfile:
+			if p.Profile == nil || p.Profile.State != "running" || p.Profile.JobID != jobID {
+				return nil
+			}
+			cur, at, jp.ETASeconds = JobProgress{p.Profile.Progress, p.Profile.Stage, 0}, p.Profile.ProgressAt, 0
+		default:
+			return fmt.Errorf("job progress: unknown kind %q", kind)
+		}
+		if cur == jp {
+			return nil
+		}
+		step := jp.Progress - cur.Progress
+		if step < 0 {
+			step = -step
+		}
+		if at != nil && now.Sub(*at) < ProgressMinGap && step < ProgressMinStep && jp.Stage == cur.Stage {
+			return nil // too soon for so small a change
+		}
+		ups := []firestore.Update{{Path: kind + ".progress", Value: jp.Progress}, {Path: kind + ".stage", Value: jp.Stage},
+			{Path: kind + ".progress_at", Value: now.UTC()}}
+		if kind == JobAnalyze {
+			ups = append(ups, firestore.Update{Path: "analyze.eta_seconds", Value: jp.ETASeconds})
+		}
+		wrote = true
+		return tx.Update(s.projDoc(projectID), ups)
+	})
+	return wrote, err
+}
+
 // ListProjectsAnalyzing returns projects whose free analyze job is still
 // running (reconciler sweep).
 func (s *Store) ListProjectsAnalyzing(ctx context.Context, limit int) ([]*Project, error) {

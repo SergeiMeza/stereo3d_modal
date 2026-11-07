@@ -857,12 +857,15 @@ type Analyze struct {
 	State   string  `firestore:"state" json:"state"`
 	Error   string  `firestore:"error,omitempty" json:"error,omitempty"`
 	CostUSD float64 `firestore:"cost_usd,omitempty" json:"-"`
-	// Transient live-progress fields (state=running only): filled from the
-	// Modal job on each read-through poll, never persisted — Firestore would
-	// otherwise take a write per client poll.
-	Progress   float64 `firestore:"-" json:"progress,omitempty"`
-	Stage      string  `firestore:"-" json:"stage,omitempty"`
-	ETASeconds int64   `firestore:"-" json:"eta_seconds,omitempty"`
+	// Live progress (state=running only; the response hides it
+	// otherwise): written from the Modal job by SetJobProgress, at most
+	// every ProgressMinGap unless it moved ProgressMinStep, so the live
+	// stream carries it (owner 2026-11-07: an open project page sat at its
+	// first read). ProgressAt: when it was last written.
+	Progress   float64    `firestore:"progress,omitempty" json:"progress,omitempty"`
+	Stage      string     `firestore:"stage,omitempty" json:"stage,omitempty"`
+	ETASeconds int64      `firestore:"eta_seconds,omitempty" json:"eta_seconds,omitempty"`
+	ProgressAt *time.Time `firestore:"progress_at,omitempty" json:"-"`
 	// CreditCents is granted on analyze success and consumed (as a discount)
 	// by the project's first paid conversion; restored if that conversion
 	// ends without capture.
@@ -884,10 +887,11 @@ type ProfileJob struct {
 	// same doctrine as SceneProfile.ScenesVersion).
 	ScenesVersion int    `firestore:"scenes_version" json:"scenes_version"`
 	Error         string `firestore:"error,omitempty" json:"error,omitempty"`
-	// Transient live-progress fields (state=running only) — see Analyze.
-	Progress  float64   `firestore:"-" json:"progress,omitempty"`
-	Stage     string    `firestore:"-" json:"stage,omitempty"`
-	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
+	// Live progress (state=running only) — see Analyze.
+	Progress   float64    `firestore:"progress,omitempty" json:"progress,omitempty"`
+	Stage      string     `firestore:"stage,omitempty" json:"stage,omitempty"`
+	ProgressAt *time.Time `firestore:"progress_at,omitempty" json:"-"`
+	UpdatedAt  time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // Scenes is the user-editable cut list. Cuts are SOURCE-frame indices (each

@@ -83,6 +83,10 @@ type Service struct {
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
+	// liveJobs: this instance's watchers on running project jobs that a
+	// live stream shows (live_jobs.go).
+	liveJobsOnce sync.Once
+	liveJobs     *liveJobs
 
 	// EventsAuth answers the viewer of GET /v1/events from its request
 	// (tests); nil = the Firebase ID token. EventsTiming shortens the
@@ -1079,12 +1083,14 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		if reason := analyzeStuck(job, time.Now()); reason != "" {
 			return s.analyzeEnded(ctx, p, reason)
 		}
-		// Still running — surface live progress to the caller (transient;
-		// see store.Analyze).
+		// Still running: live progress for the caller, and onto the project
+		// (throttled) so the live stream carries it.
 		pp := *p
 		pp.Analyze.Progress = job.Progress
 		pp.Analyze.Stage = job.Stage
 		pp.Analyze.ETASeconds = job.ProgressDetail.ETASeconds
+		s.saveJobProgress(ctx, p.ID, store.JobAnalyze, p.Analyze.JobID,
+			store.JobProgress{Progress: job.Progress, Stage: job.Stage, ETASeconds: job.ProgressDetail.ETASeconds})
 		return &pp, nil
 	}
 }
@@ -1118,6 +1124,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 			}
 			pp.Profile.State = "succeeded"
 			pp.Profile.UpdatedAt = now
+			pp.Profile.Progress, pp.Profile.Stage, pp.Profile.ProgressAt = 0, "", nil
 			pp.SceneProfile = &store.SceneProfile{
 				ConversionID:  "profile:" + pp.Profile.JobID,
 				ScenesVersion: pp.Profile.ScenesVersion,
@@ -1139,6 +1146,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 		prof.Progress = job.Progress
 		prof.Stage = job.Stage
 		pp.Profile = &prof
+		s.saveJobProgress(ctx, p.ID, store.JobProfile, p.Profile.JobID, store.JobProgress{Progress: job.Progress, Stage: job.Stage})
 		return &pp, nil
 	}
 }
@@ -1150,6 +1158,7 @@ func (s *Service) failProfile(ctx context.Context, p *store.Project, internalErr
 			return nil
 		}
 		pp.Profile.State = "failed"
+		pp.Profile.Progress, pp.Profile.Stage, pp.Profile.ProgressAt = 0, "", nil
 		pp.Profile.Error = "shot profiling failed — retry, or contact support with project ID " + p.ID
 		pp.Profile.UpdatedAt = time.Now().UTC()
 		return nil
@@ -1219,6 +1228,7 @@ func (s *Service) analyzeEnded(ctx context.Context, p *store.Project, reason str
 			return store.ErrStateConflict // another poll got there first
 		}
 		pp.Analyze.JobID, pp.Analyze.Retries, pp.Analyze.Error = resp.JobID, pp.Analyze.Retries+1, ""
+		pp.Analyze.Progress, pp.Analyze.Stage, pp.Analyze.ETASeconds, pp.Analyze.ProgressAt = 0, "", 0, nil
 		return nil
 	})
 	if uerr != nil {

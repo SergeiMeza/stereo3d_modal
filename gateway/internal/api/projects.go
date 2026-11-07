@@ -190,6 +190,7 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		pp.Analyze.JobID = resp.JobID
 		pp.Analyze.State = store.AnalyzeRunning
 		pp.Analyze.Error = ""
+		pp.Analyze.Progress, pp.Analyze.Stage, pp.Analyze.ETASeconds, pp.Analyze.ProgressAt = 0, "", 0, nil
 		return nil
 	})
 	if uerr != nil {
