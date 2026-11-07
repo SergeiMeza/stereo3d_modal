@@ -56,8 +56,15 @@ type Rates struct {
 	// window_hours (tiers without one keep their default). Fractional hours are fine. BatchOneShot extends
 	// batching to the mobile one-shot flow (off until the mobile contract
 	// catches up).
-	BatchWindowHours         float64     `firestore:"batch_window_hours"`
-	BatchTiers               []BatchTier `firestore:"batch_tiers"`
+	BatchWindowHours float64     `firestore:"batch_window_hours"`
+	BatchTiers       []BatchTier `firestore:"batch_tiers"`
+	// WebBatchTiers are the web groups' tiers (D15, owner 2026-11-07:
+	// smaller first caps, longer windows for a proven record); config
+	// web_batch_tiers overrides them for web groups only. BatchTiers
+	// (config batch_tiers) stay the app groups' and keep their shipped
+	// default, so mobile paths are unchanged. BatchWindowHours and
+	// BatchFailureLookbackDays apply to both.
+	WebBatchTiers            []BatchTier `firestore:"web_batch_tiers"`
 	BatchFailureLookbackDays int         `firestore:"batch_failure_lookback_days"`
 	BatchOneShot             bool        `firestore:"batch_one_shot"`
 	// MinBillableSeconds floors the one-shot (mobile) video quote: a clip
@@ -466,9 +473,26 @@ type BatchTier struct {
 // failure drops both window and cap back to a new account's). WindowHours
 // is always filled in (see Rates.BatchWindowHours).
 func (r *Rates) BatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier {
-	tiers := r.BatchTiers
+	return r.tierFor(r.BatchTiers, defaults().BatchTiers, lifetimePaid, failedRecently)
+}
+
+// WebBatchTierFor is BatchTierFor for a web group (D15): web_batch_tiers,
+// or their code default.
+func (r *Rates) WebBatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier {
+	return r.tierFor(r.WebBatchTiers, defaults().WebBatchTiers, lifetimePaid, failedRecently)
+}
+
+// TierFor picks the app's or the web's tier.
+func (r *Rates) TierFor(web bool, lifetimePaid int64, failedRecently bool) BatchTier {
+	if web {
+		return r.WebBatchTierFor(lifetimePaid, failedRecently)
+	}
+	return r.BatchTierFor(lifetimePaid, failedRecently)
+}
+
+func (r *Rates) tierFor(tiers, fallback []BatchTier, lifetimePaid int64, failedRecently bool) BatchTier {
 	if len(tiers) == 0 {
-		tiers = defaults().BatchTiers[:1] // no tiers configured: the base one
+		tiers = fallback[:1] // no tiers configured: the base one
 	}
 	best, base := BatchTier{}, BatchTier{MinPaidCents: -1}
 	for _, t := range tiers {
@@ -483,22 +507,22 @@ func (r *Rates) BatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier 
 		best = base
 	}
 	if best.CapCents <= 0 {
-		best = defaults().BatchTiers[0]
+		best = fallback[0]
 	}
 	if r.BatchWindowHours > 0 {
 		best.WindowHours = r.BatchWindowHours // flat override (test env)
 	}
 	if best.WindowHours <= 0 {
-		best.WindowHours = defaultTierWindow(best.MinPaidCents)
+		best.WindowHours = defaultTierWindow(fallback, best.MinPaidCents)
 	}
 	return best
 }
 
 // defaultTierWindow is the default window of the default tier a spend
 // threshold falls in (config tiers written before window_hours existed).
-func defaultTierWindow(minPaid int64) float64 {
+func defaultTierWindow(fallback []BatchTier, minPaid int64) float64 {
 	h := 1.0
-	for _, t := range defaults().BatchTiers {
+	for _, t := range fallback {
 		if minPaid >= t.MinPaidCents {
 			h = t.WindowHours
 		}
@@ -532,10 +556,26 @@ func (r *Rates) BatchCap(lifetimePaid int64) int64 {
 // NextBatchTier returns the next tier above the user's current cap, or
 // nil at the top tier — for the "spend $X more to unlock" hint.
 func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
-	current := r.BatchCap(lifetimePaid)
+	return nextTier(r.BatchTiers, r.BatchCap(lifetimePaid), lifetimePaid)
+}
+
+// WebBatchCap / NextWebBatchTier: the web groups' (D15).
+func (r *Rates) WebBatchCap(lifetimePaid int64) int64 {
+	return r.WebBatchTierFor(lifetimePaid, false).CapCents
+}
+
+func (r *Rates) NextWebBatchTier(lifetimePaid int64) *BatchTier {
+	tiers := r.WebBatchTiers
+	if len(tiers) == 0 {
+		tiers = defaults().WebBatchTiers[:1]
+	}
+	return nextTier(tiers, r.WebBatchCap(lifetimePaid), lifetimePaid)
+}
+
+func nextTier(tiers []BatchTier, current, lifetimePaid int64) *BatchTier {
 	var next *BatchTier
-	for i := range r.BatchTiers {
-		t := &r.BatchTiers[i]
+	for i := range tiers {
+		t := &tiers[i]
 		if t.CapCents > current && lifetimePaid < t.MinPaidCents && (next == nil || t.MinPaidCents < next.MinPaidCents) {
 			next = t
 		}
@@ -566,6 +606,15 @@ func defaults() *Rates {
 			{MinPaidCents: 20000, CapCents: 15000, WindowHours: 4},    // $200 collected: $150, 4 h
 			{MinPaidCents: 100000, CapCents: 40000, WindowHours: 12},  // $1,000 collected: $400, 12 h
 			{MinPaidCents: 500000, CapCents: 100000, WindowHours: 24}, // $5,000 collected: $1,000, 24 h
+		},
+		// Web groups (D15, owner 2026-11-07): web runs are larger, so a
+		// new card's tab is halved and the windows grow with the record.
+		WebBatchTiers: []BatchTier{
+			{MinPaidCents: 0, CapCents: 2500, WindowHours: 1},         // under $50 collected: $25, 1 h
+			{MinPaidCents: 5000, CapCents: 5000, WindowHours: 2},      // $50: $50, 2 h
+			{MinPaidCents: 20000, CapCents: 15000, WindowHours: 6},    // $200: $150, 6 h
+			{MinPaidCents: 100000, CapCents: 40000, WindowHours: 12},  // $1,000: $400, 12 h
+			{MinPaidCents: 500000, CapCents: 100000, WindowHours: 24}, // $5,000: $1,000, 24 h
 		},
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,

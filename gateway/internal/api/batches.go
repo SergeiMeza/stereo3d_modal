@@ -73,13 +73,15 @@ func (s *Service) creditLifetime(ctx context.Context, uid string, cents int64) {
 // batchTier is the batch window and cap the account accumulates under
 // (S3D-19): by collected spend, back to the first tier after a declined
 // charge within the lookback.
-func (s *Service) batchTier(ctx context.Context, cust *store.Customer) pricing.BatchTier {
+// web: a web group (D15 tiers); false — the app's, and anything not
+// clearly web — keeps the shipped ladder.
+func (s *Service) batchTier(ctx context.Context, cust *store.Customer, web bool) pricing.BatchTier {
 	rates := s.Pricing.Rates(ctx)
 	if cust == nil {
-		return rates.BatchTierFor(0, false)
+		return rates.TierFor(web, 0, false)
 	}
 	failed := cust.LastChargeFailedAt != nil && time.Since(*cust.LastChargeFailedAt) < rates.FailureLookback()
-	return rates.BatchTierFor(cust.LifetimePaidCents, failed)
+	return rates.TierFor(web, cust.LifetimePaidCents, failed)
 }
 
 // markChargeFailed stamps the account's last declined charge. Best effort:
@@ -97,12 +99,17 @@ func (s *Service) markChargeFailed(ctx context.Context, uid string) {
 // holdThreshold is the quote at or above which a run gets an up-front hold
 // instead of joining the batch: the base threshold, lifted to the user's
 // batch cap so a higher tier batches the runs it is trusted for.
-func (s *Service) holdThreshold(ctx context.Context, cust *store.Customer) int64 {
+func (s *Service) holdThreshold(ctx context.Context, cust *store.Customer, web bool) int64 {
 	th := int64(holdThresholdCents)
 	if cust == nil {
 		return th
 	}
-	if cap := s.Pricing.Rates(ctx).BatchCap(cust.LifetimePaidCents); cap > th {
+	rates := s.Pricing.Rates(ctx)
+	cap := rates.BatchCap(cust.LifetimePaidCents)
+	if web {
+		cap = rates.WebBatchCap(cust.LifetimePaidCents)
+	}
+	if cap > th {
 		th = cap
 	}
 	return th
@@ -133,7 +140,7 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		return conv, err
 	}
 	cust = s.ensureLifetimeSeeded(ctx, conv.UID, cust)
-	tier := s.batchTier(ctx, cust)
+	tier := s.batchTier(ctx, cust, conv.ProjectID != "")
 	batch, err := s.Store.BatchConversion(ctx, conv.ID, store.BatchItem{
 		ConversionID: conv.ID,
 		ProjectID:    conv.ProjectID,
@@ -600,20 +607,26 @@ func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[stri
 }
 
 // tierEntry describes the user's batch tier for the billing UI.
-func (s *Service) tierEntry(ctx context.Context, cust *store.Customer) map[string]any {
+// web: the web groups' tiers (Billing's web_tier); the app's tier
+// otherwise (Billing's tier, unchanged).
+func (s *Service) tierEntry(ctx context.Context, cust *store.Customer, web bool) map[string]any {
 	rates := s.Pricing.Rates(ctx)
 	var paid int64
 	if cust != nil {
 		paid = cust.LifetimePaidCents
 	}
-	tier := s.batchTier(ctx, cust)
+	tier := s.batchTier(ctx, cust, web)
 	entry := map[string]any{
 		"cap_cents":            tier.CapCents,
 		"window_hours":         tier.WindowHours,
 		"lifetime_paid_cents":  paid,
-		"hold_threshold_cents": s.holdThreshold(ctx, cust),
+		"hold_threshold_cents": s.holdThreshold(ctx, cust, web),
 	}
-	if next := rates.NextBatchTier(paid); next != nil {
+	next := rates.NextBatchTier(paid)
+	if web {
+		next = rates.NextWebBatchTier(paid)
+	}
+	if next != nil {
 		entry["next_tier"] = map[string]any{
 			"min_paid_cents": next.MinPaidCents,
 			"cap_cents":      next.CapCents,

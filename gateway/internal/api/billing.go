@@ -318,7 +318,8 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		"delinquent":         len(entries) > 0,
 		"unpaid":             entries,
 		"publishable_key":    s.Stripe.PublishableKey,
-		"tier":               s.tierEntry(ctx, cust),
+		"tier":               s.tierEntry(ctx, cust, false),
+		"web_tier":           s.tierEntry(ctx, cust, true), // D15: what the web's groups batch under
 	}
 	if r := s.webRetryJSON(failedBatches); r != nil {
 		resp["retry"] = r // the banner: a failed web group's schedule and pay link (absent for app accounts)
