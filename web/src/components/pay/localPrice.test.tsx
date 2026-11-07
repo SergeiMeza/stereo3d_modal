@@ -29,6 +29,7 @@ vi.mock("next/navigation", () => ({
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 const LOCAL = "You'll see your local price at checkout.";
 const USD = "Charged in US dollars.";
+const IN_SHEET = (usd: string) => `The payment form shows the price in your currency. Base price ${usd}.`;
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => resetPricingCache());
@@ -87,12 +88,14 @@ describe("the pay sheet's currency line follows adaptive_pricing", () => {
     expect(lines.textContent).not.toContain(LOCAL);
   });
 
-  it("on: \"You'll see your local price at checkout.\" instead", async () => {
+  it("on: the open sheet says the payment form shows the local price, with the base price (QA 2026-11-07)", async () => {
     mockDb.adaptivePricing = true;
     paySheet();
     const lines = await screen.findByTestId("pay-lines");
-    await waitFor(() => expect(lines.textContent).toContain(LOCAL));
+    await waitFor(() => expect(lines.textContent).toContain(IN_SHEET("US$49.72")));
     expect(lines.textContent).not.toContain(USD);
+    // the quote's "You'll see…" line is for before the sheet opens
+    expect(lines.textContent).not.toContain(LOCAL);
   });
 
   it("missing from /v1/pricing counts as off", async () => {

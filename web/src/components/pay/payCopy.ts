@@ -8,7 +8,7 @@
  * translator as their last argument.
  */
 
-import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { formatCents, formatCentsShort, formatUsdLabeled } from "@/components/steps/money";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export const CHARGED_IN_USD = EN("pay.copy.chargedInUsd");
@@ -19,6 +19,15 @@ export const LOCAL_AT_CHECKOUT = EN("pay.copy.localAtCheckout");
  * local currency (Adaptive Pricing), else "Charged in US dollars." */
 export function checkoutCurrencyLine(localPrice: boolean, t: Tr = EN): string {
   return localPrice ? t("pay.copy.localAtCheckout") : t("pay.copy.chargedInUsd");
+}
+
+/** The same line inside an open pay sheet (QA 2026-11-07), where the
+ * payment form already shows the local amount: "The payment form shows
+ * the price in your currency. Base price US$8.25." */
+export function sheetCurrencyLine(localPrice: boolean, usdCents: number, t: Tr = EN): string {
+  return localPrice
+    ? t("pay.copy.formShowsLocal", { usd: formatUsdLabeled(usdCents, t.intl) })
+    : t("pay.copy.chargedInUsd");
 }
 export const WITHDRAWAL_LINE = EN("pay.copy.withdrawal");
 export const REFUNDED_IF_FAILS = EN("pay.copy.refundedIfFails");

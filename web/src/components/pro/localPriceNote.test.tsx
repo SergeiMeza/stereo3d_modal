@@ -61,7 +61,8 @@ describe("/pro and its payment sheet", () => {
     const lines = await openProSheet();
     expect(screen.getByTestId("pro-local-note").textContent).toBe(LOCAL);
     expect(screen.getByTestId("pro-plan-weekly").textContent).toContain("$3.99");
-    expect(lines.textContent).toContain(LOCAL);
+    // inside the open sheet: the payment form shows it, with the base price
+    expect(lines.textContent).toContain("The payment form shows the price in your currency. Base price US$3.99.");
     expect(lines.textContent).not.toContain(USD);
   });
 

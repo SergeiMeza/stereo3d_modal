@@ -192,6 +192,9 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
   // feed carries an analysis's or profile's start and end, not its %
   // (jobProgress.ts). While one runs, the open page reads the project
   // every JOB_PROGRESS_READ_MS for it, whether the feed is up or not.
+  // TODO(owner rule "no timers on the project page"): a stop-gap until the
+  // gateway writes the throttled job progress to the project doc (routed
+  // 2026-11-07); remove these reads when that's on TEST.
   // A job past ANALYZE_TOO_LONG_MS isn't read on: the notice says it's
   // taking longer than usual and offers Refresh.
   const jobStart =

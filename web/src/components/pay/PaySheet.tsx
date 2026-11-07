@@ -29,7 +29,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { HandoffSheet } from "./HandoffSheet";
-import { checkoutCurrencyLine, declinedChoose, payAndStart } from "./payCopy";
+import { declinedChoose, payAndStart, sheetCurrencyLine } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -270,7 +270,7 @@ export function PaySheet({
                   big={big}
                   // owner 2026-11-07 (Option B): the local price while the
                   // gateway offers it, else "Charged in US dollars"
-                  lines={[checkoutCurrencyLine(localPrice, t), t("pay.copy.withdrawal")]}
+                  lines={[sheetCurrencyLine(localPrice, amountCents, t), t("pay.copy.withdrawal")]}
                   extra={alipay ? t("pay.copy.alipayLine") : undefined}
                   button={
                     elsewhereFirst ? (

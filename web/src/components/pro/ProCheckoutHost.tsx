@@ -20,7 +20,7 @@ import {
   type ConfirmResult,
 } from "@/components/pay/CheckoutPane";
 import { CHINA_COMING_SOON_KEY, useChinaPaymentsOff } from "@/components/pay/chinaComingSoon";
-import { checkoutCurrencyLine } from "@/components/pay/payCopy";
+import { sheetCurrencyLine } from "@/components/pay/payCopy";
 import {
   MainButtonArea,
   StateLine,
@@ -148,7 +148,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
                 big={big}
                 // owner 2026-11-07 (Option B): Stripe's own amount, in the
                 // local currency while the gateway offers it
-                lines={[checkoutCurrencyLine(localPrice, t), proRenewsLine(plan, t)]}
+                lines={[sheetCurrencyLine(localPrice, Math.round(plan.amountMicros / 10_000), t), proRenewsLine(plan, t)]}
                 button={
                   <Button
                     size="lg"

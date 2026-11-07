@@ -27,7 +27,7 @@ import { SITE_NAME } from "@/lib/site";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { checkoutEmailAtom } from "./payAtoms";
 import { CHINA_COMING_SOON_KEY, useChinaPaymentsOff } from "./chinaComingSoon";
-import { checkoutCurrencyLine } from "./payCopy";
+import { sheetCurrencyLine } from "./payCopy";
 import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
 import { useAppAtomValue } from "@/lib/state/stores";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -193,7 +193,7 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[checkoutCurrencyLine(localPrice, t), renewsLine]}
+                lines={[sheetCurrencyLine(localPrice, price.cents, t), renewsLine]}
                 button={
                   <Button
                     size="lg"

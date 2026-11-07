@@ -39,6 +39,7 @@ import {
   autoReloadBlocked,
   checkoutCurrencyLine,
   reloadConsent,
+  sheetCurrencyLine,
   topupDayLeft,
   topupDone,
   topupMax,
@@ -276,7 +277,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const footer = (form?: { ready: boolean; confirm: () => Promise<ConfirmResult> }) => (
     <div className="flex flex-col gap-3">
       <p className="flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
-        {checkoutCurrencyLine(localPrice, t)}
+        {/* the open payment form shows the local amount already */}
+        {ready ? sheetCurrencyLine(localPrice, ready.amount, t) : checkoutCurrencyLine(localPrice, t)}
       </p>
       <Button
         size="lg"

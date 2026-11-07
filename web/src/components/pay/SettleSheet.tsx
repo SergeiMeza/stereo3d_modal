@@ -25,7 +25,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import { checkoutCurrencyLine, paidMoreWaiting, settleSubtitle } from "./payCopy";
+import { paidMoreWaiting, settleSubtitle, sheetCurrencyLine } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -180,7 +180,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
             footer={
               <MainButtonArea
                 big={big}
-                lines={[checkoutCurrencyLine(localPrice, t)]}
+                lines={[sheetCurrencyLine(localPrice, start.amount_cents, t)]}
                 button={
                   <Button
                     size="lg"
