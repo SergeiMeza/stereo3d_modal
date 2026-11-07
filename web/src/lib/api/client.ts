@@ -801,9 +801,14 @@ export class GatewayClient {
   /** D7 (public): our payment form, the hosted invoice, or a step-up's
    * bank confirmation */
   startPayRequest(token: string): Promise<PayRequestCheckout> {
-    return this.request("POST", `/v1/pay-requests/${encodeURIComponent(token)}/checkout`, {}, undefined, {
-      anonymous: true,
-    });
+    const back = typeof window !== "undefined" ? `${window.location.origin}/pay/${encodeURIComponent(token)}` : undefined;
+    return this.request(
+      "POST",
+      `/v1/pay-requests/${encodeURIComponent(token)}/checkout`,
+      { ui: "elements", ...(back ? { return_url: back } : {}) },
+      undefined,
+      { anonymous: true },
+    );
   }
 
   getHandoff(code: string): Promise<HandoffInfo> {

@@ -526,38 +526,41 @@ export interface Presentment {
 /** D7 (owner 2026-11-07): GET /v1/pay-requests/{token}, public: the one
  * payment a failure mail links to (/pay/{token}). Never carries an email. */
 export interface PayRequest {
-  kind: "topup" | "settle" | "stepup" | "invoice";
+  label: string;
   amount_cents: number;
   currency: string;
-  label: string;
   state: "open" | "paid" | "void" | "expired";
-  expires_at?: string | null;
 }
 
-/** POST /v1/pay-requests/{token}/checkout: our payment form, the hosted
- * invoice, or a step-up's bank confirmation. */
+/** POST /v1/pay-requests/{token}/checkout {ui, return_url}: our payment
+ * form (a step-up's today's amount too), a renewal's hosted invoice, or
+ * already paid. Errors: 409 pay_link_closed {state}, 409
+ * payment_in_progress, 429. */
 export interface PayRequestCheckout {
   checkout?: { client_secret: string; expires_at: string };
   publishable_key?: string;
+  amount_cents?: number;
   url?: string;
-  state?: "requires_action";
-  client_secret?: string;
-  hosted_invoice_url?: string;
+  state?: "paid";
 }
 
 /** An off-session charge being retried (owner 2026-11-07, D):
  * prepaid.auto_reload.retry, dues_retry on the deletion and account
  * reads, and the admin views. */
 export interface PaymentRetry {
-  state: "pending" | "final" | "paid" | "canceled";
+  /** null (none) otherwise */
+  state: "pending" | "final";
   reason?: "soft_decline" | "authentication_required" | "hard_decline" | "stop_code" | "config";
   attempts?: number;
   max_attempts?: number;
   next_attempt_at?: string | null;
   final_at?: string | null;
-  amount_cents: number;
-  pay_url?: string | null;
+  last_decline_code?: string | null;
+  /** customer-safe: may show under the notice */
   last_error_message?: string | null;
+  amount_cents: number;
+  currency?: string;
+  pay_url?: string | null;
 }
 
 export interface Conversion {
@@ -1284,16 +1287,9 @@ export interface BalanceSummary {
     below_cents: number;
     add_cents: number;
     paused_reason?: "declined" | "stop_code" | "efw" | "dispute" | "review" | "sheet_only" | "limit";
-    /** owner 2026-11-07 (names to be confirmed): the gateway's estimate of
-     * the reload in the currency the account last paid in; the charge
-     * itself is in US dollars. Missing: no estimate shown. */
-    estimate?: Presentment | null;
     /** owner 2026-11-07 (D): a reload being retried (paused meanwhile) */
     retry?: PaymentRetry | null;
   };
-  /** owner 2026-11-07 (name to be confirmed): the currency the account's
-   * last card payment was in ("jpy"); off-session charges stay USD */
-  last_presentment_currency?: string | null;
   spend_limit_cents?: number | null;
   month_spent_cents: number;
   low_balance_cents: number;

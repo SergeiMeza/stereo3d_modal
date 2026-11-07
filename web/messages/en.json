@@ -1361,9 +1361,7 @@
       "void": "This payment isn't needed any more.",
       "expired": "This payment link has expired. Sign in and open Billing to pay.",
       "bad": "This payment link isn't valid.",
-      "confirmWithBank": "Confirm your payment with your bank.",
-      "bankDidntConfirm": "Your bank didn't confirm the payment.",
-      "payOnInvoice": "Pay on the invoice page"
+      "inProgress": "A payment is already in progress. Try again in a minute."
     }
   },
   "balance": {
@@ -1410,8 +1408,7 @@
       "saving": "Saving…",
       "save": "Save",
       "below": "When my balance drops below",
-      "add": "Add",
-      "localEstimate": "≈ {local} at today's rate."
+      "add": "Add"
     },
     "spending": {
       "title": "Spending",

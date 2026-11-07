@@ -3,21 +3,24 @@
 /**
  * D7 pay page (`/pay/{token}`, owner 2026-11-07): the link in a failed
  * payment's mail. Public (works signed out): GET /v1/pay-requests/{token}
- * says what it is and how much; Pay asks POST …/checkout for one of
+ * says what it is and how much (404 pay_link_not_found: not valid); Pay
+ * asks POST …/checkout {ui: elements, return_url} for one of
  *
- * - our payment form (CheckoutPane, Adaptive Pricing as everywhere);
- * - the hosted invoice page (invoices): the browser goes there;
- * - a step-up's bank confirmation (3DS): confirmed here, or on the hosted
- *   invoice page when the bank doesn't confirm.
+ * - our payment form (CheckoutPane, Adaptive Pricing as everywhere; the
+ *   form itself asks the bank when it must). A step-up takes today's
+ *   amount this way, then the gateway applies the change;
+ * - a renewal's hosted invoice page: the browser goes there;
+ * - already paid.
  *
- * It pays that exact amount, and never shows an email.
+ * 409 pay_link_closed {state} shows that state; 409 payment_in_progress
+ * says a payment is already going; 429 is too many tries. It pays the
+ * amount the gateway names, and never shows an email.
  */
 
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { AppIcon } from "@/components/AppIcon";
-import { completeChargeAction } from "@/components/billing/settleAction";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
@@ -41,9 +44,6 @@ type State =
   | { kind: "loading" }
   | { kind: "ready"; info: PayRequest; opening?: boolean; notice?: string }
   | { kind: "form"; info: PayRequest; secret: string; publishableKey?: string; paying?: boolean; notice?: string }
-  | { kind: "bank"; info: PayRequest }
-  /** the bank didn't confirm: the hosted invoice page can */
-  | { kind: "bankFailed"; info: PayRequest; invoiceUrl?: string }
   | { kind: "paid" }
   | { kind: "void" }
   | { kind: "expired" }
@@ -81,24 +81,29 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
     setState({ kind: "ready", info, opening: true });
     try {
       const r = await gateway.startPayRequest(token);
+      if (r.state === "paid") return setState({ kind: "paid" });
+      // the amount the gateway takes now (a step-up's today's amount)
+      const now = typeof r.amount_cents === "number" ? { ...info, amount_cents: r.amount_cents } : info;
       if (r.checkout) {
-        setState({ kind: "form", info, secret: r.checkout.client_secret, publishableKey: r.publishable_key });
+        setState({
+          kind: "form",
+          info: now,
+          secret: r.checkout.client_secret,
+          publishableKey: r.publishable_key ?? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+        });
         return;
       }
       if (r.url) return navigate(r.url);
-      if (r.state === "requires_action" && r.client_secret) {
-        setState({ kind: "bank", info });
-        const key = r.publishable_key ?? process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? "";
-        const done = await completeChargeAction(key, r.client_secret);
-        setState(done.ok ? { kind: "paid" } : { kind: "bankFailed", info, invoiceUrl: r.hosted_invoice_url });
-        return;
-      }
       setState({ kind: "ready", info, notice: "pay.copy.unavailable" });
     } catch (e) {
-      const code = e instanceof GatewayError ? e.code : "";
-      if (code === "already_paid") return setState({ kind: "paid" });
-      if (code === "expired") return setState({ kind: "expired" });
-      if (code === "void") return setState({ kind: "void" });
+      const g = e instanceof GatewayError ? e : null;
+      if (g?.code === "pay_link_closed") {
+        const closedAs = typeof g.details?.state === "string" ? g.details.state : "";
+        const shut = closed({ ...info, state: closedAs as PayRequest["state"] });
+        return setState(shut ?? { kind: "expired" });
+      }
+      if (g?.code === "payment_in_progress") return setState({ kind: "ready", info, notice: "pay.request.inProgress" });
+      if (g?.status === 429) return setState({ kind: "ready", info, notice: "pay.handoffPage.limited" });
       setState({ kind: "ready", info, notice: "pay.copy.unavailable" });
     }
   }
@@ -144,23 +149,6 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
         <p className="text-base text-fg">{t("pay.request.bad")}</p>
       ) : state.kind === "limited" ? (
         <p className="text-base text-fg">{t("pay.handoffPage.limited")}</p>
-      ) : state.kind === "bank" ? (
-        <>
-          {head(state.info)}
-          <StateLine testId="pay-request-bank" text={t("pay.request.confirmWithBank")} />
-        </>
-      ) : state.kind === "bankFailed" ? (
-        <>
-          {head(state.info)}
-          <StateLine testId="pay-request-bank-failed" text={t("pay.request.bankDidntConfirm")} />
-          {state.invoiceUrl ? (
-            <Button asChild size="lg" className="h-12 w-full">
-              <a data-testid="pay-request-invoice" href={state.invoiceUrl} target="_blank" rel="noreferrer">
-                {t("pay.request.payOnInvoice")}
-              </a>
-            </Button>
-          ) : null}
-        </>
       ) : state.kind === "form" ? (
         <CheckoutPane clientSecret={state.secret} publishableKey={state.publishableKey} showSaveLine={false}>
           {(form, body) => (
@@ -189,11 +177,7 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
         <>
           {head(state.info)}
           {state.notice ? <StateLine testId="pay-request-notice" text={t(state.notice)} /> : null}
-          <p className="text-xs text-fg-muted">
-            {state.info.kind === "stepup" || state.info.kind === "invoice"
-              ? t("pay.copy.chargedInUsd")
-              : checkoutCurrencyLine(localPrice, t)}
-          </p>
+          <p className="text-xs text-fg-muted">{checkoutCurrencyLine(localPrice, t)}</p>
           <Button
             size="lg"
             data-testid="pay-request-pay"

@@ -20,7 +20,7 @@ import { appStore, useAppAtom } from "@/lib/state/stores";
 import { balanceDialogAtom } from "./payAtoms";
 import type { JSX, ReactNode } from "react";
 
-import { formatCents, formatCentsShort, localAmount } from "@/components/steps/money";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
@@ -414,7 +414,6 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
   const t = useT();
   const prepaid = prepaidOf(billing.status);
   const ar = prepaid?.auto_reload ?? { enabled: false, below_cents: 1000, add_cents: 2500 };
-  const est = prepaid?.auto_reload?.estimate;
   // "Set up" and "Edit" both open it switched on
   const [on, setOn] = useState(true);
   const [below, setBelow] = useState(dollars(ar.below_cents));
@@ -428,15 +427,6 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
 
   const addC = cents(add);
   const belowC = cents(below);
-  // the gateway's estimate is for the saved amount: only while the form
-  // still shows that amount
-  const reloadEstimate =
-    prepaid?.last_presentment_currency &&
-    est &&
-    addC === ar.add_cents &&
-    est.currency.toLowerCase() === prepaid.last_presentment_currency.toLowerCase()
-      ? localAmount(est, t)
-      : null;
   const invalid = on
     ? addC < 1000
       ? t("balance.autoReload.addAtLeast", { amount: formatCentsShort(1000, t) })
@@ -508,12 +498,8 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
               <span>
                 {reloadConsent(def ? methodLabel(def) : null, addC, belowC, t)}{" "}
                 {/* owner 2026-11-07 (D): reloads are charged off-session, in US
-                    dollars; the gateway's estimate in the last currency paid,
-                    when it gives one (never worked out here) */}
-                <span data-testid="reload-currency">
-                  {t("pay.copy.chargedInUsd")}
-                  {reloadEstimate ? ` ${t("balance.autoReload.localEstimate", { local: reloadEstimate })}` : ""}
-                </span>
+                    dollars (the final contract has no local estimate) */}
+                <span data-testid="reload-currency">{t("pay.copy.chargedInUsd")}</span>
               </span>
             </p>
           </>

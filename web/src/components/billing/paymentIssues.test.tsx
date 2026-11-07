@@ -154,11 +154,29 @@ describe("payments being retried", () => {
     expect(within(issue).getByTestId("payment-issue-pay-dues_retry").textContent).toBe("Pay now");
   });
 
-  it("paid or canceled retries show nothing", () => {
+  it("no retry (null) shows nothing", () => {
     const t = makeTr("en", null);
     const base = { has_payment_method: true, delinquent: false, unpaid: [], publishable_key: "pk" };
-    expect(paymentIssues({ ...base, dues_retry: { state: "paid", amount_cents: 100 } }, t)).toEqual([]);
-    expect(paymentIssues({ ...base, dues_retry: { state: "canceled", amount_cents: 100 } }, t)).toEqual([]);
+    expect(paymentIssues({ ...base, dues_retry: null }, t)).toEqual([]);
     expect(paymentIssues(null, t)).toEqual([]);
+  });
+
+  it("the gateway's customer-safe message shows under the notice", async () => {
+    mockDb.billing.duesRetry = {
+      state: "pending",
+      reason: "soft_decline",
+      attempts: 1,
+      max_attempts: 4,
+      next_attempt_at: NEXT,
+      last_decline_code: "insufficient_funds",
+      last_error_message: "Your card has insufficient funds.",
+      amount_cents: 1200,
+      currency: "usd",
+      pay_url: "/pay/tok_dues",
+    };
+    banner();
+    const issue = await screen.findByTestId("payment-issue-dues_retry");
+    expect(within(issue).getByTestId("payment-issue-detail-dues_retry").textContent).toBe("Your card has insufficient funds.");
+    expect(issue.textContent).not.toContain("insufficient_funds");
   });
 });

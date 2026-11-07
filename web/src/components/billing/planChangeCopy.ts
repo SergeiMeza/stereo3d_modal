@@ -107,7 +107,9 @@ export function isStepDown(p: PlanChangePreview): boolean {
 export type ConfirmOutcome =
   | { kind: "done" }
   | { kind: "repriced"; preview: PlanChangePreview }
-  | { kind: "error"; message: string };
+  /** payUrl: a step-up the saved method couldn't pay (402, owner
+   * 2026-11-07, D): its pay page takes today's amount */
+  | { kind: "error"; message: string; payUrl?: string | null };
 
 /** Shown when the quote ran out and the price was worked out again. */
 export const REPRICED = EN("billing.planChange.repriced");
@@ -193,6 +195,7 @@ export async function confirmPlanChange(
         return { kind: "error", message: `${t("billing.planChange.quoteChanged")} ${t("billing.planChange.nothingCharged")}` };
       }
     }
-    return { kind: "error", message: planChangeError(e, t) };
+    const payUrl = e instanceof GatewayError && e.status === 402 && typeof e.details?.pay_url === "string" ? e.details.pay_url : null;
+    return { kind: "error", message: planChangeError(e, t), payUrl };
   }
 }

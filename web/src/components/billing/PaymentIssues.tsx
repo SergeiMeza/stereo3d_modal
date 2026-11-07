@@ -10,7 +10,8 @@
  *   benefits continue meanwhile, so nothing here says they stopped.
  * - an auto-reload or what the account owes, being retried
  *   (prepaid.auto_reload.retry, dues_retry): "We'll try again on Nov 9."
- *   while pending, "Payment failed." once final.
+ *   while pending, "Payment failed." once final, with the gateway's
+ *   customer-safe reason under it (last_error_message).
  *
  * Each has Pay now: the pay page its pay_url names (/pay/{token}).
  */
@@ -26,6 +27,8 @@ import { EN, type Tr } from "@/lib/i18n/t";
 export interface PaymentIssue {
   id: "past_due" | "reload_retry" | "dues_retry";
   text: string;
+  /** the gateway's customer-safe reason (last_error_message) */
+  detail: string | null;
   payUrl: string | null;
 }
 
@@ -54,15 +57,16 @@ export function paymentIssues(status: BillingStatus | null, t: Tr = EN): Payment
     out.push({
       id: "past_due",
       text: plan.action_required ? t("billing.issues.pastDueConfirm", { plan: name }) : t("billing.issues.pastDue", { plan: name }),
+      detail: null,
       payUrl: plan.pay_url ?? null,
     });
   }
   const reload = prepaidOf(status)?.auto_reload?.retry;
   const reloadText = reload ? retryText(reload, t) : null;
-  if (reload && reloadText) out.push({ id: "reload_retry", text: reloadText, payUrl: reload.pay_url ?? null });
+  if (reload && reloadText) out.push({ id: "reload_retry", text: reloadText, detail: reload.last_error_message ?? null, payUrl: reload.pay_url ?? null });
   const dues = status.dues_retry;
   const duesText = dues ? retryText(dues, t) : null;
-  if (dues && duesText) out.push({ id: "dues_retry", text: duesText, payUrl: dues.pay_url ?? null });
+  if (dues && duesText) out.push({ id: "dues_retry", text: duesText, detail: dues.last_error_message ?? null, payUrl: dues.pay_url ?? null });
   return out;
 }
 
@@ -83,7 +87,14 @@ export function PaymentIssues(): JSX.Element | null {
         >
           <div className="mx-auto flex w-full max-w-7xl items-center gap-3">
             <AlertCircleIcon className="size-4 shrink-0 text-amber-300" aria-hidden />
-            <p className="min-w-0 flex-1 text-sm text-amber-100">{i.text}</p>
+            <p className="min-w-0 flex-1 text-sm text-amber-100">
+              {i.text}
+              {i.detail ? (
+                <span data-testid={`payment-issue-detail-${i.id}`} className="block text-xs text-amber-200/80">
+                  {i.detail}
+                </span>
+              ) : null}
+            </p>
             {i.payUrl ? (
               <a
                 href={i.payUrl}

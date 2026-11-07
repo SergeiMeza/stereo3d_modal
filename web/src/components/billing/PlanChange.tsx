@@ -15,6 +15,7 @@
  *   Studio" (DELETE /v1/plans/scheduled-change) until the date.
  */
 
+import { StepUpPayLink } from "./StepUpPayLink";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useState } from "react";
 import type { JSX } from "react";
@@ -289,6 +290,7 @@ export function PlanChangeMenu({
                       )
                   : t("billing.planChange.working"))}
             </AlertDialogDescription>
+            {error ? <StepUpPayLink payUrl={change.payUrl} amountCents={preview?.today_cents} /> : null}
             {preview && target?.name && !error && !isStepDown(preview) ? (
               <StepUpExtras
                 preview={preview}

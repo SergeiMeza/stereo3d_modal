@@ -9,6 +9,7 @@
  * confirm.
  */
 
+import { StepUpPayLink } from "@/components/billing/StepUpPayLink";
 import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import type { JSX } from "react";
@@ -135,6 +136,7 @@ export function ProPeriodChange(): JSX.Element | null {
                   ? previewLine(preview, currentPlan, target, t)
                   : t("pro.period.working"))}
             </AlertDialogDescription>
+            {error ? <StepUpPayLink payUrl={change.payUrl} amountCents={preview?.today_cents} /> : null}
             {preview && target && !error && !isStepDown(preview) ? (
               <StepUpExtras
                 preview={preview}

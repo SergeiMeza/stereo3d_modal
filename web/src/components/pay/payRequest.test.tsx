@@ -1,8 +1,9 @@
 /**
- * D7 (owner 2026-11-07): the pay page a failed payment's mail links to
- * (/pay/{token}). Signed out it shows what it's for and the amount (no
- * email); Pay opens our payment form, goes to the hosted invoice, or
- * confirms a step-up with the bank; paid, void and expired links say so.
+ * D7 (owner 2026-11-07, final contract): the pay page a failed payment's
+ * mail links to (/pay/{token}). Signed out it shows what it's for and the
+ * amount (no email); Pay opens our payment form (a step-up's today's
+ * amount too) or goes to a renewal's hosted invoice; paid, void, expired,
+ * a payment already going and unknown links say so.
  */
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
@@ -26,14 +27,12 @@ afterEach(() => {
 });
 afterAll(() => server.close());
 
-function request(token: string, over: Partial<PayRequest> & { flow?: "checkout" | "url" | "requires_action" } = {}): void {
+function request(token: string, over: Partial<PayRequest> & { flow?: "checkout" | "url"; inProgress?: boolean; todayCents?: number } = {}): void {
   mockDb.payRequests.set(token, {
-    kind: "topup",
     amount_cents: 2500,
     currency: "usd",
     label: "Auto-reload · Nov 7",
     state: "open",
-    expires_at: new Date(Date.now() + 7 * 86_400_000).toISOString(),
     flow: "checkout",
     ...over,
   });
@@ -51,7 +50,9 @@ describe("the pay page (D7)", () => {
   it("shows what it's for and the amount, never an email, and pays that amount in our form", async () => {
     request("tok_topup");
     const asked: string[] = [];
-    server.events.on("request:start", ({ request }) => {
+    const bodies: unknown[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (request.method === "POST" && request.url.endsWith("/checkout")) bodies.push(await request.clone().json());
       asked.push(`${request.method} ${new URL(request.url).pathname} ${request.headers.get("Authorization") ? "auth" : "anon"}`);
     });
     page("tok_topup");
@@ -63,6 +64,7 @@ describe("the pay page (D7)", () => {
     expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
     expect(mockDb.payRequests.get("tok_topup")!.state).toBe("paid");
     // public: no sign-in sent with either call
+    expect(bodies[0]).toEqual({ ui: "elements", return_url: `${window.location.origin}/pay/tok_topup` });
     expect(asked.filter((a) => a.includes("/v1/pay-requests/"))).toEqual([
       "GET /v1/pay-requests/tok_topup anon",
       "POST /v1/pay-requests/tok_topup/checkout anon",
@@ -80,30 +82,61 @@ describe("the pay page (D7)", () => {
   });
 
   it("an invoice goes to its hosted page", async () => {
-    request("tok_invoice", { kind: "invoice", flow: "url", label: "Business plan · monthly" });
+    request("tok_invoice", { flow: "url", label: "Business plan · monthly" });
     const go = vi.fn();
     setPayRequestNavigateForTests(go);
     page("tok_invoice");
-    expect((await screen.findByTestId("pay-request-pay")).parentElement!.textContent).toContain("Charged in US dollars.");
+    await screen.findByTestId("pay-request-pay");
     fireEvent.click(screen.getByTestId("pay-request-pay"));
     await waitFor(() => expect(go).toHaveBeenCalledWith("https://invoice.stripe.com/i/mock/tok_invoice"));
   });
 
-  it("a step-up confirms with the bank (3DS), then reads as paid", async () => {
-    request("tok_stepup", { kind: "stepup", flow: "requires_action", label: "Business → Studio" });
+  it("a step-up pays today's amount through our form (the gateway then applies the change)", async () => {
+    request("tok_stepup", { label: "Business → Studio", amount_cents: 70000, todayCents: 64250 });
     page("tok_stepup");
-    fireEvent.click(await screen.findByTestId("pay-request-pay"));
+    expect((await screen.findByTestId("pay-request-amount")).textContent).toBe("$700.00");
+    fireEvent.click(screen.getByTestId("pay-request-pay"));
+    // the amount the checkout names now
+    expect((await screen.findByTestId("pay-request-confirm")).textContent).toBe("Pay $642.50");
+    expect(screen.getByTestId("pay-request-amount").textContent).toBe("$642.50");
+    fireEvent.click(screen.getByTestId("pay-request-confirm"));
     expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
-    expect(mockDb.payRequests.get("tok_stepup")!.state).toBe("paid");
   });
 
-  it("a step-up the bank doesn't confirm offers the hosted invoice page", async () => {
-    request("tok_stepfail", { kind: "stepup", flow: "requires_action" });
-    server.use(http.post(`${GATEWAY}/__mock__/complete-3ds`, () => HttpResponse.json({ ok: false }, { status: 402 })));
-    page("tok_stepfail");
+  it("a payment already going says so and keeps Pay", async () => {
+    request("tok_busy", { inProgress: true });
+    page("tok_busy");
     fireEvent.click(await screen.findByTestId("pay-request-pay"));
-    expect((await screen.findByTestId("pay-request-bank-failed")).textContent).toBe("Your bank didn't confirm the payment.");
-    expect(screen.getByTestId("pay-request-invoice").getAttribute("href")).toBe("https://invoice.stripe.com/i/mock/tok_stepfail");
+    expect((await screen.findByTestId("pay-request-notice")).textContent).toBe(
+      "A payment is already in progress. Try again in a minute.",
+    );
+    expect(screen.getByTestId("pay-request-pay")).toBeTruthy();
+  });
+
+  it("a link closed while the page was open (409 pay_link_closed) shows its state", async () => {
+    request("tok_late");
+    page("tok_late");
+    await screen.findByTestId("pay-request-pay");
+    mockDb.payRequests.get("tok_late")!.state = "void";
+    fireEvent.click(screen.getByTestId("pay-request-pay"));
+    expect(await screen.findByText("This payment isn't needed any more.")).toBeTruthy();
+  });
+
+  it("checkout answering already paid reads as paid", async () => {
+    request("tok_done");
+    page("tok_done");
+    await screen.findByTestId("pay-request-pay");
+    mockDb.payRequests.get("tok_done")!.state = "paid";
+    fireEvent.click(screen.getByTestId("pay-request-pay"));
+    expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
+  });
+
+  it("too many tries (429) says so", async () => {
+    request("tok_many");
+    server.use(http.post(`${GATEWAY}/v1/pay-requests/:token/checkout`, () => HttpResponse.json({ error: "rate_limited", message: "slow down" }, { status: 429 })));
+    page("tok_many");
+    fireEvent.click(await screen.findByTestId("pay-request-pay"));
+    expect((await screen.findByTestId("pay-request-notice")).textContent).toBe("Too many tries. Wait a minute.");
   });
 
   it.each([

@@ -31,6 +31,8 @@ export interface PlanChangeState {
   previewFailed: boolean;
   /** the confirm's words when it failed */
   error: string | null;
+  /** a step-up's pay page when its payment failed (402 details.pay_url) */
+  payUrl: string | null;
   /** the price changed (an expired quote): confirm again */
   repriced: boolean;
   busy: boolean;
@@ -42,6 +44,7 @@ const EMPTY: PlanChangeState = {
   preview: null,
   previewFailed: false,
   error: null,
+  payUrl: null,
   repriced: false,
   busy: false,
   seq: 0,
@@ -110,13 +113,13 @@ export const confirmPlanChangeAtom = atom(
     const s = get(at);
     if (!s.preview || s.busy) return "none";
     const mine = s.seq;
-    set(at, { ...s, busy: true, error: null, repriced: false });
+    set(at, { ...s, busy: true, error: null, payUrl: null, repriced: false });
     // the failure's words in the caller's language (English without one)
     const r = await confirmPlanChange(a.client, s.preview, a.t);
     if (get(at).seq !== mine) return r.kind;
     if (r.kind === "done") set(at, (x) => ({ ...x, busy: false }));
     else if (r.kind === "repriced") set(at, (x) => ({ ...x, busy: false, preview: r.preview, repriced: true }));
-    else set(at, (x) => ({ ...x, busy: false, error: r.message }));
+    else set(at, (x) => ({ ...x, busy: false, error: r.message, payUrl: r.payUrl ?? null }));
     return r.kind;
   },
 );

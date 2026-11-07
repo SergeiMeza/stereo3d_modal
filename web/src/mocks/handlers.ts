@@ -416,7 +416,7 @@ interface DB {
   adaptivePricing: boolean;
   /** D7 pay requests by token (tests add them); flow: what POST checkout
    * answers */
-  payRequests: Map<string, import("@/lib/api/types").PayRequest & { flow: "checkout" | "url" | "requires_action"; secret?: string }>;
+  payRequests: Map<string, import("@/lib/api/types").PayRequest & { flow: "checkout" | "url"; inProgress?: boolean; todayCents?: number }>;
   /** GET /v1/pricing china_payments: off in the dev mock like the gateway
    * at launch ("coming soon"), on in unit tests (the Alipay paths) */
   chinaPayments: boolean;
@@ -4235,27 +4235,24 @@ export const handlers = [
   // D7: the payment a failure mail links to (public)
   http.get(`${GATEWAY}/v1/pay-requests/:token`, ({ params }) => {
     const r = mockDb.payRequests.get(String(params.token));
-    if (!r) return err(404, "not_found", "no such payment");
-    const { flow: _f, secret: _s, ...body } = r;
-    void _f;
-    void _s;
-    return HttpResponse.json(body);
+    if (!r) return err(404, "pay_link_not_found", "no such payment link");
+    return HttpResponse.json({ label: r.label, amount_cents: r.amount_cents, currency: r.currency, state: r.state });
   }),
   http.post(`${GATEWAY}/v1/pay-requests/:token/checkout`, ({ params }) => {
     const token = String(params.token);
     const r = mockDb.payRequests.get(token);
-    if (!r) return err(404, "not_found", "no such payment");
-    if (r.state === "paid") return err(409, "already_paid", "already paid");
-    if (r.state !== "open") return err(410, r.state, "this payment is closed");
-    if (r.flow === "url") return HttpResponse.json({ url: `https://invoice.stripe.com/i/mock/${token}` });
-    if (r.flow === "requires_action") {
-      r.secret = `pi_mock_${token}_secret`;
-      return HttpResponse.json({ state: "requires_action", client_secret: r.secret, hosted_invoice_url: `https://invoice.stripe.com/i/mock/${token}` });
+    if (!r) return err(404, "pay_link_not_found", "no such payment link");
+    if (r.state === "paid") return HttpResponse.json({ state: "paid" });
+    if (r.state !== "open") {
+      return HttpResponse.json({ error: "pay_link_closed", message: "this payment link is closed", details: { state: r.state } }, { status: 409 });
     }
+    if (r.inProgress) return err(409, "payment_in_progress", "a payment is already in progress");
+    const amount = r.todayCents ?? r.amount_cents;
+    if (r.flow === "url") return HttpResponse.json({ url: `https://invoice.stripe.com/i/mock/${token}`, amount_cents: amount });
     const secret = `cs_mock_pr_${token}_${newId()}`;
     const expires = new Date(Date.now() + 30 * 60_000).toISOString();
-    mockDb.billing.checkouts.set(secret, { kind: "pay_request", token, amount_cents: r.amount_cents, state: "open", expires_at: expires });
-    return HttpResponse.json({ checkout: { client_secret: secret, expires_at: expires } });
+    mockDb.billing.checkouts.set(secret, { kind: "pay_request", token, amount_cents: amount, state: "open", expires_at: expires });
+    return HttpResponse.json({ checkout: { client_secret: secret, expires_at: expires }, publishable_key: "pk_test_mock", amount_cents: amount });
   }),
 
   http.post(`${GATEWAY}/__mock__/checkout/:secret/confirm`, ({ params }) => {
@@ -4612,9 +4609,6 @@ export const handlers = [
     }
     mockDb.billing.unpaid = [];
     mockDb.billing.settleOutcome = "success";
-    for (const r of mockDb.payRequests.values()) {
-      if (r.secret !== undefined && r.secret === client_secret) r.state = "paid";
-    }
     return HttpResponse.json({ ok: true });
   }),
 

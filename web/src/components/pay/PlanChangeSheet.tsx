@@ -34,6 +34,7 @@ import {
 import { planPrice } from "@/components/pricing/planCopy";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
+import { StepUpPayLink } from "@/components/billing/StepUpPayLink";
 import { SheetFrame } from "@/components/ui/sheet-frame";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
@@ -151,6 +152,7 @@ export function PlanChangeSheet({
         {error ? (
           <>
             <StateLine testId="plan-change-error" text={error} />
+            <StepUpPayLink payUrl={change.payUrl} amountCents={p?.today_cents} />
             {change.previewFailed ? (
               <Button
                 variant="outline"

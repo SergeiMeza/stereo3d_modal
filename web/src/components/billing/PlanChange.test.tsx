@@ -239,6 +239,37 @@ describe("step-downs", () => {
     await waitFor(() => expect(mockDb.billing.plan?.plan).toBe("studio"));
   });
 
+  it("a step-up the saved method couldn't pay (402 pay_url): Pay $X to its pay page (owner 2026-11-07, D)", async () => {
+    mockDb.billing.plan = {
+      plan: "business",
+      name: "Business",
+      status: "active",
+      active: true,
+      monthly_cents: 29900,
+      credit_cents: 40000,
+      credit_left_cents: 5000,
+      cancel_at_period_end: false,
+      current_period_end: new Date(Date.now() + 20 * 86_400_000).toISOString(),
+    };
+    server.use(
+      http.post(`${process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787"}/v1/plans/change`, () =>
+        HttpResponse.json(
+          { error: "payment_failed", message: "The payment didn't go through.", details: { pay_url: "https://stereo3d.studio/pay/tok_step" } },
+          { status: 402 },
+        ),
+      ),
+    );
+    wrap(<PlanCard />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Studio (move up)" }));
+    await waitFor(() => expect(screen.getByTestId("plan-change-line").textContent).toMatch(/^Today: \$11,950\.62/));
+    fireEvent.click(screen.getByRole("button", { name: "Pay $11,950.62 and change" }));
+    const link = await screen.findByTestId("plan-change-pay-link");
+    expect(link.textContent).toBe("Pay $11,950.62");
+    expect(link.getAttribute("href")).toBe("https://stereo3d.studio/pay/tok_step");
+    expect(mockDb.billing.plan?.plan).toBe("business");
+  });
+
   it("Pro Yearly → Monthly waits too, nothing charged today", async () => {
     mockDb.proStatus = {
       pro: true,

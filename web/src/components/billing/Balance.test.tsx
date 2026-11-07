@@ -381,31 +381,12 @@ describe("Auto-reload is charged in US dollars (owner 2026-11-07, D)", () => {
     return dlg;
   }
 
-  it("says so, with no estimate while the gateway gives none", async () => {
+  it("says so (the final contract has no local estimate: USD only)", async () => {
     const dlg = await openReload();
     expect(within(dlg).getByTestId("reload-currency").textContent).toBe("Charged in US dollars.");
     expect(screen.getByTestId("methods-currency").textContent).toBe("Charged in US dollars.");
   });
 
-  it("adds the gateway's estimate in the currency last paid, for the saved amount only", async () => {
-    mockDb.billing.balanceExtra = {
-      last_presentment_currency: "jpy",
-      auto_reload: { enabled: false, below_cents: 1000, add_cents: 2500, estimate: { amount_minor: 3780, currency: "jpy" } },
-    };
-    const dlg = await openReload();
-    expect(within(dlg).getByTestId("reload-currency").textContent).toBe("Charged in US dollars. ≈ ¥3,780 at today's rate.");
-    // another amount: the estimate no longer fits it
-    fireEvent.change(within(dlg).getByRole("textbox", { name: "Add" }), { target: { value: "40" } });
-    expect(within(dlg).getByTestId("reload-currency").textContent).toBe("Charged in US dollars.");
-  });
-
-  it("an estimate without the last currency, or in another one, shows nothing", async () => {
-    mockDb.billing.balanceExtra = {
-      auto_reload: { enabled: false, below_cents: 1000, add_cents: 2500, estimate: { amount_minor: 3780, currency: "jpy" } },
-    };
-    const dlg = await openReload();
-    expect(within(dlg).getByTestId("reload-currency").textContent).toBe("Charged in US dollars.");
-  });
 });
 
 describe("Auto-reload (P18)", () => {
