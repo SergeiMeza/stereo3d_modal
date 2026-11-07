@@ -828,7 +828,9 @@ func (s *Service) HandleGetConversion(w http.ResponseWriter, r *http.Request, us
 			conv = refreshed
 		}
 	}
-	httpx.WriteOK(w, s.conversionResponse(conv, nil))
+	out := s.conversionResponse(conv, nil)
+	s.addPaymentDocs(ctx, []map[string]any{out}, []*store.Conversion{conv}, true)
+	httpx.WriteOK(w, out)
 }
 
 // GET /v1/conversions
@@ -1088,6 +1090,19 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if cents := campaignCentsOf(c); cents > 0 {
 		resp["campaign_cents"] = cents // the launch offer (also in quote.breakdown)
 	}
+	// The Files "Details" panel: when the run left the line (so "Took"
+	// leaves the wait out), the free previews it used, whether it was
+	// ordered as a Quick look, and whether the brand intro was on.
+	resp["started_at"] = nil
+	if c.Modal.StartedAt != nil {
+		resp["started_at"] = c.Modal.StartedAt.UTC().Format(time.RFC3339)
+	}
+	resp["free_preview_units"] = nil
+	if fp := c.FreePreview; fp != nil && !fp.Returned {
+		resp["free_preview_units"] = fp.Units
+	}
+	resp["quick_look"] = c.Params.QuickLook
+	resp["intro"] = (c.Params.IntroS != nil && *c.Params.IntroS > 0) || c.Modal.IntroFrames > 0
 	if len(c.OutputsMedia) > 0 {
 		resp["outputs_media"] = c.OutputsMedia // {name: {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source}}
 	}

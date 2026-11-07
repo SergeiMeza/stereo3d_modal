@@ -359,9 +359,11 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 	convOut := make([]map[string]any, 0, len(convs))
-	for _, c := range convs {
-		convOut = append(convOut, s.conversionResponse(s.backfillSampleRun(ctx, c), nil))
+	for i, c := range convs {
+		convs[i] = s.backfillSampleRun(ctx, c)
+		convOut = append(convOut, s.conversionResponse(convs[i], nil))
 	}
+	s.addPaymentDocs(ctx, convOut, convs, false) // the Details panel's receipt or invoice
 	httpx.WriteOK(w, s.projectResponse(p, convOut))
 }
 
@@ -659,6 +661,7 @@ type stepConvReq struct {
 	Formats        []string           `json:"formats"`
 	Displacement   float64            `json:"displacement"` // legacy knob — rejected on pro steps (use scene_overrides / depth_scale)
 	TargetFPS      float64            `json:"target_fps"`
+	QuickLook      bool               `json:"quick_look"` // ordered as a Quick look (shown with the run)
 	FromFrame      int                `json:"from_frame"`
 	ToFrame        int                `json:"to_frame"`
 	DepthRes       int                `json:"depth_res"`   // depth inference resolution: multiple of 14 in [140, 2520]

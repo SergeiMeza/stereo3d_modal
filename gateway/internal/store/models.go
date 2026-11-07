@@ -237,6 +237,9 @@ type Params struct {
 	PricePreset string `firestore:"price_preset,omitempty" json:"price_preset,omitempty"`
 	// Web: made from the web app (the launch campaign is web only).
 	Web bool `firestore:"web,omitempty" json:"-"`
+	// QuickLook: ordered as a Quick look (the client's own flag, never
+	// inferred from the rate).
+	QuickLook bool `firestore:"quick_look,omitempty" json:"quick_look,omitempty"`
 	// Lifelike (S3D-49/50): OriginalEye keeps the source frame as that eye
 	// ("left" | "right"; "" = both rendered); Foveation "static" (or "").
 	OriginalEye string `firestore:"original_eye,omitempty" json:"original_eye,omitempty"`
