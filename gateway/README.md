@@ -2007,6 +2007,51 @@ no images, fonts or links; same sender (`Spatial Video Studio
 locale; svs-backend sends `language` from the app's locale (and the
 relay header for China requests).
 
+### Revenue report for the KPI ingest (2026-11-07)
+
+`GET /v1/admin/revenue/daily?from=YYYY-MM-DD&to=YYYY-MM-DD` (UTC days,
+inclusive, at most 400). Auth: `Authorization: Bearer <Google ID token>`
+whose audience is this gateway's URL (`INTERNAL_OIDC_AUDIENCES`) and whose
+email is in `KPI_OIDC_SERVICE_ACCOUNTS` (comma-separated; empty = nobody);
+no admin session. Built from our own records only (charges, refund rows,
+dispute cases, `plan_payments_{env}`, the balance ledger), never Stripe.
+
+```
+{env, currency: "usd", from, to, generated_at, close_lag_hours: 48,
+ test_accounts: "excluded" (prod) | "flagged" (TEST), app: "separate",
+ products: [...],
+ days: [{day, closed,
+   gross_cents, refunds_cents, disputes_lost_cents, net_cents,      // web, USD cents
+   by_product: {run_lifelike|run_classic|run_preview|topup|settle_batch|
+     pro_weekly|pro_monthly|pro_yearly|business|studio|other|app_run|app_settle_batch:
+     {gross_cents, refunds_cents, disputes_lost_cents, net_cents, count}},
+   by_method: {card_cents, balance_cents, credit_cents},
+   presentment: [{currency, amount_minor, count}],                  // card payments presented locally
+   counts: {payments, refunds, disputes, new_paying_accounts},
+   app: {gross_cents, refunds_cents, disputes_lost_cents, net_cents, payments},
+   test_accounts?: {…same as app}}]}                                 // TEST only
+```
+
+- **Days:** a payment on its `paid_at`, a refund on its `refunded_at`
+  (rows from before 2026-11-07: `created_at`), a lost dispute on its
+  case's `closed_at` (`counts.disputes` counts disputes opened that day),
+  ledger use on the entry's `at`. A day is `closed` 48 h after it ends
+  and doesn't change after (barring a customer's email changing in or out
+  of the test pattern).
+- **Card vs balance vs credit:** `gross` and `card_cents` are money taken
+  by any Stripe method (runs, settles, top-ups, plan invoices).
+  `balance_cents` and `credit_cents` are the ledger spent on runs and
+  debts that day (top-up money; plan, Pro and grant credit), never part
+  of gross (the top-up was).
+- **App:** plain app conversions (no step, not made on the web) are
+  `app_*` products and the `app` block, outside the web totals.
+- **Test accounts:** `@example.(com|net|org|test)`, `+location_`,
+  `probe`, `qa-agent+…@lpp.pw`, `svs-ap…`, `itest…` uids: left out on prod,
+  counted on TEST and repeated under `test_accounts`.
+- `svs-admin revenue-backfill-plans [-apply]` records plan invoices paid
+  before `plan_payments` existed (from Stripe; paid_at = the invoice's
+  creation).
+
 ### China payments switch (2026-11-07)
 
 `china_payments_enabled` in config/pricing_{env} (absent = false in every

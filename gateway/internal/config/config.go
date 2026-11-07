@@ -97,6 +97,10 @@ type Config struct {
 	SVSBackendURL             string
 	SVSBackendServiceAccounts []string
 	InternalOIDCAudiences     []string
+	// KPIServiceAccounts: the service accounts whose Google ID tokens may
+	// read GET /v1/admin/revenue/daily (KPI_OIDC_SERVICE_ACCOUNTS; empty =
+	// nobody).
+	KPIServiceAccounts []string
 	// AdminOrigins: the admin console's origins (M1), the only ones
 	// /v1/admin/* answers in a browser (ADMIN_ORIGINS; test also allows
 	// a local console).
@@ -168,6 +172,7 @@ func Load() (*Config, error) {
 	c.SVSBackendURL = strings.TrimRight(getenv("SVS_BACKEND_URL", map[string]string{
 		"test": "https://svs-backend-test-151335782809.us-central1.run.app"}[env]), "/")
 	c.SVSBackendServiceAccounts = splitList(getenv("SVS_BACKEND_SERVICE_ACCOUNTS", "svs-backend@spatial-video-studio.iam.gserviceaccount.com"))
+	c.KPIServiceAccounts = splitList(getenv("KPI_OIDC_SERVICE_ACCOUNTS", ""))
 	c.InternalOIDCAudiences = splitList(getenv("INTERNAL_OIDC_AUDIENCES", map[string]string{
 		"test": "https://stereo3d-gateway-test-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-test-151335782809.us-central1.run.app",
 		"prod": "https://stereo3d-gateway-prod-151335782809.us-central1.run.app"}[env]))

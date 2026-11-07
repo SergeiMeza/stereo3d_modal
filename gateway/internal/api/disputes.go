@@ -435,6 +435,15 @@ func (s *Service) handleRefundEvent(ctx context.Context, eventType string, raw j
 		if f, ferr := s.Stripe.PaymentFactsOf(re.PaymentIntent); ferr == nil && f.Refunded > 0 {
 			s.planEarlyEnd(ctx, re.PaymentIntent, "refund", re.ID, f.Refunded, "")
 		}
+		if re.Status == "succeeded" { // the revenue report books it on its day
+			at := time.Now().UTC()
+			if re.Created > 0 {
+				at = time.Unix(re.Created, 0).UTC()
+			}
+			if _, err := s.Store.AddPlanRefund(ctx, re.PaymentIntent, store.PlanRefund{ID: re.ID, Cents: re.Amount, At: at}); err != nil {
+				return err
+			}
+		}
 		return nil
 	}
 	return s.recordDashboardRefund(ctx, o, re)

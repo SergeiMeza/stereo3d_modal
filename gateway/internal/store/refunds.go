@@ -46,6 +46,11 @@ type RefundRow struct {
 	Note         string           `firestore:"note,omitempty" json:"note,omitempty"`
 	FailReason   string           `firestore:"fail_reason,omitempty" json:"fail_reason,omitempty"`
 	CreditNoteID string           `firestore:"credit_note_id,omitempty" json:"credit_note_id,omitempty"`
+	// RefundedAt: when the money went back (Stripe's refund time, or when
+	// it was recorded as done); set once, so the revenue report books a
+	// refund on its own day for good. nil on rows from before 2026-11-07
+	// (the report reads created_at then) and while pending.
+	RefundedAt *time.Time `firestore:"refunded_at,omitempty" json:"refunded_at,omitempty"`
 	// Presentment: what goes back in the customer's currency when the
 	// payment was presented locally (Adaptive Pricing); nil: USD or not
 	// known. TotalCents stays USD.
@@ -224,6 +229,9 @@ func (s *Store) ReserveRefund(ctx context.Context, spec ReserveSpec) (*RefundRow
 		}
 		row := &RefundRow{ID: fmt.Sprintf("%s_%s_%d", spec.PI, spec.CaseID, k+1), CaseID: spec.CaseID, UID: spec.UID, PI: spec.PI, ChargeID: spec.ChargeID,
 			Items: items, TotalCents: total, Status: st, Source: spec.Source, K: k + 1, Note: spec.Note, CreatedAt: now, UpdatedAt: now}
+		if st == RefundSucceeded || st == RefundOutOfBand {
+			row.RefundedAt = &now // a Dashboard refund (already made) or money returned outside Stripe
+		}
 		ch.RefundSeq++
 		ch.UpdatedAt = now
 		if err := tx.Set(cref, ch); err != nil {

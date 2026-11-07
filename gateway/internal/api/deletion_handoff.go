@@ -237,6 +237,13 @@ func (s *Service) HandleDeletionCallbackProbe(w http.ResponseWriter, r *http.Req
 // internalCaller answers the service account behind an internal route's
 // Google ID token, if it's one we accept.
 func (s *Service) internalCaller(r *http.Request) (string, error) {
+	return s.internalCallerIn(r, s.Cfg.SVSBackendServiceAccounts)
+}
+
+// internalCallerIn answers the service account behind a Google ID token
+// (audience: one of Cfg.InternalOIDCAudiences) when it is one of allowed;
+// an empty allowed list accepts nobody.
+func (s *Service) internalCallerIn(r *http.Request, allowed []string) (string, error) {
 	tok, ok := strings.CutPrefix(r.Header.Get("Authorization"), "Bearer ")
 	if !ok || tok == "" {
 		return "", errors.New("no bearer token")
@@ -251,7 +258,7 @@ func (s *Service) internalCaller(r *http.Request) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if !slices.Contains(s.Cfg.SVSBackendServiceAccounts, email) {
+	if !slices.Contains(allowed, email) {
 		return "", fmt.Errorf("service account not accepted")
 	}
 	return email, nil

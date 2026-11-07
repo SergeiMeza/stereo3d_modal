@@ -94,6 +94,11 @@ fi
 if [[ "$ENV" == "test" ]]; then
   EXTRA_ENV="${EXTRA_ENV}|QA_LOG_SIGNIN_CODES=1"
 fi
+# The revenue report's readers (GET /v1/admin/revenue/daily): service
+# account emails, comma-separated; unset = nobody may read it.
+if [[ -n "${KPI_OIDC_SERVICE_ACCOUNTS:-}" ]]; then
+  EXTRA_ENV="${EXTRA_ENV}|KPI_OIDC_SERVICE_ACCOUNTS=${KPI_OIDC_SERVICE_ACCOUNTS}"
+fi
 CONCURRENCY="${CONCURRENCY:-20}"
 MAX_INSTANCES="${MAX_INSTANCES:-10}"
 

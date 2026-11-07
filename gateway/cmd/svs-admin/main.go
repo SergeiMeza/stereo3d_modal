@@ -20,6 +20,7 @@
 //	reconcile [-since 48h] [-dry-run] [-yes]
 //	blocklist [add|remove FINGERPRINT [-note t]]
 //	emails-backfill [-dry-run] [-stripe] [-yes]   (EM-01: the email store from Firebase users and customer records; counts only)
+//	revenue-backfill-plans [-apply] [-yes]   (the revenue report's plan_payments from Stripe's paid web plan invoices, for invoices before 2026-11-07; counts only without -apply)
 //	rc-web-plan-backfill [-apply] [-yes]   (D14: web_plan / web_plan_renews_at for every active web plan's grant; counts only without -apply; TEST writes only allowlisted uids)
 //
 // Credentials: Application Default Credentials (gcloud auth
@@ -65,7 +66,7 @@ func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: slog.LevelWarn})))
 	env := flag.String("env", "test", "test or prod")
 	flag.Usage = func() {
-		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill|rc-web-plan-backfill> …")
+		fmt.Fprintln(os.Stderr, "usage: svs-admin [-env test|prod] <cases|case|act|open|account|account-action|disputes|policy|mail-previews|reconcile|blocklist|emails-backfill|revenue-backfill-plans|rc-web-plan-backfill> …")
 		flag.PrintDefaults()
 	}
 	flag.Parse()
@@ -214,6 +215,20 @@ func main() {
 			confirm(*yes, "EM-01 backfill: "+what)
 		}
 		res, err := svc.BackfillAccountEmails(ctx, svc.Auth.EachUser, !*dry, *withStripe && !*dry)
+		b, _ := json.MarshalIndent(res, "", "  ")
+		fmt.Println(string(b))
+		if err != nil {
+			fail("backfill stopped: " + err.Error())
+		}
+	case "revenue-backfill-plans":
+		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
+		apply := fs.Bool("apply", false, "record them (without it: count only)")
+		yes := fs.Bool("yes", false, "don't ask before writing")
+		fs.Parse(args)
+		if *apply {
+			confirm(*yes, "record paid web plan invoices from Stripe into plan_payments_"+*env)
+		}
+		res, err := svc.BackfillPlanPayments(ctx, *apply)
 		b, _ := json.MarshalIndent(res, "", "  ")
 		fmt.Println(string(b))
 		if err != nil {

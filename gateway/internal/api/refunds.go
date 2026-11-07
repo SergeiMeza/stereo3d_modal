@@ -564,6 +564,13 @@ func (s *Service) applyRefundStatus(ctx context.Context, rowID string, re *strip
 		switch re.Status {
 		case "succeeded":
 			r.Status = store.RefundSucceeded
+			if r.RefundedAt == nil {
+				at := time.Now().UTC()
+				if re.Created > 0 {
+					at = time.Unix(re.Created, 0).UTC()
+				}
+				r.RefundedAt = &at
+			}
 		case "failed", "canceled":
 			r.Status, r.FailReason = re.Status, re.FailureReason
 		default:

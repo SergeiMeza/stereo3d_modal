@@ -240,7 +240,12 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 		TotalDiscountAmounts []struct {
 			Amount int64 `json:"amount"`
 		} `json:"total_discount_amounts"`
-		BillingReason string `json:"billing_reason"`
+		BillingReason     string `json:"billing_reason"`
+		AmountPaid        int64  `json:"amount_paid"`
+		Currency          string `json:"currency"`
+		StatusTransitions struct {
+			PaidAt int64 `json:"paid_at"`
+		} `json:"status_transitions"`
 	}
 	if json.Unmarshal(raw, &inv) != nil {
 		return
@@ -269,6 +274,11 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	s.syncPlan(ctx, sub)
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
+	paidAt := time.Now().UTC()
+	if inv.StatusTransitions.PaidAt > 0 {
+		paidAt = time.Unix(inv.StatusTransitions.PaidAt, 0).UTC()
+	}
+	s.recordPlanPayment(ctx, inv.ID, uid, cmp.Or(sub.Metadata["plan_id"], tier), inv.AmountPaid, inv.Currency, paidAt)
 	s.dunningPaid(ctx, uid, sub.ID, inv.ID) // D5: the renewal (or any plan invoice) paid
 	// A deleted account's subscription only runs out (cancel_at_period_end
 	// at the deletion): nothing is granted again, quietly.
@@ -422,4 +432,25 @@ func (s *Service) handlePlanInvoiceCreated(ctx context.Context, raw json.RawMess
 	if err := s.Stripe.SetInvoiceDescriptor(inv.ID, line); err != nil {
 		slog.WarnContext(ctx, "plan invoice descriptor not set", "invoice", inv.ID, "err", err)
 	}
+}
+
+// recordPlanPayment keeps a paid plan invoice for the revenue report
+// (plan_payments_{env}), once: the money, when, and what the customer was
+// charged in their currency.
+func (s *Service) recordPlanPayment(ctx context.Context, invoiceID, uid, planID string, cents int64, currency string, paidAt time.Time) bool {
+	if s.Store == nil || invoiceID == "" || uid == "" || cents <= 0 {
+		return false
+	}
+	p := &store.PlanPayment{InvoiceID: invoiceID, UID: uid, PlanID: planID, AmountCents: cents, Currency: stripex.USD(currency), PaidAt: paidAt}
+	if pi, err := s.Stripe.InvoicePaymentIntent(invoiceID); err == nil && pi != "" {
+		p.PaymentIntentID = pi
+		if pres, perr := s.Stripe.PaymentPresentment(pi); perr == nil {
+			p.Presentment = presentmentOf(pres)
+		}
+	}
+	created, err := s.Store.RecordPlanPayment(ctx, p)
+	if err != nil {
+		slog.WarnContext(ctx, "plan payment not recorded", "invoice", invoiceID, "err", err)
+	}
+	return created
 }
