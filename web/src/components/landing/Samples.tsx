@@ -18,7 +18,7 @@ import { formatBytes } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { SITE_NAME } from "@/lib/site";
-import { SAMPLES, type Sample } from "@/lib/samples";
+import { samples, type Sample } from "@/lib/samples";
 
 type Look = "2d" | "redcyan";
 
@@ -152,7 +152,7 @@ export function Samples() {
         {t("landing.samples.lede", { method: METHOD_NAMES.lifelike, site: SITE_NAME })}
       </p>
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {SAMPLES.map((s) => (
+        {samples(t).map((s) => (
           <SampleTile key={s.slug} sample={s} />
         ))}
       </div>

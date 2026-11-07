@@ -343,7 +343,7 @@ export function videoFacts(
   const fps = Math.round(p.fps * 100) / 100;
   const scenes = (project.scenes?.cuts ?? []).length + 1;
   return [
-    formatVideoLength(p.duration_s),
+    formatVideoLength(p.duration_s, t),
     resolutionName(p),
     t("glossary.fps", { fps: String(fps) }),
     project.scenes ? t("glossary.scenes", { count: scenes }) : null,

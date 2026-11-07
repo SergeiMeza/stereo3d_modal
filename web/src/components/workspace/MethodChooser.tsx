@@ -177,7 +177,7 @@ export function priceAndTime(q: MethodQuote | undefined, t: Tr = EN): string | n
   if (!q?.quote) return null;
   const eta = q.quote.eta_seconds;
   return `${formatCents(q.quote.quote.amount_cents, t)}${
-    eta && eta > 0 ? ` · ${formatDuration(eta)}` : ""
+    eta && eta > 0 ? ` · ${formatDuration(eta, t)}` : ""
   }`;
 }
 
@@ -188,7 +188,7 @@ function quoteCells(q: MethodQuote | undefined, t: Tr): { price: string; time: s
   const eta = q.quote.eta_seconds;
   return {
     price: formatCents(q.quote.quote.amount_cents, t),
-    time: eta && eta > 0 ? formatDuration(eta) : "—",
+    time: eta && eta > 0 ? formatDuration(eta, t) : "—",
   };
 }
 
@@ -331,7 +331,7 @@ export function MoveToLifelikeOffer({
             {eta && eta > 0
               ? t("workspace.method.offer.priceTime", {
                   price: formatCents(q.quote.amount_cents, t),
-                  time: formatDuration(eta),
+                  time: formatDuration(eta, t),
                 })
               : t("workspace.method.offer.price", { price: formatCents(q.quote.amount_cents, t) })}
           </span>

@@ -60,7 +60,7 @@ export function RunProgressCompact({
         </span>
         {eta !== null ? (
           <span data-testid="run-compact-eta" className="ml-auto shrink-0 text-fg-muted">
-            {formatTimeLeft(eta)}
+            {formatTimeLeft(eta, t)}
           </span>
         ) : null}
       </div>

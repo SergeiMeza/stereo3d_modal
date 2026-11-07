@@ -83,7 +83,7 @@ export function ProSavingsCard({
       ? plans.plans.find((p) => p.kind === "monthly")
       : undefined;
   const previews = pricing?.free_previews?.allowances?.pro_monthly;
-  const credit = creditShort(proCreditCents(pricing));
+  const credit = creditShort(proCreditCents(pricing), t);
   return (
     <section
       data-testid="receipt-pro"

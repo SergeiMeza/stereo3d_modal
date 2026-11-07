@@ -137,7 +137,7 @@ export function sourceRows(project: Project, t: Tr = EN): SourceRow[] {
   add(t("workspace.source.rows.size"), bytes && bytes > 0 ? formatBytes(bytes) : null);
   add(t("workspace.source.rows.container"), f?.container ? f.container.toUpperCase() : null);
   const duration = f?.duration_s ?? p?.duration_s;
-  add(t("workspace.source.rows.length"), duration && duration > 0 ? formatVideoLength(duration) : null);
+  add(t("workspace.source.rows.length"), duration && duration > 0 ? formatVideoLength(duration, t) : null);
 
   // the picture
   const width = v?.width ?? p?.width;

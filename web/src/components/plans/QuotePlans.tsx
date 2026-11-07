@@ -177,7 +177,7 @@ export function QuoteProChoice({
         sub={[
           pct ? t("plans.quote.pctOff", { pct }) : null,
           // owner 2026-11-07: the credit joining Pro gives
-          creditShort(credit),
+          creditShort(credit, t),
           monthly ? t("plans.quote.fromMonthly", { price: monthly.price }) : null,
         ]
           .filter(Boolean)
@@ -241,8 +241,8 @@ export function ProCheckoutSheet({
   const proCents =
     choice?.pro ?? tierPriceFor(quote, pricing, "pro") ?? listCents;
   const today = (p: ProPlan) => p.price;
-  const note = (p: ProPlan) => `${p.price} ${planCadence(p)}`;
-  const credit = creditLine(proCreditCents(pricing));
+  const note = (p: ProPlan) => `${p.price} ${planCadence(p, t)}`;
+  const credit = creditLine(proCreditCents(pricing), t);
 
   async function go(): Promise<void> {
     if (!plan) return;
@@ -320,7 +320,7 @@ export function ProCheckoutSheet({
                 testId={`pro-period-${p.kind}`}
                 on={plan?.id === p.id}
                 onPick={() => setPicked(p.id)}
-                title={planName(p)}
+                title={planName(p, t)}
                 sub={note(p)}
                 price={today(p)}
               />
@@ -331,7 +331,7 @@ export function ProCheckoutSheet({
           <dl className="flex flex-col gap-1.5 rounded-lg border border-edge p-3 text-sm">
             <div className="flex justify-between">
               <dt className="text-fg-muted">
-                {t("plans.quote.checkout.today", { pro: "Pro", plan: planName(plan) })}
+                {t("plans.quote.checkout.today", { pro: "Pro", plan: planName(plan, t) })}
               </dt>
               <dd className="font-mono">{today(plan)}</dd>
             </div>
@@ -348,7 +348,7 @@ export function ProCheckoutSheet({
           </dl>
         ) : null}
         <p className="text-xs text-fg-muted">
-          {credit ? `${creditRules(proCreditDays(pricing))} ` : ""}
+          {credit ? `${creditRules(proCreditDays(pricing), t)} ` : ""}
           {t("plans.quote.checkout.terms")}
         </p>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}

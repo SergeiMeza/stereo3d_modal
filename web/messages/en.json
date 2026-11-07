@@ -55,7 +55,19 @@
       "othersLabel": "Other devices",
       "others": "Other devices:"
     },
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "format": {
+      "aboutSeconds": "about {s} s",
+      "aboutMinutes": "about {m} min",
+      "aboutHours": "about {h} h",
+      "aboutHoursMinutes": "about {h} h {m} min",
+      "left": "{duration} left",
+      "seconds": "{s} s",
+      "minutes": "{m} min",
+      "minutesSeconds": "{m} min {s} s",
+      "hours": "{h} h",
+      "hoursMinutes": "{h} h {m} min"
+    }
   },
   "business": {
     "entry": {

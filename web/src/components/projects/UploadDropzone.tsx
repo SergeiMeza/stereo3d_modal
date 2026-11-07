@@ -417,7 +417,7 @@ export function UploadDropzone({
                   : null}
               </span>
               <span>
-                {timeLeftS !== null ? formatTimeLeft(timeLeftS) : t("upload.estimating")}
+                {timeLeftS !== null ? formatTimeLeft(timeLeftS, t) : t("upload.estimating")}
               </span>
             </p>
           ) : null}

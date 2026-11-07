@@ -118,7 +118,7 @@ export function planIncludes(
 
 /** "$299 a month" / "$11,988 a year". */
 function priceLine(def: PlanDef, t: Tr = EN): string {
-  const p = planPrice(def);
+  const p = planPrice(def, t);
   const price = formatCentsShort(p.cents, t);
   return p.yearly
     ? t("business.setup.price.year", { price })

@@ -108,7 +108,7 @@ export function PlansSheet({
     list[0];
   const biz = pricing?.plans?.business;
   // owner 2026-11-07: the credit joining Pro gives, from /v1/pricing
-  const credit = creditLine(proCreditCents(pricing));
+  const credit = creditLine(proCreditCents(pricing), t);
   const maxFps = biz?.max_fps ?? pricing?.fps.max_fps_with_plan;
 
   const close = (how: string): void => {
@@ -150,7 +150,7 @@ export function PlansSheet({
               }
             }}
           >
-            {t("plans.sheet.getPro", { pro: "Pro", plan: plan ? planName(plan) : "" })}
+            {t("plans.sheet.getPro", { pro: "Pro", plan: plan ? planName(plan, t) : "" })}
           </Button>
           <button
             type="button"
@@ -174,7 +174,7 @@ export function PlansSheet({
         >
           {credit ? (
             <p data-testid="plans-sheet-credit" className="text-xs text-fg-muted">
-              <span className="text-fg">{t("plans.sheet.includes", { pro: "Pro", credit })}</span> {creditRules(proCreditDays(pricing))}
+              <span className="text-fg">{t("plans.sheet.includes", { pro: "Pro", credit })}</span> {creditRules(proCreditDays(pricing), t)}
             </p>
           ) : null}
           {plans.state === "loading" ? (
@@ -201,9 +201,9 @@ export function PlansSheet({
                   className={`size-4 shrink-0 rounded-full ${on ? "border-[5px] border-primary" : "border-[1.5px] border-fg-muted"}`}
                 />
                 <span className="flex flex-1 flex-col">
-                  <span className="text-[15px] text-fg">{planName(p)}</span>
+                  <span className="text-[15px] text-fg">{planName(p, t)}</span>
                   <span className="text-xs text-fg-muted">
-                    {`${p.price} ${planCadence(p)}`}
+                    {`${p.price} ${planCadence(p, t)}`}
                     {p.kind === "monthly" &&
                     pricing?.free_previews?.allowances?.pro_monthly
                       ? ` · ${t("plans.sheet.freePreviewsMonthly", { count: pricing.free_previews.allowances.pro_monthly })}`

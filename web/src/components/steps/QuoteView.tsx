@@ -94,7 +94,7 @@ function reuseName(stage: string, t: Tr): string {
  * the plain length (previews: "5 s"). */
 export function billedLength(b: QuoteBreakdown, t: Tr = EN): string {
   if (b.billable_minutes !== undefined) return t("quote.view.minutes", { minutes: String(b.billable_minutes) });
-  return formatVideoLength(b.billable_seconds ?? 0);
+  return formatVideoLength(b.billable_seconds ?? 0, t);
 }
 
 /** What a run makes, for the pay sheet, the price card and the tracker:
@@ -474,7 +474,7 @@ export function QuoteView({
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
           <span>{chargeLine ? t("quote.view.estimatedTime") : t("quote.view.readyIn")}</span>
-          <span data-testid="quote-eta">{formatDuration(result.eta_seconds)}</span>
+          <span data-testid="quote-eta">{formatDuration(result.eta_seconds, t)}</span>
         </div>
       ) : null}
     </div>

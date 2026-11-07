@@ -242,7 +242,7 @@ export function SceneCutEditor({
    * replacement itself waits for the confirm dialog. */
   async function importCutsFile(file: File) {
     try {
-      const parsed = parseCutList(await file.text(), numFrames);
+      const parsed = parseCutList(await file.text(), numFrames, t);
       setImportPending(parsed);
       setEditNote(null);
     } catch (e) {

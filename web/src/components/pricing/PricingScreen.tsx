@@ -60,7 +60,7 @@ export function PricingScreen(): JSX.Element {
               <span>
                 {rich(t, "pricing.screen.perMinute", { b }, {
                   fps: pricing.fps.base,
-                  fpsRule: fpsRule(pricing),
+                  fpsRule: fpsRule(pricing, t),
                   roundedUp: ROUNDED_UP_LINE,
                 })}
               </span>

@@ -37,7 +37,7 @@ export function PlansBanner(): JSX.Element | null {
   const pct = proPct(pricing);
   const range = saveRange(pricing);
   const previews = pricing?.free_previews?.allowances?.pro_monthly;
-  const credit = creditShort(proCreditCents(pricing));
+  const credit = creditShort(proCreditCents(pricing), t);
   const eligible =
     tier === "none" && dismissed !== null && pct !== null && range !== null;
   const full = eligible && dismissed === false;

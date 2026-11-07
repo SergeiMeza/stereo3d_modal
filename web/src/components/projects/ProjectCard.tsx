@@ -102,7 +102,7 @@ export function cardState(project: Project, t: Tr = EN): CardState {
       progress: a.progress,
       right:
         a.eta_seconds && a.eta_seconds > 0
-          ? formatTimeLeft(a.eta_seconds)
+          ? formatTimeLeft(a.eta_seconds, t)
           : undefined,
     };
   }
@@ -131,7 +131,7 @@ export function cardState(project: Project, t: Tr = EN): CardState {
         progress: s.latest_progress,
         right:
           s.latest_eta_seconds && s.latest_eta_seconds > 0
-            ? formatTimeLeft(s.latest_eta_seconds)
+            ? formatTimeLeft(s.latest_eta_seconds, t)
             : undefined,
       };
     }

@@ -148,16 +148,16 @@ export function LifelikePrices({
         </p>
       ) : null}
       {/* owner 2026-11-07: the credit joining Pro gives, beside its column */}
-      {pro && creditLine(proCreditCents(pricing)) ? (
+      {pro && creditLine(proCreditCents(pricing), t) ? (
         <p data-testid="pricing-pro-credit" className="mt-2 text-xs text-primary">
-          {t("pricing.table.proCredit", { pro: "Pro", credit: creditLine(proCreditCents(pricing)) })}{" "}
+          {t("pricing.table.proCredit", { pro: "Pro", credit: creditLine(proCreditCents(pricing), t) })}{" "}
           {creditRules(proCreditDays(pricing))}
         </p>
       ) : null}
       {compact ? null : (
         <>
           <p data-testid="pricing-fps-rule" className="mt-2 text-xs text-fg-muted">
-            {fpsRule(pricing)}
+            {fpsRule(pricing, t)}
           </p>
           <p data-testid="pricing-rounding" className="mt-1 text-xs text-fg-muted">
             {ROUNDED_UP_LINE}

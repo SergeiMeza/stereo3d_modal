@@ -22,7 +22,7 @@ import { SignInMethods } from "@/components/auth/SignInMethods";
 import { AccountEmails } from "@/components/auth/AccountEmails";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
-import { ACTIVE_RUNS_LINE, DeleteDues } from "@/components/pay/DeleteDues";
+import { DeleteDues } from "@/components/pay/DeleteDues";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
@@ -78,7 +78,7 @@ function deleteErrorMessage(err: unknown, t: Tr = EN): string {
       : t("account.delete.paymentNeeded");
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
-    return ACTIVE_RUNS_LINE;
+    return t("pay.deleteDues.activeRuns");
   }
   return errorText(err, t, "account.delete.failed");
 }

@@ -122,7 +122,7 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
       "part",
       [
         whole && !preview ? t("files.details.wholeVideo") : `${clock(from)} – ${clock(to)}`,
-        formatVideoLength(secs),
+        formatVideoLength(secs, t),
         scenesOf(project, c, from, to, t),
       ]
         .filter(Boolean)
@@ -184,7 +184,7 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
     add("finished", when(c.updated_at, t));
     // gateway 00178: from when it left the line, so the wait isn't counted
     const took = (new Date(c.updated_at).getTime() - new Date(c.started_at ?? c.created_at).getTime()) / 1000;
-    if (c.state === "succeeded" && took > 0) add("took", formatDuration(Math.round(took)));
+    if (c.state === "succeeded" && took > 0) add("took", formatDuration(Math.round(took), t));
   }
 
   // Billing

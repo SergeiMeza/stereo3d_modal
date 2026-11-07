@@ -193,7 +193,7 @@ function RunRow({ project, conversion }: { project: Project; conversion: Convers
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
         <span className="font-medium text-fg">{rangeText(c, project, t)}</span>
         <span className="text-fg-muted">{outputText(c, project, t)}</span>
-        <span className="text-fg-muted">{formatShortDay(c.created_at)}</span>
+        <span className="text-fg-muted">{formatShortDay(c.created_at, t)}</span>
         <span className="ml-auto flex items-center gap-3">
           <span
             data-testid="previous-run-state"
@@ -223,7 +223,7 @@ function RunRow({ project, conversion }: { project: Project; conversion: Convers
       {c.state === "succeeded" ? (
         project.files_deleted_at ? (
           <p data-testid="previous-run-gone" className="text-xs text-fg-muted">
-            {t("runs.previous.filesDeleted", { date: formatShortDay(project.files_deleted_at) })}
+            {t("runs.previous.filesDeleted", { date: formatShortDay(project.files_deleted_at, t) })}
           </p>
         ) : (
           <RunActions conversion={c} />
@@ -288,7 +288,7 @@ export function AlreadyMadeNote({
   const runs = previousRuns(project, active);
   const match = runs.find((c) => c.state === "succeeded" && sameOrder(c, request, numFrames));
   if (!match) return null;
-  const day = formatShortDay(match.created_at);
+  const day = formatShortDay(match.created_at, t);
   const show = () => {
     if (runs.indexOf(match) >= PREVIOUS_RUNS_SHOWN) setOpen(true);
     // after the list opens

@@ -277,11 +277,11 @@ export function ConversionTracker({
         <span className="ml-auto flex items-center gap-3">
           {waiting || terminal ? null : runEta !== null ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
-              {formatTimeLeft(runEta)}
+              {formatTimeLeft(runEta, t)}
             </span>
           ) : estimateSeconds !== undefined && estimateSeconds > 0 ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
-              {t("runs.tracker.estimated", { duration: formatDuration(estimateSeconds) })}
+              {t("runs.tracker.estimated", { duration: formatDuration(estimateSeconds, t) })}
             </span>
           ) : null}
           {conv.state === "succeeded" && showDownloads ? (

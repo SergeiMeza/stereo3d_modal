@@ -10,7 +10,7 @@
 import Link from "next/link";
 import type { JSX } from "react";
 
-import { DEVICE_PAGES, WORKS_WITH, type DeviceIcon } from "@/lib/devices";
+import { devicePages, worksWith, type DeviceIcon } from "@/lib/devices";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 const ICONS: Record<DeviceIcon, JSX.Element> = {
@@ -94,7 +94,7 @@ export function WorksWith(): JSX.Element {
         {t("landing.worksWith.title")}
       </p>
       <ul className="sr-only" data-testid="works-with-links">
-        {DEVICE_PAGES.map((d) => (
+        {devicePages(t).map((d) => (
           <li key={d.slug}>
             <Link href={`/devices/${d.slug}`}>
               {d.upcoming ? t("landing.worksWith.upcoming", { name: d.name, upcoming: d.upcoming }) : d.name}
@@ -107,7 +107,7 @@ export function WorksWith(): JSX.Element {
         <div className="works-track">
           {[false, true].map((dup) => (
             <div key={String(dup)} className="works-set" data-dup={dup ? "" : undefined}>
-              {WORKS_WITH.map((w) => (
+              {worksWith(t).map((w) => (
                 <Item key={w.label} label={w.label} icon={w.icon} soon={w.soon} />
               ))}
             </div>

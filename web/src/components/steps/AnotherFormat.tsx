@@ -31,7 +31,7 @@ import { formatName } from "@/lib/glossary";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 
-import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
+import { formatFor, halfSbsSizeHint } from "./makeControls";
 import { NO_FULL_SBS_PRESETS } from "./methods";
 import { runFilesAtom, runFormatsAtom } from "./runFilesAtoms";
 
@@ -313,8 +313,8 @@ export function AnotherFormat({
                   onSelect={() => void start(f)}
                 >
                   <span className="font-medium">{nameOf(f)}</span>
-                  {FORMAT_FOR[f] ? <span className="text-xs text-fg-muted">{FORMAT_FOR[f]}</span> : null}
-                  {f === "half_sbs" ? <span className="text-xs text-fg-muted">{HALF_SBS_SIZE_HINT}</span> : null}
+                  {formatFor(f, t) ? <span className="text-xs text-fg-muted">{formatFor(f, t)}</span> : null}
+                  {f === "half_sbs" ? <span className="text-xs text-fg-muted">{halfSbsSizeHint(t)}</span> : null}
                 </DropdownMenuItem>
               ))}
             </DropdownMenuContent>

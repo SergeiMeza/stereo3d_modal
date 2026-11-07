@@ -94,7 +94,7 @@ export function PayPerVideoAndPro({
       : undefined;
   const fps = pricing.fps.max_fps_without_plan ?? 30;
   const previews = pricing.free_previews?.allowances?.pro_monthly;
-  const credit = creditLine(proCreditCents(pricing));
+  const credit = creditLine(proCreditCents(pricing), t);
   return (
     <div className="mb-4 grid gap-4 sm:grid-cols-2">
       <div
