@@ -14,7 +14,9 @@ export function formatMoney(amountMinor: number, currency: string, locale = "en-
  * form ("USD 49.72" in en-US). */
 export function formatUsdLabeled(cents: number | null | undefined, locale = "en-US"): string {
   const value = Math.trunc(Number(cents ?? 0)) / 100;
-  const symbol = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" });
+  // English "US$49.72", like the invoices and receipts (Intl's en-CA form)
+  const tag = locale.split("-")[0].toLowerCase() === "en" ? "en-CA" : locale;
+  const symbol = new Intl.NumberFormat(tag, { style: "currency", currency: "USD" });
   const sign = symbol.formatToParts(value).find((p) => p.type === "currency")?.value ?? "";
   const f = /US/.test(sign) ? symbol : new Intl.NumberFormat(locale, { style: "currency", currency: "USD", currencyDisplay: "code" });
   return f.format(value);

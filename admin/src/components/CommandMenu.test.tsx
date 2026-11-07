@@ -84,7 +84,7 @@ describe("⌘K search (BL-29 redesign B)", () => {
     const dialog = await screen.findByRole("dialog", { name: "Search" });
     await userEvent.type(within(dialog).getByRole("combobox", { name: "Search" }), "c_jpy0001");
     const opt = await within(dialog).findByRole("option", { name: /c_jpy0001/ });
-    expect(opt).toHaveTextContent("Paid ¥6,390 (USD 42.50)");
+    expect(opt).toHaveTextContent("Paid ¥6,390 (US$42.50)");
   });
 
   it("isn't there before sign-in", () => {
