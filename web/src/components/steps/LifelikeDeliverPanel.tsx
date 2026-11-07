@@ -442,6 +442,7 @@ export function LifelikeDeliverPanel({
                 pricing={pricing}
                 quality={ck.lastQuote?.quality}
                 sizeBytes={ck.lastQuote?.estimated_size_bytes}
+                quote={ck.lastQuote}
               />
             ) : null}
             {addons?.express ? (

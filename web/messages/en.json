@@ -2366,7 +2366,9 @@
         "anaglyph": "Red-cyan",
         "depth": "Depth",
         "depth_vis": "Depth view"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· about +{amount}"
     },
     "fps": {
       "planRequired": "Frame rates above 30 fps come with {business} and {studio} plans.",
