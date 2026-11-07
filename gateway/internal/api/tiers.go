@@ -196,7 +196,9 @@ func (s *Service) freePreviewStatus(ctx context.Context, uid string, at accountT
 			st.Used = st.Allowance
 		}
 		st.Remaining = max(st.Allowance-st.Used, 0)
-		st.Free = st.Remaining > 0 && st.DayLeft >= 1 // one preview, whatever its size
+		// one preview, whatever its size; only a preview's quote is free
+		// (units > 0), never a full run's (billing UX 2026-11-07)
+		st.Free = units > 0 && st.Remaining > 0 && st.DayLeft >= 1
 		return st
 	}
 	st.Allowance = r.FreePreviewAllowance(at.AllowanceKey)

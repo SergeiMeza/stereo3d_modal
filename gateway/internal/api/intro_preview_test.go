@@ -53,6 +53,19 @@ func TestIntroPreviewWithSample(t *testing.T) {
 	if q := quote(first); !free(q) {
 		t.Fatalf("sample + first upload: %v %v", q["free_previews"], q["payment_flow"])
 	}
+	// a full run's quote on that project isn't free (the intro is for a
+	// preview): free_previews.free false, a paid flow
+	{
+		r := httptest.NewRequest("POST", "/", strings.NewReader(`{"step":"production","preset":"4k"}`))
+		w := httptest.NewRecorder()
+		s.HandleQuoteStep(w, r, &AuthedUser{UID: uid}, first.ID)
+		var q map[string]any
+		json.Unmarshal(w.Body.Bytes(), &q)
+		fp, _ := q["free_previews"].(map[string]any)
+		if w.Code != 200 || fp["free"] != false || fp["intro"] != true || q["payment_flow"] == store.FlowFreePreview {
+			t.Fatalf("full run quote %d %v %v", w.Code, fp, q["payment_flow"])
+		}
+	}
 	// a second project of its own: no intro
 	second := newProject()
 	if q := quote(second); free(q) {
