@@ -320,6 +320,9 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		"publishable_key":    s.Stripe.PublishableKey,
 		"tier":               s.tierEntry(ctx, cust),
 	}
+	if r := s.webRetryJSON(failedBatches); r != nil {
+		resp["retry"] = r // the banner: a failed web group's schedule and pay link (absent for app accounts)
+	}
 	if cust.PhotoCredits > 0 {
 		resp["photo_credits"] = cust.PhotoCredits // leftover pack balance, honored until spent
 	}

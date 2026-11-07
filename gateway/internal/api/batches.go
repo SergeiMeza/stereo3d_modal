@@ -268,6 +268,8 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 		}
 	case b.PaymentIntentID != "":
 		pi, chErr = s.Stripe.ConfirmSavedCharge(b.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
+	case cust.DefaultPaymentMethod == "" && webBatch(b):
+		return s.failWebBatchNoMethod(ctx, b)
 	case cust.DefaultPaymentMethod == "":
 		return s.recordBatchFailure(ctx, b, stripex.ChargeFailure{
 			Code: "no_payment_method", Message: "no default payment method on file",
@@ -438,6 +440,7 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 			bb.ChargedAt = &now
 			bb.PIStatus = store.PISucceeded
 			bb.SettleError = ""
+			bb.Retry.ClosePaid(now) // a web group's schedule ends (nil on app groups)
 			return nil
 		},
 		func(c *store.Conversion) error {
@@ -577,6 +580,9 @@ func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[stri
 		"currency":     b.Currency,
 		"needs_action": false,
 		"items":        batchItemsJSON(b),
+	}
+	if b.Retry != nil { // a web group's D2 schedule and pay link (never on app groups)
+		entry["retry"] = s.retryJSON(b.Retry)
 	}
 	if b.PaymentIntentID != "" {
 		if pi, err := s.Stripe.GetPaymentIntent(b.PaymentIntentID); err == nil {

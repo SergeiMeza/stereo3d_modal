@@ -45,6 +45,13 @@ func (r *OffSessionRetry) Due(now time.Time) bool {
 	return r != nil && r.State == RetryPending && r.NextAttemptAt != nil && !now.Before(*r.NextAttemptAt)
 }
 
+// ClosePaid ends a pending or final retry because the debt was paid.
+func (r *OffSessionRetry) ClosePaid(now time.Time) {
+	if r != nil && (r.State == RetryPending || r.State == RetryFinal) {
+		r.State, r.ClosedAt, r.NextAttemptAt = RetryPaid, &now, nil
+	}
+}
+
 // ListTopupsByRetryState lists top-ups whose retry is in state (the sweep
 // reads pending ones; one equality, no composite index).
 func (s *Store) ListTopupsByRetryState(ctx context.Context, state string, limit int) ([]*Topup, error) {

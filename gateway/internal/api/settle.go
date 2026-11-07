@@ -521,10 +521,23 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 			continue
 		}
 		age := now.Sub(*b.FailedAt)
+		if b.Retry != nil && webBatch(b) {
+			// A web group on the D2 schedule (+24 h, +72 h).
+			switch {
+			case b.Retry.Due(now):
+				seen[b.UID] = true
+				s.retryWebBatch(ctx, b, now)
+				retried++
+			case age >= 7*24*time.Hour:
+				s.mailOwed(ctx, "E4", "E4_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+			}
+			continue
+		}
 		switch {
 		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour && webBatch(b):
-			// A web group (D1): retried under the web's rules, and marked
-			// retried only once the retry ran (a transient error tries again).
+			// A web group failed before its schedule existed (D1): retried
+			// once under the web's rules, and marked retried only once the
+			// retry ran (a transient error tries again).
 			seen[b.UID] = true
 			res, rerr := s.collectOutstanding(ctx, b.UID, settleWebRetry, payContext{})
 			if rerr != nil {
