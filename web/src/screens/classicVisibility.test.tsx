@@ -43,7 +43,7 @@ beforeAll(() => {
   HTMLMediaElement.prototype.pause = function pause(this: HTMLMediaElement) {
     this.dispatchEvent(new Event("pause"));
   };
-  server.listen({ onUnhandledRequest: "bypass" });
+  server.listen({ onUnhandledRequest: "error" });
 });
 afterEach(() => {
   cleanup();

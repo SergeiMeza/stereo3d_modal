@@ -393,6 +393,9 @@ interface DB {
   analyzeTicks: Map<string, number>;
   /** per-project free-profile lifecycle position (advances per GET poll) */
   profileTicks: Map<string, number>;
+  /** tests: a running free profile stays at 60% until this is false again
+   * (several GETs in one poll could otherwise skip the 60% state) */
+  profileHold: boolean;
   billing: MockBilling;
   /** per-method source caps (GET /v1/limits methods; 0 = unlimited) */
   methodMaxDurationS: Record<Method, number>;
@@ -974,6 +977,7 @@ function seed(): DB {
     idem: new Map(),
     analyzeTicks: new Map(),
     profileTicks: new Map(),
+    profileHold: false,
     billing: {
       hasPaymentMethod: true,
       card: { ...MOCK_CARD },
@@ -1078,59 +1082,10 @@ export const mockDb = {
   ...seed(),
   reset() {
     closeMockStreams();
-    const fresh = seed();
-    this.projects = fresh.projects;
-    this.conversions = fresh.conversions;
-    this.idem = fresh.idem;
-    this.analyzeTicks = fresh.analyzeTicks;
-    this.profileTicks = fresh.profileTicks;
-    this.billing = fresh.billing;
-    this.methodMaxDurationS = fresh.methodMaxDurationS;
-    this.chargeBeforeCents = fresh.chargeBeforeCents;
-    this.deferredPayments = fresh.deferredPayments;
-    this.adaptivePricing = fresh.adaptivePricing;
-    this.nextWaitsForGpu = fresh.nextWaitsForGpu;
-    this.methodAvailable = fresh.methodAvailable;
-    this.lifelikeFoveation = fresh.lifelikeFoveation;
-    this.pro = fresh.pro;
-    this.tierPricing = fresh.tierPricing;
-    this.campaign = fresh.campaign;
-    this.campaignMethods = fresh.campaignMethods;
-    this.altPricesFixed = fresh.altPricesFixed;
-    this.freePreviews = fresh.freePreviews;
-    this.plays = fresh.plays;
-    this.accountSettings = fresh.accountSettings;
-    this.nextSettingsFails = fresh.nextSettingsFails;
-    this.sampleSeeding = fresh.sampleSeeding;
-    this.sampleSeeded = fresh.sampleSeeded;
-    this.events = fresh.events;
-    this.feedback = fresh.feedback;
-    this.proStatus = fresh.proStatus;
-    this.planChanges = fresh.planChanges;
-    this.nextChangeExpired = fresh.nextChangeExpired;
-    this.passkeys = fresh.passkeys;
-    this.passkeyReauthNeeded = fresh.passkeyReauthNeeded;
-    this.identities = fresh.identities;
-    this.refundOptions = fresh.refundOptions;
-    this.accountEmails = fresh.accountEmails;
-    this.emailsTakenBy = fresh.emailsTakenBy;
-    this.restoreOffers = fresh.restoreOffers;
-    this.restoreMoved = fresh.restoreMoved;
-    this.planMoves = fresh.planMoves;
-    this.supportRequests = fresh.supportRequests;
-    this.identityInUse = fresh.identityInUse;
-    this.passkeyVerifyErrors = fresh.passkeyVerifyErrors;
-    this.formatJobs = fresh.formatJobs;
-    this.formatJobPolls = fresh.formatJobPolls;
-    this.formatJobsFail = fresh.formatJobsFail;
-    this.formatServiceDown = fresh.formatServiceDown;
-    this.eventsDown = fresh.eventsDown;
-    this.openStreams = fresh.openStreams;
-    this.eventSeq = fresh.eventSeq;
-    this.nextFeedbackStatus = fresh.nextFeedbackStatus;
-    this.fpsCap = fresh.fpsCap;
-    this.classicNewProjects = fresh.classicNewProjects;
-    this.gpuWaitPolls = fresh.gpuWaitPolls;
+    // every field the seed has (CI 2026-11-07: a hand-kept list missed
+    // quoteCreditCents and proCredit, so a credit test leaked "Paid from
+    // your credit" into the next test in shuffled order)
+    Object.assign(this, seed());
     mockAuth.reset();
   },
   setConversionState(id: string, state: Conversion["state"]) {
@@ -2617,7 +2572,7 @@ function tickProfile(p: Project) {
       updated_at: now,
     };
     mockDb.profileTicks.set(p.project_id, tick + 1);
-  } else {
+  } else if (!mockDb.profileHold) {
     const version = p.profile.scenes_version;
     p.profile = {
       state: "succeeded",
@@ -5548,4 +5503,22 @@ export const handlers = [
     mockDb.projects.delete(params.id as string);
     return HttpResponse.json(p);
   }),
+
+  // China mode calls every route on the cn. host (lib/region.ts): past the
+  // auth routes above, it answers like the main host. Without this a
+  // sign-in's events or the billing read after it reached MSW unhandled
+  // whenever they fired before the test ended (CI, 2026-11-07).
+  ...(GATEWAY_CN !== GATEWAY ? [http.all(`${GATEWAY_CN}/*`, ({ request }) => forwardToMain(request))] : []),
 ];
+
+/** The same request on the main mock host (MSW answers it from the
+ * handlers above). */
+async function forwardToMain(request: Request): Promise<Response> {
+  const url = new URL(request.url);
+  const body = request.method === "GET" || request.method === "HEAD" ? undefined : await request.arrayBuffer();
+  return fetch(new URL(url.pathname + url.search, GATEWAY), {
+    method: request.method,
+    headers: request.headers,
+    body,
+  });
+}

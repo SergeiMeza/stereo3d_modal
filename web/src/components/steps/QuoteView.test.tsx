@@ -24,7 +24,7 @@ function quoteResponse(
 }
 
 // the bulk line reads its share and threshold from /v1/pricing
-beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterAll(() => server.close());
 
 describe("QuoteView reuse_stages guard", () => {

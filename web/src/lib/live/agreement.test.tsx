@@ -30,7 +30,7 @@ import { parseLiveEvent } from "./events";
 import { applyLiveEvent } from "./liveStore";
 import { useLiveProject } from "./useLive";
 
-beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
   cleanup();
   server.resetHandlers();

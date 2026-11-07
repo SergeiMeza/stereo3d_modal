@@ -11,6 +11,8 @@ import projectFixture from "../../fixtures/project.json";
 import sceneProfileFixture from "../../fixtures/scene_profile.json";
 import type { Conversion, Project, StepQuoteResponse } from "@/lib/api/types";
 
+import { deriveCnGatewayUrl } from "@/lib/region";
+
 import { mockDb } from "./handlers";
 import { server } from "./server";
 
@@ -41,6 +43,22 @@ async function expectInvalid(body: Record<string, unknown>, message: string) {
   expect(parsed.error).toBe("invalid_request");
   expect(parsed.message).toBe(message);
 }
+
+describe("China mode's cn. host (CI 2026-11-07: unhandled requests)", () => {
+  const CN = deriveCnGatewayUrl(GATEWAY);
+  it("answers every route like the main host, not only the auth ones", async () => {
+    const [cn, main] = await Promise.all([fetch(`${CN}/v1/pricing`), fetch(`${GATEWAY}/v1/pricing`)]);
+    expect(cn.status).toBe(200);
+    expect(await cn.json()).toEqual(await main.json());
+    const ev = await fetch(`${CN}/v1/events`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: "sign_in", props: { method: "email_code" } }),
+    });
+    expect(ev.status).toBeLessThan(500);
+    expect((await fetch(`${CN}/v1/billing`)).status).toBeLessThan(500);
+  });
+});
 
 describe("mock gateway validation", () => {
   it("rejects top-level displacement on every pro step with the exact message", async () => {

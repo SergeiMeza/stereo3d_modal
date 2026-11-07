@@ -40,7 +40,7 @@ vi.mock("next/navigation", () => ({
 const DIR = process.env.SCREENS_SNAPSHOT_DIR;
 const PID = (projectFixture as { project_id: string }).project_id;
 
-beforeAll(() => server.listen({ onUnhandledRequest: "bypass" }));
+beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
   cleanup();
   server.resetHandlers();

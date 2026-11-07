@@ -65,6 +65,15 @@ import {
   timelineZoomIndexAtom,
 } from "@/lib/viewerPrefs";
 
+// Strict MSW (src/mocks/server.ts): a request no handler answered fails
+// the test it happened in, even when the code swallowed the failure.
+// Read from globalThis so files without MSW don't load the handlers.
+afterEach(() => {
+  const g = globalThis as { __mswUnhandled?: string[] };
+  const left = g.__mswUnhandled?.splice(0) ?? [];
+  if (left.length > 0) throw new Error(`MSW: no handler for ${left.join(", ")}`);
+});
+
 afterEach(() => {
   const store = getDefaultStore();
   store.set(playbackSpeedAtom, 1);
