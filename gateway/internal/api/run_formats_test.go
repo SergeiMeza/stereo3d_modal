@@ -520,3 +520,22 @@ func TestRunFormatsRepackRates(t *testing.T) {
 		}
 	}
 }
+
+// Re-export ("another format") stays Lifelike only (ADR 0137): a Classic
+// run answers classic_retired and nothing is submitted.
+func TestRunFormatsClassicRetired(t *testing.T) {
+	s, stub := formatsService(t)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	c := finishedRun(t, s, uid, "1080p", "sbs")
+	if _, err := s.Store.Transition(ctx, c.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error { x.Method = store.MethodClassic; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if code, out := formatsCall(s, uid, c.ID, http.MethodGet, ""); code != 200 || out["unavailable_reason"] != "classic_retired" {
+		t.Fatalf("formats %d %v", code, out)
+	}
+	n := len(stub.bodies)
+	if code, _ := formatsCall(s, uid, c.ID, http.MethodPost, `{"format":"mvhevc"}`); code < 400 || len(stub.bodies) != n {
+		t.Fatalf("start %d, submitted %d", code, len(stub.bodies)-n)
+	}
+}

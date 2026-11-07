@@ -75,6 +75,9 @@ func TestCampaign(t *testing.T) {
 		t.Fatal("preview")
 	}
 	pub := r.PublicCampaign(now)
+	if m, _ := pub["methods"].([]string); len(m) != 2 || m[1] != "classic" {
+		t.Fatalf("methods %v", pub["methods"])
+	}
 	if pub["active"] != true || pub["pct"] != 0.25 || pub["percent"] != 25 || pub["max_preset"] != "qhd" || len(pub["presets"].([]string)) != 2 || pub["ends_at"] == nil {
 		t.Fatalf("public %v", pub)
 	}

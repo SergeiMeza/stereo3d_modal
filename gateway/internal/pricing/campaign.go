@@ -108,7 +108,7 @@ func cmpOr(a, b string) string {
 }
 
 // PublicCampaign is GET /v1/pricing's campaign {active, pct, percent,
-// max_preset, presets, starts_at, ends_at, label}; active false without one.
+// max_preset, presets, methods, starts_at, ends_at, label}; active false without one.
 func (r *Rates) PublicCampaign(now time.Time) map[string]any {
 	out := map[string]any{"active": r.CampaignActive(now)}
 	if r.Campaign == nil {
@@ -123,5 +123,6 @@ func (r *Rates) PublicCampaign(now time.Time) map[string]any {
 	}
 	out["pct"], out["percent"], out["max_preset"], out["presets"] = r.CampaignShare(), int(math.Round(r.CampaignShare()*100)), cmpOr(c.MaxPreset, "qhd"), presets
 	out["starts_at"], out["ends_at"], out["label"] = c.StartsAt, c.EndsAt, c.Label
+	out["methods"] = []string{"lifelike", "classic"} // both, web production only
 	return out
 }
