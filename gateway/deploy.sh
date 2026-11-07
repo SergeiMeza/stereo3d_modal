@@ -101,6 +101,14 @@ if [[ -n "${KPI_OIDC_SERVICE_ACCOUNTS:-}" ]]; then
 fi
 CONCURRENCY="${CONCURRENCY:-20}"
 MAX_INSTANCES="${MAX_INSTANCES:-10}"
+# NO_TRAFFIC=1: deploy the revision without traffic, reachable at its tag
+# URL (https://candidate---<service host>) for a smoke check; then move
+# traffic with `gcloud run services update-traffic <service> --to-latest`
+# (rollback: --to-revisions=<old revision>=100).
+TRAFFIC_FLAGS=()
+if [[ "${NO_TRAFFIC:-}" == "1" ]]; then
+  TRAFFIC_FLAGS=(--no-traffic --tag candidate)
+fi
 
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
@@ -110,13 +118,19 @@ gcloud run deploy "$SERVICE" \
   --min-instances 0 --max-instances "${MAX_INSTANCES}" \
   --memory 1Gi --cpu 1 --timeout 3600 --concurrency "${CONCURRENCY}" \
   --set-env-vars "^|^APP_ENV=${ENV}|GCP_PROJECT_ID=${PROJECT}|MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run|CORS_ORIGINS=${CORS_ORIGINS}|FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}|LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}|MODAL_WORKSPACE_ID=${MODAL_WORKSPACE}|OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}|FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}|STRIPE_PMC_WEB=${STRIPE_PMC_WEB}${EXTRA_ENV}" \
-  --set-secrets "$SECRETS"
+  --set-secrets "$SECRETS" \
+  ${TRAFFIC_FLAGS[@]+"${TRAFFIC_FLAGS[@]}"}
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
 echo "Deployed: $URL"
 echo
 echo "Reminders:"
-echo "  - Stripe webhook endpoint: ${URL}/webhooks/stripe (events: payment_intent.amount_capturable_updated, payment_intent.canceled, payment_intent.payment_failed, payment_intent.succeeded)"
+echo "  - Stripe webhook endpoint: ${URL}/webhooks/stripe, events:"
+echo "      payment_intent.{amount_capturable_updated,canceled,payment_failed,processing,succeeded}"
+echo "      checkout.session.{completed,async_payment_succeeded,async_payment_failed,expired}"
+echo "      invoice.{created,paid,payment_failed,payment_action_required,finalization_failed,overpaid}"
+echo "      customer.subscription.{created,updated,deleted}  payment_method.detached  refund.{created,updated}"
+echo "      charge.dispute.{created,updated,closed,funds_withdrawn,funds_reinstated}  radar.early_fraud_warning.{created,updated}"
 echo "  - Scheduler: gcloud scheduler jobs create http ${SERVICE}-reconcile --schedule='* * * * *' \\"
 echo "      --uri='${URL}/internal/reconcile' --http-method=POST \\"
 echo "      --headers='X-Reconcile-Token=<value of reconcile-token-${ENV}>'"
