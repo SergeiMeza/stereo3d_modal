@@ -42,6 +42,7 @@ export function proxy(request: NextRequest): NextResponse {
 }
 
 export const config = {
-  // Pages only: not API routes, build assets, or files with an extension.
-  matcher: ["/((?!api/|_next/|.*\\.[a-zA-Z0-9]+$).*)"],
+  // Pages only: not API routes, build assets, files with an extension, or
+  // Apple's app-site-association (no extension, served untouched).
+  matcher: ["/((?!api/|_next/|\\.well-known/|apple-app-site-association$|.*\\.[a-zA-Z0-9]+$).*)"],
 };
