@@ -25,7 +25,7 @@ import { useAuth } from "@/lib/auth";
 import { billingUidAtom } from "@/lib/billing";
 import { CODE_LENGTH } from "@/lib/emailCode";
 import { useT } from "@/lib/i18n/I18nProvider";
-import type { Tr } from "@/lib/i18n/t";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import { longDate } from "./PlanCard";
@@ -167,7 +167,7 @@ export function RestoreMove(): JSX.Element {
             {s.elsewhere && s.elsewhere.length > 0 ? ` ${t("billing.restoreMove.signsInWith", { providers: providersWords(s.elsewhere, t) })}` : ""}
           </span>
           {s.ownPlan ? (
-            <a href={supportMailto(t("billing.restoreMove.supportSubject"), t)} className="text-primary underline underline-offset-2">
+            <a href={supportMailto(EN("billing.restoreMove.supportSubject"), t)} className="text-primary underline underline-offset-2">
               {t("billing.restoreMove.contactSupport")}
             </a>
           ) : null}

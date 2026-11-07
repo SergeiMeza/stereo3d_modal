@@ -127,7 +127,7 @@ export function RefundsFooter(): JSX.Element {
           {rich(t, "refunds.section.reportProblem", {
             link: (c) => (
               <a
-                href={supportMailto(t("refunds.section.reportSubject", { app: SITE_NAME }), t)}
+                href={supportMailto(REPORT_PROBLEM_SUBJECT, t)}
                 className="text-primary underline underline-offset-2 hover:text-primary/80"
               >
                 {c}

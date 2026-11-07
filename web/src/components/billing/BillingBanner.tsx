@@ -69,7 +69,9 @@ export function PayToContinue({ size = "lg" }: { size?: "lg" | "default" }): JSX
 }
 
 export function supportMailto(subject?: string, t: Tr = EN): string {
-  const s = subject ?? t("billing.banner.supportSubject");
+  // owner 2026-11-07: mail to support keeps an English subject (triage)
+  void t;
+  const s = subject ?? EN("billing.banner.supportSubject");
   return `mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent(s)}`;
 }
 
