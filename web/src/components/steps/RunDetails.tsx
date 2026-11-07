@@ -199,7 +199,7 @@ function DetailsBody({ project, conversion: c }: { project: Project; conversion:
   const rows = detailRows(project, c);
   const receipt = useReceipt(c);
   return (
-    <dl className="grid grid-cols-1 gap-x-4 gap-y-1 rounded-lg border border-edge bg-surface-0 p-3 text-xs sm:grid-cols-[max-content_1fr]">
+    <dl className={DETAIL_LIST_CLASS}>
       {rows.map((r) => (
         <Row key={r.label} label={r.label}>
           {r.value}
@@ -219,6 +219,15 @@ function DetailsBody({ project, conversion: c }: { project: Project; conversion:
     </dl>
   );
 }
+
+/** One label and value of a details list (Run details, Source details). */
+export function DetailItem({ label, children }: { label: string; children: ReactNode }): JSX.Element {
+  return <Row label={label}>{children}</Row>;
+}
+
+/** The details list's frame, shared with Source details. */
+export const DETAIL_LIST_CLASS =
+  "grid grid-cols-1 gap-x-4 gap-y-1 rounded-lg border border-edge bg-surface-0 p-3 text-xs sm:grid-cols-[max-content_1fr]";
 
 function Row({ label, children }: { label: string; children: ReactNode }): JSX.Element {
   return (

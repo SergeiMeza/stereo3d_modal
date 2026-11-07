@@ -39,6 +39,7 @@ import {
 import type { WorkspaceTabId } from "./PageTabs";
 import { BarsNotice } from "./BarsSetting";
 import { OverviewSteps, primaryAction, secondaryAction, useOverviewSteps } from "./OverviewSteps";
+import { SourceDetails } from "./SourceDetails";
 
 /** What the summary says you'll get (the default files of a full run). */
 const YOU_GET = "Vision Pro spatial video + Side by side";
@@ -254,6 +255,8 @@ export function OverviewTab({
         <BarsNotice project={project} onProjectChanged={onProjectUpdated} />
       ) : null}
 
+      {/* owner 2026-11-07: the uploaded video's facts, folded away */}
+      {analyzed ? <SourceDetails project={project} /> : null}
 
       {onProjectChanged !== undefined && method === "classic" && analyzed ? (
         <MoveToLifelikeOffer project={project} onChanged={onProjectChanged} />

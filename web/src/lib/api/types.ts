@@ -88,6 +88,12 @@ export interface Probe {
   fps_rational: string; // e.g. "24000/1001", "24/1"
   duration_s: number;
   num_frames: number;
+  /** the video stream's bits per second, when the analysis reports it */
+  bit_rate?: number;
+  /** the frames counted in the file (not the header's claim) */
+  counted_frames?: number;
+  /** variable frame rate: the counted rate is above the stated one */
+  vfr?: boolean;
 }
 
 export interface Scenes {
@@ -243,6 +249,9 @@ export interface Project {
    * gateway's HDR output is on and the source is HDR; absent or false =
    * nothing about HDR shows anywhere */
   hdr_output?: boolean;
+  /** the source's dynamic range (sdr | hlg | pq | dv_8 | dv_5), sent
+   * while HDR output is on */
+  dynamic_range?: string;
   /** frame-exact 1:1 h264/mp4 proxy of the source (480p short side) —
    * browser-playable regardless of the source codec; frame n of this file
    * IS source frame n, so seek/scrub against it is frame-accurate. */
