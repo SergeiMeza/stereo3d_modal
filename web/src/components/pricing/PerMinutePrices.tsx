@@ -18,7 +18,6 @@ import { methodLimitText, sentenceCase } from "@/components/steps/methods";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import type { Method, Preset, PublicPricing } from "@/lib/api/types";
 import { fpsRule } from "@/lib/api/usePricing";
-import { ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 import { FOVEATED_DETAIL, foveationIncludedPresets } from "@/lib/foveation";
 import { QUALITY_STEPS, qualityName as fileQualityName, qualityPct, qualitySteps } from "@/components/steps/FileQuality";
@@ -115,13 +114,13 @@ export function LifelikePrices({
                   {size169(p, t)}
                 </span>
                 {/* owner 2026-11-07: a badge only; the prices stay the list */}
-                {campaignBadge(pricing, p) ? (
+                {campaignBadge(pricing, p, "lifelike", t) ? (
                   <span
                     data-testid={`offer-${p}`}
                     title={activeCampaign(pricing)?.label}
                     className="ms-2 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
                   >
-                    {campaignBadge(pricing, p)}
+                    {campaignBadge(pricing, p, "lifelike", t)}
                   </span>
                 ) : null}
               </td>
@@ -142,16 +141,16 @@ export function LifelikePrices({
           ))}
         </tbody>
       </table>
-      {campaignNote(pricing) ? (
+      {campaignNote(pricing, t) ? (
         <p data-testid="pricing-offer" className="mt-2 text-xs text-emerald-300">
-          {campaignNote(pricing)}
+          {campaignNote(pricing, t)}
         </p>
       ) : null}
       {/* owner 2026-11-07: the credit joining Pro gives, beside its column */}
       {pro && creditLine(proCreditCents(pricing), t) ? (
         <p data-testid="pricing-pro-credit" className="mt-2 text-xs text-primary">
           {t("pricing.table.proCredit", { pro: "Pro", credit: creditLine(proCreditCents(pricing), t) })}{" "}
-          {creditRules(proCreditDays(pricing))}
+          {creditRules(proCreditDays(pricing), t)}
         </p>
       ) : null}
       {compact ? null : (
@@ -160,11 +159,11 @@ export function LifelikePrices({
             {fpsRule(pricing, t)}
           </p>
           <p data-testid="pricing-rounding" className="mt-1 text-xs text-fg-muted">
-            {ROUNDED_UP_LINE}
+            {t("quote.charge.roundedUp")}
           </p>
           <p className="mt-1 text-xs text-fg-muted">
             {t("pricing.table.limitAndPreviews", {
-              limit: sentenceCase(methodLimitText(method, null, pricing)),
+              limit: sentenceCase(methodLimitText(method, null, pricing, t)),
               price: formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents, t),
             })}
           </p>
@@ -199,7 +198,7 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
       .map((q): [string, string, string] => [
         t("pricing.extras.fileQuality", { quality: fileQualityName(q) }),
         pct(qualityPct(pricing, q)),
-        QUALITY_STEPS.find((s) => s.value === q)?.hint ?? "",
+        QUALITY_STEPS.some((s) => s.value === q && s.hint) ? t(`make.fileQuality.hint.${q}`) : "",
       ]),
     ...(a.express ? ([[t("pricing.extras.express"), pct(a.express.pct), t("pricing.extras.expressWhat")]] as [string, string, string][]) : []),
   ];

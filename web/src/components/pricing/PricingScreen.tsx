@@ -17,7 +17,6 @@ import { InfoPopover } from "@/components/ui/info-popover";
 
 import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
-import { PAY_BEFORE_PUBLIC, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
@@ -54,14 +53,14 @@ export function PricingScreen(): JSX.Element {
                 "{CHARGED_AFTER} Runs over {precharge_threshold_cents} are
                 charged when they start and refunded if they fail." */}
             <p data-testid="pricing-charge-line" className="text-fg-muted">
-              {PAY_BEFORE_PUBLIC}
+              {t("quote.charge.payBeforePublic")}
             </p>
             <InfoPopover label={t("pricing.screen.howItWorks")}>
               <span>
                 {rich(t, "pricing.screen.perMinute", { b }, {
                   fps: pricing.fps.base,
                   fpsRule: fpsRule(pricing, t),
-                  roundedUp: ROUNDED_UP_LINE,
+                  roundedUp: t("quote.charge.roundedUp"),
                 })}
               </span>
               <span>

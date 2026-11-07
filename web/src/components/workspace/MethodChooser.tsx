@@ -20,10 +20,10 @@ import type { JSX } from "react";
 import {
   METHOD_LABELS,
   METHOD_ORDER,
-  METHOD_TAGS,
-  MOVE_TO_LIFELIKE_BODY,
-  MOVE_TO_LIFELIKE_TITLE,
-  SWITCH_NOT_ALLOWED,
+  methodTag,
+  moveToLifelikeBody,
+  moveToLifelikeTitle,
+  switchNotAllowed,
 } from "@/components/steps/methods";
 import { formatCents } from "@/components/steps/money";
 import { useVariantQuotes } from "@/components/steps/priceAtoms";
@@ -64,7 +64,7 @@ export const TOO_LONG_FOR_CLASSIC = tooLongForClassic();
 function switchErrorCopy(e: unknown, next: Method, current: Method, t: Tr): string {
   if (e instanceof GatewayError) {
     if (e.code === "source_too_long_for_method") return tooLongForClassic(t);
-    if (e.code === "method_switch_not_allowed") return SWITCH_NOT_ALLOWED;
+    if (e.code === "method_switch_not_allowed") return switchNotAllowed(t);
     if (e.code === "method_unavailable") {
       return t("workspace.method.unavailable", {
         next: METHOD_LABELS[next],
@@ -227,8 +227,8 @@ export function MoveToLifelikeDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="move-to-lifelike-dialog">
         <DialogHeader>
-          <DialogTitle>{MOVE_TO_LIFELIKE_TITLE}</DialogTitle>
-          <DialogDescription>{MOVE_TO_LIFELIKE_BODY}</DialogDescription>
+          <DialogTitle>{moveToLifelikeTitle(t)}</DialogTitle>
+          <DialogDescription>{moveToLifelikeBody(t)}</DialogDescription>
         </DialogHeader>
         {lifelike || classic ? (
           <table
@@ -396,12 +396,12 @@ export function MethodBadge({
       <span className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-fg-muted">
         {METHOD_LABELS[sw.method]}
       </span>
-      {METHOD_TAGS[sw.method] ? (
+      {methodTag(sw.method, t) ? (
         <span
           data-testid={`method-tag-${sw.method}`}
           className="rounded-full border border-edge px-1.5 text-fg-muted"
         >
-          {METHOD_TAGS[sw.method]}
+          {methodTag(sw.method, t)}
         </span>
       ) : null}
       {sw.method === "classic" && allowMove ? (

@@ -16,7 +16,7 @@
 import type { JSX } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
-import { LIFELIKE_PREVIEW_SECONDS, METHOD_TAGS } from "@/components/steps/methods";
+import { LIFELIKE_PREVIEW_SECONDS, methodTag } from "@/components/steps/methods";
 import { useVariantQuotes } from "@/components/steps/priceAtoms";
 import { Button } from "@/components/ui/button";
 import {
@@ -77,6 +77,7 @@ function usePreviewQuote(project: Project, enabled: boolean): StepQuoteResponse 
 }
 
 function MethodChip({ method }: { method: Method }): JSX.Element {
+  const t = useT();
   return (
     <span
       data-testid="overview-method"
@@ -93,8 +94,8 @@ function MethodChip({ method }: { method: Method }): JSX.Element {
         />
       ) : null}
       {METHOD_NAMES[method]}
-      {METHOD_TAGS[method] ? (
-        <span className="text-[10px] text-fg-muted/80">· {METHOD_TAGS[method]}</span>
+      {methodTag(method, t) ? (
+        <span className="text-[10px] text-fg-muted/80">· {methodTag(method, t)}</span>
       ) : null}
     </span>
   );

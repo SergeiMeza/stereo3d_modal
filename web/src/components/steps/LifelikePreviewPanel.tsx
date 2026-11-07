@@ -47,7 +47,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 
-import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor, SAMPLE_PROJECT } from "./methods";
+import { LIFELIKE_PREVIEW_SECONDS, lifelikeFormatsFor, sampleProject } from "./methods";
 import { formatCents, formatCentsShort } from "./money";
 import { StateChip } from "./StateChip";
 import {
@@ -60,7 +60,7 @@ import { pastPreviewPickAtom } from "./pastPreviewAtoms";
 import { PreviewDownloads } from "./RunFiles";
 import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { PlansSheet, usePlansSheet } from "@/components/plans/PlansSheet";
-import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
+import { FrameRatePicker, fpsLabel, pickFrameRate, useFpsChoice } from "./frameRate";
 import { withoutBars } from "@/lib/bars";
 
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
@@ -520,7 +520,7 @@ function ReadyPreviewPanel({
                 quoteRequest={quoteRequest}
                 label={t("preview.cta")}
                 trackerDownloads={false}
-                disabledReason={project.sample ? SAMPLE_PROJECT : fpsMissing ? PICK_FRAME_RATE : undefined}
+                disabledReason={project.sample ? sampleProject(t) : fpsMissing ? pickFrameRate(t) : undefined}
                 explain={
                   <span className="flex flex-col gap-1.5">
                     <span>
