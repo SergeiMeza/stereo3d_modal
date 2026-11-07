@@ -78,6 +78,20 @@ describe("the welcome's layout on small and foldable screens (owner 2026-11-07)"
     const grid = screen.getByRole("group");
     expect(grid.className).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]");
     expect(screen.getByTestId("welcome-device-avp").textContent).toContain("Spatial video");
+    // a fade at the end of the scroll says there's more below
+    const cue = screen.getByTestId("welcome-scroll-cue");
+    expect(body.contains(cue)).toBe(true);
+    expect(cue.className).toMatch(/\bsticky bottom-0\b/);
+  });
+
+  it("step 2's loop gives way on folded landscape (Duo pass, 2026-11-07)", async () => {
+    mockDb.projects.clear();
+    renderProjects();
+    fireEvent.click(await screen.findByTestId("welcome-device-avp"));
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    const loop = await screen.findByTestId("welcome-loop");
+    expect(loop.className).toContain("cramped:h-[22svh]");
+    expect(loop.className).toContain("sm:cramped:h-[22svh]");
   });
 });
 

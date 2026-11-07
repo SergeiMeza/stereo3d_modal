@@ -239,7 +239,9 @@ export function PageTabs({
                 onClick={() => {
                   if (lockReason === undefined) onChange(tab.id);
                 }}
-                className={`relative flex min-w-16 shrink-0 flex-col items-center gap-0.5 px-1 py-2 text-[11px] transition-colors sm:w-16 sm:px-0 ${
+                // owner 2026-11-07 (foldable): on phones the tabs share the
+                // row, so the last one is never cut at the edge
+                className={`relative flex min-w-0 flex-1 basis-0 flex-col items-center gap-0.5 px-0.5 py-2 text-[11px] transition-colors sm:w-16 sm:flex-none sm:shrink-0 sm:basis-auto sm:px-0 ${
                   selected
                     ? "text-primary"
                     : lockReason !== undefined
@@ -255,7 +257,7 @@ export function PageTabs({
                   }`}
                 />
                 {tab.icon}
-                {tabLabel(tab.id, t)}
+                <span className="line-clamp-2 max-w-full text-center leading-tight break-words hyphens-auto">{tabLabel(tab.id, t)}</span>
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="flex items-center gap-1.5">

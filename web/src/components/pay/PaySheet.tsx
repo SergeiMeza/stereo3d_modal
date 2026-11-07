@@ -472,6 +472,25 @@ export function PaySheet({
 }
 
 /** The lines above the main button, the button, and its footnote. */
+/** The footer root's mark: on cramped heights SheetFrame's footer box
+ * dissolves (display: contents) so only PinnedMain stays pinned. */
+export const PIN_ROOT = "flex flex-col gap-3 cramped:contents";
+/** a footer line that scrolls with the form on cramped heights */
+export const PIN_LINE = "cramped:mx-5 cramped:mb-3";
+export const PIN_FOOT = "cramped:mx-5 cramped:mt-2 cramped:mb-3";
+
+/** The main button, pinned at the bottom of the sheet's scroll. */
+export function PinnedMain({ children }: { children: ReactNode }): JSX.Element {
+  return (
+    <div
+      data-testid="pay-main-area"
+      className="cramped:sticky cramped:bottom-0 cramped:z-10 cramped:border-t cramped:border-edge/60 cramped:bg-popover cramped:px-5 cramped:pt-2 cramped:pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+    >
+      {children}
+    </div>
+  );
+}
+
 export function MainButtonArea({
   lines,
   extra,
@@ -488,22 +507,24 @@ export function MainButtonArea({
   after?: ReactNode;
   big?: boolean;
 }): JSX.Element {
+  // cramped (foldable or phone in landscape): the lines and the foot
+  // scroll with the form; only the button stays pinned at the bottom
   return (
-    <div className="flex flex-col gap-3">
+    <div data-pin-main className={PIN_ROOT}>
       <ul
         data-testid="pay-lines"
         className={`flex flex-col gap-1 rounded-lg border border-edge/70 px-3 py-2 text-fg-muted ${
           big ? "text-lg" : "text-xs"
-        }`}
+        } ${PIN_LINE}`}
       >
         {lines.map((l) => (
           <li key={l}>{l}</li>
         ))}
         {extra ? <li className="text-fg">{extra}</li> : null}
       </ul>
-      {button}
+      <PinnedMain>{button}</PinnedMain>
       {foot ? (
-        <p className={`text-center text-fg-muted ${big ? "text-lg" : "text-xs"}`}>{foot}</p>
+        <p className={`text-center text-fg-muted ${big ? "text-lg" : "text-xs"} ${PIN_FOOT}`}>{foot}</p>
       ) : null}
       {after}
     </div>

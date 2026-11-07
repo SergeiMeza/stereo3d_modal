@@ -382,7 +382,7 @@ export function WelcomeDialog({
           <div className="flex flex-col">
             <div
               data-testid="welcome-loop"
-              className="relative aspect-[16/7] w-full overflow-hidden bg-black sm:h-[220px] sm:aspect-auto short:aspect-[16/5] sm:short:h-[150px]"
+              className="relative aspect-[16/7] w-full shrink-0 overflow-hidden bg-black sm:h-[220px] sm:aspect-auto short:aspect-[16/5] sm:short:h-[150px] cramped:aspect-auto cramped:h-[22svh] sm:cramped:h-[22svh]"
             >
               <LoopVideo
                 base="/landing/hero/sunset-session-2d-3d"
@@ -406,7 +406,7 @@ export function WelcomeDialog({
                 {t("onboarding.welcome.how.description", { site: SITE_NAME })}
               </DialogDescription>
             </div>
-            <ol className="flex flex-col gap-4 px-5 pt-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-9">
+            <ol className="flex flex-col gap-4 px-5 pt-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-9 short:gap-3 short:pt-3">
               {HOW.map((h, i) => (
                 <li key={h} className="flex flex-col gap-1">
                   <span className="font-mono text-xs text-primary">
@@ -475,6 +475,9 @@ export function WelcomeDialog({
           </div>
         )}
 
+          {/* a fade at the bottom while more is below (it sticks to the
+              body's bottom edge; at the end it sits over empty space) */}
+          <div aria-hidden data-testid="welcome-scroll-cue" className="pointer-events-none sticky bottom-0 h-6 bg-gradient-to-t from-popover to-transparent" />
         </div>
         {/* the buttons stay in view at the bottom, whatever the body's length */}
         <div

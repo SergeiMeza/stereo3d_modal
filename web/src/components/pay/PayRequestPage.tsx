@@ -202,7 +202,7 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
     <section
       data-testid="pay-request-page"
       data-state={state.kind}
-      className="mx-auto flex w-full max-w-[440px] flex-1 flex-col gap-5 px-4 py-12"
+      className="mx-auto flex w-full max-w-[440px] flex-1 flex-col gap-5 px-4 py-12 short:py-6 cramped:gap-3 cramped:py-4"
     >
       <p className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
         <AppIcon className="size-5" />
@@ -258,6 +258,12 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
               {state.notice ? <StateLine testId="pay-request-notice" text={t(state.notice)} /> : null}
               {form.message ? <StateLine text={form.message} /> : null}
               <p className="text-xs text-fg-muted">{sheetCurrencyLine(localPrice, state.info.amount_cents, t)}</p>
+              {/* owner 2026-11-07 (foldable): Pay stays pinned at the bottom of
+                  the screen while the form scrolls under it */}
+              <div
+                data-testid="pay-request-footer"
+                className="sticky bottom-0 z-10 -mx-4 border-t border-edge/60 bg-surface-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
+              >
               <Button
                 size="lg"
                 data-testid="pay-request-confirm"
@@ -270,6 +276,7 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
               >
                 {state.paying ? t("pay.copy.paying") : t("pay.request.pay", { amount: amount(state.info) })}
               </Button>
+              </div>
             </div>
           )}
         </CheckoutPane>

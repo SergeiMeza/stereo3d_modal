@@ -34,7 +34,7 @@ import { chinaPayments } from "@/lib/paymentRegion";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
-import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { PIN_FOOT, PIN_LINE, PIN_ROOT, PinnedMain, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
   checkoutCurrencyLine,
@@ -296,8 +296,9 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           chinaOff ? (
             <ChinaComingSoon />
           ) : (
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
+          <div data-pin-main className={PIN_ROOT}>
+            <p className={`text-xs text-fg-muted ${PIN_LINE}`}>{t("pay.copy.chargedInUsd")}</p>
+            <PinnedMain>
             <Button
               size="lg"
               className="h-12 w-full"
@@ -313,7 +314,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             >
               Alipay
             </Button>
-            <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
+            </PinnedMain>
+            <p className={`text-center text-xs text-fg-muted ${PIN_FOOT}`}>{t("balance.copy.topupSmallPrint")}</p>
           </div>
           )
         }
@@ -329,11 +331,12 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const ready = session.kind === "ready" || session.kind === "paying" ? session : null;
   const paying = session.kind === "paying";
   const footer = (form?: { ready: boolean; confirm: () => Promise<ConfirmResult> }) => (
-    <div className="flex flex-col gap-3">
-      <p className="flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
+    <div data-pin-main className={PIN_ROOT}>
+      <p className={`flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted ${PIN_LINE}`}>
         {/* the open payment form shows the local amount already */}
         {ready ? sheetCurrencyLine(localPrice, ready.amount, t) : checkoutCurrencyLine(localPrice, t)}
       </p>
+      <PinnedMain>
       <Button
         size="lg"
         data-testid="add-funds-main"
@@ -360,7 +363,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           </>
         )}
       </Button>
-      <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
+      </PinnedMain>
+      <p className={`text-center text-xs text-fg-muted ${PIN_FOOT}`}>{t("balance.copy.topupSmallPrint")}</p>
     </div>
   );
 
