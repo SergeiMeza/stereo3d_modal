@@ -21,11 +21,14 @@ import type {
 } from "@/lib/api/types";
 import { formatBytes, formatClock } from "@/lib/format";
 import { frameToSeconds, secondsToFrame, type RationalFPS } from "@/lib/frames";
-import { FORMAT_NAMES, type QualityChoice } from "@/lib/glossary";
+import { formatName, type QualityChoice } from "@/lib/glossary";
 import { questSbsFormat, type Client } from "@/lib/headset";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { centsOf, useVariantQuotes } from "./priceAtoms";
-import { HIGHEST_QUALITY_TAG } from "./methods";
+import { highestQualityTag } from "./methods";
 import { formatCents } from "./money";
 
 /** A numbered section card: "1 Where will you watch it?" */
@@ -99,6 +102,14 @@ export const DEVICES: readonly { id: Device; label: string }[] = [
   { id: "unsure", label: "Not sure" },
 ];
 
+/** Devices whose label is words, not a product name (make.devices.*). */
+const DEVICE_WORDS: ReadonlySet<Device> = new Set(["glasses", "tv", "unsure"]);
+
+/** A device's label in the reader's language. */
+export function deviceLabel(d: { id: Device; label: string }, t: Tr = EN): string {
+  return DEVICE_WORDS.has(d.id) ? t(`make.devices.${d.id}`) : d.label;
+}
+
 /** The files each device needs; "Not sure" gets the two that play almost
  * anywhere. Meta Quest's depends on the quality (questSbsFormat, owner
  * 2026-11-04). */
@@ -156,10 +167,11 @@ export function WatchPicker({
   devices: readonly Device[];
   onChange: (next: Device[]) => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <div
       role="group"
-      aria-label="Where will you watch it?"
+      aria-label={t("make.controls.watchQuestion")}
       className="grid grid-cols-2 gap-2 sm:grid-cols-3"
     >
       {DEVICES.map((d) => {
@@ -176,7 +188,7 @@ export function WatchPicker({
               }
               className="mt-0.5 accent-primary"
             />
-            <span className="font-medium">{d.label}</span>
+            <span className="font-medium">{deviceLabel(d, t)}</span>
           </label>
         );
       })}
@@ -199,6 +211,16 @@ export const FORMAT_FOR: Partial<Record<Format, string>> = {
 export const HALF_SBS_SIZE_HINT =
   "About half the file size of full side-by-side. Handy when a file is too big to copy or stream.";
 
+/** FORMAT_FOR in the reader's language. */
+export function formatFor(f: Format, t: Tr = EN): string | undefined {
+  return Object.hasOwn(FORMAT_FOR, f) ? t(`make.controls.formatFor.${f}`) : undefined;
+}
+
+/** HALF_SBS_SIZE_HINT in the reader's language. */
+export function halfSbsSizeHint(t: Tr = EN): string {
+  return t("make.controls.halfSbsSizeHint");
+}
+
 export function FileTiles({
   offered,
   formats,
@@ -208,8 +230,9 @@ export function FileTiles({
   formats: readonly Format[];
   onToggle: (f: Format) => void;
 }): JSX.Element {
+  const t = useT();
   return (
-    <div role="group" aria-label="Files you'll get" className="grid gap-2 sm:grid-cols-2">
+    <div role="group" aria-label={t("make.controls.filesYoullGet")} className="grid gap-2 sm:grid-cols-2">
       {offered.map((f) => {
         const on = formats.includes(f);
         return (
@@ -217,16 +240,16 @@ export function FileTiles({
             <input
               type="checkbox"
               checked={on}
-              aria-label={FORMAT_NAMES[f]}
+              aria-label={formatName(f, t)}
               onChange={() => onToggle(f)}
               className="mt-0.5 accent-primary"
             />
             <span className="flex flex-col gap-0.5">
-              <span className="font-medium">{FORMAT_NAMES[f]}</span>
-              <span className="text-xs text-fg-muted">{FORMAT_FOR[f]}</span>
+              <span className="font-medium">{formatName(f, t)}</span>
+              <span className="text-xs text-fg-muted">{formatFor(f, t)}</span>
               {f === "half_sbs" ? (
                 <span className="text-xs text-fg-muted" data-testid="half-sbs-size-hint">
-                  {HALF_SBS_SIZE_HINT}
+                  {halfSbsSizeHint(t)}
                 </span>
               ) : null}
             </span>
@@ -295,11 +318,12 @@ export function QualityTiles({
   /** owner 2026-11-07: "−25% launch offer" on the qualities it covers */
   badges?: Partial<Record<Preset, string>>;
 }): JSX.Element {
+  const t = useT();
   return (
     <>
       <div
         role="radiogroup"
-        aria-label="Quality"
+        aria-label={t("make.controls.quality")}
         className="grid grid-cols-2 gap-2 sm:grid-cols-4"
       >
         {choices.map((q) => {
@@ -325,11 +349,12 @@ export function QualityTiles({
                   // are our highest quality
                   <span
                     data-testid={`quality-top-${q.preset}`}
-                    title={HIGHEST_QUALITY_TAG}
+                    title={highestQualityTag(t)}
                     className="ll-chip ml-auto rounded-full px-1.5 py-px text-[10px] leading-4"
                   >
-                    Highest
-                    <span className="sr-only"> quality</span>
+                    {rich(t, "make.controls.highestChip", {
+                      sr: (c) => <span className="sr-only">{c}</span>,
+                    })}
                   </span>
                 ) : null}
               </span>
@@ -338,7 +363,7 @@ export function QualityTiles({
               ) : null}
               {q.originalEyeRequired ? (
                 <span className="text-[11px] text-fg-muted">
-                  One eye keeps your original picture.
+                  {t("make.controls.originalEye")}
                 </span>
               ) : null}
               {badges?.[q.preset] ? (
@@ -353,7 +378,7 @@ export function QualityTiles({
                 data-testid={`quality-price-${q.preset}`}
                 className="font-mono text-sm text-fg"
               >
-                {cents !== undefined ? formatCents(cents) : "…"}
+                {cents !== undefined ? formatCents(cents, t) : "…"}
               </span>
             </label>
           );
@@ -422,6 +447,7 @@ export function TrimControl({
   value: [number, number];
   onChange: (next: [number, number]) => void;
 }): JSX.Element {
+  const tr = useT();
   const [from, to] = value;
   const minSpan = Math.max(1, Math.round(fps.num / fps.den)); // 1 s
   const pct = (f: number) => (f / numFrames) * 100;
@@ -459,7 +485,7 @@ export function TrimControl({
         />
         <input
           type="range"
-          aria-label="Start handle"
+          aria-label={tr("make.controls.startHandle")}
           min={0}
           max={numFrames}
           value={from}
@@ -468,7 +494,7 @@ export function TrimControl({
         />
         <input
           type="range"
-          aria-label="End handle"
+          aria-label={tr("make.controls.endHandle")}
           min={0}
           max={numFrames}
           value={to}
@@ -478,12 +504,12 @@ export function TrimControl({
       </div>
       <div className="flex flex-wrap gap-4">
         <ClockInput
-          label="Start"
+          label={tr("make.controls.start")}
           seconds={frameToSeconds(from, fps)}
           onCommit={(s) => set(secondsToFrame(s, fps), to)}
         />
         <ClockInput
-          label="End"
+          label={tr("make.controls.end")}
           seconds={frameToSeconds(to, fps)}
           onCommit={(s) => set(from, secondsToFrame(s, fps))}
         />
@@ -497,10 +523,12 @@ export function trimChip(
   value: [number, number],
   numFrames: number,
   fps: RationalFPS,
+  t: Tr = EN,
 ): string {
   const whole = value[0] === 0 && value[1] >= numFrames;
   const secs = frameToSeconds(value[1] - value[0], fps);
-  return `${whole ? "Whole video" : "Part"} · ${formatClock(secs)}`;
+  const length = formatClock(secs);
+  return whole ? t("make.controls.trimWhole", { length }) : t("make.controls.trimPart", { length });
 }
 
 /** The trim's request fields: none for the whole video. */
@@ -513,7 +541,7 @@ export function trimFields(
 }
 
 /** "3 parts: about 15, 15 and 12 min" for a split of `outputSeconds`. */
-export function partsEstimate(outputSeconds: number, maxSeconds: number): string {
+export function partsEstimate(outputSeconds: number, maxSeconds: number, t: Tr = EN): string {
   const n = Math.max(1, Math.ceil(outputSeconds / maxSeconds));
   const mins: number[] = [];
   for (let i = 0; i < n; i++) {
@@ -523,8 +551,11 @@ export function partsEstimate(outputSeconds: number, maxSeconds: number): string
   const list =
     mins.length === 1
       ? `${mins[0]}`
-      : `${mins.slice(0, -1).join(", ")} and ${mins[mins.length - 1]}`;
-  return `${n} part${n === 1 ? "" : "s"}: about ${list} min`;
+      : t("offer.note.list", {
+          rest: mins.slice(0, -1).join(t("offer.note.listSeparator")),
+          last: String(mins[mins.length - 1]),
+        });
+  return t("make.controls.partsEstimate", { count: n, list });
 }
 
 /* ---------- Bitrate (S3D-56) ---------- */
@@ -539,6 +570,13 @@ export const BITRATES: readonly { value: Bitrate; label: string }[] = [
 
 /** A saved choice the list no longer offers (20 Mbit/s, owner 2026-11-07)
  * reads as Automatic; the gateway still accepts 20 from older clients. */
+/** A bitrate's label in the reader's language. */
+export function bitrateLabel(b: { value: Bitrate; label: string }, t: Tr = EN): string {
+  if (b.value === "auto") return t("make.fileQuality.bitrateAuto");
+  if (b.value === "match_source") return t("make.controls.bitrateMatchSource");
+  return b.label;
+}
+
 export function offeredBitrate(b: Bitrate): Bitrate {
   return BITRATES.some((x) => x.value === b) ? b : "auto";
 }
@@ -562,10 +600,11 @@ export function BitrateControl({
   /** the quote's estimated_size_bytes */
   sizeBytes?: number;
 }): JSX.Element {
+  const t = useT();
   return (
     <div className="flex flex-col gap-1.5">
       <label htmlFor="make-bitrate" className="text-xs font-medium text-fg-muted">
-        Bitrate
+        {t("make.controls.bitrate")}
       </label>
       <select
         id="make-bitrate"
@@ -581,13 +620,13 @@ export function BitrateControl({
       >
         {BITRATES.map((b) => (
           <option key={String(b.value)} value={String(b.value)}>
-            {b.label}
+            {bitrateLabel(b, t)}
           </option>
         ))}
       </select>
       {sizeBytes !== undefined && sizeBytes > 0 ? (
         <p data-testid="estimated-size" className="text-xs text-fg-muted">
-          Estimated size: about {formatBytes(sizeBytes)}
+          {t("make.controls.estimatedSize", { size: formatBytes(sizeBytes) })}
         </p>
       ) : null}
     </div>

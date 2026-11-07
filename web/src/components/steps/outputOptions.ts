@@ -14,6 +14,7 @@ import {
   QUALITIES,
   type EdgeMode,
 } from "@/lib/glossary";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export type { EdgeMode };
 
@@ -50,6 +51,10 @@ export const INPAINT_LABELS: Record<Inpaint, string> = {
   none: "Quick",
 };
 
+export function inpaintLabel(i: Inpaint, t: Tr = EN): string {
+  return Object.hasOwn(INPAINT_LABELS, i) ? t(`make.output.inpaint.${i}`) : i;
+}
+
 /** Edge style (S3D-29): the user-facing choice that drives BOTH wire
  * fields (warp + inpaint). Two equal options in this order — Stretched,
  * then Filled, with Stretched preselected; which looks better is a matter
@@ -61,6 +66,11 @@ export const EDGE_LABELS: Record<EdgeMode, string> = EDGE_STYLE_NAMES;
 
 export const EDGE_HINT =
   "Shifting the picture for each eye opens thin gaps along object edges. Stretched pulls the neighbouring pixels across them; Filled paints them in. Two different looks: pick the one you like.";
+
+/** EDGE_HINT (and WARP_HINT) in the reader's language. */
+export function edgeHint(t: Tr = EN): string {
+  return t("make.output.edgeHint");
+}
 
 /** The wire fields an edge style implies. Stretched = the backward warp
  * with no fill; Filled keeps the default forward warp (no warp field on
@@ -84,6 +94,10 @@ export const WARP_LABELS: Record<Warp, string> = {
   forward: "Filled edges",
   backward: "Stretched edges",
 };
+
+export function warpLabel(w: Warp, t: Tr = EN): string {
+  return t(`glossary.edges.${w === "backward" ? "stretched" : "filled"}`);
+}
 
 export const WARP_HINT =
   "Shifting the picture for each eye opens thin gaps along object edges. Stretched pulls the neighbouring pixels across them; Filled paints them in. Two different looks: pick the one you like.";

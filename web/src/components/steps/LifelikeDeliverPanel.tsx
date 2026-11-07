@@ -32,6 +32,8 @@ import { parseRational } from "@/lib/frames";
 import { barSides, withoutBars } from "@/lib/bars";
 import { eyeSize, qualityChoices, resolutionName } from "@/lib/glossary";
 import { BarsToggle } from "@/components/workspace/BarsSetting";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import {
   DEFAULT_MAKE_FORMATS,
@@ -49,7 +51,7 @@ import {
   WatchPicker,
   type Device,
 } from "./makeControls";
-import { lifelikeFormatsFor, SAMPLE_PROJECT, SPLIT_MAX_SECONDS } from "./methods";
+import { lifelikeFormatsFor, sampleProject, SPLIT_MAX_SECONDS } from "./methods";
 import {
   BusinessNote,
   CinemaTierPrices,
@@ -57,26 +59,24 @@ import {
   QuoteProChoice,
   useQuoteProChoice,
 } from "@/components/plans/QuotePlans";
-import { FrameRatePicker, fpsLabel, PICK_FRAME_RATE, useFpsChoice } from "./frameRate";
+import { FrameRatePicker, fpsLabel, pickFrameRate, useFpsChoice } from "./frameRate";
 import { useMake3dChoice } from "./make3dAtoms";
 import { AlreadyMadeNote, PreviousRuns } from "./PreviousRuns";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 import { FileQualityScale, qualitySteps } from "./FileQuality";
 import { campaignBadge, campaignNote } from "@/lib/campaign";
-import { FOVEATED_DETAIL, FOVEATED_HINT, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
+import { foveatedDetail, foveatedHint, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
 
 /** "Your video is N minutes long. …" — the split question. */
-export function splitQuestion(outputSeconds: number): string {
+export function splitQuestion(outputSeconds: number, t: Tr = EN): string {
   const minutes = Math.max(1, Math.round(outputSeconds / 60));
-  return `Your video is ${minutes} minutes long. Split it into ${Math.round(
-    SPLIT_MAX_SECONDS / 60,
-  )}-minute parts so each file plays smoothly?`;
+  return t("make.lifelike.splitQuestion", { minutes, part: Math.round(SPLIT_MAX_SECONDS / 60) });
 }
 
 /** Express in words (owner 2026-11-07): first in line, and no promise of
  * time saved. */
-export const EXPRESS_HINT = "First in line.";
+export const EXPRESS_HINT = EN("make.lifelike.expressHint");
 
 function AddOnRow({
   testId,
@@ -116,11 +116,10 @@ export interface LifelikeDeliverPanelProps {
 
 /** owner 2026-11-05: HDR output is automatic and free (no control); the
  * side-by-side files stay in standard colour for headsets without HDR. */
-export function hdrLine(formats: readonly Format[]): string {
-  const base = "Your 3D will be in HDR, so bright highlights and rich colour are kept. Free.";
+export function hdrLine(formats: readonly Format[], t: Tr = EN): string {
   return formats.some((f) => f === "sbs" || f === "half_sbs")
-    ? `${base} Side-by-side files are made in standard colour for headsets that don't show HDR.`
-    : base;
+    ? t("make.lifelike.hdrWithSbs")
+    : t("make.lifelike.hdr");
 }
 
 export { withoutBars } from "@/lib/bars";
@@ -129,9 +128,10 @@ export function LifelikeDeliverPanel({
   project,
   onProjectChanged,
 }: LifelikeDeliverPanelProps): JSX.Element {
+  const t = useT();
   const ck = useStepCheckout(project, "production", onProjectChanged);
   const limits = useLimits();
-  const choices = qualityChoices(project);
+  const choices = qualityChoices(project, t);
   // ADR 0138: the picks live in one atom per project (make3dAtoms)
   const pid = project.project_id;
   const [chosenPreset, setPreset] = useMake3dChoice(pid, "preset");
@@ -181,7 +181,7 @@ export function LifelikeDeliverPanel({
   // owner 2026-11-07: the launch offer marks the qualities it covers
   const offerBadges = Object.fromEntries(
     choices.flatMap((q) => {
-      const b = campaignBadge(pricing, q.preset);
+      const b = campaignBadge(pricing, q.preset, "lifelike", t);
       return b ? [[q.preset, b]] : [];
     }),
   ) as Partial<Record<Preset, string>>;
@@ -257,8 +257,7 @@ export function LifelikeDeliverPanel({
     return (
       <div data-testid="lifelike-deliver-panel">
         <p className="rounded-xl border border-edge bg-surface-1 p-4 text-sm text-fg-muted">
-          We&apos;re still analyzing your video. Prices appear when
-          it&apos;s done.
+          {t("make.deliver.analyzing")}
         </p>
       </div>
     );
@@ -293,7 +292,7 @@ export function LifelikeDeliverPanel({
     >
       <div className="flex min-w-0 flex-col gap-4">
         <PreviousRuns project={project} active={ck.active} />
-        <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">
+        <MakeSection n={++n} title={t("make.controls.watchQuestion")} hint={t("make.deliver.pickAll")}>
           <WatchPicker
             devices={devices}
             onChange={(next) =>
@@ -310,10 +309,10 @@ export function LifelikeDeliverPanel({
           <MakeSection
             n={++n}
             testId="split-prompt"
-            title={splitQuestion(outputSeconds)}
-            hint="Parts end at a scene change. No extra charge."
+            title={splitQuestion(outputSeconds, t)}
+            hint={t("make.lifelike.splitHint")}
           >
-            <div role="radiogroup" aria-label="Split into parts" className="flex flex-col gap-2">
+            <div role="radiogroup" aria-label={t("make.lifelike.splitIntoParts")} className="flex flex-col gap-2">
               <label className="flex cursor-pointer items-center gap-2 text-sm">
                 <input
                   type="radio"
@@ -322,9 +321,9 @@ export function LifelikeDeliverPanel({
                   onChange={() => setSplit(true)}
                   className="accent-primary"
                 />
-                Split into parts
+                {t("make.lifelike.splitIntoParts")}
                 <span className="text-xs text-fg-muted">
-                  {partsEstimate(outputSeconds, SPLIT_MAX_SECONDS)}
+                  {partsEstimate(outputSeconds, SPLIT_MAX_SECONDS, t)}
                 </span>
               </label>
               <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -335,13 +334,13 @@ export function LifelikeDeliverPanel({
                   onChange={() => setSplit(false)}
                   className="accent-primary"
                 />
-                Keep as one file
+                {t("make.lifelike.keepOneFile")}
               </label>
             </div>
           </MakeSection>
         ) : null}
 
-        <MakeSection n={++n} title="Files you'll get" hint="All included in the price.">
+        <MakeSection n={++n} title={t("make.controls.filesYoullGet")} hint={t("make.deliver.allIncluded")}>
           <FileTiles
             offered={offeredFormats}
             formats={formats}
@@ -355,12 +354,12 @@ export function LifelikeDeliverPanel({
           />
           {project.hdr_output === true ? (
             <p data-testid="make-hdr" className="text-xs text-fg-muted">
-              {hdrLine(sentFormats)}
+              {hdrLine(sentFormats, t)}
             </p>
           ) : null}
         </MakeSection>
 
-        <MakeSection n={++n} title="Quality">
+        <MakeSection n={++n} title={t("make.controls.quality")}>
           <QualityTiles
             choices={withoutBars(choices, project)}
             value={preset}
@@ -370,12 +369,16 @@ export function LifelikeDeliverPanel({
             note={
               [
                 choices.length === 1
-                  ? `Your video is ${resolutionName(probe)}.`
-                  : choices.some((q) => q.label.startsWith("Full resolution"))
-                    ? "Full resolution is your video's own size, priced like the step below it."
+                  ? t("make.lifelike.yourVideoIs", { resolution: resolutionName(probe) })
+                  : choices.some(
+                        (q) =>
+                          q.label.startsWith("Full resolution") ||
+                          q.label === t("glossary.fullResolution", { short: String(q.eyeShort) }),
+                      )
+                    ? t("make.lifelike.fullResolutionNote")
                     : null,
                 // owner 2026-11-07: the launch offer, in the gateway's words
-                Object.keys(offerBadges).length > 0 ? campaignNote(pricing) : null,
+                Object.keys(offerBadges).length > 0 ? campaignNote(pricing, t) : null,
               ]
                 .filter(Boolean)
                 .join(" ") || undefined
@@ -397,19 +400,19 @@ export function LifelikeDeliverPanel({
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
               <div data-testid="original-eye-fixed" className="flex flex-wrap items-center gap-x-3 gap-y-1.5 text-sm">
                 <span className="flex items-center gap-2">
-                  <input type="checkbox" checked disabled aria-label="Keep one eye as the original" className="accent-primary" />
-                  Keep one eye as the original
+                  <input type="checkbox" checked disabled aria-label={t("make.lifelike.keepOneEye")} className="accent-primary" />
+                  {t("make.lifelike.keepOneEye")}
                 </span>
                 <EyePicker value={requiredEye} onChange={(e) => change(() => setRequiredEye(e))} />
-                <span className="text-xs text-fg-muted">Always on at this quality</span>
+                <span className="text-xs text-fg-muted">{t("make.lifelike.alwaysOn")}</span>
               </div>
             ) : null}
             {foveationShownIncluded ? (
               <div data-testid="foveated-included" className="flex flex-col gap-1.5">
                 <p className="text-sm">
-                  {FOVEATED_DETAIL} <span className="text-fg-muted">· included</span>
+                  {foveatedDetail(t)} <span className="text-fg-muted">{t("make.lifelike.includedDot")}</span>
                 </p>
-                <p className="text-xs text-fg-muted">{FOVEATED_HINT}</p>
+                <p className="text-xs text-fg-muted">{foveatedHint(t)}</p>
               </div>
             ) : null}
             {foveationOffered ? (
@@ -421,7 +424,7 @@ export function LifelikeDeliverPanel({
                     onChange={(e) => change(() => setFoveated(e.target.checked))}
                     className="accent-primary"
                   />
-                  Foveated Detail
+                  {foveatedDetail(t)}
                   {/* the add-on's share from /v1/pricing, like Master and Express */}
                   {addons?.foveated?.pct ? (
                     <span data-testid="foveated-pct" className="text-xs text-fg-muted">
@@ -429,7 +432,7 @@ export function LifelikeDeliverPanel({
                     </span>
                   ) : null}
                 </label>
-                <p className="pl-6 text-xs text-fg-muted">{FOVEATED_HINT}</p>
+                <p className="pl-6 text-xs text-fg-muted">{foveatedHint(t)}</p>
               </div>
             ) : null}
             {qualityOffered ? (
@@ -444,9 +447,9 @@ export function LifelikeDeliverPanel({
             {addons?.express ? (
               <AddOnRow
                 testId="addon-express"
-                label="Express"
-                price={expressIncluded ? "Included" : `+${Math.round(addons.express.pct * 100)}%`}
-                hint={EXPRESS_HINT}
+                label={t("quote.view.express")}
+                price={expressIncluded ? t("quote.view.included") : `+${Math.round(addons.express.pct * 100)}%`}
+                hint={t("make.lifelike.expressHint")}
                 checked={express}
                 onChange={(v) => change(() => setExpress(v))}
               />
@@ -459,8 +462,8 @@ export function LifelikeDeliverPanel({
           <MakeSection
             n={++n}
             testId="fps-section"
-            title="Frame rate"
-            hint={`Your video is ${fpsLabel(project.probe?.fps ?? 0)}. Pick the rate to make it at.`}
+            title={t("make.fps.label")}
+            hint={t("make.lifelike.fpsHint", { fps: fpsLabel(project.probe?.fps ?? 0, t) })}
           >
             <FrameRatePicker
               choice={fpsChoice}
@@ -471,14 +474,14 @@ export function LifelikeDeliverPanel({
 
         <MakeSection
           n={++n}
-          title="Which part?"
-          hint="Drag the handles to pay for just a part."
+          title={t("make.deliver.whichPart")}
+          hint={t("make.deliver.whichPartHint")}
           aside={
             <span
               data-testid="trim-chip"
               className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
             >
-              {trimChip(range, numFrames, fps)}
+              {trimChip(range, numFrames, fps, t)}
             </span>
           }
         >
@@ -495,7 +498,7 @@ export function LifelikeDeliverPanel({
           className="rounded-xl border border-edge bg-surface-1 px-4 py-3"
         >
           <summary className="cursor-pointer text-sm font-medium text-fg-muted">
-            Advanced
+            {t("make.deliver.advanced")}
           </summary>
           <div className="mt-3 flex flex-col gap-4">
             {!eyeRequired ? (
@@ -507,7 +510,7 @@ export function LifelikeDeliverPanel({
                     onChange={(e) => change(() => setOptionalEye(e.target.checked ? "left" : null))}
                     className="accent-primary"
                   />
-                  Keep one eye as the original
+                  {t("make.lifelike.keepOneEye")}
                 </label>
                 {optionalEye !== null ? (
                   <EyePicker value={optionalEye} onChange={(e) => change(() => setOptionalEye(e))} />
@@ -523,25 +526,25 @@ export function LifelikeDeliverPanel({
           variant="panel"
           checkout={ck}
           request={request}
-          label="Make 3D"
+          label={t("make.deliver.makeLabel")}
           disabledReason={
             project.sample
-              ? SAMPLE_PROJECT
+              ? sampleProject(t)
               : sentFormats.length === 0
-              ? "Pick at least one file"
+              ? t("make.deliver.pickOneFile")
               : fpsMissing
-                ? PICK_FRAME_RATE
+                ? pickFrameRate(t)
                 : undefined
           }
           heading={
             <div className="flex items-center gap-2">
-              <h3 className="text-[15px] font-semibold text-fg">Your price</h3>
+              <h3 className="text-[15px] font-semibold text-fg">{t("quote.view.yourPrice")}</h3>
               <span className="ll-chip ml-auto rounded-full px-2 py-0.5 text-[11px]">
                 Lifelike 3D
               </span>
             </div>
           }
-          explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits))}
+          explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits), t)}
           beforeButton={(q) => (
             <>
               <QuoteProChoice quote={q} mode={payMode} onMode={setPayMode} />
@@ -549,13 +552,13 @@ export function LifelikeDeliverPanel({
               <BusinessNote quote={q} projectId={project.project_id} probe={project.probe} />
             </>
           )}
-          primary={withPro ? { label: "Subscribe and convert", onClick: () => setProSheet(true) } : null}
+          primary={withPro ? { label: t("make.lifelike.subscribeAndConvert"), onClick: () => setProSheet(true) } : null}
           after={
             <>
               <AlreadyMadeNote project={project} active={ck.active} request={request} />
               {hasFiles ? (
                 <a href="#tab=files" className="text-center text-xs text-primary hover:underline">
-                  Your earlier files are in Files
+                  {t("make.lifelike.earlierFiles")}
                 </a>
               ) : null}
             </>
@@ -591,10 +594,11 @@ function EyePicker({
   value: "left" | "right";
   onChange: (e: "left" | "right") => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <span
       role="radiogroup"
-      aria-label="Which eye"
+      aria-label={t("make.lifelike.whichEye")}
       className="inline-flex items-center gap-0.5 rounded-md bg-surface-2 p-0.5 text-xs"
     >
       {(["left", "right"] as const).map((eye) => (
@@ -608,7 +612,7 @@ function EyePicker({
             value === eye ? "bg-surface-0 text-fg shadow-sm" : "text-fg-muted hover:text-fg"
           }`}
         >
-          {eye === "left" ? "Left" : "Right"}
+          {eye === "left" ? t("make.lifelike.left") : t("make.lifelike.right")}
         </button>
       ))}
     </span>

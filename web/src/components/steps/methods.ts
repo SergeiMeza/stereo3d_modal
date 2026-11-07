@@ -22,6 +22,10 @@ import {
   qualityName,
 } from "@/lib/glossary";
 import { FILES_DELETED_MESSAGE } from "@/lib/api/client";
+import { EN, type Tr } from "@/lib/i18n/t";
+
+const LIFELIKE_NAME = { method: METHOD_NAMES.lifelike };
+const BOTH_NAMES = { lifelike: METHOD_NAMES.lifelike, classic: METHOD_NAMES.classic };
 
 export const METHOD_LABELS: Record<Method, string> = METHOD_NAMES;
 
@@ -31,13 +35,25 @@ export const METHOD_DESCRIPTIONS: Record<Method, string> = {
   classic: "Adds depth to your footage, with manual control over each step.",
 };
 
+export function methodDescription(m: Method, t: Tr = EN): string {
+  return t(`make.methods.description.${m}`);
+}
+
 /** S3D-46: Lifelike reads as our newest 3D. */
 export const LIFELIKE_EYEBROW = "Our newest 3D technology";
+
+export function lifelikeEyebrow(t: Tr = EN): string {
+  return t("make.methods.lifelikeEyebrow");
+}
 
 /** The chooser's card tags (S3D-44: Classic is the older option). */
 export const METHOD_TAGS: Partial<Record<Method, string>> = {
   classic: "Older method",
 };
+
+export function methodTag(m: Method, t: Tr = EN): string | undefined {
+  return m === "classic" ? t("make.methods.tagClassic") : undefined;
+}
 
 /** Defaults until /v1/limits and /v1/pricing answer (S3D-05). */
 const DEFAULT_MAX_SECONDS: Record<Method, number> = { lifelike: 0, classic: 600 };
@@ -50,6 +66,7 @@ export function methodLimitText(
   m: Method,
   limits: GatewayLimits | null,
   pricing: PublicPricing | null,
+  t: Tr = EN,
 ): string {
   const secs =
     limits?.methods?.[m]?.max_source_duration_s ??
@@ -60,8 +77,10 @@ export function methodLimitText(
     presets.length > 0
       ? presets.reduce((a, b) => (QUALITY_SHORT_SIDE[b] > QUALITY_SHORT_SIDE[a] ? b : a))
       : DEFAULT_TOP_PRESET[m];
-  const length = secs > 0 ? `up to ${Math.round(secs / 60)} minutes` : "any length";
-  return `${length}, up to ${qualityName(top)}`;
+  const topName = qualityName(top, t);
+  return secs > 0
+    ? t("make.methods.limitMinutes", { minutes: Math.round(secs / 60), top: topName })
+    : t("make.methods.limitAnyLength", { top: topName });
 }
 
 /** "Lifelike 3D: any length, up to 8K." — the one limits statement
@@ -69,8 +88,12 @@ export function methodLimitText(
 export function limitsStatement(
   limits: GatewayLimits | null,
   pricing: PublicPricing | null,
+  t: Tr = EN,
 ): string {
-  return `${METHOD_NAMES.lifelike}: ${methodLimitText("lifelike", limits, pricing)}.`;
+  return t("make.methods.limitsStatement", {
+    method: METHOD_NAMES.lifelike,
+    limit: methodLimitText("lifelike", limits, pricing, t),
+  });
 }
 
 /** Capital first letter: "Any length, up to 8K". */
@@ -95,6 +118,19 @@ export const MOVE_TO_LIFELIKE_BODY =
 /** 400 method_switch_not_allowed, in words. */
 export const SWITCH_NOT_ALLOWED = "A Lifelike 3D project can't move back to Classic 3D.";
 
+export function convertWithLifelike(t: Tr = EN): string {
+  return t("make.methods.convertWithLifelike", LIFELIKE_NAME);
+}
+export function moveToLifelikeTitle(t: Tr = EN): string {
+  return t("make.methods.moveToLifelikeTitle", LIFELIKE_NAME);
+}
+export function moveToLifelikeBody(t: Tr = EN): string {
+  return t("make.methods.moveToLifelikeBody");
+}
+export function switchNotAllowed(t: Tr = EN): string {
+  return t("make.methods.switchNotAllowed", BOTH_NAMES);
+}
+
 /** 422 classic_retired: Classic 3D takes no new projects or runs. */
 /** Onboarding: the sample project is finished and never billed. */
 export const SAMPLE_PROJECT =
@@ -102,6 +138,13 @@ export const SAMPLE_PROJECT =
 
 export const CLASSIC_RETIRED =
   "Classic 3D is retired. Your files stay here, and you can convert this project with Lifelike 3D.";
+
+export function sampleProject(t: Tr = EN): string {
+  return t("make.methods.sampleProject");
+}
+export function classicRetired(t: Tr = EN): string {
+  return t("make.methods.classicRetired", BOTH_NAMES);
+}
 
 /** Lifelike output formats (the gateway 400s top-bottom and red-cyan for
  * Lifelike, so they are never offered). */
@@ -130,6 +173,10 @@ export function lifelikeFormatsFor(q: {
 /** The 5K, 6K and 8K tiles carry this tag (S3D-11). */
 export const HIGHEST_QUALITY_TAG = "Highest quality";
 
+export function highestQualityTag(t: Tr = EN): string {
+  return t("make.methods.highestQualityTag");
+}
+
 export const LIFELIKE_FORMAT_LABELS: Record<
   (typeof LIFELIKE_FORMATS)[number],
   string
@@ -156,28 +203,32 @@ export const PRESET_ABOVE_SOURCE =
 
 /** Friendly copy for the gateway's method-related 400 codes on quotes and
  * runs; null for any other code (its own message is user-safe). */
-export function methodErrorCopy(code: string): string | null {
+export function presetAboveSource(t: Tr = EN): string {
+  return t("make.methods.presetAboveSource");
+}
+
+export function methodErrorCopy(code: string, t: Tr = EN): string | null {
   switch (code) {
     case "preset_above_source":
-      return PRESET_ABOVE_SOURCE;
+      return presetAboveSource(t);
     case "preset_unavailable":
-      return "Classic 3D goes up to 3K. Convert with Lifelike 3D for 4K and above.";
+      return t("make.methods.errors.presetUnavailable", BOTH_NAMES);
     case "method_unavailable":
-      return "This 3D method isn't available right now. Please try again later.";
+      return t("make.methods.errors.methodUnavailable");
     case "source_too_long_for_method":
-      return "This video is too long for Classic 3D. Convert with Lifelike 3D at the top of the page. It works with videos of any length.";
+      return t("make.methods.errors.sourceTooLong", BOTH_NAMES);
     case "step_not_supported_for_method":
-      return "This project's 3D method has changed. Reload the page to continue.";
+      return t("make.methods.errors.stepNotSupported");
     case "method_switch_not_allowed":
-      return SWITCH_NOT_ALLOWED;
+      return switchNotAllowed(t);
     case "classic_retired":
-      return CLASSIC_RETIRED;
+      return classicRetired(t);
     case "sample_project":
-      return SAMPLE_PROJECT;
+      return sampleProject(t);
     case "files_deleted":
       return FILES_DELETED_MESSAGE;
     case "split_unsupported":
-      return "Splitting into parts isn't available for this method.";
+      return t("make.methods.errors.splitUnsupported");
     default:
       return null;
   }

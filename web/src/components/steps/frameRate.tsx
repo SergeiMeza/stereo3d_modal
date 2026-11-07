@@ -28,6 +28,9 @@ import {
   type StepQuoteResponse,
 } from "@/lib/api/types";
 import { fpsFactor, usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { rich } from "@/lib/i18n/rich";
 
 import { formatCents } from "./money";
 import { fpsPickAtom } from "./make3dAtoms";
@@ -43,6 +46,16 @@ export const FPS_PLAN_REQUIRED =
 
 /** The run button's reason while no rate is picked. */
 export const PICK_FRAME_RATE = "Pick a frame rate to see the price.";
+
+const PLAN_NAMES = { business: "Business", studio: "Studio" };
+
+export function fpsPlanRequired(t: Tr = EN): string {
+  return t("make.fps.planRequired", PLAN_NAMES);
+}
+
+export function pickFrameRate(t: Tr = EN): string {
+  return t("make.fps.pickFrameRate");
+}
 
 /** Whether a source needs the frame-rate choice. */
 export function needsFpsChoice(sourceFps: number): boolean {
@@ -74,9 +87,9 @@ export function shownRates(rates: readonly number[]): number[] {
 }
 
 /** "60 fps", "29.97 fps". */
-export function fpsLabel(v: number): string {
+export function fpsLabel(v: number, t: Tr = EN): string {
   const r = Math.round(v * 100) / 100;
-  return `${Number.isInteger(r) ? r : r.toFixed(2)} fps`;
+  return t("glossary.fps", { fps: Number.isInteger(r) ? String(r) : r.toFixed(2) });
 }
 
 /** The frame rate a quote or run converts at: the sent target_fps, else
@@ -126,6 +139,7 @@ export function useFpsChoice(
   step: Step,
   base: StepConversionRequest,
 ): FpsChoice {
+  const t = useT();
   const pricing = usePricing();
   const src = project.probe?.fps ?? 0;
   const required = needsFpsChoice(src);
@@ -174,9 +188,10 @@ export function useFpsChoice(
   const example = rates.find((r) => r > FREE_MAX_FPS && r <= 60.01) ?? rates[0];
   const line =
     required && pricing && example !== undefined && example > FREE_MAX_FPS
-      ? `Higher frame rates look smoother and cost more: at ${fpsLabel(example)} a minute counts as ${
-          Math.round(fpsFactor(pricing, example) * 100) / 100
-        } minutes.`
+      ? t("make.fps.costLine", {
+          fps: fpsLabel(example, t),
+          minutes: String(Math.round(fpsFactor(pricing, example) * 100) / 100),
+        })
       : null;
   return {
     required,
@@ -198,18 +213,19 @@ export function FrameRatePicker({
   onChange: (v: number) => void;
   compact?: boolean;
 }): JSX.Element | null {
+  const t = useT();
   if (!choice.required) return null;
   return (
     <div data-testid="fps-choice" className="flex flex-col gap-2">
       <div
         role="radiogroup"
-        aria-label="Frame rate"
+        aria-label={t("make.fps.label")}
         className={compact ? "flex flex-wrap gap-1.5" : "grid gap-2 sm:grid-cols-2"}
       >
         {choice.options.map((o) => {
           const on = choice.value !== null && Math.abs(choice.value - o.fps) < 0.01;
           const price =
-            o.cents === undefined ? "…" : o.cents === 0 ? "Free" : formatCents(o.cents);
+            o.cents === undefined ? "…" : o.cents === 0 ? t("make.fps.free") : formatCents(o.cents, t);
           return (
             <button
               key={o.fps}
@@ -230,9 +246,9 @@ export function FrameRatePicker({
                     : "border-edge bg-surface-2 text-fg hover:border-fg-muted"
               }`}
             >
-              <span className="font-medium">{fpsLabel(o.fps)}</span>
+              <span className="font-medium">{fpsLabel(o.fps, t)}</span>
               {o.locked ? (
-                <span className="text-xs text-fg-muted">· Business or Studio plan</span>
+                <span className="text-xs text-fg-muted">· {t("make.fps.lockedPlan", PLAN_NAMES)}</span>
               ) : (
                 <span className="font-mono text-xs text-fg-muted">· {price}</span>
               )}
@@ -243,10 +259,18 @@ export function FrameRatePicker({
       {choice.line ? <p className="text-xs text-fg-muted">{choice.line}</p> : null}
       {choice.options.some((o) => o.locked) ? (
         <p className="text-xs text-fg-muted">
-          {FPS_PLAN_REQUIRED}{" "}
-          <Link href="/plans" className="text-primary hover:underline">
-            See plans
-          </Link>
+          {rich(
+            t,
+            "make.fps.planRequiredSeePlans",
+            {
+              link: (c) => (
+                <Link href="/plans" className="text-primary hover:underline">
+                  {c}
+                </Link>
+              ),
+            },
+            PLAN_NAMES,
+          )}
         </p>
       ) : null}
     </div>

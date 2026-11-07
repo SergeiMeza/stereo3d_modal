@@ -4,6 +4,8 @@ import type { QuoteBreakdown, StepQuoteResponse } from "@/lib/api/types";
 import {
   CHARGED_AFTER,
   CHARGED_AT_START,
+  chargedAfter,
+  chargedAtStart,
   quoteChargeSentence,
 } from "@/lib/billingCopy";
 import { formatDuration, formatVideoLength } from "@/lib/format";
@@ -13,37 +15,43 @@ import { fpsLabel, quotedFps } from "./frameRate";
 import { formatCents, formatCentsShort } from "./money";
 import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
 import { usePricing } from "@/lib/api/usePricing";
-import { FOVEATED_DETAIL, foveationIncludedApplied } from "@/lib/foveation";
+import { foveatedDetail, foveationIncludedApplied } from "@/lib/foveation";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
 
 /** "Pro price", "Business price" (pricing 2026-11). */
-export function tierPriceLabel(tier: string | undefined, label?: string): string {
-  return `${label || TIER_NAMES[tier ?? ""] || "Your"} price`;
+export function tierPriceLabel(tier: string | undefined, label?: string, t: Tr = EN): string {
+  const name = label || TIER_NAMES[tier ?? ""];
+  return name ? t("quote.view.tierPrice", { name }) : t("quote.view.yourPrice");
 }
 
 /** "+20%": an add-on's share of the list price, from the quote itself. */
-function addonPct(cents: number, b: QuoteBreakdown): string {
+function addonPct(cents: number, b: QuoteBreakdown, t: Tr): string {
   const base = b.list_base_cents ?? 0;
-  return base > 0 ? `+${Math.round((cents / base) * 100)}%` : "add-on";
+  return base > 0 ? `+${Math.round((cents / base) * 100)}%` : t("quote.view.addOn");
 }
 
 /** The bulk line with the threshold from /v1/pricing. */
 function BulkLabel({ pct }: { pct: number }): JSX.Element {
+  const t = useT();
   const threshold = usePricing()?.discount.threshold_cents ?? 5000;
-  return <>{bulkLabel(pct, threshold)}</>;
+  return <>{bulkLabel(pct, threshold, t)}</>;
 }
 
 /** The older quotes' bulk line: the share and threshold from /v1/pricing
  * (never a fixed "10% off runs over $10"). */
 function PricingBulkLabel(): JSX.Element {
+  const t = useT();
   const d = usePricing()?.discount;
-  return d ? <>{bulkLabel(d.pct, d.threshold_cents)}</> : <>Bulk discount</>;
+  return d ? <>{bulkLabel(d.pct, d.threshold_cents, t)}</> : <>{t("quote.view.bulkDiscount")}</>;
 }
 
 /** "10% off over $50" from the gateway's bulk rule. */
-export function bulkLabel(pct: number, thresholdCents: number): string {
-  return `${Math.round(pct * 100)}% off over ${formatCentsShort(thresholdCents)}`;
+export function bulkLabel(pct: number, thresholdCents: number, t: Tr = EN): string {
+  return t("quote.view.bulkLabel", { pct: String(Math.round(pct * 100)), amount: formatCentsShort(thresholdCents, t) });
 }
 
 /** The quote's processing-time estimate: "about 25 min" (lib/format). */
@@ -54,6 +62,8 @@ export { formatDuration as formatQuoteEta } from "@/lib/format";
  * sits under the quote (lib/billingCopy). */
 export const CHARGE_BEFORE_COPY = CHARGED_AT_START;
 export const CHARGE_AFTER_COPY = CHARGED_AFTER;
+export const chargeBeforeCopy = chargedAtStart;
+export const chargeAfterCopy = chargedAfter;
 
 /** Classic's standard depth detail per quality — included in its
  * per-minute prices (mirrors the gateway's PresetInputSize). */
@@ -71,18 +81,19 @@ const DEFAULT_EDGE_MULTIPLIER: Record<string, number> = {
   production: 1,
 };
 
-/** Customer words for the stages a quote can reuse. */
-const REUSE_NAMES: Record<string, string> = {
-  depth: "depth work",
-  preprocess: "preparation",
-};
+/** Customer words for the stages a quote can reuse (quote.view.reuse.*). */
+const REUSE_STAGES: ReadonlySet<string> = new Set(["depth", "preprocess"]);
+
+function reuseName(stage: string, t: Tr): string {
+  return REUSE_STAGES.has(stage) ? t(`quote.view.reuse.${stage}`) : stage;
+}
 
 /** The length a quote charges for: the billable minutes ("3 min") when
  * the gateway rounds the video up to whole minutes (billable_minutes,
  * owner 2026-11-04; the rounding itself is said once, on Prices), else
  * the plain length (previews: "5 s"). */
-export function billedLength(b: QuoteBreakdown): string {
-  if (b.billable_minutes !== undefined) return `${b.billable_minutes} min`;
+export function billedLength(b: QuoteBreakdown, t: Tr = EN): string {
+  if (b.billable_minutes !== undefined) return t("quote.view.minutes", { minutes: String(b.billable_minutes) });
   return formatVideoLength(b.billable_seconds ?? 0);
 }
 
@@ -91,14 +102,15 @@ export function billedLength(b: QuoteBreakdown): string {
 export function runFacts(
   params: { preset?: string; target_fps?: number } | undefined,
   breakdown: QuoteBreakdown | undefined,
+  t: Tr = EN,
 ): string[] {
   const b = breakdown ?? {};
   const preset = params?.preset ?? b.preset;
   const fps = quotedFps(params, b.fps_factor);
   return [
-    preset ? qualityName(preset) : null,
-    fps !== null ? fpsLabel(fps) : null,
-    b.billable_seconds !== undefined || b.billable_minutes !== undefined ? billedLength(b) : null,
+    preset ? qualityName(preset, t) : null,
+    fps !== null ? fpsLabel(fps, t) : null,
+    b.billable_seconds !== undefined || b.billable_minutes !== undefined ? billedLength(b, t) : null,
   ].filter((x): x is string => x !== null);
 }
 
@@ -154,6 +166,7 @@ export function QuoteView({
   /** no box around the lines (inside a price card) */
   bare?: boolean;
 }): JSX.Element {
+  const t = useT();
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
   const total = result.quote.amount_cents;
   // pricing 2026-11: one discount line (the tier's price or bulk, never
@@ -186,16 +199,16 @@ export function QuoteView({
   const videoLabel =
     b.billable_seconds !== undefined ? (
       <>
-        Your video: {billedLength(b)}
+        {t("quote.view.yourVideo", { length: billedLength(b, t) })}
         {fps !== null && b.fps_factor !== 1 ? (
           <span data-testid="quote-fps-factor">
             {" "}
-            at {fps} fps ({percent(b.fps_factor!)})
+            {t("quote.view.atFpsPct", { fps: String(fps), pct: percent(b.fps_factor!) })}
           </span>
         ) : null}
       </>
     ) : (
-      "Price"
+      t("quote.view.price")
     );
 
   const hasDepthFactor =
@@ -245,24 +258,28 @@ export function QuoteView({
           <Line
             label={
               <>
-                {billedLength(b)}
-                {b.preset ? ` at ${qualityName(b.preset)}` : ""}
+                {b.preset
+                  ? t("quote.view.lengthAtQuality", { length: billedLength(b, t), quality: qualityName(b.preset, t) })
+                  : billedLength(b, t)}
                 <span className="block text-[11px] text-fg-muted/80">
-                  {b.billable_minutes ?? minutes.toFixed(1)} min × {formatCents(cpm!)} a minute
+                  {t("quote.view.perMinute", {
+                    minutes: String(b.billable_minutes ?? minutes.toFixed(1)),
+                    rate: formatCents(cpm!, t),
+                  })}
                 </span>
               </>
             }
-            value={formatCents(atRate)}
+            value={formatCents(atRate, t)}
             testId="quote-base"
           />
           {b.fps_factor !== 1 && fps !== null ? (
             <Line
               label={
                 <span data-testid="quote-fps-factor">
-                  At {fpsLabel(fps)} ({percent(b.fps_factor!)})
+                  {t("quote.view.atFpsLabelPct", { fps: fpsLabel(fps, t), pct: percent(b.fps_factor!) })}
                 </span>
               }
-              value={`${fpsAdds >= 0 ? "+" : "−"}${formatCents(Math.abs(fpsAdds))}`}
+              value={`${fpsAdds >= 0 ? "+" : "−"}${formatCents(Math.abs(fpsAdds), t)}`}
             />
           ) : null}
         </>
@@ -271,6 +288,7 @@ export function QuoteView({
           label={videoLabel}
           value={formatCents(
             (technical ? (b.base_cents ?? subtotal) : subtotal) - fovCents,
+            t,
           )}
           testId="quote-base"
         />
@@ -278,16 +296,15 @@ export function QuoteView({
       {technical ? (
         <details className="text-xs">
           <summary className="cursor-pointer text-fg-muted">
-            How we priced this
+            {t("quote.view.howPriced")}
           </summary>
           <div className="mt-1.5 flex flex-col gap-1 pl-3">
             {hasDepthFactor ? (
               <Line
                 label={
-                  <>
-                    Depth detail
-                    {b.depth_res !== undefined ? ` (${b.depth_res} px)` : ""}
-                  </>
+                  b.depth_res !== undefined
+                    ? t("quote.view.depthDetailPx", { px: String(b.depth_res) })
+                    : t("quote.view.depthDetail")
                 }
                 value={percent(b.depth_res_factor!)}
                 testId="quote-depth-factor"
@@ -295,7 +312,7 @@ export function QuoteView({
             ) : null}
             {hasInpaintMult ? (
               <Line
-                label="Edge style"
+                label={t("quote.view.edgeStyle")}
                 value={percent(b.inpaint_multiplier!)}
                 testId="quote-inpaint-multiplier"
               />
@@ -304,22 +321,22 @@ export function QuoteView({
         </details>
       ) : null}
       {technical ? (
-        <Line label="Subtotal" value={formatCents(subtotal)} testId="quote-subtotal" />
+        <Line label={t("quote.view.subtotal")} value={formatCents(subtotal, t)} testId="quote-subtotal" />
       ) : (
         <span data-testid="quote-subtotal" hidden>
-          {formatCents(subtotal)}
+          {formatCents(subtotal, t)}
         </span>
       )}
       {/* owner 2026-11-07: free and always on at 1080p, when it applies */}
       {foveationIncludedApplied(result.foveation) ? (
-        <Line label={FOVEATED_DETAIL} value="Included" testId="quote-foveation-included" />
+        <Line label={foveatedDetail(t)} value={t("quote.view.included")} testId="quote-foveation-included" />
       ) : null}
       {b.foveation_factor !== undefined && b.foveation_factor !== 1 ? (
         <Line
-          label={`Foveated Detail (${percent(b.foveation_factor)})`}
+          label={t("quote.view.namePct", { name: foveatedDetail(t), pct: percent(b.foveation_factor) })}
           value={
             b.foveation_cents !== undefined
-              ? `+${formatCents(b.foveation_cents)}`
+              ? `+${formatCents(b.foveation_cents, t)}`
               : percent(b.foveation_factor)
           }
           testId="quote-foveation"
@@ -328,34 +345,36 @@ export function QuoteView({
       {/* owner 2026-11-07: the File quality line in the gateway's words
           ("High quality +30%"); an older quote's Master bitrate as before */}
       {b.quality && b.quality !== "standard" && b.quality_label && addons[b.quality] ? (
-        <Line label={b.quality_label} value={`+${formatCents(addons[b.quality] ?? 0)}`} testId="quote-quality" />
+        <Line label={b.quality_label} value={`+${formatCents(addons[b.quality] ?? 0, t)}`} testId="quote-quality" />
       ) : addons.master ? (
         <Line
-          label={`Master bitrate (${addonPct(addons.master, b)})`}
-          value={`+${formatCents(addons.master)}`}
+          label={t("quote.view.masterBitrate", { master: "Master", pct: addonPct(addons.master, b, t) })}
+          value={`+${formatCents(addons.master, t)}`}
           testId="quote-master"
         />
       ) : null}
       {addons.express ? (
         <Line
-          label={`Express (${addonPct(addons.express, b)})`}
-          value={`+${formatCents(addons.express)}`}
+          label={t("quote.view.namePct", { name: t("quote.view.express"), pct: addonPct(addons.express, b, t) })}
+          value={`+${formatCents(addons.express, t)}`}
           testId="quote-express"
         />
       ) : (b as Record<string, unknown>).express_included === true ? (
-        <Line label="Express" value="Included" testId="quote-express" />
+        <Line label={t("quote.view.express")} value={t("quote.view.included")} testId="quote-express" />
       ) : null}
       {reuseStages.length > 0 ? (
         <Line
-          label={
-            <>
-              Reusing your earlier{" "}
-              <span data-testid="quote-reuse-stages">
-                {reuseStages.map((s) => REUSE_NAMES[s] ?? s).join(" and ")}
-              </span>
-            </>
-          }
-          value={formatCents(-reuse)}
+          label={rich(
+            t,
+            "quote.view.reusing",
+            { list: (c) => <span data-testid="quote-reuse-stages">{c}</span> },
+            {
+              stages: reuseStages
+                .map((s) => reuseName(s, t))
+                .reduce((a, b2) => t("quote.view.listAnd", { a, b: b2 })),
+            },
+          )}
+          value={formatCents(-reuse, t)}
           testId="quote-reuse-discount"
           tone="discount"
         />
@@ -364,10 +383,10 @@ export function QuoteView({
         <Line
           label={
             discount.kind === "tier"
-              ? tierPriceLabel(discount.tier, result.tier_label)
+              ? tierPriceLabel(discount.tier, result.tier_label, t)
               : <BulkLabel pct={discount.pct} />
           }
-          value={formatCents(-discount.cents)}
+          value={formatCents(-discount.cents, t)}
           testId={discount.kind === "tier" ? "quote-tier" : "quote-bulk-discount"}
           tone="discount"
         />
@@ -376,19 +395,19 @@ export function QuoteView({
           the plan or Pro price */}
       {(b.campaign_cents ?? 0) > 0 ? (
         <Line
-          label={b.campaign_label ?? "Launch offer"}
-          value={formatCents(-(b.campaign_cents ?? 0))}
+          label={b.campaign_label ?? t("offer.name")}
+          value={formatCents(-(b.campaign_cents ?? 0), t)}
           testId="quote-campaign"
           tone="discount"
         />
       ) : null}
       {freePreview ? (
         <Line
-          label={result.free_previews?.intro ? "Your first preview is free" : "Free preview"}
+          label={result.free_previews?.intro ? t("make.checkout.freePreviews.first") : t("make.checkout.freePreview")}
           value={
             typeof (b as Record<string, unknown>).price_without_free_cents === "number"
-              ? formatCents(-((b as Record<string, unknown>).price_without_free_cents as number))
-              : "Free"
+              ? formatCents(-((b as Record<string, unknown>).price_without_free_cents as number), t)
+              : t("make.checkout.free")
           }
           testId="quote-free-preview"
           tone="discount"
@@ -397,7 +416,7 @@ export function QuoteView({
       {!tierMode && bulk > 0 ? (
         <Line
           label={<PricingBulkLabel />}
-          value={formatCents(-bulk)}
+          value={formatCents(-bulk, t)}
           testId="quote-bulk-discount"
           tone="discount"
         />
@@ -406,28 +425,29 @@ export function QuoteView({
         // S3D-67: one compact line for members
         <Line
           label={`Pro −${proPercent(proLine.pct)}%`}
-          value={formatCents(-proOff)}
+          value={formatCents(-proOff, t)}
           testId="quote-pro"
           tone="discount"
         />
       ) : null}
       {minimumApplied ? (
         <Line
-          label={`Minimum charge ${formatCentsShort(total)}`}
-          value={formatCents(total)}
+          label={t("quote.view.minimum", { amount: formatCentsShort(total, t) })}
+          value={formatCents(total, t)}
           testId="quote-minimum"
         />
       ) : null}
       <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-edge pt-2">
         <span className="font-medium">
-          Total{" "}
-          <span className="text-xs font-normal text-fg-muted">USD, excl. tax</span>
+          {rich(t, "quote.view.total", {
+            note: (c) => <span className="text-xs font-normal text-fg-muted">{c}</span>,
+          })}
         </span>
         <span
           data-testid="quote-total"
           className="font-mono text-base font-semibold"
         >
-          {formatCents(total)}
+          {formatCents(total, t)}
         </span>
       </div>
       {/* gateway 00166: how it'd be paid, in the gateway's words */}
@@ -439,8 +459,7 @@ export function QuoteView({
       {(result.fps?.fps_capped || result.params?.fps_capped) && fps !== null ? (
         // owner 2026-11-04: the source is above 30 fps and there's no plan
         <p data-testid="quote-fps-capped" className="text-xs text-fg-muted">
-          Converts at {fpsLabel(fps)}. Higher frame rates come with Business
-          and Studio plans.
+          {t("quote.view.fpsCapped", { fps: fpsLabel(fps, t), business: "Business", studio: "Studio" })}
         </p>
       ) : null}
       {/* no Pro upsell on a plan's quote (Business and Studio include Pro) */}
@@ -449,12 +468,12 @@ export function QuoteView({
       ) : null}
       {chargeLine ? (
         <p data-testid="quote-charge-timing" className="text-xs text-fg">
-          {quoteChargeSentence(result.charge_timing)}
+          {quoteChargeSentence(result.charge_timing, t)}
         </p>
       ) : null}
       {result.eta_seconds !== undefined && result.eta_seconds > 0 ? (
         <div className="flex items-baseline justify-between gap-3 text-xs text-fg-muted">
-          <span>{chargeLine ? "Estimated time" : "Ready in"}</span>
+          <span>{chargeLine ? t("quote.view.estimatedTime") : t("quote.view.readyIn")}</span>
           <span data-testid="quote-eta">{formatDuration(result.eta_seconds)}</span>
         </div>
       ) : null}

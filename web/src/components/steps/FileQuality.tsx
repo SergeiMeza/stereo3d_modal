@@ -13,6 +13,8 @@ import type { JSX } from "react";
 
 import type { Conversion, OutputQuality, PublicPricing, QuoteQuality } from "@/lib/api/types";
 import { formatBytes } from "@/lib/format";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export const FILE_QUALITY = "File quality";
 
@@ -24,6 +26,11 @@ export const QUALITY_STEPS: readonly { value: OutputQuality; label: string; hint
 
 export function qualityName(q: OutputQuality): string {
   return QUALITY_STEPS.find((s) => s.value === q)?.label ?? "Standard";
+}
+
+/** A step's hint in the reader's language (Standard has none). */
+export function qualityHint(q: OutputQuality, t: Tr = EN): string | null {
+  return q === "high" || q === "master" ? t(`make.fileQuality.hint.${q}`) : null;
 }
 
 /** A step's price share from /v1/pricing: the quality table, else its
@@ -45,11 +52,11 @@ export function qualitySteps(pricing: PublicPricing | null | undefined): OutputQ
 
 /** "about 1.4 GB · about 22 Mbit/s" (per file), from the quote; null when
  * it says nothing. */
-export function qualityResult(q: QuoteQuality | undefined, sizeBytes?: number): string | null {
+export function qualityResult(q: QuoteQuality | undefined, sizeBytes?: number, t: Tr = EN): string | null {
   const bytes = q?.estimated_size_bytes ?? sizeBytes;
   const parts = [
-    typeof bytes === "number" && bytes > 0 ? `about ${formatBytes(bytes)}` : null,
-    typeof q?.mbps === "number" && q.mbps > 0 ? `about ${Math.round(q.mbps)} Mbit/s` : null,
+    typeof bytes === "number" && bytes > 0 ? t("make.fileQuality.aboutSize", { size: formatBytes(bytes) }) : null,
+    typeof q?.mbps === "number" && q.mbps > 0 ? t("make.fileQuality.aboutMbps", { mbps: String(Math.round(q.mbps)) }) : null,
   ].filter(Boolean);
   return parts.length > 0 ? parts.join(" · ") : null;
 }
@@ -69,14 +76,15 @@ export function FileQualityScale({
   /** the quote's estimated_size_bytes, when the block doesn't say */
   sizeBytes?: number;
 }): JSX.Element | null {
+  const t = useT();
   const steps = qualitySteps(pricing);
   if (steps.length < 2) return null;
-  const hint = QUALITY_STEPS.find((s) => s.value === value)?.hint ?? null;
-  const result = qualityResult(quality?.tier === value ? quality : undefined, quality?.tier === value ? sizeBytes : undefined);
+  const hint = qualityHint(value, t);
+  const result = qualityResult(quality?.tier === value ? quality : undefined, quality?.tier === value ? sizeBytes : undefined, t);
   return (
     <div data-testid="file-quality" className="flex min-w-0 flex-col gap-1.5">
       <span id="file-quality-label" className="text-sm font-medium text-fg">
-        {FILE_QUALITY}
+        {t("make.fileQuality.title")}
       </span>
       <div
         role="radiogroup"
@@ -137,30 +145,34 @@ const OUTPUT_SHORT: Record<string, string> = {
   depth_vis: "Depth view",
 };
 
+function outputShort(b: string, t: Tr): string {
+  return Object.hasOwn(OUTPUT_SHORT, b) ? t(`make.fileQuality.outputShort.${b}`) : b;
+}
+
 /** 41250 kbit/s → "41 Mbit/s". */
-function mbit(kbps: number): string {
-  return `${Math.round(kbps / 1000)} Mbit/s`;
+function mbit(kbps: number, t: Tr): string {
+  return t("make.fileQuality.mbps", { mbps: String(Math.round(kbps / 1000)) });
 }
 
 /** What the run asked for: its File quality, else the bitrate it asked
  * for (Automatic, Match source, 40 Mbit/s, Master); null when it says
  * nothing (never a guess). */
-export function requestedQuality(c: Conversion): string | null {
+export function requestedQuality(c: Conversion, t: Tr = EN): string | null {
   if (c.quality) return qualityName(c.quality);
   const b = c.bitrate_requested ?? (c.params as { bitrate?: unknown }).bitrate;
   if (b === undefined || b === null || b === "") return null;
-  if (b === "auto") return "Automatic";
-  if (b === "match_source") return "Match source";
+  if (b === "auto") return t("make.fileQuality.bitrateAuto");
+  if (b === "match_source") return t("make.fileQuality.bitrateMatchSource");
   if (b === "master") return "Master";
   const n = Number(b);
-  return Number.isFinite(n) && n > 0 ? `${n} Mbit/s` : null;
+  return Number.isFinite(n) && n > 0 ? t("make.fileQuality.mbps", { mbps: String(n) }) : null;
 }
 
 /** What the finished files measure: "measured 41 Mbit/s", or per file
  * "measured: Spatial 41 Mbit/s · SBS 38 Mbit/s"; the overall rate (so
  * labelled) only without a video rate. Null while running or without
  * measurements. */
-export function measuredRates(c: Conversion): string | null {
+export function measuredRates(c: Conversion, t: Tr = EN): string | null {
   if (c.state !== "succeeded" || !c.outputs_media) return null;
   const seen = new Map<string, string>();
   for (const [name, m] of Object.entries(c.outputs_media)) {
@@ -168,31 +180,33 @@ export function measuredRates(c: Conversion): string | null {
     if (seen.has(base)) continue;
     const rate =
       typeof m.video_kbps === "number" && m.video_kbps > 0
-        ? mbit(m.video_kbps)
+        ? mbit(m.video_kbps, t)
         : typeof m.overall_kbps === "number" && m.overall_kbps > 0
-          ? `${mbit(m.overall_kbps)} overall`
+          ? t("make.fileQuality.overall", { rate: mbit(m.overall_kbps, t) })
           : null;
     if (rate) seen.set(base, rate);
   }
   if (seen.size === 0) return null;
-  if (seen.size === 1) return `measured ${[...seen.values()][0]}`;
-  return `measured: ${[...seen].map(([b, r]) => `${OUTPUT_SHORT[b] ?? b} ${r}`).join(" · ")}`;
+  if (seen.size === 1) return t("make.fileQuality.measuredOne", { rate: [...seen.values()][0] });
+  return t("make.fileQuality.measuredMany", {
+    rates: [...seen].map(([b, r]) => t("make.fileQuality.measuredPart", { name: outputShort(b, t), rate: r })).join(" · "),
+  });
 }
 
 /** "High (measured 41 Mbit/s)", "High" while running, or null. */
-export function fileQualityLine(c: Conversion): string | null {
-  const asked = requestedQuality(c);
-  const measured = measuredRates(c);
-  if (asked && measured) return `${asked} (${measured})`;
+export function fileQualityLine(c: Conversion, t: Tr = EN): string | null {
+  const asked = requestedQuality(c, t);
+  const measured = measuredRates(c, t);
+  if (asked && measured) return t("make.fileQuality.askedMeasured", { asked, measured });
   return asked ?? (measured ? measured.charAt(0).toUpperCase() + measured.slice(1) : null);
 }
 
 /** "AAC 256 kbit/s" from the first file with audio; null without. */
-export function audioLine(c: Conversion): string | null {
+export function audioLine(c: Conversion, t: Tr = EN): string | null {
   if (c.state !== "succeeded" || !c.outputs_media) return null;
   const m = Object.values(c.outputs_media).find((x) => x.audio_codec);
   if (!m?.audio_codec) return null;
-  return [m.audio_codec.toUpperCase(), typeof m.audio_kbps === "number" && m.audio_kbps > 0 ? `${Math.round(m.audio_kbps)} kbit/s` : null]
+  return [m.audio_codec.toUpperCase(), typeof m.audio_kbps === "number" && m.audio_kbps > 0 ? t("make.fileQuality.kbps", { kbps: String(Math.round(m.audio_kbps)) }) : null]
     .filter(Boolean)
     .join(" ");
 }

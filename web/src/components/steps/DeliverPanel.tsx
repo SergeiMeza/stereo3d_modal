@@ -32,7 +32,9 @@ import { usePricing } from "@/lib/api/usePricing";
 import { campaignBadge } from "@/lib/campaign";
 import { cancelRule, prechargeThreshold } from "@/lib/billingCopy";
 import { parseRational } from "@/lib/frames";
-import { EDGE_NAMES, qualitiesFor, qualityChoices, type QualityChoice } from "@/lib/glossary";
+import { edgeStyleName, qualitiesFor, qualityChoices, type QualityChoice } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 
 import { CheckboxChip } from "./controls";
 import {
@@ -53,7 +55,7 @@ import {
   type Device,
 } from "./makeControls";
 import { formatCents } from "./money";
-import { EDGE_LABELS, EDGE_OPTIONS, edgeModeRequest, type EdgeMode } from "./outputOptions";
+import { EDGE_OPTIONS, edgeModeRequest, type EdgeMode } from "./outputOptions";
 import { draftToSceneOverrides, loadStereoDraft } from "./stereoStore";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
@@ -70,13 +72,14 @@ export function DeliverPanel({
   project,
   onProjectChanged,
 }: DeliverPanelProps): JSX.Element {
+  const t = useT();
   const ck = useStepCheckout(project, "production", onProjectChanged);
   const limits = useLimits();
   const client = useClient();
 
   const choices: QualityChoice[] = (() => {
     const allowed = new Set(qualitiesFor(project.probe, "classic"));
-    return qualityChoices({ probe: project.probe }).filter((q) => allowed.has(q.preset));
+    return qualityChoices({ probe: project.probe }, t).filter((q) => allowed.has(q.preset));
   })();
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const preset = chosenPreset ?? choices.at(-1)?.preset ?? "1080p";
@@ -85,7 +88,7 @@ export function DeliverPanel({
   const pricing = usePricing();
   const offerBadges = Object.fromEntries(
     choices.flatMap((q) => {
-      const b = campaignBadge(pricing, q.preset, "classic");
+      const b = campaignBadge(pricing, q.preset, "classic", t);
       return b ? [[q.preset, b]] : [];
     }),
   ) as Partial<Record<Preset, string>>;
@@ -168,8 +171,7 @@ export function DeliverPanel({
     return (
       <div data-testid="deliver-panel">
         <p className="rounded-xl border border-edge bg-surface-1 p-4 text-sm text-fg-muted">
-          We&apos;re still analyzing your video. Prices appear when
-          it&apos;s done.
+          {t("make.deliver.analyzing")}
         </p>
       </div>
     );
@@ -186,15 +188,17 @@ export function DeliverPanel({
     <div data-testid="deliver-panel" className="flex flex-col gap-4 pb-24 lg:pb-0">
       <MoveToLifelikeOffer project={project} onChanged={() => onProjectChanged()} />
       <p className="-mt-1 text-xs text-fg-muted">
-        Optional: check any 10 seconds on{" "}
-        <a href="#tab=look" className="text-primary hover:underline">
-          3D look
-        </a>{" "}
-        first.
+        {rich(t, "make.deliver.optionalLook", {
+          link: (c) => (
+            <a href="#tab=look" className="text-primary hover:underline">
+              {c}
+            </a>
+          ),
+        })}
       </p>
       <div className="grid items-start gap-4 lg:grid-cols-[1fr_340px]">
         <div className="flex min-w-0 flex-col gap-4">
-          <MakeSection n={++n} title="Where will you watch it?" hint="Pick all that apply.">
+          <MakeSection n={++n} title={t("make.controls.watchQuestion")} hint={t("make.deliver.pickAll")}>
             <WatchPicker
               devices={devices}
               onChange={(next) =>
@@ -206,7 +210,7 @@ export function DeliverPanel({
             />
           </MakeSection>
 
-          <MakeSection n={++n} title="Files you'll get" hint="All included in the price.">
+          <MakeSection n={++n} title={t("make.controls.filesYoullGet")} hint={t("make.deliver.allIncluded")}>
             <FileTiles
               offered={CLASSIC_FORMATS}
               formats={formats}
@@ -220,27 +224,27 @@ export function DeliverPanel({
             />
           </MakeSection>
 
-          <MakeSection n={++n} title="Quality">
+          <MakeSection n={++n} title={t("make.controls.quality")}>
             <QualityTiles
               choices={choices}
               value={preset}
               onChange={(p) => change(() => setPreset(p))}
               prices={prices}
               badges={offerBadges}
-              note={`With ${EDGE_NAMES[edge].toLowerCase()}. You can change this under Advanced.`}
+              note={t(`make.deliver.edgeNote.${edge}`)}
             />
           </MakeSection>
 
           <MakeSection
             n={++n}
-            title="Which part?"
-            hint="Drag the handles to pay for just a part."
+            title={t("make.deliver.whichPart")}
+            hint={t("make.deliver.whichPartHint")}
             aside={
               <span
                 data-testid="trim-chip"
                 className="rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted"
               >
-                {trimChip(range, numFrames, fps)}
+                {trimChip(range, numFrames, fps, t)}
               </span>
             }
           >
@@ -258,11 +262,11 @@ export function DeliverPanel({
             className="rounded-xl border border-edge bg-surface-1 px-4 py-3"
           >
             <summary className="cursor-pointer text-sm font-medium text-fg-muted">
-              Advanced
+              {t("make.deliver.advanced")}
             </summary>
             <div className="mt-3 flex flex-col gap-5 text-sm">
               <div className="flex flex-col gap-2">
-                <h4 className="text-xs font-medium text-fg-muted">Depth detail</h4>
+                <h4 className="text-xs font-medium text-fg-muted">{t("quote.view.depthDetail")}</h4>
                 {inheritedDepthRes !== undefined ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -273,24 +277,24 @@ export function DeliverPanel({
                           : "border-primary/30 bg-primary/10 text-primary"
                       }`}
                     >
-                      {inheritedDepthRes} px (from the Depth page)
+                      {t("make.deliver.depthFromPage", { px: String(inheritedDepthRes) })}
                     </span>
                     <CheckboxChip
-                      label="Use automatic depth detail"
+                      label={t("make.deliver.useAutoDepth")}
                       checked={depthDefault}
                       onChange={() => change(() => setDepthDefault((v) => !v))}
                     />
                   </div>
                 ) : (
                   <span data-testid="deliver-chip-depth-none" className="text-xs text-fg-muted">
-                    Standard for this quality. Higher detail is set on the Depth page.
+                    {t("make.deliver.depthStandard")}
                   </span>
                 )}
               </div>
 
               {depthUpload !== undefined ? (
                 <div className="flex flex-col gap-2">
-                  <h4 className="text-xs font-medium text-fg-muted">Your own depth map</h4>
+                  <h4 className="text-xs font-medium text-fg-muted">{t("make.deliver.ownDepthMap")}</h4>
                   <div className="flex flex-wrap items-center gap-2">
                     <span
                       data-testid="deliver-chip-depth-upload"
@@ -300,21 +304,22 @@ export function DeliverPanel({
                           : "border-edge bg-surface-2 text-fg-muted"
                       }`}
                     >
-                      Uploaded depth video
-                      {depthUpload.name ? ` · ${depthUpload.name}` : ""}
+                      {depthUpload.name
+                        ? t("make.deliver.uploadedDepthNamed", { name: depthUpload.name })
+                        : t("make.deliver.uploadedDepth")}
                     </span>
                     <CheckboxChip
-                      label="Use my uploaded depth video"
+                      label={t("make.deliver.useUploadedDepth")}
                       checked={useUploadedDepth}
                       onChange={() => change(() => setUseUploadedDepth((v) => !v))}
                     />
                   </div>
-                  <p className="text-xs text-fg-muted">Used as is; costs less.</p>
+                  <p className="text-xs text-fg-muted">{t("make.deliver.usedAsIs")}</p>
                 </div>
               ) : null}
 
               <div className="flex flex-col gap-2">
-                <h4 className="text-xs font-medium text-fg-muted">Scene settings</h4>
+                <h4 className="text-xs font-medium text-fg-muted">{t("make.deliver.sceneSettings")}</h4>
                 {hasStereoTweaks ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span
@@ -325,25 +330,27 @@ export function DeliverPanel({
                           : "border-primary/30 bg-primary/10 text-primary"
                       }`}
                     >
-                      {sceneOverrides.length} scenes adjusted, 3D strength ×
-                      {stereoDraft.depth_scale.toFixed(2)} (from the 3D look page)
+                      {t("make.deliver.stereoFromPage", {
+                        count: sceneOverrides.length,
+                        scale: stereoDraft.depth_scale.toFixed(2),
+                      })}
                     </span>
                     <CheckboxChip
-                      label="Use automatic 3D for every scene"
+                      label={t("make.deliver.useAutoStereo")}
                       checked={stereoDefault}
                       onChange={() => change(() => setStereoDefault((v) => !v))}
                     />
                   </div>
                 ) : (
                   <span data-testid="deliver-chip-stereo-none" className="text-xs text-fg-muted">
-                    Every scene uses automatic 3D.
+                    {t("make.deliver.stereoAuto")}
                   </span>
                 )}
               </div>
 
               <div className="flex flex-col gap-2">
                 <h4 id="edge-style" className="text-xs font-medium text-fg-muted">
-                  Edges
+                  {t("make.deliver.edges")}
                 </h4>
                 <div role="radiogroup" aria-labelledby="edge-style" className="grid grid-cols-2 gap-2">
                   {EDGE_OPTIONS.map((m) => (
@@ -363,9 +370,9 @@ export function DeliverPanel({
                         onChange={() => change(() => setEdge(m))}
                         className="accent-primary"
                       />
-                      <span className="font-medium">{EDGE_LABELS[m]}</span>
+                      <span className="font-medium">{edgeStyleName(m, t)}</span>
                       <span data-testid={`edge-price-${m}`} className="ml-auto font-mono text-xs">
-                        {edgePrices[m] !== undefined ? formatCents(edgePrices[m]) : "…"}
+                        {edgePrices[m] !== undefined ? formatCents(edgePrices[m], t) : "…"}
                       </span>
                     </label>
                   ))}
@@ -390,9 +397,9 @@ export function DeliverPanel({
                   className="mt-0.5 accent-primary"
                 />
                 <span>
-                  Start from scratch
+                  {t("make.deliver.fromScratch")}
                   <span className="block text-xs text-fg-muted">
-                    Don&apos;t reuse earlier work on this video. Full price.
+                    {t("make.deliver.fromScratchHint")}
                   </span>
                 </span>
               </label>
@@ -405,17 +412,17 @@ export function DeliverPanel({
             variant="panel"
             checkout={ck}
             request={request}
-            label="Make 3D"
-            disabledReason={formats.length === 0 ? "Pick at least one file" : undefined}
+            label={t("make.deliver.makeLabel")}
+            disabledReason={formats.length === 0 ? t("make.deliver.pickOneFile") : undefined}
             heading={
               <div className="flex items-center gap-2">
-                <h3 className="text-[15px] font-semibold text-fg">Your price</h3>
+                <h3 className="text-[15px] font-semibold text-fg">{t("quote.view.yourPrice")}</h3>
                 <span className="ml-auto rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted">
                   Classic 3D
                 </span>
               </div>
             }
-            explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits))}
+            explain={cancelRule(ck.quote?.charge_timing, prechargeThreshold(limits), t)}
           />
         </aside>
       </div>

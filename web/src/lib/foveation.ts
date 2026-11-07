@@ -6,9 +6,20 @@
  */
 
 import type { FoveationInfo, PublicPricing } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export const FOVEATED_DETAIL = "Foveated Detail";
 export const FOVEATED_HINT = "More detail where you look.";
+
+/** FOVEATED_DETAIL in the reader's language. */
+export function foveatedDetail(t: Tr = EN): string {
+  return t("glossary.foveatedDetail");
+}
+
+/** FOVEATED_HINT in the reader's language. */
+export function foveatedHint(t: Tr = EN): string {
+  return t("glossary.foveatedHint");
+}
 
 /** The qualities where it's included, from /v1/pricing. */
 export function foveationIncludedPresets(pricing: PublicPricing | null | undefined): readonly string[] {

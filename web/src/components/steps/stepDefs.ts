@@ -1,4 +1,5 @@
 import type { Method, Step } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /**
  * Copy for the paid pipeline steps — one source of truth for the step pages
@@ -108,9 +109,19 @@ export const LIFELIKE_STEP_DEFS: readonly StepDef[] = [
   },
 ];
 
-export function stepDef(step: Step, method: Method = "classic"): StepDef {
-  const defs = method === "lifelike" ? LIFELIKE_STEP_DEFS : STEP_DEFS;
+/** A step's copy in the reader's language (make.stepDefs.<method>.<step>;
+ * the lists above give its shape). */
+export function stepDef(step: Step, method: Method = "classic", t: Tr = EN): StepDef {
+  const set = method === "lifelike" ? "lifelike" : "classic";
+  const defs = set === "lifelike" ? LIFELIKE_STEP_DEFS : STEP_DEFS;
   const def = defs.find((d) => d.step === step);
   if (!def) throw new Error(`unknown step ${step}`);
-  return def;
+  const base = `make.stepDefs.${set}.${step}`;
+  return {
+    step,
+    title: t(`${base}.title`),
+    description: t(`${base}.description`),
+    outputs: def.outputs.map((_, i) => t(`${base}.outputs.o${i + 1}`)),
+    tips: def.tips.map((_, i) => t(`${base}.tips.t${i + 1}`)),
+  };
 }

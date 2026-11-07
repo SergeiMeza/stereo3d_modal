@@ -37,19 +37,7 @@ import { ChinaPaySheet } from "@/components/pay/ChinaPaySheet";
 import { PaySheet } from "@/components/pay/PaySheet";
 import { chinaPayments } from "@/lib/paymentRegion";
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
-import {
-  PAID_FROM_BALANCE,
-  PAUSED_REVIEW,
-  paidFromBalanceReload,
-  POP_AFTER,
-  POP_PRECHARGE,
-  POP_SHEET,
-  popBalance,
-  SPEND_LIMIT_REACHED,
-  PAYMENT_METHOD_BLOCKED,
-  DELETION_PENDING_BLOCK,
-  PERSONAL_USE_LINE,
-} from "@/components/pay/payCopy";
+import { paidFromBalanceReload, popBalance } from "@/components/pay/payCopy";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/ui/info-popover";
@@ -67,9 +55,12 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
 import { outstandingCents } from "@/lib/billingCopy";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { stepCheckoutAtom, type BillingBlock, type StepCheckoutState } from "./checkoutStore";
-import { invalidateQuoteAtom, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
+import { invalidateQuoteAtom, QUOTE_TIMED_OUT, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { PinnedRun } from "./RunProgressCompact";
 import { applyRun } from "@/lib/live/liveStore";
@@ -77,28 +68,29 @@ import { useLiveRunOrNull } from "@/lib/live/useLive";
 import { appStore } from "@/lib/state/stores";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
-import { FPS_PLAN_REQUIRED, PICK_FRAME_RATE } from "./frameRate";
-import { CHARGE_AFTER_COPY, CHARGE_BEFORE_COPY, QuoteView, runFacts } from "./QuoteView";
+import { fpsPlanRequired, pickFrameRate } from "./frameRate";
+import { chargeAfterCopy, chargeBeforeCopy, QuoteView, runFacts } from "./QuoteView";
 import { formatsText } from "@/lib/glossary";
 
-function messageOf(e: unknown): string {
+function messageOf(e: unknown, t: Tr = EN): string {
   // spec v7 N12: a run that would pass the monthly spend limit
-  if (e instanceof GatewayError && e.code === "spend_limit_reached") return SPEND_LIMIT_REACHED;
-  if (e instanceof GatewayError && e.code === "payment_method_blocked") return PAYMENT_METHOD_BLOCKED;
-  if (e instanceof GatewayError && e.code === "deletion_pending") return DELETION_PENDING_BLOCK;
+  if (e instanceof GatewayError && e.code === "spend_limit_reached") return t("balance.copy.spendLimitReached");
+  if (e instanceof GatewayError && e.code === "payment_method_blocked") return t("balance.copy.paymentMethodBlocked");
+  if (e instanceof GatewayError && e.code === "deletion_pending") return t("balance.copy.deletionPending");
   // owner 2026-11-04: an explicit target_fps above the account's max_fps
-  if (e instanceof GatewayError && e.code === "plan_required_fps") return FPS_PLAN_REQUIRED;
+  if (e instanceof GatewayError && e.code === "plan_required_fps") return fpsPlanRequired(t);
   // a web run on a source above 30 fps without a rate (the page asks first)
-  if (e instanceof GatewayError && e.code === "fps_choice_required") return PICK_FRAME_RATE;
-  const friendly = e instanceof GatewayError ? methodErrorCopy(e.code) : null;
+  if (e instanceof GatewayError && e.code === "fps_choice_required") return pickFrameRate(t);
+  const friendly = e instanceof GatewayError ? methodErrorCopy(e.code, t) : null;
   if (friendly !== null) return friendly;
-  return e instanceof Error ? e.message : "request failed";
+  if (e instanceof Error && e.message === QUOTE_TIMED_OUT) return t("quote.timedOut");
+  return e instanceof Error ? e.message : t("make.checkout.requestFailed");
 }
 
 export type { BillingBlock } from "./checkoutStore";
 
 /** The run button while its run is being created. */
-export const STARTING = "Starting…";
+export const STARTING = EN("make.checkout.starting");
 
 function billingBlockOf(e: unknown): BillingBlock | null {
   if (e instanceof GatewayError) {
@@ -166,6 +158,7 @@ export function useStepCheckout(
 ): StepCheckout {
   const client = useGateway();
   const billing = useBilling();
+  const t = useT();
 
   // Survives tab navigation (module-scoped jotai store, see checkoutStore).
   const method = methodOf(project);
@@ -241,7 +234,7 @@ export function useStepCheckout(
       projectId: project.project_id,
       req,
       keepTracker: opts.keepTracker,
-      describe: messageOf,
+      describe: (e) => messageOf(e, t),
     });
   }
 
@@ -306,8 +299,7 @@ export function useStepCheckout(
         );
         if (!done.ok) {
           setError(
-            done.error ??
-              "Payment confirmation failed — the conversion was not started.",
+            done.error ?? t("make.checkout.confirmFailed"),
           );
           void client.cancelConversion(conv.conversion_id).catch(() => {});
           attemptKeyRef.current = null; // fresh attempt after a failed confirm
@@ -323,7 +315,7 @@ export function useStepCheckout(
         // banner/status so the settle UI shows up
         void billing.refresh();
       } else {
-        setError(messageOf(e));
+        setError(messageOf(e, t));
       }
     }
   }
@@ -417,13 +409,14 @@ export function useStepCheckout(
 
 /** The pay sheet's line: the run and the files it makes (staging
  * 2026-11-05: what's paid for is visible before paying). */
-export function payLine(conv: Conversion): string {
-  const files = formatsText(conv.params?.formats);
+export function payLine(conv: Conversion, t: Tr = EN): string {
+  const files = formatsText(conv.params?.formats, t);
   return [runLine(conv, { price: false }), files].filter(Boolean).join(" · ");
 }
 
 /** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
+  const t = useT();
   const plan = useBilling().status?.plan;
   const conv = ck.payNow;
   if (conv === null) return null;
@@ -435,7 +428,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
         conversionId={conv.conversion_id}
         projectId={conv.project_id}
         amountCents={conv.quote.amount_cents}
-        subtitle={payLine(conv)}
+        subtitle={payLine(conv, t)}
         onClose={(paid) => ck.closePayNow(paid)}
       />
     );
@@ -445,11 +438,11 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       conversionId={conv.conversion_id}
       amountCents={conv.quote.amount_cents}
       action={action}
-      subtitle={payLine(conv)}
+      subtitle={payLine(conv, t)}
       billing={conv.billing}
       publishableKey={conv.publishable_key}
       projectId={conv.project_id}
-      note={commercial ? undefined : PERSONAL_USE_LINE}
+      note={commercial ? undefined : t("pay.copy.personalUse")}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}
       // the tracker's poll: an expired or paid run ends "Paying…"
       run={ck.active?.conversion_id === conv.conversion_id ? ck.active : null}
@@ -458,19 +451,19 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
 }
 
 /** P14: the charge line under the run button, from how it'd be paid. */
-function chargeLineFor(quote: StepQuoteResponse): string {
-  if (quote.payment_flow === "free_preview") return "Free preview";
-  if (quote.spend_limit_reached) return SPEND_LIMIT_REACHED;
+function chargeLineFor(quote: StepQuoteResponse, t: Tr): string {
+  if (quote.payment_flow === "free_preview") return t("make.checkout.freePreview");
+  if (quote.spend_limit_reached) return t("balance.copy.spendLimitReached");
   // gateway 00166: credit covers it all, nothing goes to a card
-  if (coveredByCredit(quote)) return PAID_FROM_CREDIT;
+  if (coveredByCredit(quote)) return t("make.checkout.paidFromCredit");
   if (quote.payment_flow === "balance") {
-    return quote.balance?.reload_cents ? paidFromBalanceReload(quote.balance.reload_cents) : PAID_FROM_BALANCE;
+    return quote.balance?.reload_cents ? paidFromBalanceReload(quote.balance.reload_cents, t) : t("balance.copy.paidFromBalance");
   }
-  if (quote.payment_flow === "after") return CHARGE_AFTER_COPY;
+  if (quote.payment_flow === "after") return chargeAfterCopy(t);
   if (quote.payment_flow === "precharge" || quote.payment_flow === "paynow") {
-    return CHARGE_BEFORE_COPY;
+    return chargeBeforeCopy(t);
   }
-  return quote.charge_timing === "before" ? CHARGE_BEFORE_COPY : CHARGE_AFTER_COPY;
+  return quote.charge_timing === "before" ? chargeBeforeCopy(t) : chargeAfterCopy(t);
 }
 
 /** The run is paid in full from credit (gateway 00166 pay_split). */
@@ -479,21 +472,21 @@ export function coveredByCredit(quote: StepQuoteResponse | null | undefined): bo
   return !!s && s.card_cents === 0 && s.covered_cents > 0;
 }
 
-export const PAID_FROM_CREDIT = "Paid from your credit";
+export const PAID_FROM_CREDIT = EN("make.checkout.paidFromCredit");
 
 /** P14: the "?" pop-over, per account state; null = the panel's own. */
-function popoverFor(quote: StepQuoteResponse | null): string | null {
+function popoverFor(quote: StepQuoteResponse | null, t: Tr): string | null {
   if (quote?.spend_limit_reached || quote?.payment_flow === "free_preview") return null;
   if (coveredByCredit(quote)) return null;
   switch (quote?.payment_flow) {
     case "balance":
-      return popBalance(quote.quote.amount_cents);
+      return popBalance(quote.quote.amount_cents, t);
     case "after":
-      return POP_AFTER;
+      return t("pay.copy.popAfter");
     case "precharge":
-      return POP_PRECHARGE;
+      return t("pay.copy.popPrecharge");
     case "paynow":
-      return POP_SHEET;
+      return t("pay.copy.popSheet");
     default:
       return null;
   }
@@ -502,44 +495,50 @@ function popoverFor(quote: StepQuoteResponse | null): string | null {
 /** P14 "Balance short, auto-reload off": "Balance $3.20 · Add funds". */
 function BalanceShort({ quote }: { quote: StepQuoteResponse | null }): JSX.Element | null {
   const { openAddFunds } = useBalanceDialogs();
+  const t = useT();
   const b = quote?.balance;
   if (!quote || !b || quote.payment_flow === "balance" || quote.spend_limit_reached) return null;
   return (
     <span data-testid="balance-short" className="text-xs text-fg-muted tabular-nums">
-      Balance {formatCents(b.available_cents)} ·{" "}
-      <button type="button" className="font-medium text-primary hover:underline" onClick={openAddFunds}>
-        Add funds
-      </button>
+      {rich(
+        t,
+        "make.checkout.balanceShort",
+        {
+          add: (c) => (
+            <button type="button" className="font-medium text-primary hover:underline" onClick={openAddFunds}>
+              {c}
+            </button>
+          ),
+        },
+        { amount: formatCents(b.available_cents, t) },
+      )}
     </span>
   );
 }
 
-const PERIOD_WORDS: Record<string, string> = {
-  week: "this week",
-  month: "this month",
-  year: "this year",
-  pass: "on your pass",
-};
+/** periods with their own words (make.checkout.freePreviews.left.*) */
+const PERIODS: ReadonlySet<string> = new Set(["week", "month", "year", "pass"]);
 
 /** "3 of 20 free previews left this month" / "Your first preview is free"
  * from the quote's free_previews.period (00083; Lifelike previews only,
  * no rollover). */
-export function freePreviewText(fp: NonNullable<StepQuoteResponse["free_previews"]>): string | null {
+export function freePreviewText(fp: NonNullable<StepQuoteResponse["free_previews"]>, t: Tr = EN): string | null {
   if (fp.period === "first_project" || (fp.period === undefined && fp.intro)) {
-    return fp.free ? "Your first preview is free" : null;
+    return fp.free ? t("make.checkout.freePreviews.first") : null;
   }
   if (fp.allowance <= 0) return null;
   if (fp.remaining > 0 && fp.daily_left < Math.max(fp.units, 1)) {
-    return "Today's free previews are used. More tomorrow.";
+    return t("make.checkout.freePreviews.todayUsed");
   }
-  const when = fp.period ? PERIOD_WORDS[fp.period] : undefined;
-  return `${fp.remaining} of ${fp.allowance} free previews left${when ? ` ${when}` : ""}`;
+  const period = fp.period && PERIODS.has(fp.period) ? fp.period : "none";
+  return t(`make.checkout.freePreviews.left.${period}`, { remaining: fp.remaining, allowance: fp.allowance });
 }
 
 function FreePreviewLine({ quote }: { quote: StepQuoteResponse | null }): JSX.Element | null {
+  const t = useT();
   const fp = quote?.free_previews;
   if (!fp) return null;
-  const text = freePreviewText(fp);
+  const text = freePreviewText(fp, t);
   if (!text) return null;
   return (
     <span data-testid="free-previews" className={`text-xs ${fp.free ? "text-emerald-300" : "text-fg-muted"} tabular-nums`}>
@@ -551,20 +550,22 @@ function FreePreviewLine({ quote }: { quote: StepQuoteResponse | null }): JSX.El
 /** P14 "Spend limit reached": Change limit opens P19. */
 function ChangeLimit(): JSX.Element {
   const { openSpending } = useBalanceDialogs();
+  const t = useT();
   return (
     <button type="button" data-testid="change-limit" className="text-xs font-medium text-primary hover:underline" onClick={openSpending}>
-      Change limit
+      {t("make.checkout.changeLimit")}
     </button>
   );
 }
 
 /** P14 "Under review": paused, with Contact support. */
 function UnderReview(): JSX.Element {
+  const t = useT();
   return (
     <div data-testid="under-review" className="flex flex-col items-center gap-1.5 text-sm">
-      <span className="text-fg-muted">{PAUSED_REVIEW}</span>
+      <span className="text-fg-muted">{t("pay.copy.pausedReview")}</span>
       <a href={supportMailto()} className="text-primary hover:underline">
-        Contact support
+        {t("make.checkout.contactSupport")}
       </a>
     </div>
   );
@@ -574,6 +575,7 @@ function UnderReview(): JSX.Element {
  * card, the billing banner's settle flow for an overdue charge, the account
  * page for a declined hold. */
 function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
+  const t = useT();
   if (block === "no_payment_method") {
     return (
       <div
@@ -581,13 +583,13 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
         className="rounded-lg border border-edge bg-surface-2 p-3 text-sm"
       >
         <p className="text-fg">
-          A payment method is needed before starting paid conversions.
+          {t("make.checkout.block.noPaymentMethod")}
         </p>
         <Link
           href="/account/billing"
           className="mt-1 inline-block text-primary hover:underline"
         >
-          Add payment method →
+          {t("make.checkout.block.addPaymentMethod")}
         </Link>
       </div>
     );
@@ -599,13 +601,13 @@ function BillingBlockNotice({ block }: { block: BillingBlock }): JSX.Element {
         className="rounded-lg border border-red-900/60 bg-red-950/40 p-3 text-sm"
       >
         <p className="text-red-200">
-          The payment for this run was declined. Nothing was charged.
+          {t("make.checkout.block.declined")}
         </p>
         <Link
           href="/account/billing"
           className="mt-1 inline-block text-primary hover:underline"
         >
-          Update payment method →
+          {t("make.checkout.block.updatePaymentMethod")}
         </Link>
       </div>
     );
@@ -635,6 +637,7 @@ export function StepCheckoutSection({
   trackerDownloads = true,
   disabledReason,
 }: StepCheckoutSectionProps): JSX.Element {
+  const t = useT();
   const blocked = disabledReason !== undefined;
   // S3D-22: while a payment needs a new card, paid actions say so instead
   // of offering their button
@@ -650,18 +653,18 @@ export function StepCheckoutSection({
           onClick={() => void ck.fetchQuote(request)}
           disabled={ck.quoting || blocked}
         >
-          Get quote
+          {t("make.checkout.getQuote")}
         </Button>
         {ck.quote && !ck.running && !blocked ? (
           <Button onClick={() => void ck.convert(request)}>
-            Convert · {formatCents(ck.quote.quote.amount_cents)}
+            {t("make.checkout.convertPrice", { price: formatCents(ck.quote.quote.amount_cents, t) })}
           </Button>
         ) : null}
         {ck.quote && !ck.running && !blocked ? (
           <span data-testid="charge-timing-hint" className="text-xs text-fg-muted">
             {ck.quote.charge_timing === "before"
-              ? CHARGE_BEFORE_COPY
-              : CHARGE_AFTER_COPY}
+              ? chargeBeforeCopy(t)
+              : chargeAfterCopy(t)}
           </span>
         ) : null}
         {blocked ? (
@@ -684,7 +687,7 @@ export function StepCheckoutSection({
           onFinishPayment={ck.reopenPayNow}
         />
       ) : null}
-      <PaySheetFor ck={ck} action="Convert" />
+      <PaySheetFor ck={ck} action={t("make.checkout.convert")} />
     </>
   );
 }
@@ -741,6 +744,7 @@ export function InstantCheckout({
   beforeButton,
   primary = null,
 }: InstantCheckoutProps): JSX.Element {
+  const t = useT();
   const status = useBilling().status;
   const underReview = status?.flow_state === "under_review";
   const stopQuoting = disabledReason !== undefined || underReview;
@@ -753,7 +757,8 @@ export function InstantCheckout({
   const { quote, quoting, updating } = view;
   const { running, fetchQuote } = ck;
   const error = view.error ?? ck.error;
-  const limitReached = quote?.spend_limit_reached === true || error === SPEND_LIMIT_REACHED;
+  const spendLimitReached = t("balance.copy.spendLimitReached");
+  const limitReached = quote?.spend_limit_reached === true || error === spendLimitReached;
   const blocked = disabledReason !== undefined || underReview || limitReached;
   const paymentNeeded =
     outstandingCents(status) > 0 || ck.billingBlock === "billing_overdue";
@@ -766,7 +771,7 @@ export function InstantCheckout({
   const retry = (): void =>
     void fetchQuote(JSON.parse(key) as StepConversionRequest, { keepTracker: true });
   const quoteError =
-    view.error !== null && !quoting && view.error !== SPEND_LIMIT_REACHED ? (
+    view.error !== null && !quoting && view.error !== spendLimitReached ? (
       <span className="flex flex-wrap items-center gap-2">
         <span data-testid="quote-error" className="text-sm text-red-400">
           {view.error}
@@ -777,28 +782,28 @@ export function InstantCheckout({
           onClick={retry}
           className="text-sm text-primary hover:underline"
         >
-          Retry
+          {t("make.checkout.retry")}
         </button>
       </span>
     ) : null;
-  const pricingText = updating ? "Updating…" : "Pricing…";
+  const pricingText = updating ? t("make.checkout.updating") : t("make.checkout.pricing");
   const runNote = running ? (
     <p data-testid="run-in-progress" className="text-xs text-fg-muted">
-      A run is in progress. You can start another when it finishes.
+      {t("make.checkout.runInProgress")}
     </p>
   ) : null;
 
   const price = quote
     ? quote.payment_flow === "free_preview"
-      ? "Free"
-      : formatCents(quote.quote.amount_cents)
+      ? t("make.checkout.free")
+      : formatCents(quote.quote.amount_cents, t)
     : null;
   const sheet = <PaySheetFor ck={ck} action={label} />;
-  const chargeText = quote ? chargeLineFor(quote) : CHARGE_BEFORE_COPY;
+  const chargeText = quote ? chargeLineFor(quote, t) : chargeBeforeCopy(t);
   // P14: the pop-over says how this account pays; the panel's own when the
   // gateway doesn't say
   // nothing to explain when credit pays it all (gateway 00166)
-  const popover = coveredByCredit(quote) ? null : (popoverFor(quote) ?? explain);
+  const popover = coveredByCredit(quote) ? null : (popoverFor(quote, t) ?? explain);
   const tracker =
     ck.tracking && ck.active ? (
       <ConversionTracker
@@ -814,9 +819,9 @@ export function InstantCheckout({
   const owes = paymentNeeded && !ck.tracking;
   // owner 2026-11-04: size, frame rate and billable length beside the
   // button, at the moment of paying ("4K · 60 fps · 3 min")
-  const facts = quote && !blocked ? runFacts(quote.params, quote.quote.breakdown) : [];
+  const facts = quote && !blocked ? runFacts(quote.params, quote.quote.breakdown, t) : [];
   // staging 2026-11-05: the files the quote is for, before paying
-  const files = quote && !blocked ? formatsText(quote.params?.formats) : "";
+  const files = quote && !blocked ? formatsText(quote.params?.formats, t) : "";
   const summary =
     facts.length > 0 || files ? (
       <div className="flex flex-col gap-0.5">
@@ -827,7 +832,7 @@ export function InstantCheckout({
         ) : null}
         {files ? (
           <p data-testid="run-files" className="text-xs text-fg-muted">
-            You&apos;ll get: {files}
+            {t("make.checkout.youllGet", { files })}
           </p>
         ) : null}
       </div>
@@ -888,7 +893,7 @@ export function InstantCheckout({
               aria-busy={ck.converting}
               onClick={() => void ck.convert(request)}
             >
-              {ck.converting ? STARTING : `${label}${price ? ` · ${price}` : ""}`}
+              {ck.converting ? t("make.checkout.starting") : price ? t("make.checkout.labelPrice", { label, price }) : label}
             </Button>
           )}
           {runNote}
@@ -926,7 +931,7 @@ export function InstantCheckout({
               aria-busy={ck.converting}
               onClick={primary ? primary.onClick : () => void ck.convert(request)}
             >
-              {ck.converting ? STARTING : primary ? primary.label : `${label}${price ? ` · ${price}` : ""}`}
+              {ck.converting ? t("make.checkout.starting") : primary ? primary.label : price ? t("make.checkout.labelPrice", { label, price }) : label}
             </Button>
           </div>
         ) : null}
@@ -955,14 +960,14 @@ export function InstantCheckout({
           aria-busy={ck.converting}
           onClick={() => void ck.convert(request)}
         >
-          {ck.converting ? STARTING : `${label}${price ? ` · ${price}` : ""}`}
+          {ck.converting ? t("make.checkout.starting") : price ? t("make.checkout.labelPrice", { label, price }) : label}
         </Button>
         {underReview ? (
           <UnderReview />
         ) : limitReached ? (
           <span className="flex items-center gap-1.5">
             <span data-testid="charge-timing-hint" className="text-xs text-amber-300">
-              {SPEND_LIMIT_REACHED}
+              {spendLimitReached}
             </span>
             <ChangeLimit />
           </span>
@@ -974,7 +979,7 @@ export function InstantCheckout({
               {chargeText}
             </span>
             <InfoPopover label="?">
-              {popoverFor(quote) ? <p>{popoverFor(quote)}</p> : null}
+              {popoverFor(quote, t) ? <p>{popoverFor(quote, t)}</p> : null}
               {explain}
               <QuoteView result={quote} />
             </InfoPopover>

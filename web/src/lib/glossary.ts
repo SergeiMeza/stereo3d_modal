@@ -18,6 +18,13 @@ import type {
   Warp,
 } from "@/lib/api/types";
 import { formatVideoLength } from "@/lib/format";
+import { EN, type Tr } from "@/lib/i18n/t";
+
+/** Name helpers take `t` last; used as `.map(helper)` they get an index
+ * there instead, and read English. */
+function asTr(t: Tr | number): Tr {
+  return typeof t === "function" ? t : EN;
+}
 
 /** Output formats (S3D-08: top-bottom isn't sold; the names stay for old
  * runs that have it). */
@@ -33,8 +40,8 @@ export const FORMAT_NAMES: Record<Format, string> = {
 /** The files a run makes, in words: "Vision Pro spatial video + Side by
  * side" (owner 2026-11-05: the price box and the pay sheet say which
  * files the run makes, before paying). */
-export function formatsText(formats: readonly string[] | undefined): string {
-  return (formats ?? []).map((f) => FORMAT_NAMES[f as Format] ?? f).join(" + ");
+export function formatsText(formats: readonly string[] | undefined, t: Tr = EN): string {
+  return (formats ?? []).map((f) => formatName(f, t)).join(" + ");
 }
 
 /** Non-format outputs a Classic run can have. */
@@ -44,16 +51,19 @@ const OTHER_OUTPUT_NAMES: Record<string, string> = {
 };
 
 /** The customer name of an output key; split parts read "… · Part 2". */
-export function outputName(key: string): string {
+export function outputName(key: string, tr: Tr | number = EN): string {
+  const t = asTr(tr);
   const m = /^(.+)_part(\d+)$/.exec(key);
   const base = m ? m[1] : key;
-  const name =
-    FORMAT_NAMES[base as Format] ?? OTHER_OUTPUT_NAMES[base] ?? base;
-  return m ? `${name} · Part ${Number(m[2])}` : name;
+  const name = formatName(base, t);
+  return m ? t("glossary.outputPart", { name, part: Number(m[2]) }) : name;
 }
 
-export function formatName(f: string): string {
-  return FORMAT_NAMES[f as Format] ?? OTHER_OUTPUT_NAMES[f] ?? f;
+export function formatName(f: string, tr: Tr | number = EN): string {
+  const t = asTr(tr);
+  if (Object.hasOwn(FORMAT_NAMES, f)) return t(`glossary.formats.${f}`);
+  if (Object.hasOwn(OTHER_OUTPUT_NAMES, f)) return t(`glossary.otherOutputs.${f}`);
+  return f;
 }
 
 /** Qualities (presets): 1080p · 1440p · 3K · 4K. Draft exists only in the
@@ -85,8 +95,15 @@ export const QUALITY_SHORT_SIDE: Record<Preset, number> = {
  * 5K/6K/8K come only from the gateway's list (S3D-48). */
 export const QUALITIES: readonly Preset[] = ["1080p", "qhd", "3k", "4k"];
 
-export function qualityName(p: string | undefined): string {
+/** In the reader's language with `t`; `.map(qualityName)` (an index in
+ * place of `t`) reads English. */
+export function qualityName(p: string | undefined, t: Tr | number = EN): string {
+  return qualityNameIn(p, asTr(t));
+}
+
+function qualityNameIn(p: string | undefined, t: Tr): string {
   if (p === undefined) return "";
+  if (p === "draft") return t("glossary.qualityDraft");
   return QUALITY_NAMES[p as Preset] ?? p;
 }
 
@@ -142,12 +159,15 @@ export function qualityChoiceText(q: QualityChoice): string {
 /** Lifelike's quality options for a project (S3D-04): the gateway's list
  * when it sends one; otherwise the steps the source reaches, with a source
  * below 1080 offered as "Full resolution (720p)" at the 1080p price. */
-export function qualityChoices(project: {
-  qualities?: QualityOption[];
-  probe?: Probe;
-}): QualityChoice[] {
+export function qualityChoices(
+  project: {
+    qualities?: QualityOption[];
+    probe?: Probe;
+  },
+  t: Tr = EN,
+): QualityChoice[] {
   const hint = (w?: number, h?: number) =>
-    w && h ? `${w}×${h} per eye` : undefined;
+    w && h ? t("glossary.perEye", { width: String(w), height: String(h) }) : undefined;
   if (project.qualities && project.qualities.length > 0) {
     const probe = project.probe;
     return project.qualities.map((q) => {
@@ -168,7 +188,7 @@ export function qualityChoices(project: {
         preset: q.preset,
         label:
           q.label ??
-          (q.id === "full" ? `Full resolution (${short}p)` : qualityName(q.preset)),
+          (q.id === "full" ? t("glossary.fullResolution", { short: String(short) }) : qualityName(q.preset, t)),
         hint: size ? hint(size.width, size.height) : undefined,
         eyeShort: short,
         ...(q.original_eye_required ? { originalEyeRequired: true } : {}),
@@ -179,15 +199,15 @@ export function qualityChoices(project: {
   }
   const probe = project.probe;
   return qualitiesFor(probe).map((p) => {
-    if (!probe) return { preset: p, label: qualityName(p) };
+    if (!probe) return { preset: p, label: qualityName(p, t) };
     const size = eyeSize(probe, QUALITY_SHORT_SIDE[p]);
     const short = Math.min(size.width, size.height);
     return {
       preset: p,
       label:
         short < QUALITY_SHORT_SIDE[p]
-          ? `Full resolution (${short}p)`
-          : qualityName(p),
+          ? t("glossary.fullResolution", { short: String(short) })
+          : qualityName(p, t),
       hint: hint(size.width, size.height),
       eyeShort: short,
     };
@@ -198,9 +218,10 @@ export function qualityChoices(project: {
 export function qualityLabelFor(
   project: { qualities?: QualityOption[]; probe?: Probe },
   preset: string | undefined,
+  t: Tr = EN,
 ): string {
-  const c = qualityChoices(project).find((q) => q.preset === preset);
-  return c?.label ?? qualityName(preset);
+  const c = qualityChoices(project, t).find((q) => q.preset === preset);
+  return c?.label ?? qualityName(preset, t);
 }
 
 export const METHOD_NAMES: Record<Method, string> = {
@@ -216,6 +237,11 @@ export const STEP_NAMES: Record<Step, string> = {
   production: "Full video",
 };
 
+/** A step's name in the reader's language. */
+export function stepName(step: Step, t: Tr | number = EN): string {
+  return Object.hasOwn(STEP_NAMES, step) ? asTr(t)(`glossary.steps.${step}`) : step;
+}
+
 /** Classic edge style (S3D-29): two equal options, Stretched then Filled
  * (Filled preselected) — a matter of taste, never ranked. The old per-frame fill
  * is no longer offered; old runs that used it keep a name. */
@@ -227,6 +253,10 @@ export const EDGE_STYLE_NAMES: Record<EdgeMode, string> = {
   stretched: "Stretched",
 };
 
+export function edgeStyleName(m: EdgeMode, t: Tr | number = EN): string {
+  return Object.hasOwn(EDGE_STYLE_NAMES, m) ? asTr(t)(`glossary.edgeStyles.${m}`) : m;
+}
+
 /** Names in run summaries (History, Files). */
 export const EDGE_NAMES: Record<EdgeMode | "fast" | "none", string> = {
   filled: "Filled edges",
@@ -234,6 +264,10 @@ export const EDGE_NAMES: Record<EdgeMode | "fast" | "none", string> = {
   fast: "Fast fill (no longer offered)",
   none: "Unfilled edges",
 };
+
+export function edgeName(m: EdgeMode | "fast" | "none", t: Tr | number = EN): string {
+  return Object.hasOwn(EDGE_NAMES, m) ? asTr(t)(`glossary.edges.${m}`) : m;
+}
 
 /** The edge mode a run's (inpaint, warp) pair stands for. */
 export function edgeModeOf(p: {
@@ -249,34 +283,34 @@ export function edgeModeOf(p: {
 
 /** A run's settings in words: "4K · Vision Pro spatial video + Side by
  * side · Filled edges". Classic knobs only when the run carried them. */
-export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo): string {
+export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo, t: Tr = EN): string {
   // a depth preview makes a depth video: its formats/edges are defaults
   // it never used
   if (step === "depth_preview" || p.depth_only) {
-    return [STEP_NAMES.depth_preview, p.target_fps ? `${p.target_fps} fps` : null]
+    return [stepName("depth_preview", t), p.target_fps ? t("glossary.fps", { fps: String(p.target_fps) }) : null]
       .filter(Boolean)
       .join(" · ");
   }
   const edge = edgeModeOf(p);
   return [
-    p.preset ? qualityName(p.preset) : null,
-    p.formats?.length ? p.formats.map(formatName).join(" + ") : null,
-    edge ? EDGE_NAMES[edge] : null,
+    p.preset ? qualityName(p.preset, t) : null,
+    p.formats?.length ? p.formats.map((f) => formatName(f, t)).join(" + ") : null,
+    edge ? edgeName(edge, t) : null,
     p.depth_scale !== undefined && p.depth_scale !== 1
-      ? `3D strength ×${p.depth_scale.toFixed(2)}`
+      ? t("glossary.summary.depthScale", { scale: p.depth_scale.toFixed(2) })
       : null,
     p.scene_overrides?.length
-      ? `${p.scene_overrides.length} scene${p.scene_overrides.length === 1 ? "" : "s"} adjusted`
+      ? t("glossary.summary.scenesAdjusted", { count: p.scene_overrides.length })
       : null,
     p.split_max_seconds !== undefined
-      ? `in ${Math.round(p.split_max_seconds / 60)}-minute parts`
+      ? t("glossary.summary.splitParts", { minutes: Math.round(p.split_max_seconds / 60) })
       : null,
     p.original_eye
-      ? `Original picture in the ${p.original_eye} eye`
+      ? t(`glossary.summary.originalEye.${p.original_eye}`)
       : null,
     // owner 2026-11-07: included at 1080p, so the run (not the request)
     // says whether it applied
-    p.foveation === "static" || foveation?.applied === true ? "Foveated Detail" : null,
+    p.foveation === "static" || foveation?.applied === true ? t("glossary.foveatedDetail") : null,
   ]
     .filter(Boolean)
     .join(" · ");
@@ -296,11 +330,14 @@ export function resolutionName(probe: { width: number; height: number }): string
 
 /** "5 min 12 s · 4K · 30 fps · 14 scenes" — a video at a glance, with no
  * frame counts or rational frame rates (S3D-36). */
-export function videoFacts(project: {
-  probe?: Probe;
-  scenes?: { cuts: number[] | null };
-  hdr_output?: boolean;
-}): string {
+export function videoFacts(
+  project: {
+    probe?: Probe;
+    scenes?: { cuts: number[] | null };
+    hdr_output?: boolean;
+  },
+  t: Tr = EN,
+): string {
   const p = project.probe;
   if (!p) return "";
   const fps = Math.round(p.fps * 100) / 100;
@@ -308,10 +345,10 @@ export function videoFacts(project: {
   return [
     formatVideoLength(p.duration_s),
     resolutionName(p),
-    `${fps} fps`,
-    project.scenes ? `${scenes} scene${scenes === 1 ? "" : "s"}` : null,
+    t("glossary.fps", { fps: String(fps) }),
+    project.scenes ? t("glossary.scenes", { count: scenes }) : null,
     // owner 2026-11-05: only while the gateway makes it in HDR
-    project.hdr_output === true ? "HDR video" : null,
+    project.hdr_output === true ? t("glossary.hdrVideo") : null,
   ]
     .filter(Boolean)
     .join(" · ");

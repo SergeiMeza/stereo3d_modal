@@ -9,6 +9,7 @@
 
 import type { Preset, PublicPricing } from "@/lib/api/types";
 import { qualityName } from "@/lib/glossary";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /** The active campaign, or null. */
 export function activeCampaign(pricing: PublicPricing | null | undefined) {
@@ -41,21 +42,28 @@ export function campaignBadge(
   pricing: PublicPricing | null | undefined,
   preset: string,
   method: "lifelike" | "classic" = "lifelike",
+  t: Tr = EN,
 ): string | null {
   const c = activeCampaign(pricing);
   if (!c || !campaignCovers(pricing, preset, method)) return null;
   const pct = percentOf(c);
-  return pct ? `−${pct}% launch offer` : "Launch offer";
+  return pct ? t("offer.badge", { pct: String(pct) }) : t("offer.name");
 }
 
 /** "Launch offer until Jan 10: −25% on 1080p and 1440p." (the gateway's
  * label, its date as sent); null while none is active. */
-export function campaignNote(pricing: PublicPricing | null | undefined): string | null {
+export function campaignNote(pricing: PublicPricing | null | undefined, t: Tr = EN): string | null {
   const c = activeCampaign(pricing);
   if (!c) return null;
   const pct = percentOf(c);
-  const names = (c.presets ?? []).map((p) => qualityName(p as Preset));
-  const on = names.length > 1 ? `${names.slice(0, -1).join(", ")} and ${names.at(-1)}` : (names[0] ?? "");
-  const what = [pct ? `−${pct}%` : null, on ? `on ${on}` : null].filter(Boolean).join(" ");
-  return `${c.label ?? "Launch offer"}${what ? `: ${what}` : ""}.`;
+  const names = (c.presets ?? []).map((p) => qualityName(p as Preset, t));
+  const on =
+    names.length > 1
+      ? t("offer.note.list", { rest: names.slice(0, -1).join(t("offer.note.listSeparator")), last: names.at(-1) })
+      : (names[0] ?? "");
+  const label = c.label ?? t("offer.name");
+  if (pct && on) return t("offer.note.pctOn", { label, pct: String(pct), on });
+  if (pct) return t("offer.note.pctOnly", { label, pct: String(pct) });
+  if (on) return t("offer.note.onOnly", { label, on });
+  return t("offer.note.labelOnly", { label });
 }
