@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} 分 {s} 秒",
       "hours": "{h} 小时",
       "hoursMinutes": "{h} 小时 {m} 分钟"
+    },
+    "money": {
+      "paidLocal": "已付 {local}（{usd}）"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "支付 {amount} 并开始",
       "paidMoreWaiting": "已支付 {amount}。还有一笔待支付。",
       "settleSubtitle": "{count, plural, other {# 次转换 · 完成后扣款}}",
-      "personalUse": "仅限个人使用。商业用途需选择 Business 和 Studio 套餐。"
+      "personalUse": "仅限个人使用。商业用途需选择 Business 和 Studio 套餐。",
+      "localAtCheckout": "结账时会显示你所在地区的价格。"
     },
     "sheet": {
       "title": "{action} · {amount}",

@@ -67,6 +67,9 @@
       "minutesSeconds": "{m}분 {s}초",
       "hours": "{h}시간",
       "hoursMinutes": "{h}시간 {m}분"
+    },
+    "money": {
+      "paidLocal": "결제 완료 {local}({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "{amount} 결제하고 시작",
       "paidMoreWaiting": "{amount} 결제 완료. 결제 한 건이 더 남아 있어요.",
       "settleSubtitle": "{count, plural, other {변환 #건 · 완료 후 결제}}",
-      "personalUse": "개인용이에요. 상업적 이용은 Business와 Studio 플랜에서 가능해요."
+      "personalUse": "개인용이에요. 상업적 이용은 Business와 Studio 플랜에서 가능해요.",
+      "localAtCheckout": "결제 화면에서 현지 통화 가격이 표시돼요."
     },
     "sheet": {
       "title": "{action} · {amount}",

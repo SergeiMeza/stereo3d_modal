@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} dk {s} sn",
       "hours": "{h} sa",
       "hoursMinutes": "{h} sa {m} dk"
+    },
+    "money": {
+      "paidLocal": "Ödendi: {local} ({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "{amount} ödeyip başlatın",
       "paidMoreWaiting": "{amount} ödendi. Bir ödeme daha bekliyor.",
       "settleSubtitle": "{count, plural, other {# dönüştürme · tamamlandıktan sonra tahsil edildi}}",
-      "personalUse": "Kişisel kullanım içindir. Ticari kullanım Business ve Studio planlarıyla gelir."
+      "personalUse": "Kişisel kullanım içindir. Ticari kullanım Business ve Studio planlarıyla gelir.",
+      "localAtCheckout": "Yerel para biriminizdeki fiyatı ödeme sırasında göreceksiniz."
     },
     "sheet": {
       "title": "{action} · {amount}",

@@ -67,6 +67,9 @@
       "minutesSeconds": "{m}分{s}秒",
       "hours": "{h}時間",
       "hoursMinutes": "{h}時間{m}分"
+    },
+    "money": {
+      "paidLocal": "支払い済み {local}（{usd}）"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "{amount}を支払って開始",
       "paidMoreWaiting": "{amount}を支払いました。あと1件のお支払いが残っています。",
       "settleSubtitle": "{count, plural, other {#件の変換 · 完了後に請求}}",
-      "personalUse": "個人利用向けです。商用利用はBusinessプランとStudioプランで利用できます。"
+      "personalUse": "個人利用向けです。商用利用はBusinessプランとStudioプランで利用できます。",
+      "localAtCheckout": "お支払い画面で現地通貨の価格が表示されます。"
     },
     "sheet": {
       "title": "{action} · {amount}",

@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} min {s} s",
       "hours": "{h} h",
       "hoursMinutes": "{h} h {m} min"
+    },
+    "money": {
+      "paidLocal": "Payé {local} ({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "Payer {amount} et lancer",
       "paidMoreWaiting": "{amount} payé. Un autre paiement est en attente.",
       "settleSubtitle": "{count, plural, one {# conversion · facturée après son traitement} other {# conversions · facturées après leur traitement}}",
-      "personalUse": "Pour un usage personnel. L’usage commercial est inclus dans les forfaits Business et Studio."
+      "personalUse": "Pour un usage personnel. L’usage commercial est inclus dans les forfaits Business et Studio.",
+      "localAtCheckout": "Vous verrez le prix dans votre devise au moment du paiement."
     },
     "sheet": {
       "title": "{action} · {amount}",

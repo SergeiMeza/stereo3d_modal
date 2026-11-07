@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} мин {s} с",
       "hours": "{h} ч",
       "hoursMinutes": "{h} ч {m} мин"
+    },
+    "money": {
+      "paidLocal": "Оплачено {local} ({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "Оплатить {amount} и начать",
       "paidMoreWaiting": "Оплачено {amount}. Ожидает ещё один платёж.",
       "settleSubtitle": "{count, plural, one {# конвертация · оплата после завершения} few {# конвертации · оплата после завершения} many {# конвертаций · оплата после завершения} other {# конвертации · оплата после завершения}}",
-      "personalUse": "Для личного использования. Коммерческое использование входит в планы Business и Studio."
+      "personalUse": "Для личного использования. Коммерческое использование входит в планы Business и Studio.",
+      "localAtCheckout": "Цену в вашей валюте вы увидите при оплате."
     },
     "sheet": {
       "title": "{action} · {amount}",

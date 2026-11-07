@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} Min. {s} s",
       "hours": "{h} Std.",
       "hoursMinutes": "{h} Std. {m} Min."
+    },
+    "money": {
+      "paidLocal": "Bezahlt: {local} ({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "{amount} zahlen und starten",
       "paidMoreWaiting": "{amount} bezahlt. Eine weitere Zahlung steht aus.",
       "settleSubtitle": "{count, plural, one {# Umwandlung · nach Abschluss berechnet} other {# Umwandlungen · nach Abschluss berechnet}}",
-      "personalUse": "Für den privaten Gebrauch. Die gewerbliche Nutzung ist in den Paketen Business und Studio enthalten."
+      "personalUse": "Für den privaten Gebrauch. Die gewerbliche Nutzung ist in den Paketen Business und Studio enthalten.",
+      "localAtCheckout": "Den Preis in deiner Währung siehst du beim Bezahlen."
     },
     "sheet": {
       "title": "{action} · {amount}",

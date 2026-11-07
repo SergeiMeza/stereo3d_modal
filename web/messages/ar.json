@@ -67,6 +67,9 @@
       "minutesSeconds": "{m} د {s} ث",
       "hours": "{h} س",
       "hoursMinutes": "{h} س {m} د"
+    },
+    "money": {
+      "paidLocal": "مدفوع {local} ({usd})"
     }
   },
   "business": {
@@ -1238,7 +1241,8 @@
       "payAndStart": "ادفع {amount} وابدأ",
       "paidMoreWaiting": "تم دفع {amount}. هناك دفعة أخرى بانتظارك.",
       "settleSubtitle": "{count, plural, zero {لا عمليات تحويل · يُحتسب المبلغ بعد اكتمالها} one {تحويل واحد · يُحتسب المبلغ بعد اكتماله} two {تحويلان · يُحتسب المبلغ بعد اكتمالهما} few {# تحويلات · يُحتسب المبلغ بعد اكتمالها} many {# تحويلًا · يُحتسب المبلغ بعد اكتمالها} other {# تحويل · يُحتسب المبلغ بعد اكتمالها}}",
-      "personalUse": "للاستخدام الشخصي. الاستخدام التجاري متاح مع باقتي Business وStudio."
+      "personalUse": "للاستخدام الشخصي. الاستخدام التجاري متاح مع باقتي Business وStudio.",
+      "localAtCheckout": "سترى السعر بعملتك المحلية عند الدفع."
     },
     "sheet": {
       "title": "{action} · {amount}",
