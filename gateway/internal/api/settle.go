@@ -344,7 +344,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 			// Stripe refused before making a PaymentIntent (B3) still tries
 			// them; a configuration error alerts (B2).
 			if fail.Config {
-				s.alertConfigError(ctx, "deletion dues", st.ID, st.UID, fail)
+				s.alertConfigError(ctx, "settle "+st.Trigger, st.ID, st.UID, fail) // deletion dues or a web group's retry
 			}
 			fail.PaymentIntentID = piID
 			r := s.webBackups(ctx, cust, fail, func(pm string) (*stripe.PaymentIntent, error) {
