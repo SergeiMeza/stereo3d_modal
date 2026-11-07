@@ -26,6 +26,7 @@ import { useBilling } from "@/lib/billing";
 import { isTeamPlan } from "@/lib/api/types";
 import { isStripePro, useProStatus } from "@/lib/pro/usePro";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { mockOpen } from "@/lib/mockOpen";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 import { planPrice } from "./planCopy";
@@ -116,7 +117,13 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
     from: string | null;
     change: boolean;
     team: boolean;
-  } | null>(null);
+  } | null>(() => {
+    // the mock's screenshot deep link (?mockOpen=business|studio|business_yearly)
+    const asked = mockOpen();
+    return asked === "business" || asked === "studio" || asked === "business_yearly"
+      ? { plan: asked, from: null, change: false, team: false }
+      : null;
+  });
   // BUX-25: Business monthly or yearly (monthly first, as today)
   const [bizYearly, setBizYearly] = useState(false);
   const pro = useProStatus();

@@ -34,6 +34,7 @@ import type { PayRequest } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { mockOpen } from "@/lib/mockOpen";
 import type { Tr } from "@/lib/i18n/t";
 import { SITE_NAME } from "@/lib/site";
 
@@ -95,6 +96,8 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
         if (shut) return setState(shut);
         if (returned) return setState({ kind: "processing" });
         setState({ kind: "ready", info, ...(redirect === "failed" ? { notice: "pay.copy.declined" } : {}) });
+        // the mock's screenshot deep link (?mockOpen=form): the form opens
+        if (mockOpen() === "form") void pay(info);
       },
       (e: unknown) => {
         if (!live) return;
@@ -108,6 +111,8 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
     return () => {
       live = false;
     };
+    // pay is read once, for the mock's deep link only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gateway, token, attempt]);
 
   // REV-06: a payment being confirmed is read again until the link closes

@@ -50,6 +50,7 @@ import { handleOneTapAction, oneTapLabel, oneTapRefusal } from "@/components/pay
 import { Button } from "@/components/ui/button";
 import { InfoPopover } from "@/components/ui/info-popover";
 import { track, upgradeSession } from "@/lib/analytics";
+import { mockOpen } from "@/lib/mockOpen";
 import { GatewayError } from "@/lib/api/client";
 import {
   conversionMethod,
@@ -234,8 +235,11 @@ export function useStepCheckout(
       )
       .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))[0];
     if (running !== undefined) {
+      // the mock's screenshot deep link (?mockOpen=pay): the waiting run's
+      // pay sheet opens at once
+      const pay = running.state === "created" && mockOpen() === "pay";
       setState((s) =>
-        s.active !== null ? s : { ...s, active: running, settled: false },
+        s.active !== null ? s : { ...s, active: running, settled: false, ...(pay ? { payNow: running } : {}) },
       );
     }
   }, [active, conversions, method, step, setState]);
