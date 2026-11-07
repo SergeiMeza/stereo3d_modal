@@ -816,14 +816,19 @@ function RetryLine({ r }: { r: PaymentRetry }) {
   return (
     <span className="flex flex-col gap-0.5">
       <span className="tabular-nums">
-        <Badge variant={r.state === "final" ? "red" : r.state === "pending" ? "amber" : "plain"}>{r.state}</Badge>{" "}
+        <Badge variant={r.state === "final" ? "red" : "amber"}>{r.state}</Badge>{" "}
         {money(r.amount_cents)}
         {r.reason ? ` · ${words(r.reason)}` : ""}
         {typeof r.attempts === "number" ? ` · try ${r.attempts}${typeof r.max_attempts === "number" ? ` of ${r.max_attempts}` : ""}` : ""}
         {r.state === "pending" && r.next_attempt_at ? ` · next ${dateTime(r.next_attempt_at)}` : ""}
         {r.state === "final" && r.final_at ? ` · final ${dateTime(r.final_at)}` : ""}
       </span>
-      {r.last_error_message ? <span className="text-xs text-muted-foreground">{r.last_error_message}</span> : null}
+      {r.last_error_message || r.last_decline_code ? (
+        <span className="text-xs text-muted-foreground">
+          {r.last_error_message ?? ""}
+          {r.last_decline_code ? <span className="font-mono"> ({r.last_decline_code})</span> : null}
+        </span>
+      ) : null}
       {r.pay_url ? <PayLink url={r.pay_url} /> : null}
     </span>
   );

@@ -108,7 +108,7 @@ describe("account page (A3)", () => {
   });
 
   it("a past-due plan and payments being retried, with their pay pages (owner 2026-11-07, D)", async () => {
-    const retry = (state: string) => ({ state, reason: "soft_decline", attempts: 2, max_attempts: 4, next_attempt_at: "2026-11-09T09:00:00Z", amount_cents: 2500, pay_url: `https://stereo3d.studio/pay/tok_${state}`, last_error_message: "Your card was declined." });
+    const retry = (state: string) => ({ state, reason: "soft_decline", attempts: 2, max_attempts: 4, next_attempt_at: "2026-11-09T09:00:00Z", amount_cents: 2500, pay_url: `https://stereo3d.studio/pay/tok_${state}`, last_decline_code: "card_declined", last_error_message: "Your card was declined." });
     renderApp("/accounts/uid_123", {
       "GET /v1/admin/accounts/uid_123": () => ({
         json: {
@@ -126,7 +126,7 @@ describe("account page (A3)", () => {
     const reload = screen.getByTestId("reload-retry");
     expect(reload).toHaveTextContent("pending");
     expect(reload).toHaveTextContent("$25.00 · soft decline · try 2 of 4 · next");
-    expect(reload).toHaveTextContent("Your card was declined.");
+    expect(reload).toHaveTextContent("Your card was declined. (card_declined)");
     const dues = screen.getByTestId("dues-retry");
     expect(dues).toHaveTextContent("final");
     expect(within(dues).getByRole("link", { name: "Pay page ↗" })).toHaveAttribute("href", "https://stereo3d.studio/pay/tok_final");

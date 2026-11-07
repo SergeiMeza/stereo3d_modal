@@ -361,14 +361,17 @@ export interface OpenCaseBody {
 /** owner 2026-11-07 (D): an off-session charge being retried
  * (auto_reload.retry, dues_retry). */
 export interface PaymentRetry {
-  state: "pending" | "final" | "paid" | "canceled";
+  /** null (none) otherwise */
+  state: "pending" | "final";
   reason?: "soft_decline" | "authentication_required" | "hard_decline" | "stop_code" | "config";
   attempts?: number;
   max_attempts?: number;
   next_attempt_at?: string | null;
   final_at?: string | null;
   amount_cents: number;
+  currency?: string;
   pay_url?: string | null;
+  last_decline_code?: string | null;
   last_error_message?: string | null;
 }
 
