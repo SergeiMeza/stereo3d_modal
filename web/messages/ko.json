@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "{amount} 결제 완료. 결제 한 건이 더 남아 있어요.",
       "settleSubtitle": "{count, plural, other {변환 #건 · 완료 후 결제}}",
       "personalUse": "개인용이에요. 상업적 이용은 Business와 Studio 플랜에서 가능해요.",
-      "localAtCheckout": "결제 화면에서 현지 통화 가격이 표시돼요."
+      "localAtCheckout": "결제 화면에서 현지 통화 가격이 표시돼요.",
+      "formShowsLocal": "결제 양식에 현지 통화 가격이 표시돼요. 기본 가격 {usd}."
     },
     "sheet": {
       "title": "{action} · {amount}",

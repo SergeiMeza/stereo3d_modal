@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "{amount} payé. Un autre paiement est en attente.",
       "settleSubtitle": "{count, plural, one {# conversion · facturée après son traitement} other {# conversions · facturées après leur traitement}}",
       "personalUse": "Pour un usage personnel. L’usage commercial est inclus dans les forfaits Business et Studio.",
-      "localAtCheckout": "Vous verrez le prix dans votre devise au moment du paiement."
+      "localAtCheckout": "Vous verrez le prix dans votre devise au moment du paiement.",
+      "formShowsLocal": "Le formulaire de paiement affiche le prix dans votre devise. Prix de base {usd}."
     },
     "sheet": {
       "title": "{action} · {amount}",

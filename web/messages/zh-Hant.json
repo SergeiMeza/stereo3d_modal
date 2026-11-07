@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "已支付 {amount}。還有一筆付款在等待。",
       "settleSubtitle": "{count, plural, other {# 次轉換 · 完成後收費}}",
       "personalUse": "僅供個人使用。商業用途請選擇 Business 與 Studio 方案。",
-      "localAtCheckout": "結帳時會顯示您所在地區的價格。"
+      "localAtCheckout": "結帳時會顯示您所在地區的價格。",
+      "formShowsLocal": "付款表單會以您的貨幣顯示價格。基本價格 {usd}。"
     },
     "sheet": {
       "title": "{action} · {amount}",

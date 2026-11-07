@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "Pagaste {amount}. Falta otro pago.",
       "settleSubtitle": "{count, plural, one {# conversión · cobrada tras terminar} other {# conversiones · cobradas tras terminar}}",
       "personalUse": "Para uso personal. El uso comercial viene con los planes Business y Studio.",
-      "localAtCheckout": "Verás el precio en tu moneda al pagar."
+      "localAtCheckout": "Verás el precio en tu moneda al pagar.",
+      "formShowsLocal": "El formulario de pago muestra el precio en tu moneda. Precio base {usd}."
     },
     "sheet": {
       "title": "{action} · {amount}",

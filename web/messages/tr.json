@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "{amount} ödendi. Bir ödeme daha bekliyor.",
       "settleSubtitle": "{count, plural, other {# dönüştürme · tamamlandıktan sonra tahsil edildi}}",
       "personalUse": "Kişisel kullanım içindir. Ticari kullanım Business ve Studio planlarıyla gelir.",
-      "localAtCheckout": "Yerel para biriminizdeki fiyatı ödeme sırasında göreceksiniz."
+      "localAtCheckout": "Yerel para biriminizdeki fiyatı ödeme sırasında göreceksiniz.",
+      "formShowsLocal": "Ödeme formu fiyatı kendi para biriminizde gösterir. Temel fiyat {usd}."
     },
     "sheet": {
       "title": "{action} · {amount}",

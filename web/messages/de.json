@@ -1242,7 +1242,8 @@
       "paidMoreWaiting": "{amount} bezahlt. Eine weitere Zahlung steht aus.",
       "settleSubtitle": "{count, plural, one {# Umwandlung · nach Abschluss berechnet} other {# Umwandlungen · nach Abschluss berechnet}}",
       "personalUse": "Für den privaten Gebrauch. Die gewerbliche Nutzung ist in den Paketen Business und Studio enthalten.",
-      "localAtCheckout": "Den Preis in deiner Währung siehst du beim Bezahlen."
+      "localAtCheckout": "Den Preis in deiner Währung siehst du beim Bezahlen.",
+      "formShowsLocal": "Das Zahlungsformular zeigt den Preis in deiner Währung. Grundpreis {usd}."
     },
     "sheet": {
       "title": "{action} · {amount}",
