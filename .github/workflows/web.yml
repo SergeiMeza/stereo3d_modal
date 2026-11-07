@@ -13,6 +13,12 @@ on:
 jobs:
   web:
     runs-on: ubuntu-latest
+    # CI 2026-11-07: the same clock and language as vitest.config.ts pins
+    # (date tests read the local day; Intl's default locale follows LANG)
+    env:
+      TZ: UTC
+      LANG: en_US.UTF-8
+      LC_ALL: en_US.UTF-8
     defaults:
       run:
         working-directory: web
