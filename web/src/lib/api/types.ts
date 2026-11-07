@@ -347,6 +347,12 @@ export interface Params {
 }
 
 export interface QuoteBreakdown {
+  /** gateway 00175: the launch offer's line (0 when it doesn't apply),
+   * its words ("Launch offer −25%"), its share and the campaign's name */
+  campaign_cents?: number;
+  campaign_label?: string;
+  campaign_pct?: number;
+  campaign_name?: string;
   /** gateway 00172: the file quality add-on and its line ("High quality +30%") */
   quality?: OutputQuality;
   quality_label?: string;
@@ -552,6 +558,8 @@ export interface Conversion {
   pay_split?: RunPaySplit;
   /** gateway 00172: Foveated Detail on this run */
   foveation?: FoveationInfo;
+  /** gateway 00175: the launch offer's line on this run (0 without) */
+  campaign_cents?: number;
   /** gateway 00172: the file quality asked for (web Lifelike) */
   quality?: OutputQuality;
   /** gateway 00172: the bitrate asked for (auto, match_source, a number
@@ -588,6 +596,19 @@ export interface ConversionPart {
   index: number; // 1-based
   start_s: number;
   duration_s: number;
+}
+
+/** GET /v1/pricing campaign (gateway 00175). */
+export interface PricingCampaign {
+  active: boolean;
+  pct?: number;
+  percent?: number;
+  max_preset?: string;
+  presets?: string[];
+  starts_at?: string | null;
+  ends_at?: string | null;
+  /** "Launch offer until Jan 10" */
+  label?: string;
 }
 
 /** gateway 00172: Foveated Detail on a quote or a run. At 1080p it is
@@ -794,6 +815,9 @@ export interface PublicPricing {
   pro_plans?: ProPlanDef[];
   /** owner 2026-11-07: the usage credit joining Pro gives */
   pro_credit?: ProCreditDef;
+  /** gateway 00175: the launch offer (web Lifelike production runs at the
+   * listed qualities, while active) */
+  campaign?: PricingCampaign;
   /** owner 2026-11-07, gateway 00172: the web's file quality tiers, each
    * tier's rate and price share */
   quality?: {

@@ -142,6 +142,12 @@ function HistoryRow({
           >
             {formatCents(c.quote.amount_cents)}
             {word ? ` · ${word}` : ""}
+            {/* owner 2026-11-07: the launch offer the run had */}
+            {(c.campaign_cents ?? c.quote.breakdown?.campaign_cents ?? 0) > 0 ? (
+              <span data-testid="history-offer" className="ml-1 text-xs text-emerald-300">
+                {c.quote.breakdown?.campaign_label ?? "Launch offer"}
+              </span>
+            ) : null}
           </span>
         </span>
       </div>

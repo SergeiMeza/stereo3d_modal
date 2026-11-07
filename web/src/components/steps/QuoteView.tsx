@@ -179,7 +179,7 @@ export function QuoteView({
   const minimumApplied =
     !freePreview &&
     b.subtotal_cents !== undefined &&
-    total > subtotal - reuse - (tierMode ? (discount?.cents ?? 0) : bulk + proOff);
+    total > subtotal - reuse - (tierMode ? (discount?.cents ?? 0) : bulk + proOff) - (b.campaign_cents ?? 0);
 
   // the rate the run converts at (the chosen one, or the source's)
   const fps = quotedFps(result.params, b.fps_factor);
@@ -369,6 +369,16 @@ export function QuoteView({
           }
           value={formatCents(-discount.cents)}
           testId={discount.kind === "tier" ? "quote-tier" : "quote-bulk-discount"}
+          tone="discount"
+        />
+      ) : null}
+      {/* owner 2026-11-07: the launch offer, in the gateway's words, after
+          the plan or Pro price */}
+      {(b.campaign_cents ?? 0) > 0 ? (
+        <Line
+          label={b.campaign_label ?? "Launch offer"}
+          value={formatCents(-(b.campaign_cents ?? 0))}
+          testId="quote-campaign"
           tone="discount"
         />
       ) : null}

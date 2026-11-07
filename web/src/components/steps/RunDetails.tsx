@@ -171,6 +171,9 @@ export function detailRows(project: Project, c: Conversion): DetailRow[] {
       add("Discount", `−${formatCents(other)}`);
     }
   }
+  // owner 2026-11-07: the launch offer the run had, in the quote's words
+  const offer = c.campaign_cents ?? b?.campaign_cents ?? 0;
+  if (!free && offer > 0) add("Launch offer", `${b?.campaign_label ?? "Launch offer"} · −${formatCents(offer)}`);
   return rows;
 }
 

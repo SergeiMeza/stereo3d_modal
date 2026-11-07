@@ -285,12 +285,15 @@ export function QualityTiles({
   onChange,
   prices,
   note,
+  badges,
 }: {
   choices: readonly QualityChoice[];
   value: Preset;
   onChange: (p: Preset) => void;
   prices: Partial<Record<Preset, number>>;
   note?: ReactNode;
+  /** owner 2026-11-07: "−25% launch offer" on the qualities it covers */
+  badges?: Partial<Record<Preset, string>>;
 }): JSX.Element {
   return (
     <>
@@ -336,6 +339,14 @@ export function QualityTiles({
               {q.originalEyeRequired ? (
                 <span className="text-[11px] text-fg-muted">
                   One eye keeps your original picture.
+                </span>
+              ) : null}
+              {badges?.[q.preset] ? (
+                <span
+                  data-testid={`quality-offer-${q.preset}`}
+                  className="w-fit rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
+                >
+                  {badges[q.preset]}
                 </span>
               ) : null}
               <span

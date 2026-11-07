@@ -22,6 +22,7 @@ import { ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 import { FOVEATED_DETAIL, foveationIncludedPresets } from "@/lib/foveation";
 import { QUALITY_STEPS, qualityName as fileQualityName, qualityPct, qualitySteps } from "@/components/steps/FileQuality";
+import { activeCampaign, campaignBadge, campaignNote } from "@/lib/campaign";
 
 /** Whose prices: the list, or a plan's own column. */
 export type PriceKey = "list" | "pro" | "business" | "studio";
@@ -108,6 +109,16 @@ export function LifelikePrices({
                 <span className="ml-2 font-mono text-[11px] text-fg-muted">
                   {size169(p)}
                 </span>
+                {/* owner 2026-11-07: a badge only; the prices stay the list */}
+                {campaignBadge(pricing, p) ? (
+                  <span
+                    data-testid={`offer-${p}`}
+                    title={activeCampaign(pricing)?.label}
+                    className="ml-2 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
+                  >
+                    {campaignBadge(pricing, p)}
+                  </span>
+                ) : null}
               </td>
               <td data-testid={`price-${p}`} className="py-2 text-right font-mono">
                 {own && typeof list[p] === "number" && list[p]! > mine[p]! ? (
@@ -126,6 +137,11 @@ export function LifelikePrices({
           ))}
         </tbody>
       </table>
+      {campaignNote(pricing) ? (
+        <p data-testid="pricing-offer" className="mt-2 text-xs text-emerald-300">
+          {campaignNote(pricing)}
+        </p>
+      ) : null}
       {/* owner 2026-11-07: the credit joining Pro gives, beside its column */}
       {pro && creditLine(proCreditCents(pricing)) ? (
         <p data-testid="pricing-pro-credit" className="mt-2 text-xs text-primary">

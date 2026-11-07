@@ -174,6 +174,22 @@ describe("Files (screen 09)", () => {
     expect(await screen.findByTestId("settle-sheet")).toBeTruthy();
   });
 
+  it("a run the launch offer covered says so beside its price (owner 2026-11-07)", () => {
+    renderWithHistory([
+      {
+        ...SUCCEEDED,
+        conversion_id: "conv00000offer",
+        step: "production",
+        params: { preset: "1080p", formats: ["mvhevc"] },
+        quote: { amount_cents: 675, currency: "usd", breakdown: { campaign_cents: 225, campaign_label: "Launch offer −25%" } },
+        campaign_cents: 225,
+      },
+    ]);
+    const row = screen.getByTestId("history-conv00000offer");
+    expect(within(row).getByTestId("history-offer").textContent).toBe("Launch offer −25%");
+    expect(within(row).getByTestId("history-price").textContent).toContain("$6.75");
+  });
+
   it("sums what's owed; nothing owed means plain downloads", () => {
     expect(outstandingCents(null)).toBe(0);
     expect(

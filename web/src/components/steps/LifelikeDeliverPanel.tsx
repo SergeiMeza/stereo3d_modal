@@ -20,6 +20,7 @@ import type { JSX } from "react";
 import {
   conversionMethod,
   type Format,
+  type Preset,
   type Project,
   type StepConversionRequest,
 } from "@/lib/api/types";
@@ -62,6 +63,7 @@ import { AlreadyMadeNote, PreviousRuns } from "./PreviousRuns";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
 import { FileQualityScale, qualitySteps } from "./FileQuality";
+import { campaignBadge, campaignNote } from "@/lib/campaign";
 import { FOVEATED_DETAIL, FOVEATED_HINT, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
 
 /** "Your video is N minutes long. …" — the split question. */
@@ -176,6 +178,13 @@ export function LifelikeDeliverPanel({
   const addons = pricing?.addons;
   const [fileQuality, setFileQuality] = useMake3dChoice(pid, "quality");
   const qualityOffered = qualitySteps(pricing).length > 1;
+  // owner 2026-11-07: the launch offer marks the qualities it covers
+  const offerBadges = Object.fromEntries(
+    choices.flatMap((q) => {
+      const b = campaignBadge(pricing, q.preset);
+      return b ? [[q.preset, b]] : [];
+    }),
+  ) as Partial<Record<Preset, string>>;
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
   // plans canvas, Quote A: pay once (always first) or with Pro
   const [payMode, setPayMode] = useMake3dChoice(pid, "payMode");
@@ -357,12 +366,19 @@ export function LifelikeDeliverPanel({
             value={preset}
             onChange={(p) => change(() => setPreset(p))}
             prices={prices}
+            badges={offerBadges}
             note={
-              choices.length === 1
-                ? `Your video is ${resolutionName(probe)}.`
-                : choices.some((q) => q.label.startsWith("Full resolution"))
-                  ? "Full resolution is your video's own size, priced like the step below it."
-                  : undefined
+              [
+                choices.length === 1
+                  ? `Your video is ${resolutionName(probe)}.`
+                  : choices.some((q) => q.label.startsWith("Full resolution"))
+                    ? "Full resolution is your video's own size, priced like the step below it."
+                    : null,
+                // owner 2026-11-07: the launch offer, in the gateway's words
+                Object.keys(offerBadges).length > 0 ? campaignNote(pricing) : null,
+              ]
+                .filter(Boolean)
+                .join(" ") || undefined
             }
           />
           {/* owner request 2026-11-04: the black bars setting, as on Overview */}

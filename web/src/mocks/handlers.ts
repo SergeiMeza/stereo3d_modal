@@ -416,6 +416,9 @@ interface DB {
   /** pricing 2026-11 (tiers, add-ons, free previews); off in unit tests
    * so the older price assertions keep their numbers */
   tierPricing: boolean;
+  /** the launch offer (gateway 00175): on in the dev mock like TEST, off
+   * in unit tests so the older price assertions keep their numbers */
+  campaign: boolean;
   /** tests: fixed alt_prices on every Lifelike quote (null = priced) */
   altPricesFixed: Partial<Record<"pro" | "business" | "studio", number>> | null;
   /** tests: usage credit a quote is paid from first (gateway 00166 pay_split) */
@@ -1010,6 +1013,7 @@ function seed(): DB {
     pro: null,
     proCredit: undefined,
     tierPricing: !(typeof process !== "undefined" && process.env?.VITEST),
+    campaign: !(typeof process !== "undefined" && process.env?.VITEST),
     altPricesFixed: null as Partial<Record<"pro" | "business" | "studio", number>> | null,
     quoteCreditCents: null as number | null,
     fpsCap: !(typeof process !== "undefined" && process.env?.VITEST),
@@ -1073,6 +1077,7 @@ export const mockDb = {
     this.lifelikeFoveation = fresh.lifelikeFoveation;
     this.pro = fresh.pro;
     this.tierPricing = fresh.tierPricing;
+    this.campaign = fresh.campaign;
     this.altPricesFixed = fresh.altPricesFixed;
     this.freePreviews = fresh.freePreviews;
     this.plays = fresh.plays;
@@ -1958,6 +1963,39 @@ function mockFoveation(project: Project, req: StepConversionRequest) {
     : { applied: false, included: true, reason: "output_not_below_source" as const };
 }
 
+/** TEST's launch offer (gateway README "Launch campaign"): 25% off web
+ * Lifelike production runs up to 1440p, until the end of Jan 10 Pacific */
+export const MOCK_CAMPAIGN = {
+  pct: 0.25,
+  max_preset: "qhd" as Preset,
+  presets: ["1080p", "qhd"] as Preset[],
+  starts_at: "2026-11-07T00:00:00Z",
+  ends_at: "2027-01-11T07:59:59Z",
+  label: "Launch offer until Jan 10",
+};
+
+function campaignActive(): boolean {
+  const now = Date.now();
+  return (
+    mockDb.campaign &&
+    now >= Date.parse(MOCK_CAMPAIGN.starts_at) &&
+    now <= Date.parse(MOCK_CAMPAIGN.ends_at)
+  );
+}
+
+/** GET /v1/pricing campaign {active, pct, percent, max_preset, presets,
+ * starts_at, ends_at, label}; active false without one */
+function publicCampaign(): Record<string, unknown> {
+  if (!mockDb.campaign) return { active: false };
+  return { active: campaignActive(), ...MOCK_CAMPAIGN, percent: Math.round(MOCK_CAMPAIGN.pct * 100) };
+}
+
+/** the run carries the quote's campaign_cents (when it has one) */
+function campaignOf(quote: Conversion["quote"]): { campaign_cents?: number } {
+  const c = quote.breakdown?.campaign_cents as number | undefined;
+  return c !== undefined ? { campaign_cents: c } : {};
+}
+
 function lifelikeQuoteFor(
   project: Project,
   req: StepConversionRequest,
@@ -2006,7 +2044,13 @@ function lifelikeQuoteFor(
       const base = (perMin: number) => Math.ceil(Math.ceil(outputSeconds / 60) * perMin * fpsFactor);
       q = composeTier(base(listPer), base(tierPer), tier, addOns, true);
     }
-    let total = Math.max(q.final, minimumFor(req.step));
+    // the launch offer: after the plan or Pro price, on the whole run,
+    // by the output preset; web production runs only
+    const campaign =
+      !preview && campaignActive() && MOCK_CAMPAIGN.presets.includes(preset)
+        ? Math.round(q.final * MOCK_CAMPAIGN.pct)
+        : 0;
+    let total = Math.max(q.final - campaign, minimumFor(req.step));
     const units = preview ? previewUnits(priced, outputSeconds, effFPS) : 0;
     const free = preview && freePreviewState(units).free;
     const priceWithoutFree = total;
@@ -2035,6 +2079,14 @@ function lifelikeQuoteFor(
           pro_discount_pct: q.kind === "tier" ? q.dpct : 0,
           express: req.express === true,
           express_included: expressIncluded,
+          campaign_cents: campaign,
+          ...(campaign > 0
+            ? {
+                campaign_label: `Launch offer −${Math.round(MOCK_CAMPAIGN.pct * 100)}%`,
+                campaign_pct: MOCK_CAMPAIGN.pct,
+                campaign_name: MOCK_CAMPAIGN.label,
+              }
+            : {}),
           ...(q.adds.foveated ? { foveation_factor: 1.3, foveation_cents: q.adds.foveated } : {}),
           ...(req.quality === "high" || req.quality === "master"
             ? {
@@ -4589,6 +4641,7 @@ export const handlers = [
       balance: { window_hours: 1, new_account_cap_cents: mockDb.billing.batchCapCents },
       pro_discount: { ...MOCK_PRO, pct: mockProPct() },
       ...(mockDb.tierPricing ? publicTiers() : {}),
+      campaign: publicCampaign(),
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
       pro_credit: MOCK_PRO_CREDIT,
@@ -5208,6 +5261,7 @@ export const handlers = [
           scenes_version: p.scenes?.version,
           params: resolved,
           quote,
+          ...campaignOf(quote),
           progress: 0,
           stage: "",
           eta_seconds: 0,
@@ -5235,6 +5289,7 @@ export const handlers = [
         scenes_version: p.scenes?.version,
         params: resolved,
         quote,
+        ...campaignOf(quote),
         progress: 0,
         ...(method === "lifelike" ? { foveation: mockFoveation(p, req) } : {}),
         ...(req.quality ? { quality: req.quality } : {}),
