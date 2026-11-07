@@ -143,7 +143,7 @@
         "asksOnly": "El pago solo pide tu método de pago y tu país. El nombre, la dirección y el ID fiscal de tu empresa pueden ir después.",
         "whatHappensBusiness": "Qué pasa con tu {business}",
         "whatHappensPro": "Qué pasa con tu {pro}",
-        "manageAppStore": "Administrar plan de la App Store",
+        "manageAppStore": "Administrar en la App Store",
         "workingOut": "Calculando el precio de hoy…",
         "previewFailed": "No pudimos calcular el precio de hoy. No se cobra nada hasta que confirmes.",
         "changing": "Cambiando…",
@@ -292,7 +292,7 @@
       "fromMonthly": "desde {price} al mes",
       "hide": "Ocultar",
       "checkout": {
-        "title": "Elige un plan y convierte",
+        "title": "Obtener el plan y convertir",
         "paymentFailed": "El pago no se completó.",
         "takesOff": "{pro} te da {pct}% de descuento en este video y en todos los siguientes.",
         "takesOffWithCredit": "{pro} te da {pct}% de descuento en este video y en todos los siguientes, e incluye {credit}.",
@@ -662,7 +662,8 @@
       "prepaid": "Prepago de {amount}",
       "paused": {
         "declined": "La recarga automática está en pausa porque un pago no se completó.",
-        "limit": "La recarga automática está en pausa: se alcanzó el límite diario. Se reanuda mañana."
+        "limit": "La recarga automática está en pausa: se alcanzó el límite diario. Se reanuda mañana.",
+        "retrying": "En pausa mientras reintentamos la última recarga."
       },
       "turnBackOn": "Reactivar",
       "autoReload": "Recarga automática",
@@ -755,6 +756,14 @@
       "withPlan": "Con {plan}",
       "pctOff": "{pct}% de descuento en cada minuto",
       "upgradeTo": "Mejorar a {plan}"
+    },
+    "issues": {
+      "pastDue": "El pago de tu plan {plan} no se completó. Paga ahora para conservar tu plan.",
+      "pastDueConfirm": "El pago de tu plan {plan} no se completó. Confirma el pago con tu banco.",
+      "retryOn": "Un pago no se completó. Lo intentaremos de nuevo el {date}.",
+      "retrying": "Un pago no se completó. Lo intentaremos de nuevo pronto.",
+      "failed": "El pago falló.",
+      "payNow": "Pagar ahora"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "Pago sin terminar.",
       "opening": "Abriendo…",
       "continue": "Continuar al pago"
+    },
+    "request": {
+      "pay": "Pagar {amount}",
+      "paid": "Pagado. ¡Gracias!",
+      "void": "Este pago ya no es necesario.",
+      "expired": "Este enlace de pago venció. Inicia sesión y abre Facturación para pagar.",
+      "bad": "Este enlace de pago no es válido.",
+      "confirmWithBank": "Confirma el pago con tu banco.",
+      "bankDidntConfirm": "Tu banco no confirmó el pago.",
+      "payOnInvoice": "Pagar en la página de la factura"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro}: precios más bajos en cada video 3D en la web, crédito de uso al unirte, vistas previas gratis y {pro} en la app para iPhone, iPad, Mac y Vision Pro."
+    },
+    "payRequest": {
+      "title": "Realizar un pago"
     }
   },
   "onboarding": {
@@ -2392,7 +2414,7 @@
       "alwaysOn": "Siempre activo en esta calidad",
       "includedDot": "· incluido",
       "fpsHint": "Tu video es {fps}. Elige con cuántos fotogramas crearlo.",
-      "subscribeAndConvert": "Elegir plan y convertir",
+      "subscribeAndConvert": "Obtener el plan y convertir",
       "earlierFiles": "Tus archivos anteriores están en Archivos",
       "whichEye": "Qué ojo",
       "left": "Izquierdo",

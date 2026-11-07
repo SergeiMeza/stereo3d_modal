@@ -143,7 +143,7 @@
         "asksOnly": "Le paiement demande seulement votre moyen de paiement et votre pays. Le nom, l’adresse et le numéro de TVA de votre entreprise peuvent suivre ensuite.",
         "whatHappensBusiness": "Ce qui arrive à votre {business}",
         "whatHappensPro": "Ce qui arrive à votre {pro}",
-        "manageAppStore": "Gérer le forfait App Store",
+        "manageAppStore": "Gérer dans l’App Store",
         "workingOut": "Calcul du prix du jour…",
         "previewFailed": "Impossible de calculer le prix du jour. Rien n’est débité avant votre confirmation.",
         "changing": "Modification…",
@@ -662,7 +662,8 @@
       "prepaid": "Prépayé {amount}",
       "paused": {
         "declined": "La recharge auto est suspendue car un paiement n’a pas abouti.",
-        "limit": "La recharge auto est suspendue : limite quotidienne atteinte. Elle reprend demain."
+        "limit": "La recharge auto est suspendue : limite quotidienne atteinte. Elle reprend demain.",
+        "retrying": "En pause pendant que nous retentons la dernière recharge."
       },
       "turnBackOn": "Réactiver",
       "autoReload": "Recharge auto",
@@ -755,6 +756,14 @@
       "withPlan": "Avec {plan}",
       "pctOff": "−{pct} % sur chaque minute",
       "upgradeTo": "Passer à {plan}"
+    },
+    "issues": {
+      "pastDue": "Le paiement de votre forfait {plan} n’a pas abouti. Payez maintenant pour le conserver.",
+      "pastDueConfirm": "Le paiement de votre forfait {plan} n’a pas abouti. Confirmez le paiement auprès de votre banque.",
+      "retryOn": "Un paiement n’a pas abouti. Nous réessaierons le {date}.",
+      "retrying": "Un paiement n’a pas abouti. Nous réessaierons bientôt.",
+      "failed": "Échec du paiement.",
+      "payNow": "Payer maintenant"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "Paiement non terminé.",
       "opening": "Ouverture…",
       "continue": "Continuer vers le paiement"
+    },
+    "request": {
+      "pay": "Payer {amount}",
+      "paid": "Paiement effectué. Merci.",
+      "void": "Ce paiement n’est plus nécessaire.",
+      "expired": "Ce lien de paiement a expiré. Connectez-vous et ouvrez Facturation pour payer.",
+      "bad": "Ce lien de paiement n’est pas valide.",
+      "confirmWithBank": "Confirmez le paiement auprès de votre banque.",
+      "bankDidntConfirm": "Votre banque n’a pas confirmé le paiement.",
+      "payOnInvoice": "Payer sur la page de la facture"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro} : prix réduits sur chaque vidéo 3D sur le web, crédit d’utilisation à l’inscription, aperçus gratuits et {pro} dans l’app sur iPhone, iPad, Mac et Vision Pro."
+    },
+    "payRequest": {
+      "title": "Effectuer un paiement"
     }
   },
   "onboarding": {
@@ -2392,7 +2414,7 @@
       "alwaysOn": "Toujours actif à cette qualité",
       "includedDot": "· inclus",
       "fpsHint": "Votre vidéo est en {fps}. Choisissez la cadence de conversion.",
-      "subscribeAndConvert": "S’abonner et passer en 3D",
+      "subscribeAndConvert": "Prendre le forfait et convertir",
       "earlierFiles": "Vos fichiers précédents sont dans Fichiers",
       "whichEye": "Quel œil",
       "left": "Gauche",

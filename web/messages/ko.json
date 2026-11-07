@@ -143,7 +143,7 @@
         "asksOnly": "결제 단계에서는 결제 수단과 국가만 물어봐요. 회사 이름, 주소, 세금 ID는 나중에 입력해도 돼요.",
         "whatHappensBusiness": "내 {business}는 어떻게 되나요",
         "whatHappensPro": "내 {pro}는 어떻게 되나요",
-        "manageAppStore": "App Store 플랜 관리",
+        "manageAppStore": "App Store에서 관리",
         "workingOut": "오늘 가격을 계산하는 중…",
         "previewFailed": "오늘 가격을 계산하지 못했어요. 확인하기 전에는 결제되지 않아요.",
         "changing": "변경 중…",
@@ -292,7 +292,7 @@
       "fromMonthly": "월 {price}부터",
       "hide": "숨기기",
       "checkout": {
-        "title": "가입하고 변환",
+        "title": "플랜 가입 후 변환",
         "paymentFailed": "결제가 완료되지 않았어요.",
         "takesOff": "{pro}로 이 영상과 이후 모든 영상이 {pct}% 할인돼요.",
         "takesOffWithCredit": "{pro}로 이 영상과 이후 모든 영상이 {pct}% 할인되고, {credit}도 포함돼요.",
@@ -662,7 +662,8 @@
       "prepaid": "선결제 {amount}",
       "paused": {
         "declined": "결제가 완료되지 않아 자동 충전이 일시 중지됐어요.",
-        "limit": "자동 충전 일시 중지: 일일 한도에 도달했어요. 내일 다시 시작돼요."
+        "limit": "자동 충전 일시 중지: 일일 한도에 도달했어요. 내일 다시 시작돼요.",
+        "retrying": "마지막 자동 충전을 다시 시도하는 동안 일시 중지돼요."
       },
       "turnBackOn": "다시 켜기",
       "autoReload": "자동 충전",
@@ -755,6 +756,14 @@
       "withPlan": "{plan} 이용 시",
       "pctOff": "모든 분량 {pct}% 할인",
       "upgradeTo": "{plan}(으)로 업그레이드"
+    },
+    "issues": {
+      "pastDue": "{plan} 결제가 완료되지 않았어요. 플랜을 유지하려면 지금 결제하세요.",
+      "pastDueConfirm": "{plan} 결제가 완료되지 않았어요. 은행에서 결제를 승인해 주세요.",
+      "retryOn": "결제가 완료되지 않았어요. {date}에 다시 시도할게요.",
+      "retrying": "결제가 완료되지 않았어요. 곧 다시 시도할게요.",
+      "failed": "결제에 실패했어요.",
+      "payNow": "지금 결제"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "결제가 끝나지 않았어요.",
       "opening": "여는 중…",
       "continue": "결제 계속하기"
+    },
+    "request": {
+      "pay": "{amount} 결제",
+      "paid": "결제가 완료됐어요. 감사합니다.",
+      "void": "이 결제는 더 이상 필요하지 않아요.",
+      "expired": "이 결제 링크가 만료됐어요. 로그인한 뒤 결제 내역에서 결제하세요.",
+      "bad": "유효하지 않은 결제 링크예요.",
+      "confirmWithBank": "은행에서 결제를 승인해 주세요.",
+      "bankDidntConfirm": "은행에서 결제를 승인하지 않았어요.",
+      "payOnInvoice": "인보이스 페이지에서 결제"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro}: 웹의 모든 3D 영상 가격 인하, 가입 시 사용량 크레딧, 무료 미리보기, iPhone, iPad, Mac, Vision Pro 앱의 {pro}."
+    },
+    "payRequest": {
+      "title": "결제하기"
     }
   },
   "onboarding": {
@@ -2392,7 +2414,7 @@
       "alwaysOn": "이 품질에서는 항상 켜짐",
       "includedDot": "· 포함",
       "fpsHint": "내 영상은 {fps}예요. 만들 프레임 레이트를 고르세요.",
-      "subscribeAndConvert": "가입하고 변환",
+      "subscribeAndConvert": "플랜 가입 후 변환",
       "earlierFiles": "이전 파일은 파일 탭에 있어요",
       "whichEye": "어느 쪽 눈",
       "left": "왼쪽",

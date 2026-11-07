@@ -143,7 +143,7 @@
         "asksOnly": "Ödeme adımında yalnızca ödeme yönteminiz ve ülkeniz istenir. Şirket adı, adres ve vergi numaranızı sonra ekleyebilirsiniz.",
         "whatHappensBusiness": "{business} planınıza ne olacak",
         "whatHappensPro": "{pro} planınıza ne olacak",
-        "manageAppStore": "App Store planını yönet",
+        "manageAppStore": "App Store’da yönet",
         "workingOut": "Bugünkü fiyat hesaplanıyor…",
         "previewFailed": "Bugünkü fiyat hesaplanamadı. Siz onaylayana kadar hiçbir şey tahsil edilmez.",
         "changing": "Değiştiriliyor…",
@@ -292,7 +292,7 @@
       "fromMonthly": "aylık {price}’den",
       "hide": "Bunu gizle",
       "checkout": {
-        "title": "Plana katıl ve dönüştür",
+        "title": "Planı al ve dönüştür",
         "paymentFailed": "Ödeme gerçekleşmedi.",
         "takesOff": "{pro}, bu videoda ve sonraki her videoda %{pct} indirim sağlar.",
         "takesOffWithCredit": "{pro}, bu videoda ve sonraki her videoda %{pct} indirim sağlar ve {credit} içerir.",
@@ -662,7 +662,8 @@
       "prepaid": "Ön ödemeli {amount}",
       "paused": {
         "declined": "Bir ödeme gerçekleşmediği için otomatik yükleme duraklatıldı.",
-        "limit": "Otomatik yükleme duraklatıldı: günlük sınıra ulaşıldı. Yarın devam eder."
+        "limit": "Otomatik yükleme duraklatıldı: günlük sınıra ulaşıldı. Yarın devam eder.",
+        "retrying": "Son yüklemeyi yeniden denerken duraklatıldı."
       },
       "turnBackOn": "Yeniden aç",
       "autoReload": "Otomatik yükleme",
@@ -755,6 +756,14 @@
       "withPlan": "{plan} ile",
       "pctOff": "Her dakikada %{pct} indirim",
       "upgradeTo": "{plan} planına geç"
+    },
+    "issues": {
+      "pastDue": "{plan} ödemeniz gerçekleşmedi. Planınızı korumak için şimdi ödeyin.",
+      "pastDueConfirm": "{plan} ödemeniz gerçekleşmedi. Ödemeyi bankanızla onaylayın.",
+      "retryOn": "Bir ödeme gerçekleşmedi. {date} tarihinde yeniden deneyeceğiz.",
+      "retrying": "Bir ödeme gerçekleşmedi. Yakında yeniden deneyeceğiz.",
+      "failed": "Ödeme başarısız oldu.",
+      "payNow": "Şimdi öde"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "Ödeme tamamlanmadı.",
       "opening": "Açılıyor…",
       "continue": "Ödemeye devam et"
+    },
+    "request": {
+      "pay": "{amount} öde",
+      "paid": "Ödendi. Teşekkürler!",
+      "void": "Bu ödemeye artık gerek yok.",
+      "expired": "Bu ödeme bağlantısının süresi doldu. Ödemek için oturum açıp Faturalandırma’yı açın.",
+      "bad": "Bu ödeme bağlantısı geçerli değil.",
+      "confirmWithBank": "Ödemeyi bankanızla onaylayın.",
+      "bankDidntConfirm": "Bankanız ödemeyi onaylamadı.",
+      "payOnInvoice": "Fatura sayfasında öde"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro}: web’de her 3D videoda daha düşük fiyatlar, katıldığınızda kullanım kredisi, ücretsiz önizlemeler ve iPhone, iPad, Mac ve Vision Pro uygulamasında {pro}."
+    },
+    "payRequest": {
+      "title": "Ödeme yap"
     }
   },
   "onboarding": {
@@ -2392,7 +2414,7 @@
       "alwaysOn": "Bu kalitede hep açık",
       "includedDot": "· dahil",
       "fpsHint": "Videonuz {fps}. Hangi hızda yapılacağını seçin.",
-      "subscribeAndConvert": "Katıl ve dönüştür",
+      "subscribeAndConvert": "Planı al ve dönüştür",
       "earlierFiles": "Önceki dosyalarınız Dosyalar’da",
       "whichEye": "Hangi göz",
       "left": "Sol",

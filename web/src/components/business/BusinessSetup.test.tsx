@@ -187,7 +187,7 @@ describe("Business and Studio setup", () => {
     expect(slot.textContent).toContain(APP_STORE_PRO_NOTE);
     expect(
       screen
-        .getByRole("link", { name: "Manage App Store subscription" })
+        .getByRole("link", { name: "Manage in the App Store" })
         .getAttribute("href"),
     ).toBe("https://apps.apple.com/account/subscriptions");
   });

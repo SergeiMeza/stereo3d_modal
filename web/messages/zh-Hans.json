@@ -143,7 +143,7 @@
         "asksOnly": "结账时只需填写付款方式和国家/地区，公司名称、地址和税号可以之后再补。",
         "whatHappensBusiness": "你的 {business} 会怎样",
         "whatHappensPro": "你的 {pro} 会怎样",
-        "manageAppStore": "管理 App Store 套餐",
+        "manageAppStore": "在 App Store 中管理",
         "workingOut": "正在计算今天的价格…",
         "previewFailed": "无法计算今天的价格。确认前不会扣费。",
         "changing": "正在更改…",
@@ -292,7 +292,7 @@
       "fromMonthly": "每月 {price} 起",
       "hide": "隐藏",
       "checkout": {
-        "title": "开通套餐并转换",
+        "title": "获取套餐并转换",
         "paymentFailed": "付款未成功。",
         "takesOff": "{pro} 让此视频及之后每个视频立减 {pct}%。",
         "takesOffWithCredit": "{pro} 让此视频及之后每个视频立减 {pct}%，并包含 {credit}。",
@@ -662,7 +662,8 @@
       "prepaid": "已预付 {amount}",
       "paused": {
         "declined": "因付款未成功，自动充值已暂停。",
-        "limit": "自动充值已暂停：已达每日上限。明天恢复。"
+        "limit": "自动充值已暂停：已达每日上限。明天恢复。",
+        "retrying": "正在重试上一次自动充值，暂时停用。"
       },
       "turnBackOn": "重新开启",
       "autoReload": "自动充值",
@@ -755,6 +756,14 @@
       "withPlan": "使用 {plan}",
       "pctOff": "每分钟立减 {pct}%",
       "upgradeTo": "升级到 {plan}"
+    },
+    "issues": {
+      "pastDue": "你的 {plan} 付款未成功。立即付款以保留你的套餐。",
+      "pastDueConfirm": "你的 {plan} 付款未成功。请向银行确认这笔付款。",
+      "retryOn": "有一笔付款未成功。我们将于 {date} 重试。",
+      "retrying": "有一笔付款未成功。我们会很快重试。",
+      "failed": "付款失败。",
+      "payNow": "立即付款"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "支付未完成。",
       "opening": "正在打开…",
       "continue": "继续支付"
+    },
+    "request": {
+      "pay": "支付 {amount}",
+      "paid": "已付款，谢谢。",
+      "void": "这笔付款已不再需要。",
+      "expired": "此付款链接已过期。请登录并打开“账单”付款。",
+      "bad": "此付款链接无效。",
+      "confirmWithBank": "请向银行确认这笔付款。",
+      "bankDidntConfirm": "你的银行未确认这笔付款。",
+      "payOnInvoice": "在发票页面付款"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro}：网页版每个 3D 视频价格更低，加入即送用量额度、免费预览，并可在 iPhone、iPad、Mac 和 Vision Pro 的 App 中使用 {pro}。"
+    },
+    "payRequest": {
+      "title": "付款"
     }
   },
   "onboarding": {
@@ -2392,7 +2414,7 @@
       "alwaysOn": "此画质下始终开启",
       "includedDot": "· 已包含",
       "fpsHint": "你的视频为 {fps}。选择要生成的帧率。",
-      "subscribeAndConvert": "开通套餐并转换",
+      "subscribeAndConvert": "获取套餐并转换",
       "earlierFiles": "你之前的文件在“文件”中",
       "whichEye": "哪只眼睛",
       "left": "左",

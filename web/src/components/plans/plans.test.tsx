@@ -322,7 +322,7 @@ describe("quote A and the Business note", () => {
     return structuredClone({ ...p, conversions: [] });
   }
 
-  it("pay once is selected; With Pro turns the button into Subscribe and convert; nothing is charged", async () => {
+  it("pay once is selected; With Pro turns the button into Get the plan and convert; nothing is charged", async () => {
     wrap(
       <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
     );
@@ -334,7 +334,7 @@ describe("quote A and the Business note", () => {
     expect(main.textContent).toMatch(/^Make 3D · \$/);
     fireEvent.click(screen.getByTestId("pay-with-pro"));
     expect(screen.getByTestId("checkout-main").textContent).toBe(
-      "Subscribe and convert",
+      "Get the plan and convert",
     );
     const before = mockDb.conversions.size;
     fireEvent.click(screen.getByTestId("checkout-main"));

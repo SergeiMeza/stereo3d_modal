@@ -143,7 +143,7 @@
         "asksOnly": "Beim Bezahlen fragen wir nur nach Zahlungsmethode und Land. Firmenname, Adresse und Steuer-ID kannst du danach ergänzen.",
         "whatHappensBusiness": "Was mit deinem {business} passiert",
         "whatHappensPro": "Was mit deinem {pro} passiert",
-        "manageAppStore": "App-Store-Plan verwalten",
+        "manageAppStore": "Im App Store verwalten",
         "workingOut": "Heutiger Preis wird berechnet …",
         "previewFailed": "Der heutige Preis konnte nicht berechnet werden. Es wird nichts abgebucht, bis du bestätigst.",
         "changing": "Wird geändert …",
@@ -292,7 +292,7 @@
       "fromMonthly": "ab {price} im Monat",
       "hide": "Ausblenden",
       "checkout": {
-        "title": "Plan abschließen und umwandeln",
+        "title": "Plan holen und umwandeln",
         "paymentFailed": "Die Zahlung ist nicht durchgegangen.",
         "takesOff": "{pro} nimmt {pct} % von diesem und jedem weiteren Video ab.",
         "takesOffWithCredit": "{pro} nimmt {pct} % von diesem und jedem weiteren Video ab und enthält {credit}.",
@@ -662,7 +662,8 @@
       "prepaid": "Vorausbezahlt {amount}",
       "paused": {
         "declined": "Automatisches Aufladen ist pausiert, weil eine Zahlung nicht durchging.",
-        "limit": "Automatisches Aufladen ist pausiert: Tageslimit erreicht. Morgen geht es weiter."
+        "limit": "Automatisches Aufladen ist pausiert: Tageslimit erreicht. Morgen geht es weiter.",
+        "retrying": "Pausiert, während wir die letzte Aufladung erneut versuchen."
       },
       "turnBackOn": "Wieder einschalten",
       "autoReload": "Automatisch aufladen",
@@ -755,6 +756,14 @@
       "withPlan": "Mit {plan}",
       "pctOff": "{pct} % Rabatt auf jede Minute",
       "upgradeTo": "Auf {plan} upgraden"
+    },
+    "issues": {
+      "pastDue": "Die Zahlung für deinen {plan}-Plan ist fehlgeschlagen. Zahle jetzt, um deinen Plan zu behalten.",
+      "pastDueConfirm": "Die Zahlung für deinen {plan}-Plan ist fehlgeschlagen. Bestätige die Zahlung bei deiner Bank.",
+      "retryOn": "Eine Zahlung ist fehlgeschlagen. Wir versuchen es am {date} erneut.",
+      "retrying": "Eine Zahlung ist fehlgeschlagen. Wir versuchen es bald erneut.",
+      "failed": "Zahlung fehlgeschlagen.",
+      "payNow": "Jetzt bezahlen"
     }
   },
   "auth": {
@@ -1345,6 +1354,16 @@
       "notFinished": "Zahlung nicht abgeschlossen.",
       "opening": "Wird geöffnet…",
       "continue": "Weiter zur Zahlung"
+    },
+    "request": {
+      "pay": "{amount} bezahlen",
+      "paid": "Bezahlt. Danke!",
+      "void": "Diese Zahlung ist nicht mehr nötig.",
+      "expired": "Dieser Zahlungslink ist abgelaufen. Melde dich an und öffne „Abrechnung“, um zu bezahlen.",
+      "bad": "Dieser Zahlungslink ist ungültig.",
+      "confirmWithBank": "Bestätige die Zahlung bei deiner Bank.",
+      "bankDidntConfirm": "Deine Bank hat die Zahlung nicht bestätigt.",
+      "payOnInvoice": "Auf der Rechnungsseite bezahlen"
     }
   },
   "balance": {
@@ -1686,6 +1705,9 @@
     },
     "pro": {
       "description": "{site} {pro}: niedrigere Preise für jedes 3D-Video im Web, Nutzungsgutschrift zum Start, kostenlose Vorschauen und {pro} in der App auf iPhone, iPad, Mac und Vision Pro."
+    },
+    "payRequest": {
+      "title": "Zahlung leisten"
     }
   },
   "onboarding": {

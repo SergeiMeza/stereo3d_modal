@@ -7,7 +7,7 @@
  * - Quote A, people without a plan, full runs that Pro makes cheaper: two
  *   options, "Pay once $X" (always selected first) and "With Pro $Y ·
  *   15% off · from $4.99 a month". Picking Pro turns the button into
- *   "Subscribe and convert", which opens the Pro sheet; nothing is bought
+ *   "Get the plan and convert", which opens the Pro sheet; nothing is bought
  *   or charged without a tap there. Hide (×) folds it away for 7 days.
  * - Business note B (no plan or Pro): in quotes of $50 or more, or runs
  *   over 10 minutes — "Business and Studio include monthly usage", this
@@ -199,7 +199,7 @@ export function QuoteProChoice({
   );
 }
 
-/** The Pro sheet behind "Subscribe and convert" (Quote A's pay sheet). */
+/** The Pro sheet behind "Get the plan and convert" (Quote A's pay sheet). */
 export function ProCheckoutSheet({
   open,
   quote,
