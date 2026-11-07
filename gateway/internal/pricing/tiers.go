@@ -467,8 +467,7 @@ func (r *Rates) quoteClassicTiers(in StepInputs, afterReuse int64, bd map[string
 		delete(q.AddOns, AddOnClassicMaster)
 		q.AddOns[AddOnMaster] = c
 	}
-	campaign := r.applyCampaign(in, q.Final, bd) // the launch offer, web production at 1080p and 1440p
-	total := q.Final - campaign - in.CreditCents
+	total := q.Final - in.CreditCents // no launch offer on Classic (owner 2026-11-07)
 	if floor := r.MinimumFor(in.Step); total < floor {
 		total = floor
 	}

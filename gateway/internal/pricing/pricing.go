@@ -1078,9 +1078,7 @@ func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	if afterPro > rates.DiscountThresholdCents {
 		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
 	}
-	offer := map[string]any{}
-	campaign := rates.applyCampaign(in, afterPro-bulkDiscount, offer) // the launch offer, after the Pro and bulk discounts
-	total := afterPro - bulkDiscount - campaign - in.CreditCents
+	total := afterPro - bulkDiscount - in.CreditCents // no launch offer on Classic (owner 2026-11-07)
 	if floor := rates.MinimumFor(in.Step); total < floor {
 		total = floor
 	}
@@ -1109,9 +1107,6 @@ func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 			"discount_cents":         bulkDiscount,
 			"analyze_credit_cents":   in.CreditCents,
 		},
-	}
-	for k, v := range offer {
-		q.Breakdown[k] = v
 	}
 	return q, nil
 }

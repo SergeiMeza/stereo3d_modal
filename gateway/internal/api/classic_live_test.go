@@ -18,9 +18,9 @@ import (
 // Classic stays live (owner 2026-11-07): on a project that ran Classic,
 // a production re-export (depth and preprocess cached) quotes and starts on
 // its bitrate list (auto, match_source, 40/60/100) at its own price, with
-// no quality or foveation fields in the price; the web's 1080p gets the
-// launch offer (−25%), the app's doesn't; the created run carries the
-// quoted price.
+// no quality, foveation or campaign fields in the price (no launch offer
+// on Classic, owner 2026-11-07), the web and the app at the same price; the
+// created run carries the quoted price.
 func TestClassicReexportQuoteAndStart(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
@@ -84,9 +84,7 @@ func TestClassicReexportQuoteAndStart(t *testing.T) {
 				}
 			}
 			stages, _ := bd["reuse_stages"].([]any)
-			offer, _ := bd["campaign_cents"].(float64)
-			if len(stages) != 2 || bd["quality"] != nil || bd["foveation_cents"] != float64(0) || (web != (offer > 0)) ||
-				(web && bd["campaign_label"] != "Launch offer −25%") {
+			if len(stages) != 2 || bd["quality"] != nil || bd["foveation_cents"] != float64(0) || bd["campaign_cents"] != nil {
 				t.Fatalf("quote breakdown %s web=%v: %v", br, web, bd)
 			}
 			code, run := call(s.HandleCreateStepConversion, body, web)
@@ -121,8 +119,8 @@ func TestClassicReexportQuoteAndStart(t *testing.T) {
 			}
 		}
 	}
-	if app, web := cents[false][0], cents[true][0]; web != app-float64(int64(app*0.25+0.5)) {
-		t.Fatalf("the web's offer: app %v, web %v", app, web)
+	if app, web := cents[false][0], cents[true][0]; web != app {
+		t.Fatalf("Classic web %v and app %v differ", web, app)
 	}
 }
 
