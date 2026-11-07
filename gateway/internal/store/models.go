@@ -765,9 +765,13 @@ type Batch struct {
 	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
 	// ChargePM: the method a web group's first charge went to (B6),
 	// recorded before it is sent: a re-drive replays that same request.
-	ChargePM  string    `firestore:"charge_pm,omitempty" json:"-"`
-	CreatedAt time.Time `firestore:"created_at" json:"created_at"`
-	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
+	ChargePM string `firestore:"charge_pm,omitempty" json:"-"`
+	// Retry: a web group's retry schedule after its charge failed (D2:
+	// +24 h and +72 h for a soft decline) and its pay link (D7). Never set
+	// on an app group, which keeps the single 24 h retry (SoftRetried).
+	Retry     *OffSessionRetry `firestore:"retry,omitempty" json:"-"`
+	CreatedAt time.Time        `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time        `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects

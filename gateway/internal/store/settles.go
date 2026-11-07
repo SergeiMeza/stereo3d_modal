@@ -379,6 +379,7 @@ func (s *Store) FinishSettle(ctx context.Context, id string, out SettleOutcome, 
 			if out.Paid {
 				b.State, b.PaymentIntentID, b.ChargedCents, b.ChargedAt, b.PIStatus = BatchPaid, out.PaymentIntentID, b.TotalCents, &now, PISucceeded
 				b.PaidWith, b.SettleError = out.PaidWith, ""
+				b.Retry.ClosePaid(now) // a web group's retry ends (nil on app groups)
 			} else {
 				b.State = BatchFailed
 			}

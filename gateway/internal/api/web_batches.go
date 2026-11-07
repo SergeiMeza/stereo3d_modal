@@ -123,8 +123,11 @@ func (s *Service) chargeWebBatch(ctx context.Context, b *store.Batch, cust *stor
 	if s.payDebtsFromBalance(ctx, b.UID) {
 		return s.Store.GetBatch(ctx, b.ID)
 	}
-	if r.CardDecision { // B2: no "didn't go through" for Stripe's own refusal
-		s.mailOwed(ctx, "E2", "E2_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+	// D2 schedule and D7 pay link; no "didn't go through" for Stripe's own
+	// refusal (B2).
+	retry, link := s.startWebBatchRetry(ctx, failed, fail)
+	if r.CardDecision {
+		s.mailWebGroupFailed(ctx, "E2", "E2_"+b.ID, b.UID, retry, link)
 	}
-	return failed, nil
+	return s.Store.GetBatch(ctx, b.ID)
 }

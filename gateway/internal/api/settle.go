@@ -344,7 +344,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 			// Stripe refused before making a PaymentIntent (B3) still tries
 			// them; a configuration error alerts (B2).
 			if fail.Config {
-				s.alertConfigError(ctx, "deletion dues", st.ID, st.UID, fail)
+				s.alertConfigError(ctx, "settle "+st.Trigger, st.ID, st.UID, fail) // deletion dues or a web group's retry
 			}
 			fail.PaymentIntentID = piID
 			r := s.webBackups(ctx, cust, fail, func(pm string) (*stripe.PaymentIntent, error) {
@@ -461,6 +461,9 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 	if st.Trigger == settleSoftRety {
 		s.mailDownloadsBack(ctx, "E5_"+settleID, st.UID, out.AmountReceived)
 	}
+	if st.Trigger == settleWebRetry {
+		s.mailSettleReceipt(ctx, done) // E20: a web group's debt the retry collected
+	}
 	return settleResult{Settle: done, Paid: true}, nil
 }
 
@@ -521,10 +524,23 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 			continue
 		}
 		age := now.Sub(*b.FailedAt)
+		if b.Retry != nil && webBatch(b) {
+			// A web group on the D2 schedule (+24 h, +72 h).
+			switch {
+			case b.Retry.Due(now):
+				seen[b.UID] = true
+				s.retryWebBatch(ctx, b, now)
+				retried++
+			case age >= 7*24*time.Hour:
+				s.mailOwed(ctx, "E4", "E4_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+			}
+			continue
+		}
 		switch {
 		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour && webBatch(b):
-			// A web group (D1): retried under the web's rules, and marked
-			// retried only once the retry ran (a transient error tries again).
+			// A web group failed before its schedule existed (D1): retried
+			// once under the web's rules, and marked retried only once the
+			// retry ran (a transient error tries again).
 			seen[b.UID] = true
 			res, rerr := s.collectOutstanding(ctx, b.UID, settleWebRetry, payContext{})
 			if rerr != nil {
