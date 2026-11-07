@@ -30,6 +30,7 @@ type fakeInvoices struct {
 	noteForms  []map[string]string
 	creates    int
 	failAttach bool
+	presented  map[string]any // the PaymentIntent's presentment_details (Adaptive Pricing)
 }
 
 func (f *fakeInvoices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -49,7 +50,8 @@ func (f *fakeInvoices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	switch {
 	case p == "/v1/payment_intents/pi_inv":
-		write(map[string]any{"id": "pi_inv", "amount_received": 4972, "latest_charge": map[string]any{"amount_refunded": f.refunded}})
+		write(map[string]any{"id": "pi_inv", "amount_received": 4972, "currency": "usd", "presentment_details": f.presented,
+			"latest_charge": map[string]any{"amount_refunded": f.refunded}})
 	case p == "/v1/invoices" && r.Method == "POST":
 		if id, ok := f.keys[r.Header.Get("Idempotency-Key")]; ok {
 			write(inv(id))
@@ -58,7 +60,7 @@ func (f *fakeInvoices) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		f.creates++
 		id := fmt.Sprintf("in_%d", f.creates)
 		f.keys[r.Header.Get("Idempotency-Key")] = id
-		f.invoices[id] = map[string]any{"id": id, "status": "draft", "currency": r.Form.Get("currency"),
+		f.invoices[id] = map[string]any{"id": id, "status": "draft", "currency": r.Form.Get("currency"), "description": r.Form.Get("description"),
 			"metadata": map[string]any{"charge_id": r.Form.Get("metadata[charge_id]"), "env": r.Form.Get("metadata[env]"), "product": "svs-web"}}
 		write(inv(id))
 	case p == "/v1/invoiceitems":
@@ -227,5 +229,35 @@ func TestCreditNotesPerLine(t *testing.T) {
 	s.creditRefunds(ctx, done, done.InvoiceID)
 	if len(f.noteForms) != 2 {
 		t.Fatal("credited twice")
+	}
+}
+
+// Adaptive Pricing: the invoice stays USD, its memo says what the card
+// paid in the customer's currency, the charge keeps it, and a refund's
+// credit note says what went back. A USD payment gets no memo.
+func TestInvoiceMemoForLocalPayment(t *testing.T) {
+	s, f := invoiceService(t)
+	ctx := context.Background()
+	f.presented = map[string]any{"presentment_amount": 7999, "presentment_currency": "jpy"}
+	f.refunded = 972
+	f.refunds = []map[string]any{{"id": "re_1", "amount": 972, "status": "succeeded", "currency": "usd",
+		"presentment_details": map[string]any{"presentment_amount": 1564, "presentment_currency": "jpy"}}}
+	ch := recordTestCharge(t, s, 4000, 972)
+	if !s.runInvoiceJob(ctx, ch.ID) {
+		t.Fatal("not done")
+	}
+	inv := f.invoices["in_1"]
+	got, _ := s.Store.GetCharge(ctx, ch.ID)
+	if inv["currency"] != "usd" || inv["description"] != "Paid ¥7,999 (US$49.72)" || got.Presentment == nil || got.Presentment.AmountMinor != 7999 {
+		t.Fatalf("invoice %v charge %+v", inv, got.Presentment)
+	}
+	if len(f.noteForms) != 1 || f.noteForms[0]["memo"] != "Refunded ¥1,564 (US$9.72)" {
+		t.Fatalf("credit notes %v", f.noteForms)
+	}
+	f.presented, f.refunds, f.refunded = nil, nil, 0
+	usd := recordTestCharge(t, s, 4972)
+	s.runInvoiceJob(ctx, usd.ID)
+	if d := f.invoices["in_2"]["description"]; d != "" {
+		t.Fatalf("usd memo %q", d)
 	}
 }

@@ -238,9 +238,21 @@ func (s *Service) runInvoiceJob(ctx context.Context, chargeID string) bool {
 	if ch.CustomerID == "" {
 		return stop(store.InvoiceFailed, "no Stripe customer")
 	}
-	received, refunded, err := s.Stripe.PaymentAmounts(ch.PaymentIntentID)
+	figures, err := s.Stripe.PaymentFigures(ch.PaymentIntentID)
 	if err != nil {
 		return fail("read payment", err)
+	}
+	received, refunded := figures.Received, figures.Refunded
+	// Adaptive Pricing: the invoice stays USD and says what the customer
+	// paid in their currency (owner 2026-11-07: Stripe's own invoice from
+	// Checkout shows only USD too). Kept on the charge for admin.
+	if p := presentmentOf(figures.Presentment); p != nil {
+		if ch.Presentment == nil {
+			if _, perr := s.Store.SetPresentment(ctx, store.PresentCharge, ch.ID, ch.PaymentIntentID, *p); perr != nil {
+				log.WarnContext(ctx, "charge presentment not recorded", "err", perr)
+			}
+		}
+		ch.Presentment = p
 	}
 	tax := s.rates(ctx).TaxInclusive()
 
@@ -270,7 +282,7 @@ func (s *Service) runInvoiceJob(ctx context.Context, chargeID string) bool {
 		}
 		key := fmt.Sprintf("inv_%s_%s_%d", s.Cfg.Env, ch.ID, ch.InvoiceAttempt)
 		if inv, err = s.Stripe.CreateInvoice(stripex.InvoiceSpec{CustomerID: ch.CustomerID, ChargeID: ch.ID,
-			Currency: ch.Currency, EffectiveAt: ch.PaidAt, Tax: tax, Footer: invoiceFooter(ch)}, key); err != nil {
+			Currency: ch.Currency, EffectiveAt: ch.PaidAt, Tax: tax, Footer: invoiceFooter(ch), Memo: paidMemo(ch.Presentment, received)}, key); err != nil {
 			return fail("create", err)
 		}
 		// Store invoice_id now.
@@ -435,6 +447,9 @@ func (s *Service) creditRefunds(ctx context.Context, ch *store.Charge, invoiceID
 			continue
 		}
 		spec := stripex.CreditSpec{InvoiceID: invoiceID, Amount: re.Amount, RefundID: re.ID}
+		if p := presentmentOf(re.Presentment()); p != nil {
+			spec.Memo = "Refunded " + localAndUSD(p, re.Amount) // the note stays USD, like its invoice
+		}
 		rowID := ""
 		if row, rerr := s.Store.RefundRowByReID(ctx, re.ID); rerr == nil && row != nil {
 			spec.Lines, rowID = linesOf(row.Items, re.Amount), row.ID

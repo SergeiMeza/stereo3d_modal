@@ -54,6 +54,10 @@ type InvoiceSpec struct {
 	EffectiveAt time.Time
 	Tax         bool   // tax_mode inclusive: automatic_tax
 	Footer      string // "" = none of ours (a top-up's: TopupInvoiceFooter)
+	// Memo: the invoice's description, on the PDF and the hosted page
+	// ("Paid ¥1,648 (US$10.00)" when Adaptive Pricing presented the
+	// payment; "" = none). The account's invoice footer is never touched.
+	Memo string
 }
 
 // CreateInvoice creates the draft under key (C6 step 1).
@@ -73,6 +77,9 @@ func (c *Client) CreateInvoice(spec InvoiceSpec, key string) (*Invoice, error) {
 	}
 	if spec.Footer != "" {
 		form.Set("footer", spec.Footer)
+	}
+	if spec.Memo != "" {
+		form.Set("description", spec.Memo)
 	}
 	if spec.Tax {
 		form.Set("automatic_tax[enabled]", "true")
@@ -185,12 +192,17 @@ func (c *Client) VoidInvoice(id string) error {
 
 // Refund is a refund on a PaymentIntent.
 type Refund struct {
-	ID       string            `json:"id"`
-	Amount   int64             `json:"amount"`
-	Status   string            `json:"status"`
-	Created  int64             `json:"created"`
-	Metadata map[string]string `json:"metadata"`
+	ID                 string              `json:"id"`
+	Amount             int64               `json:"amount"`
+	Status             string              `json:"status"`
+	Created            int64               `json:"created"`
+	Metadata           map[string]string   `json:"metadata"`
+	Currency           string              `json:"currency"`
+	PresentmentDetails *presentmentDetails `json:"presentment_details"`
 }
+
+// Presentment: what went back in the customer's currency (nil: USD).
+func (r Refund) Presentment() *Presentment { return r.PresentmentDetails.value(r.Currency) }
 
 // ListRefunds lists a PaymentIntent's refunds (C6 step 5).
 func (c *Client) ListRefunds(paymentIntentID string) ([]Refund, error) {
@@ -206,16 +218,35 @@ func (c *Client) ListRefunds(paymentIntentID string) ([]Refund, error) {
 // PaymentAmounts reads what a PaymentIntent collected and what was given
 // back.
 func (c *Client) PaymentAmounts(paymentIntentID string) (received, refunded int64, err error) {
+	f, err := c.PaymentFigures(paymentIntentID)
+	if err != nil {
+		return 0, 0, err
+	}
+	return f.Received, f.Refunded, nil
+}
+
+// PaymentFigures is what a PaymentIntent collected, gave back and, under
+// Adaptive Pricing, presented to the customer.
+type PaymentFigures struct {
+	Received, Refunded int64
+	Presentment        *Presentment // nil: USD
+}
+
+// PaymentFigures reads them in one call at WebAPIVersion.
+func (c *Client) PaymentFigures(paymentIntentID string) (*PaymentFigures, error) {
 	var pi struct {
-		AmountReceived int64 `json:"amount_received"`
-		LatestCharge   struct {
+		AmountReceived     int64               `json:"amount_received"`
+		Currency           string              `json:"currency"`
+		PresentmentDetails *presentmentDetails `json:"presentment_details"`
+		LatestCharge       struct {
 			AmountRefunded int64 `json:"amount_refunded"`
 		} `json:"latest_charge"`
 	}
 	if err := webCall(http.MethodGet, "/v1/payment_intents/"+url.PathEscape(paymentIntentID)+"?expand[]=latest_charge", nil, "", &pi); err != nil {
-		return 0, 0, err
+		return nil, err
 	}
-	return pi.AmountReceived, pi.LatestCharge.AmountRefunded, nil
+	return &PaymentFigures{Received: pi.AmountReceived, Refunded: pi.LatestCharge.AmountRefunded,
+		Presentment: pi.PresentmentDetails.value(pi.Currency)}, nil
 }
 
 // CreditNote is the part of a credit note we keep.

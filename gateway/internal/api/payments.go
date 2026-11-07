@@ -298,6 +298,9 @@ func (s *Service) applyRunPayment(ctx context.Context, convID string, p store.Pa
 	}
 	if updated.State == store.StatePaid {
 		s.notePresentmentQuiet(ctx, store.PresentRun, convID, out)
+		if updated.Stripe.Presentment == nil && updated.Stripe.PaymentIntentID == out.PaymentIntentID {
+			updated.Stripe.Presentment = presentmentOf(out.Presentment) // for the receipt mail (E1)
+		}
 		s.afterRunPaid(ctx, updated, out.PaymentMethod)
 	}
 	return updated, nil

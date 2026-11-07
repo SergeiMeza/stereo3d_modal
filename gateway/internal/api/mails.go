@@ -129,7 +129,20 @@ func (s *Service) mailOrderConfirmation(ctx context.Context, c *store.Conversion
 		return
 	}
 	s.mailCustomer(ctx, "E1_"+c.ID, c.UID, s.accountEmail(ctx, c.UID),
-		orderConfirmationMail(s.runLabel(ctx, c), c.Quote.AmountCents, s.Cfg.SiteURL+"/projects/"+c.ProjectID, !s.onBusinessPlan(ctx, c.UID)))
+		withCardLine(orderConfirmationMail(s.runLabel(ctx, c), c.Quote.AmountCents, s.Cfg.SiteURL+"/projects/"+c.ProjectID, !s.onBusinessPlan(ctx, c.UID)),
+			c.Stripe.Presentment, c.Stripe.CapturedCents))
+}
+
+// withCardLine adds, after a receipt's first line, what the card was
+// charged in the customer's currency when Adaptive Pricing presented it:
+// "Your card was charged ¥1,648 (US$10.00)." Nothing for a USD payment.
+func withCardLine(m customerMail, p *store.Presentment, usdCents int64) customerMail {
+	if p == nil || usdCents <= 0 || len(m.Lines) == 0 {
+		return m
+	}
+	line := "Your card was charged " + localAndUSD(p, usdCents) + "."
+	m.Lines = append([]string{m.Lines[0], line}, m.Lines[1:]...)
+	return m
 }
 
 // orderConfirmationMail is E1; consumer (no Business or Studio plan) adds
