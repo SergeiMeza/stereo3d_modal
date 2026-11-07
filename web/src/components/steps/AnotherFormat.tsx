@@ -23,9 +23,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { GatewayError } from "@/lib/api/client";
-import type { Conversion, Format, Preset, RunFormatJob } from "@/lib/api/types";
+import type { Conversion, Format, Preset, RunFormatJob, RunFormats } from "@/lib/api/types";
 import { formatClock } from "@/lib/format";
 import { useGateway } from "@/lib/api/useGateway";
+import { useFallbackTick, useLiveFormats } from "@/lib/live/useLive";
 import { FORMAT_NAMES } from "@/lib/glossary";
 
 import { FORMAT_FOR, HALF_SBS_SIZE_HINT } from "./makeControls";
@@ -45,9 +46,6 @@ function useNow(on: boolean): number {
 
 /** How often the GET is asked while a format is being made: every 3 s for
  * the first minute, then every 15 s. */
-export const FORMAT_POLL_MS = 3000;
-export const FORMAT_POLL_SLOW_MS = 15_000;
-const FAST_POLL_FOR_MS = 60_000;
 
 /** Beside "Making it…" for Spatial video or anything over ~2 minutes. */
 export const LONG_WAIT_COPY = "This can take a while. You can leave this page; the file appears here when it's ready.";
@@ -129,8 +127,6 @@ export function AnotherFormat({
   const [starting, setStarting] = useState<Format | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const seenDone = useRef<Set<string> | null>(null);
-  /** when the current making began (for the slower polls after a minute) */
-  const makingSince = useRef<number | null>(null);
 
   const load = useCallback(async () => {
     const next = await gateway.getRunFormats(id);
@@ -179,22 +175,50 @@ export function AnotherFormat({
           .map(([f]) => f) as Format[]);
   const making = data?.pending ?? [];
   const waiting = making.length + finishing.length;
-  // poll while something is being made: every 3 s, every 15 s after a minute
+  // owner 2026-11-07: no timer. The live feed's run.formats brings the
+  // jobs (and the run's file names); a newer one replaces what we read
+  const live = useLiveFormats(id);
+  const liveVersion = live?.version ?? 0;
   useEffect(() => {
-    if (waiting === 0) {
-      makingSince.current = null;
-      return;
-    }
-    makingSince.current ??= Date.now();
-    const wait = Date.now() - makingSince.current < FAST_POLL_FOR_MS ? FORMAT_POLL_MS : FORMAT_POLL_SLOW_MS;
-    const t = setTimeout(() => {
-      void load().catch(() => {});
-      if (finishing.length > 0) onNewFile();
-    }, wait);
-    return () => clearTimeout(t);
-    // finishing follows data and the files
+    if (!live || live.formats === null || typeof live.formats !== "object") return;
+    const next = live.formats as RunFormats;
+    const done = new Set(
+      Object.entries(next.jobs ?? {})
+        .filter(([, j]) => j?.status === "succeeded")
+        .map(([f]) => f),
+    );
+    if (seenDone.current !== null && [...done].some((f) => !seenDone.current!.has(f))) onNewFile();
+    seenDone.current = done;
+    setFormats((s) => ({ ...s, data: next, readAt: Date.now() }));
+    // follows the event's version only
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [waiting, data, runFiles, load, onNewFile]);
+  }, [liveVersion]);
+  // a new file landed on the run: read its files again
+  const outputsKey = (live?.outputs ?? []).join(",");
+  const lastOutputs = useRef(outputsKey);
+  useEffect(() => {
+    if (outputsKey === lastOutputs.current) return;
+    lastOutputs.current = outputsKey;
+    if (outputsKey !== "") onNewFile();
+  }, [outputsKey, onNewFile]);
+  // a finished job whose file the list doesn't show yet: read the files
+  // once more when that's first seen (the outputs event brings the rest)
+  const finishingKey = finishing.join(",");
+  const lastFinishing = useRef("");
+  useEffect(() => {
+    if (finishingKey === lastFinishing.current) return;
+    lastFinishing.current = finishingKey;
+    if (finishingKey !== "") onNewFile();
+  }, [finishingKey, onNewFile]);
+  // the stream is down: its slow poll reads the jobs again while one runs
+  const tick = useFallbackTick();
+  useEffect(() => {
+    if (tick === 0 || waiting === 0) return;
+    void load().catch(() => {});
+    if (finishing.length > 0) onNewFile();
+    // follows the slow poll only
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tick]);
 
   // the countdowns tick while something is being made
   const now = useNow(waiting > 0);

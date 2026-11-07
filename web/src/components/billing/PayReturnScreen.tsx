@@ -20,11 +20,9 @@ import { useGateway } from "@/lib/api/useGateway";
 import { outstandingCents } from "@/lib/billingCopy";
 import type { LiveRun } from "@/lib/live/events";
 import { applyRun } from "@/lib/live/liveStore";
-import { useLiveRunById } from "@/lib/live/useLive";
+import { useBillingVersion, useFallbackTick, useLiveRunById } from "@/lib/live/useLive";
 import { appStore } from "@/lib/state/stores";
 
-/** how often the billing status is read while settling */
-const POLL_MS = 2000;
 /** "Checking your payment…" for up to this long, then Slow */
 export const CHECK_MS = 30_000;
 
@@ -89,29 +87,28 @@ export function PayReturnScreen(): JSX.Element {
     };
   }, [state, gateway, id, settle]);
 
-  // settling what the account owes: the billing status (not a run, so not
-  // in the live feed) is read until it clears
+  // settling what the account owes (owner 2026-11-07): the billing status
+  // is read on arrival, again on each billing event from the live feed
+  // (billing.updated), and on the slow poll while the stream is down
+  const billingVersion = useBillingVersion();
+  const fallback = useFallbackTick();
   useEffect(() => {
     if (state !== "checking" || !settle) return;
     let live = true;
-    const check = async (): Promise<void> => {
-      try {
-        const b = await gateway.getBilling();
+    gateway.getBilling().then(
+      (b) => {
         if (!live) return;
-        if (outstandingCents(b) === 0) return setState("paid");
-        if (b.outstanding?.settling) return;
-        return setState("not_paid");
-      } catch {
-        /* keep checking */
-      }
-    };
-    const t = setInterval(() => void check(), POLL_MS);
-    void check();
+        if (outstandingCents(b) === 0) setState("paid");
+        else if (!b.outstanding?.settling) setState("not_paid");
+      },
+      () => undefined,
+    );
     return () => {
       live = false;
-      clearInterval(t);
     };
-  }, [gateway, settle, state]);
+    // arrival, each billing event, each slow poll
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gateway, settle, billingVersion, fallback]);
 
   const back = project ? `/projects/${project}#tab=make` : "/projects";
   return (

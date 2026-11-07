@@ -20,14 +20,17 @@ import {
   aboutMinutes,
   ALMOST_READY,
   AnotherFormat,
-  FORMAT_POLL_MS,
-  FORMAT_POLL_SLOW_MS,
   jobProgress,
   leftText,
   LONG_WAIT_COPY,
   TOO_WIDE_COPY,
 } from "./AnotherFormat";
 import { RunFiles } from "./RunFiles";
+
+// the mock status stream's tick (owner 2026-11-07: the jobs come as
+// run.formats events; nothing here polls)
+vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
+const WAIT_MS = 3000;
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 afterEach(() => {
@@ -97,7 +100,7 @@ describe("Get another format (ADR 0137)", () => {
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-sbs"));
     expect((await screen.findByTestId("another-format-making-sbs")).textContent).toContain("Making it…");
-    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: WAIT_MS });
     expect(within(screen.getByTestId("file-group-sbs")).getByText("Download")).toBeTruthy();
     expect(screen.queryByTestId("another-format-making-sbs")).toBeNull();
   }, 15_000);
@@ -107,11 +110,11 @@ describe("Get another format (ADR 0137)", () => {
     renderRun(run());
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-half_sbs"));
-    const failed = await screen.findByTestId("another-format-failed-half_sbs", {}, { timeout: FORMAT_POLL_MS * 2 });
+    const failed = await screen.findByTestId("another-format-failed-half_sbs", {}, { timeout: WAIT_MS });
     expect(failed.textContent).toContain("That didn't work. Try again.");
     mockDb.formatJobsFail = false;
     fireEvent.click(within(failed).getByRole("button", { name: "Try again" }));
-    await waitFor(() => expect(screen.getByTestId("file-group-half_sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    await waitFor(() => expect(screen.getByTestId("file-group-half_sbs")).toBeTruthy(), { timeout: WAIT_MS });
   }, 15_000);
 
   it("the service being down shows the failed state with a retry", async () => {
@@ -203,22 +206,21 @@ describe("Get another format (ADR 0137)", () => {
     expect(aboutMinutes(150)).toBe("About 3 minutes");
   });
 
-  it("keeps asking every 3 s, then every 15 s after the first minute", async () => {
+  it("follows the jobs through the live feed: no timer reads them (owner 2026-11-07)", async () => {
     mockDb.formatJobPolls = 100;
-    const timers = vi.spyOn(globalThis, "setTimeout");
+    let reads = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname.endsWith("/formats")) reads += 1;
+    });
     renderRun(run());
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-sbs"));
     await screen.findByTestId("another-format-making-sbs");
-    await waitFor(() => expect(timers.mock.calls.some((c) => c[1] === FORMAT_POLL_MS)).toBe(true));
-    // a minute later
-    const now = Date.now();
-    vi.spyOn(Date, "now").mockReturnValue(now + 61_000);
-    await waitFor(() => expect(timers.mock.calls.some((c) => c[1] === FORMAT_POLL_SLOW_MS)).toBe(true), {
-      timeout: FORMAT_POLL_MS * 3,
-    });
-    vi.restoreAllMocks();
-  }, 15_000);
+    const seen = reads;
+    await new Promise((r) => setTimeout(r, 400));
+    expect(reads).toBe(seen);
+    server.events.removeAllListeners();
+  });
 
   it("a split run gets the new format per part", async () => {
     renderRun(
@@ -232,7 +234,7 @@ describe("Get another format (ADR 0137)", () => {
     );
     await openMenu();
     fireEvent.click(await screen.findByTestId("another-format-sbs"));
-    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: WAIT_MS });
     const rows = within(screen.getByTestId("file-group-sbs")).getAllByText(/^Part \d$/);
     expect(rows.map((r) => r.textContent)).toEqual(["Part 1", "Part 2"]);
   }, 15_000);
@@ -298,7 +300,7 @@ describe("Get another format (ADR 0137)", () => {
     renderRun(c);
     const row = await screen.findByTestId("another-format-making-sbs");
     expect(row.textContent).toContain(ALMOST_READY);
-    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: FORMAT_POLL_MS * 3 });
+    await waitFor(() => expect(screen.getByTestId("file-group-sbs")).toBeTruthy(), { timeout: WAIT_MS });
     expect(screen.queryByTestId("another-format-making-sbs")).toBeNull();
   }, 15_000);
 });

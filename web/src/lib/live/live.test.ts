@@ -95,6 +95,43 @@ describe("events (the gateway's schema)", () => {
     expect(parseLiveEvent("something.else", "{}")).toBeNull();
   });
 
+  it("reads run.formats, handoff.state, billing.updated and the snapshot's extras (gateway 4578628)", () => {
+    expect(parseLiveEvent("run.formats", JSON.stringify({ run_id: "r1", project_id: "p1", version: 5, formats: { pending: ["sbs"] }, outputs: ["mvhevc"] }))).toEqual({
+      type: "run.formats",
+      formats: { run_id: "r1", version: 5, formats: { pending: ["sbs"] }, outputs: ["mvhevc"] },
+    });
+    expect(parseLiveEvent("handoff.state", JSON.stringify({ code: "K7M2QX9P", run_id: "r1", version: 6, state: "closed" }))).toEqual({
+      type: "handoff.state",
+      handoff: { code: "K7M2QX9P", run_id: "r1", version: 6, state: "closed" },
+    });
+    expect(parseLiveEvent("billing.updated", JSON.stringify({ kind: "settle", settle_id: "s1", version: 7, state: "in_progress", amount_cents: 725 }))).toEqual({
+      type: "billing.updated",
+      settle: { settle_id: "s1", version: 7, state: "in_progress", amount_cents: 725 },
+    });
+    expect(parseLiveEvent("billing.updated", JSON.stringify({ kind: "balance", version: 8, balance_cents: 2500, held_cents: 300 }))).toEqual({
+      type: "billing.updated",
+      balance: { version: 8, balance_cents: 2500, held_cents: 300 },
+    });
+    const snap = parseLiveEvent(
+      "snapshot",
+      JSON.stringify({
+        version: 9,
+        runs: [],
+        projects: [],
+        run_formats: { r1: { pending: [] } },
+        handoffs: [{ code: "C1", run_id: "r1", state: "waiting", version: 3 }],
+        settles: [{ settle_id: "s1", state: "open", amount_cents: 100, version: 4 }],
+        billing: { balance_cents: 0, held_cents: 0, version: 2 },
+      }),
+    );
+    expect(snap).toMatchObject({
+      formats: [{ run_id: "r1", version: 9 }],
+      handoffs: [{ code: "C1", state: "waiting" }],
+      settles: [{ settle_id: "s1", state: "open" }],
+      balance: { version: 2 },
+    });
+  });
+
   it("versions are microseconds", () => {
     expect(versionOf("2026-11-07T00:00:01.000001Z") - versionOf("2026-11-07T00:00:01Z")).toBe(1);
   });

@@ -11,13 +11,17 @@ import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it } from
 import type { JSX } from "react";
 
 import projectFixture from "../../../fixtures/project.json";
+import { HandoffSheet } from "@/components/pay/HandoffSheet";
+import { PAID_STARTING } from "@/components/pay/payCopy";
 import { ProjectCard } from "@/components/projects/ProjectCard";
+import { RunFiles } from "@/components/steps/RunFiles";
 import { ConversionTracker } from "@/components/steps/ConversionTracker";
 import { HistoryList } from "@/components/steps/HistoryList";
 import { PreviousRuns } from "@/components/steps/PreviousRuns";
 import { OverviewSteps, useOverviewSteps } from "@/components/workspace/OverviewSteps";
 import type { Conversion, Project } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { BillingProvider } from "@/lib/billing";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 import { appStore } from "@/lib/state/stores";
@@ -229,5 +233,62 @@ describe("every surface agrees, at every step of one run (owner bug 2026-11-07)"
     expect(s.filesRow).toBe("Failed");
     expect(s.filesBar).toBeNull();
     expect(s.card).toContain("Failed, not charged");
+  });
+});
+
+describe("format jobs and hand-off links follow the same feed (owner 2026-11-07)", () => {
+  beforeEach(() => {
+    mockDb.eventsDown = true;
+    seq = 0;
+  });
+
+  it("run.formats: a new format's row goes from making to its file, with no timer", async () => {
+    const run = theRun({ state: "succeeded", progress: 1, outputs: ["mvhevc"] });
+    mockDb.conversions.set(run.conversion_id, structuredClone(run));
+    mockDb.formatJobs.set(run.conversion_id, {
+      sbs: { job_id: "jfmt1", status: "processing", polls: 0, requested_at: at(1), finished_at: null },
+    });
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <RunFiles conversion={run} />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    expect(await screen.findByTestId("another-format-making-sbs")).toBeTruthy();
+    // the gateway finishes it: the job and the run's file names change together
+    mockDb.formatJobs.get(run.conversion_id)!.sbs!.status = "succeeded";
+    mockDb.conversions.get(run.conversion_id)!.outputs = ["mvhevc", "sbs"];
+    send("run.formats", {
+      run_id: run.conversion_id,
+      project_id: PID,
+      version: (T0 + 9000) * 1000,
+      formats: {
+        available: [],
+        have: ["mvhevc", "sbs"],
+        pending: [],
+        price_cents: 0,
+        jobs: { sbs: { job_id: "jfmt1", status: "succeeded", source: "repack", price_cents: 0, requested_at: at(1), finished_at: at(9) } },
+      },
+      outputs: ["mvhevc", "sbs"],
+    });
+    expect(await screen.findByTestId("file-group-sbs")).toBeTruthy();
+    expect(screen.queryByTestId("another-format-making-sbs")).toBeNull();
+  });
+
+  it("handoff.state: paying on the other device, then the run itself says it's paid", async () => {
+    const run = theRun({ state: "created", billing: { status: "requires_payment" } as Conversion["billing"] });
+    mockDb.conversions.set(run.conversion_id, structuredClone(run));
+    render(
+      <AuthProvider>
+        <HandoffSheet conversionId={run.conversion_id} onPayHere={() => {}} onClose={() => {}} />
+      </AuthProvider>,
+    );
+    await screen.findByTestId("handoff-link");
+    const code = [...mockDb.billing.handoffs.keys()][0];
+    send("handoff.state", { code, run_id: run.conversion_id, version: (T0 + 2000) * 1000, state: "paying" });
+    expect(screen.getByTestId("handoff-state").textContent).toContain("Paying on your other device");
+    runState({ ...run, state: "paid", billing: { status: "charged", charged_cents: 1200 } }, 3);
+    expect(await screen.findByText(PAID_STARTING)).toBeTruthy();
   });
 });

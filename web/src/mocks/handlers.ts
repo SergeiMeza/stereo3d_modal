@@ -2577,6 +2577,23 @@ interface MockStream {
 
 const streams = new Set<MockStream>();
 let streamTicker: ReturnType<typeof setInterval> | null = null;
+/** what the streams last said about handoffs and the settle */
+const sentHandoffs = new Map<string, string>();
+let sentSettle = "";
+
+/** The gateway's handoff doc state: waiting | paying, closed once used or
+ * expired. */
+function handoffDocState(h: { conversion_id: string; state: string }): string {
+  const c = mockDb.conversions.get(h.conversion_id);
+  if (h.state === "paid" || h.state === "expired" || (c && c.state !== "created")) return "closed";
+  return h.state === "paying" ? "paying" : "waiting";
+}
+
+function settleBody() {
+  const b = mockDb.billing;
+  const owed = (b.unpaid ?? []).reduce((n: number, u: { amount_cents: number }) => n + u.amount_cents, 0);
+  return { settle_id: "settle_mock_1", state: b.settling ? "in_progress" : owed > 0 ? "open" : "paid", amount_cents: owed };
+}
 
 function runBody(c: Conversion) {
   return { ...c, project_id: c.project_id };
@@ -2624,6 +2641,34 @@ function streamTick() {
       });
     }
   }
+  // format jobs (run.formats, with the run's file names)
+  for (const c of mockDb.conversions.values()) {
+    if (!mockDb.formatJobs.has(c.conversion_id)) continue;
+    const before = JSON.stringify([runFormats(c, false), c.outputs]);
+    const formats = runFormats(c, true);
+    if (JSON.stringify([formats, c.outputs]) === before) continue;
+    c.updated_at = new Date().toISOString();
+    broadcast("run.formats", {
+      run_id: c.conversion_id,
+      project_id: c.project_id,
+      version: micros(c.updated_at),
+      formats,
+      outputs: [...(c.outputs ?? [])].sort(),
+    });
+  }
+  // hand-off links (handoff.state)
+  for (const [code, h] of mockDb.billing.handoffs) {
+    const state = handoffDocState(h);
+    if (sentHandoffs.get(code) === state) continue;
+    sentHandoffs.set(code, state);
+    broadcast("handoff.state", { code, run_id: h.conversion_id, version: micros(new Date().toISOString()), state });
+  }
+  // the settle of what's owed (billing.updated)
+  const settle = settleBody();
+  if (JSON.stringify(settle) !== sentSettle) {
+    sentSettle = JSON.stringify(settle);
+    broadcast("billing.updated", { kind: "settle", version: micros(new Date().toISOString()), ...settle });
+  }
   for (const p of mockDb.projects.values()) {
     if ((p as MockProject).deleted) continue;
     if (p.analyze.state !== "running" && p.profile?.state !== "running") continue;
@@ -2643,6 +2688,8 @@ function streamTick() {
  * tick the next test's runs). */
 export function closeMockStreams() {
   for (const s of [...streams]) s.close();
+  sentHandoffs.clear();
+  sentSettle = "";
 }
 
 /**
@@ -2695,6 +2742,20 @@ function eventStream(request: Request) {
           .filter((p) => !(p as MockProject).deleted)
           .slice(0, 100)
           .map(projectBody),
+        run_formats: Object.fromEntries(
+          [...mockDb.conversions.values()]
+            .filter((c) => mockDb.formatJobs.has(c.conversion_id))
+            .map((c) => [c.conversion_id, runFormats(c, false)]),
+        ),
+        handoffs: [...mockDb.billing.handoffs].map(([code, h]) => {
+          sentHandoffs.set(code, handoffDocState(h));
+          return { code, run_id: h.conversion_id, state: handoffDocState(h), version: micros(new Date().toISOString()) };
+        }),
+        settles: (() => {
+          sentSettle = JSON.stringify(settleBody());
+          return [{ ...settleBody(), version: micros(new Date().toISOString()) }];
+        })(),
+        billing: null,
       });
       streamTicker ??= setInterval(streamTick, POLL_INTERVAL_MS);
       request.signal.addEventListener("abort", () => me.close());
@@ -5225,7 +5286,8 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/runs/:id/formats`, ({ params }) => {
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "run not found");
-    return HttpResponse.json(runFormats(c, true));
+    // while a status stream is open, the stream advances the jobs
+    return HttpResponse.json(runFormats(c, mockDb.openStreams === 0));
   }),
   http.post(`${GATEWAY}/v1/runs/:id/formats`, async ({ params, request }) => {
     const c = mockDb.conversions.get(params.id as string);

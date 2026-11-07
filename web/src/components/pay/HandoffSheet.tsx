@@ -5,8 +5,8 @@
  * China mode, for WeChat Pay) hands the run's payment to a phone or
  * computer. One code per run (POST /v1/conversions/{id}/handoff): the
  * short link in big type, Email me the link, a small QR, the countdown,
- * and Pay here instead. The sheet watches the link (GET /v1/handoff) and
- * closes once it's paid.
+ * and Pay here instead. The sheet follows the link through the live feed
+ * (handoff.state, and the run itself) and closes once it's paid.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -15,12 +15,11 @@ import type { JSX } from "react";
 import { Button } from "@/components/ui/button";
 import type { HandoffStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useFallbackTick, useLiveHandoff, useLiveRunById } from "@/lib/live/useLive";
 
 import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { EXPIRED, PAID_STARTING, WAITING_FOR_PAYMENT } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
-
-const POLL_MS = 3000;
 
 /** "stereo3d.studio/p/K7M2-QX9P" from the link. */
 export function shortLink(url: string): string {
@@ -70,25 +69,40 @@ export function HandoffSheet({
     };
   }, [gateway, conversionId]);
 
-  // watch the link; tick the countdown
+  // owner 2026-11-07: the link's state comes from the live feed
+  // (handoff.state; the run leaving "created" means it's paid). A link
+  // that closed (used or expired) is read once to say which; while the
+  // stream is down its slow poll reads it again. Only the countdown ticks.
+  const handoff = useLiveHandoff(start?.code ?? "");
+  const run = useLiveRunById(conversionId);
+  const settled = state === "paid" || state === "expired";
+  if (!settled && start && run?.state !== undefined && run.state !== "created") setState("paid");
+  else if (!settled && start && handoff?.state === "paying" && state !== "paying") setState("paying");
+  const fallback = useFallbackTick();
+  const closed = handoff?.state === "closed";
   useEffect(() => {
-    if (!start || state === "paid" || state === "expired") return;
-    const tick = setInterval(() => setNow(Date.now()), 1000);
-    const poll = setInterval(() => {
-      gateway.getHandoff(start.code).then(
-        (h) => {
-          if (h.state === "paid") setState("paid");
-          else if (h.state === "expired") setState("expired");
-          else if (h.state === "paying") setState("paying");
-        },
-        () => {},
-      );
-    }, POLL_MS);
+    if (!start || settled || (!closed && fallback === 0)) return;
+    let live = true;
+    gateway.getHandoff(start.code).then(
+      (h) => {
+        if (!live) return;
+        if (h.state === "paid") setState("paid");
+        else if (h.state === "expired") setState("expired");
+        else if (h.state === "paying") setState("paying");
+      },
+      () => {},
+    );
     return () => {
-      clearInterval(tick);
-      clearInterval(poll);
+      live = false;
     };
-  }, [gateway, start, state]);
+    // a closed link, or each slow poll
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closed, fallback, start]);
+  useEffect(() => {
+    if (!start || settled) return;
+    const tick = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(tick);
+  }, [start, settled]);
 
   useEffect(() => {
     if (state !== "paid") return;

@@ -18,7 +18,18 @@ import { atomFamily } from "jotai-family";
 
 import type { Conversion, Project } from "@/lib/api/types";
 
-import { projectFromRead, runFromRead, versionOf, type LiveEvent, type LiveRun, type ProjectPatch } from "./events";
+import {
+  projectFromRead,
+  runFromRead,
+  versionOf,
+  type LiveBalance,
+  type LiveEvent,
+  type LiveFormats,
+  type LiveHandoff,
+  type LiveRun,
+  type LiveSettle,
+  type ProjectPatch,
+} from "./events";
 
 type Store = ReturnType<typeof createStore>;
 
@@ -41,6 +52,36 @@ export const projectRunIdsAtom = atomFamily((projectId: string) => {
   void projectId;
   return atom<readonly string[]>([]);
 });
+
+/** A run's format jobs and file names, as run.formats last said. */
+export const liveFormatsAtom = atomFamily((runId: string) => {
+  void runId;
+  return atom<LiveFormats | null>(null);
+});
+
+/** A "pay on another device" code, as handoff.state last said. */
+export const liveHandoffAtom = atomFamily((code: string) => {
+  void code;
+  return atom<LiveHandoff | null>(null);
+});
+
+/** A settle of what the account owes, as billing.updated last said. */
+export const liveSettleAtom = atomFamily((settleId: string) => {
+  void settleId;
+  return atom<LiveSettle | null>(null);
+});
+
+/** The prepaid balance, as billing.updated last said. */
+export const liveBalanceAtom = atom<LiveBalance | null>(null);
+
+/** The newest billing event's version (settle or balance): a billing
+ * read follows it. */
+export const billingVersionAtom = atom<number>(0);
+
+/** Counts the slow polls while the stream is down: what the stream
+ * doesn't carry whole (a billing status, a handoff's end) reads again on
+ * each. */
+export const fallbackTickAtom = atom<number>(0);
 
 export type LiveStatus = "idle" | "connecting" | "open" | "down" | "paused";
 
@@ -134,6 +175,10 @@ export function applyLiveEvent(store: Store, ev: LiveEvent): string[] {
       const missing = activeRunIds(store).filter((id) => !named.has(id));
       for (const r of ev.runs) applyRun(store, r);
       for (const p of ev.projects) applyProject(store, p);
+      for (const f of ev.formats ?? []) applyFormats(store, f);
+      for (const h of ev.handoffs ?? []) applyHandoff(store, h);
+      for (const x of ev.settles ?? []) applySettle(store, x);
+      if (ev.balance) applyBalance(store, ev.balance);
       return missing;
     }
     case "run.state":
@@ -143,9 +188,49 @@ export function applyLiveEvent(store: Store, ev: LiveEvent): string[] {
     case "project.updated":
       applyProject(store, ev.project);
       return [];
+    case "run.formats":
+      applyFormats(store, ev.formats);
+      return [];
+    case "handoff.state":
+      applyHandoff(store, ev.handoff);
+      return [];
+    case "billing.updated":
+      if (ev.settle) applySettle(store, ev.settle);
+      if (ev.balance) applyBalance(store, ev.balance);
+      return [];
     case "bye":
       return [];
   }
+}
+
+/** Format jobs; a snapshot's (stream-wide version) never wins a tie. */
+export function applyFormats(store: Store, f: LiveFormats): void {
+  const at = liveFormatsAtom(f.run_id);
+  const cur = store.get(at);
+  if (cur !== null && f.version <= cur.version) return;
+  store.set(at, f);
+}
+
+export function applyHandoff(store: Store, h: LiveHandoff): void {
+  const at = liveHandoffAtom(h.code);
+  const cur = store.get(at);
+  if (cur !== null && h.version <= cur.version) return;
+  store.set(at, h);
+}
+
+export function applySettle(store: Store, x: LiveSettle): void {
+  const at = liveSettleAtom(x.settle_id);
+  const cur = store.get(at);
+  if (cur !== null && x.version <= cur.version) return;
+  store.set(at, x);
+  if (x.version > store.get(billingVersionAtom)) store.set(billingVersionAtom, x.version);
+}
+
+export function applyBalance(store: Store, b: LiveBalance): void {
+  const cur = store.get(liveBalanceAtom);
+  if (cur !== null && b.version <= cur.version) return;
+  store.set(liveBalanceAtom, b);
+  if (b.version > store.get(billingVersionAtom)) store.set(billingVersionAtom, b.version);
 }
 
 /** A run with what the live feed knows on top, unless the page's copy is
@@ -237,5 +322,11 @@ export function resetLive(store: Store): void {
   for (const id of [...runAtom.getParams()]) runAtom.remove(id);
   for (const id of [...liveProjectAtom.getParams()]) liveProjectAtom.remove(id);
   for (const id of [...projectRunIdsAtom.getParams()]) projectRunIdsAtom.remove(id);
+  for (const id of [...liveFormatsAtom.getParams()]) liveFormatsAtom.remove(id);
+  for (const id of [...liveHandoffAtom.getParams()]) liveHandoffAtom.remove(id);
+  for (const id of [...liveSettleAtom.getParams()]) liveSettleAtom.remove(id);
+  store.set(liveBalanceAtom, null);
+  store.set(billingVersionAtom, 0);
+  store.set(fallbackTickAtom, 0);
   store.set(liveStatusAtom, "idle");
 }

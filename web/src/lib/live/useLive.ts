@@ -15,9 +15,13 @@ import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { appStore } from "@/lib/state/stores";
 
-import type { LiveRun } from "./events";
+import type { LiveFormats, LiveHandoff, LiveRun } from "./events";
 import { retainLive } from "./hub";
 import {
+  billingVersionAtom,
+  fallbackTickAtom,
+  liveFormatsAtom,
+  liveHandoffAtom,
   liveProjectAtom,
   liveStatusAtom,
   mergeProject,
@@ -100,4 +104,28 @@ export function useLiveDeletedIds(projectIds: readonly string[]): ReadonlySet<st
   );
   const gone = useAtomValue(derived, APP);
   return useMemo(() => new Set(gone === "" ? [] : gone.split(",")), [gone]);
+}
+
+/** A run's format jobs as run.formats last said (null: nothing yet). */
+export function useLiveFormats(runId: string): LiveFormats | null {
+  useLiveFeed();
+  return useAtomValue(liveFormatsAtom(runId), APP);
+}
+
+/** A "pay on another device" code as handoff.state last said. */
+export function useLiveHandoff(code: string): LiveHandoff | null {
+  useLiveFeed();
+  return useAtomValue(liveHandoffAtom(code), APP);
+}
+
+/** The newest billing event's version: read the billing status again
+ * when it moves. */
+export function useBillingVersion(): number {
+  useLiveFeed();
+  return useAtomValue(billingVersionAtom, APP);
+}
+
+/** The slow poll's count while the stream is down (0 while it's up). */
+export function useFallbackTick(): number {
+  return useAtomValue(fallbackTickAtom, APP);
 }

@@ -9,7 +9,16 @@
  *   event: run.state        {"type","run_id","project_id","version","state","run":Run}
  *   event: run.progress     {"type","run_id","project_id","version","state","progress","stage","eta_seconds","waiting_for_gpu","queued_s"}
  *   event: project.updated  {"type","project_id","version","deleted","project":Project}
+ *   event: run.formats      {"type","run_id","project_id","version","formats":Formats,"outputs":[name]}
+ *   event: handoff.state    {"type","code","run_id","version","state":"waiting"|"paying"|"closed"}
+ *   event: billing.updated  {"type","kind":"settle"|"balance","version","settle_id?","state?",
+ *                            "amount_cents?","balance_cents?","held_cents?"}
  *   event: bye              {"type","reason":"max_age"|"listener","retry_ms"}
+ *
+ * The snapshot also carries run_formats {run_id: Formats}, handoffs
+ * [{code, run_id, state, version}], settles [{settle_id, state,
+ * amount_cents, version}] and billing {balance_cents, held_cents,
+ * version} (gateway 4578628). Formats is GET /v1/runs/{id}/formats.
  *
  * Run is the GET /v1/conversions/{id} response; Project is GET
  * /v1/projects/{id} without its runs. `id:` is a whole number, rising
@@ -33,8 +42,53 @@ export type ProjectPatch = Partial<Omit<Project, "conversions">> & {
   deleted?: boolean;
 };
 
+/** run.formats: a run's format jobs (GET /v1/runs/{id}/formats) and its
+ * files' names. */
+export interface LiveFormats {
+  run_id: string;
+  version: number;
+  formats: unknown;
+  outputs?: string[];
+}
+
+/** handoff.state: a "pay on another device" code; "closed" once used or
+ * expired. */
+export interface LiveHandoff {
+  code: string;
+  run_id?: string;
+  version: number;
+  state: string;
+}
+
+/** billing.updated kind settle: one settle of what the account owes. */
+export interface LiveSettle {
+  settle_id: string;
+  version: number;
+  state?: string;
+  amount_cents?: number;
+}
+
+/** billing.updated kind balance: the prepaid balance. */
+export interface LiveBalance {
+  version: number;
+  balance_cents?: number;
+  held_cents?: number;
+}
+
 export type LiveEvent =
-  | { type: "snapshot"; id?: string; runs: LiveRun[]; projects: ProjectPatch[] }
+  | {
+      type: "snapshot";
+      id?: string;
+      runs: LiveRun[];
+      projects: ProjectPatch[];
+      formats?: LiveFormats[];
+      handoffs?: LiveHandoff[];
+      settles?: LiveSettle[];
+      balance?: LiveBalance | null;
+    }
+  | { type: "run.formats"; id?: string; formats: LiveFormats }
+  | { type: "handoff.state"; id?: string; handoff: LiveHandoff }
+  | { type: "billing.updated"; id?: string; settle?: LiveSettle; balance?: LiveBalance }
   | { type: "run.state"; id?: string; run: LiveRun }
   | { type: "run.progress"; id?: string; run: LiveRun }
   | { type: "project.updated"; id?: string; project: ProjectPatch }
@@ -82,6 +136,27 @@ function defined<T extends Record<string, unknown>>(o: T): Partial<T> {
   return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
+function handoffOf(h: Record<string, unknown>): LiveHandoff {
+  return {
+    code: h.code as string,
+    version: num(h.version) ?? 0,
+    state: typeof h.state === "string" ? h.state : "",
+    ...(typeof h.run_id === "string" ? { run_id: h.run_id } : {}),
+  };
+}
+
+function settleOf(x: Record<string, unknown>): LiveSettle {
+  return {
+    settle_id: x.settle_id as string,
+    version: num(x.version) ?? 0,
+    ...defined({ state: typeof x.state === "string" ? x.state : undefined, amount_cents: num(x.amount_cents) }),
+  };
+}
+
+function balanceOf(b: Record<string, unknown>): LiveBalance {
+  return { version: num(b.version) ?? 0, ...defined({ balance_cents: num(b.balance_cents), held_cents: num(b.held_cents) }) };
+}
+
 /** One SSE message as a LiveEvent; null for an unknown or broken one
  * (the stream goes on). */
 export function parseLiveEvent(event: string, data: string, id?: string): LiveEvent | null {
@@ -105,7 +180,30 @@ export function parseLiveEvent(event: string, data: string, id?: string): LiveEv
         .map(obj)
         .filter((p): p is Record<string, unknown> => p !== null && typeof p.project_id === "string")
         .map((p) => projectFromRead(p as unknown as Project));
-      return { type: "snapshot", ...at, runs, projects };
+      const top = version ?? 0;
+      const runFormats = obj(body.run_formats);
+      const formats: LiveFormats[] = runFormats
+        ? Object.entries(runFormats).map(([run_id, f]) => ({ run_id, version: top, formats: f }))
+        : [];
+      const handoffs = (Array.isArray(body.handoffs) ? body.handoffs : [])
+        .map(obj)
+        .filter((h): h is Record<string, unknown> => h !== null && typeof h.code === "string")
+        .map(handoffOf);
+      const settles = (Array.isArray(body.settles) ? body.settles : [])
+        .map(obj)
+        .filter((x): x is Record<string, unknown> => x !== null && typeof x.settle_id === "string")
+        .map(settleOf);
+      const billing = obj(body.billing);
+      return {
+        type: "snapshot",
+        ...at,
+        runs,
+        projects,
+        formats,
+        handoffs,
+        settles,
+        balance: billing ? balanceOf(billing) : null,
+      };
     }
     case "run.state": {
       const run = obj(body.run) ?? {};
@@ -163,6 +261,25 @@ export function parseLiveEvent(event: string, data: string, id?: string): LiveEv
         } as ProjectPatch,
       };
     }
+    case "run.formats":
+      if (typeof body.run_id !== "string") return null;
+      return {
+        type: "run.formats",
+        ...at,
+        formats: {
+          run_id: body.run_id,
+          version: version ?? 0,
+          formats: body.formats ?? null,
+          ...(Array.isArray(body.outputs) ? { outputs: body.outputs.filter((o): o is string => typeof o === "string") } : {}),
+        },
+      };
+    case "handoff.state":
+      if (typeof body.code !== "string") return null;
+      return { type: "handoff.state", ...at, handoff: handoffOf(body) };
+    case "billing.updated":
+      if (body.kind === "balance") return { type: "billing.updated", ...at, balance: balanceOf(body) };
+      if (typeof body.settle_id !== "string") return null;
+      return { type: "billing.updated", ...at, settle: settleOf(body) };
     case "bye":
       return { type: "bye", ...at, retryMs: num(body.retry_ms) ?? null };
     default:

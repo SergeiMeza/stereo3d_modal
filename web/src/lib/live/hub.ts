@@ -11,7 +11,7 @@ import type { GatewayClient } from "@/lib/api/client";
 import { appStore } from "@/lib/state/stores";
 
 import { FALLBACK_POLL_MS, LiveConnection, type LiveOptions, type LiveTransport } from "./connection";
-import { activeRunIds, applyProject, applyRun, openProjectsAtom, resetLive } from "./liveStore";
+import { activeRunIds, applyProject, applyRun, fallbackTickAtom, openProjectsAtom, resetLive } from "./liveStore";
 
 type Client = Pick<GatewayClient, "openEvents" | "getConversion" | "getProject" | "listProjects">;
 
@@ -40,6 +40,9 @@ export async function pollOnce(client: Client, store = appStore): Promise<void> 
     ),
   );
   await Promise.all([...runs, list, ...open]);
+  // what the stream doesn't carry whole reads again (format jobs, a
+  // handoff, a settle's billing status)
+  store.set(fallbackTickAtom, (n) => n + 1);
 }
 
 export function transportFor(client: Client, store = appStore): LiveTransport {
