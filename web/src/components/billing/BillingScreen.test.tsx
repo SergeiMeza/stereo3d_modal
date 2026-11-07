@@ -439,6 +439,15 @@ describe("Billing (S3D-57, S3D-62)", () => {
     expect(screen.getByText("You can save up to 5 payment methods.")).toBeTruthy();
   });
 
+  it("a wallet saved from its row takes the same saving path as the button (BUX-03)", async () => {
+    renderBilling();
+    fireEvent.click(await screen.findByTestId("add-method"));
+    await screen.findByTestId("add-method-save");
+    fireEvent.click(within(screen.getByTestId("add-method-sheet")).getByTestId("mock-wallet"));
+    expect(await screen.findByText("Saved.")).toBeTruthy();
+    await waitFor(() => expect(within(screen.getByTestId("payment-methods")).getAllByRole("listitem")).toHaveLength(2), { timeout: 3000 });
+  });
+
   it("no plan: no company reminder, even with nothing saved (owner 2026-11-05)", async () => {
     renderBilling();
     await screen.findByText("No business details. Add them to show on invoices.");

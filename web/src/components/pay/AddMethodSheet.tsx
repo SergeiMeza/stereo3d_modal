@@ -70,6 +70,16 @@ export function AddMethodSheet({
     return () => clearTimeout(timer);
   }, [phase.kind, onClose]);
 
+  /** A save that went through: the default choice, then done or why not. */
+  async function saved(r: ConfirmResult, secret: string, publishableKey?: string): Promise<void> {
+    if ((r === "paid" || r === "already_paid") && makeDefault && !first) {
+      const list = await gateway.getPaymentMethods().catch(() => null);
+      const added = list?.methods.at(-1);
+      if (added && !added.is_default) await gateway.setDefaultMethod(added.id).catch(() => {});
+    }
+    handle(r, secret, publishableKey);
+  }
+
   function handle(r: ConfirmResult, secret: string, publishableKey?: string): void {
     if (r === "paid" || r === "already_paid") return setPhase({ kind: "done" });
     if (r === "redirect") return;
@@ -86,7 +96,19 @@ export function AddMethodSheet({
     const saving = phase.kind === "saving";
     const notice = phase.kind === "ready" ? phase.notice : undefined;
     return (
-      <CheckoutPane clientSecret={secret} publishableKey={publishableKey} big={big} setup returnQuery="added=1">
+      <CheckoutPane
+        clientSecret={secret}
+        publishableKey={publishableKey}
+        big={big}
+        setup
+        returnQuery="added=1"
+        // BUX-03 (owner 2026-11-07): a wallet saved from its row takes the
+        // same saving → saved path as the button
+        onWallet={(result) => {
+          setPhase({ kind: "saving", secret, publishableKey });
+          void result.then((r) => saved(r, secret, publishableKey));
+        }}
+      >
         {(form, body) => (
           <SheetFrame
             open
@@ -117,13 +139,7 @@ export function AddMethodSheet({
                     setPhase({ kind: "saving", secret, publishableKey });
                     // the default choice rides on the setup request; a
                     // late tick sets it once saved
-                    const r = await form.confirm();
-                    if ((r === "paid" || r === "already_paid") && makeDefault && !first) {
-                      const list = await gateway.getPaymentMethods().catch(() => null);
-                      const added = list?.methods.at(-1);
-                      if (added && !added.is_default) await gateway.setDefaultMethod(added.id).catch(() => {});
-                    }
-                    handle(r, secret, publishableKey);
+                    await saved(await form.confirm(), secret, publishableKey);
                   }}
                 >
                   {saving ? t("pay.addMethod.saving") : t("pay.addMethod.save")}

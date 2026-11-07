@@ -71,6 +71,25 @@ describe("the pay page (D7)", () => {
     ]);
   });
 
+  it("a wallet (Apple Pay, Google Pay) pays in the page through the same result path (BUX-03)", async () => {
+    request("tok_wallet");
+    page("tok_wallet");
+    fireEvent.click(await screen.findByTestId("pay-request-pay"));
+    fireEvent.click(await screen.findByTestId("mock-wallet"));
+    expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
+    expect(mockDb.payRequests.get("tok_wallet")!.state).toBe("paid");
+  });
+
+  it("a declined wallet keeps the form and its Pay button", async () => {
+    request("tok_wallet_no");
+    mockDb.billing.nextConfirm = "declined";
+    page("tok_wallet_no");
+    fireEvent.click(await screen.findByTestId("pay-request-pay"));
+    fireEvent.click(await screen.findByTestId("mock-wallet"));
+    expect(await screen.findByTestId("pay-request-notice")).toBeTruthy();
+    expect((screen.getByTestId("pay-request-confirm") as HTMLButtonElement).disabled).toBe(false);
+  });
+
   it("a declined payment says so and keeps the form", async () => {
     request("tok_decline");
     mockDb.billing.nextConfirm = "declined";

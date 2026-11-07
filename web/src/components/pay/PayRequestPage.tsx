@@ -150,7 +150,17 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
       ) : state.kind === "limited" ? (
         <p className="text-base text-fg">{t("pay.handoffPage.limited")}</p>
       ) : state.kind === "form" ? (
-        <CheckoutPane clientSecret={state.secret} publishableKey={state.publishableKey} showSaveLine={false}>
+        <CheckoutPane
+          clientSecret={state.secret}
+          publishableKey={state.publishableKey}
+          showSaveLine={false}
+          // BUX-03: a wallet pays through the same paying → result path
+          onWallet={(result) => {
+            const s = state;
+            setState({ ...s, paying: true, notice: undefined });
+            void result.then((r) => confirmed(r, s));
+          }}
+        >
           {(form, body) => (
             <div className="flex flex-col gap-4">
               {head(state.info)}
