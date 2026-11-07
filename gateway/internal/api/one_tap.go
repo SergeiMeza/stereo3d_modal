@@ -82,8 +82,10 @@ func oneTapDeclined(f stripex.ChargeFailure) map[string]any {
 }
 
 // POST /v1/conversions/{id}/pay-one-tap {amount_cents} → the run (as
-// pay-now answers) plus {state: succeeded | processing | requires_action |
-// declined, client_secret? (requires_action), message? (declined)}.
+// pay-now answers) plus {one_tap_state: succeeded | processing |
+// requires_action | declined, client_secret? (requires_action), message?
+// (declined)}. state carries the tap's state too, over the run's own
+// (older web builds read it there); read one_tap_state.
 // 409 one_tap_unavailable (pay in the sheet), amount_changed
 // {amount_cents}, payment_in_progress (a tap already being paid),
 // already_paid, expired, not_payable.
@@ -141,7 +143,7 @@ func (s *Service) HandleRunPayOneTap(w http.ResponseWriter, r *http.Request, use
 	})
 	if errors.Is(err, errAlreadyPaid) {
 		resp := s.payNowResponse(updated)
-		resp["state"] = "succeeded"
+		resp["state"], resp["one_tap_state"] = "succeeded", "succeeded"
 		httpx.WriteOK(w, resp)
 		return
 	}
@@ -166,8 +168,9 @@ func (s *Service) HandleRunPayOneTap(w http.ResponseWriter, r *http.Request, use
 	}
 	out := s.payNowResponse(updated)
 	for k, v := range resp {
-		out[k] = v
+		out[k] = v // state: the tap's, over the run's (kept for older web builds)
 	}
+	out["one_tap_state"] = resp["state"]
 	httpx.Log(ctx).Info("one-tap run payment", "conversion_id", id, "uid", user.UID, "state", resp["state"], "payment_intent", cp.ID)
 	httpx.WriteOK(w, out)
 }
@@ -220,8 +223,9 @@ func stateOf(out stripex.Outcome) string {
 }
 
 // POST /v1/billing/settle/one-tap {amount_cents, settle_id?} → the settle
-// answer (as POST /v1/billing/settle with ui) plus {state: succeeded |
-// processing | requires_action | declined, client_secret?, message?}.
+// answer (as POST /v1/billing/settle with ui) plus {one_tap_state:
+// succeeded | processing | requires_action | declined, client_secret?,
+// message?}; state is the same (kept for older web builds).
 // 409 one_tap_unavailable, amount_changed {amount_cents},
 // payment_in_progress; {settled: true} when nothing is owed.
 func (s *Service) HandleSettleOneTap(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
@@ -269,6 +273,7 @@ func (s *Service) HandleSettleOneTap(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "payment_in_progress", "your payment is being confirmed"))
 		return
 	}
+	resp["one_tap_state"] = resp["state"]
 	httpx.WriteOK(w, resp)
 }
 

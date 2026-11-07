@@ -124,7 +124,7 @@ func TestOneTapRunPays(t *testing.T) {
 	uid, cus := oneTapCustomer(t, s, f, "pm_1", "")
 	run := payFirstRun(t, s, uid, cus, 1500)
 	code, out := tapRun(t, s, uid, run.ID, 1500)
-	if code != 200 || out["state"] != "succeeded" {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "succeeded" {
 		t.Fatalf("%d %v", code, out)
 	}
 	if len(f.creates) != 1 || len(f.confirms) != 1 || len(f.expired) != 1 || f.expired[0] != run.CurrentPayment.ID {
@@ -202,7 +202,7 @@ func TestOneTapRunBankCheck(t *testing.T) {
 	uid, cus := oneTapCustomer(t, s, f, "pm_3ds", "auth")
 	run := payFirstRun(t, s, uid, cus, 1500)
 	code, out := tapRun(t, s, uid, run.ID, 1500)
-	if code != 200 || out["state"] != "requires_action" || out["client_secret"] != "pi_off_1_secret_x" {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "requires_action" || out["client_secret"] != "pi_off_1_secret_x" {
 		t.Fatalf("%d %v", code, out)
 	}
 	got, _ := s.Store.GetConversion(ctx, run.ID)
@@ -233,7 +233,7 @@ func TestOneTapRunDeclineThenFreshKey(t *testing.T) {
 	run := payFirstRun(t, s, uid, cus, 1500)
 	code, out := tapRun(t, s, uid, run.ID, 1500)
 	msg, _ := out["message"].(string)
-	if code != 200 || out["state"] != "declined" || msg == "" || strings.Contains(msg, "pi_") || out["decline_code"] != "insufficient_funds" {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "declined" || msg == "" || strings.Contains(msg, "pi_") || out["decline_code"] != "insufficient_funds" {
 		t.Fatalf("%d %v", code, out)
 	}
 	if got, _ := s.Store.GetConversion(ctx, run.ID); got.State != store.StateCreated || got.Stripe.PIStatus == store.PISucceeded {
@@ -246,7 +246,7 @@ func TestOneTapRunDeclineThenFreshKey(t *testing.T) {
 	f.outcome["pm_1"] = ""
 	f.mu.Unlock()
 	code, out = tapRun(t, s, uid, run.ID, 1500)
-	if code != 200 || out["state"] != "succeeded" || len(f.creates) != 2 || f.creates[0]["key"] == f.creates[1]["key"] {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "succeeded" || len(f.creates) != 2 || f.creates[0]["key"] == f.creates[1]["key"] {
 		t.Fatalf("second tap %d %v keys %q %q", code, out, f.creates[0]["key"], f.creates[1]["key"])
 	}
 	if f.succeeded() != 1 {
@@ -294,7 +294,7 @@ func TestOneTapSettlePays(t *testing.T) {
 		t.Fatalf("mismatch: %d %v", code, out)
 	}
 	code, out := tapSettle(t, s, uid, 1500)
-	if code != 200 || out["state"] != "succeeded" || out["settled"] != true {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "succeeded" || out["settled"] != true {
 		t.Fatalf("%d %v", code, out)
 	}
 	c := f.creates[0]
@@ -318,12 +318,12 @@ func TestOneTapSettleBankCheck(t *testing.T) {
 	uid, _ := oneTapCustomer(t, s, f, "pm_3ds", "auth")
 	owedConversion(t, s, uid, 1500)
 	code, out := tapSettle(t, s, uid, 1500)
-	if code != 200 || out["state"] != "requires_action" || out["client_secret"] != "pi_off_1_secret_x" {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "requires_action" || out["client_secret"] != "pi_off_1_secret_x" {
 		t.Fatalf("%d %v", code, out)
 	}
 	sid, _ := out["settle_id"].(string)
 	// A second tap meanwhile answers the same check, no new PaymentIntent.
-	if code, out := tapSettle(t, s, uid, 1500); code != 200 || out["state"] != "requires_action" || len(f.creates) != 1 {
+	if code, out := tapSettle(t, s, uid, 1500); code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "requires_action" || len(f.creates) != 1 {
 		t.Fatalf("second tap: %d %v", code, out)
 	}
 	f.mu.Lock()
@@ -345,7 +345,7 @@ func TestOneTapSettleDecline(t *testing.T) {
 	uid, _ := oneTapCustomer(t, s, f, "pm_1", "decline:card_declined")
 	owedConversion(t, s, uid, 1500)
 	code, out := tapSettle(t, s, uid, 1500)
-	if code != 200 || out["state"] != "declined" || out["message"] == "" {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "declined" || out["message"] == "" {
 		t.Fatalf("%d %v", code, out)
 	}
 	if s.owedCents(ctx, uid) != 1500 || f.succeeded() != 0 {
@@ -381,7 +381,7 @@ func TestOneTapOnLiveSheetSettle(t *testing.T) {
 		t.Fatalf("China answer offers one tap: %v", again["one_tap"])
 	}
 	code, out := tapSettle(t, s, uid, 1500)
-	if code != 200 || out["state"] != "succeeded" || len(f.expired) < 1 || f.succeeded() != 1 || s.owedCents(ctx, uid) != 0 {
+	if code != 200 || out["one_tap_state"] != out["state"] || out["state"] != "succeeded" || len(f.expired) < 1 || f.succeeded() != 1 || s.owedCents(ctx, uid) != 0 {
 		t.Fatalf("%d %v expired %v", code, out, f.expired)
 	}
 }
