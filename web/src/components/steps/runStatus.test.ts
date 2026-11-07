@@ -42,6 +42,31 @@ describe("runStatus (S3D-33)", () => {
     expect(label({ state: "canceled" })).toBe("Cancelled · not charged");
     expect(label({ state: "expired" })).toBe("Didn't start, not charged");
   });
+
+  it("a refund in the card's currency, but only the part when part was refunded (REV-11)", () => {
+    const label = (o: Partial<Conversion>) => runStatus(run(o)).label;
+    const yen = { amount_minor: 1648, currency: "jpy" };
+    // all of it back: the yen the card paid
+    expect(
+      label({
+        state: "failed",
+        charge_timing: "before",
+        quote: { amount_cents: 1000, currency: "usd" },
+        presentment: yen,
+        billing: { status: "refunded", refunded_cents: 1000 },
+      }),
+    ).toBe("Failed, refunded ¥1,648");
+    // $4 of $10 back: not the full ¥1,648
+    expect(
+      label({
+        state: "failed",
+        charge_timing: "before",
+        quote: { amount_cents: 1000, currency: "usd" },
+        presentment: yen,
+        billing: { status: "refunded", refunded_cents: 400 },
+      }),
+    ).toBe("Failed, refunded $4.00");
+  });
 });
 
 describe("one time format (S3D-34)", () => {

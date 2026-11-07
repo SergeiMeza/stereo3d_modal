@@ -508,6 +508,8 @@ export interface ConversionBilling {
   /** the declined method, for P3's line ("Visa •••• 4242") */
   declined_method_label?: string;
   charged_cents?: number; // status === "charged"
+  /** status "refunded": what went back (part of the charge, or all of it) */
+  refunded_cents?: number;
   batch_id?: string; // status === "batched": on the account's pending balance
   client_secret?: string; // status === "requires_action" | "requires_payment"
   publishable_key?: string; // status === "requires_action" | "requires_payment"

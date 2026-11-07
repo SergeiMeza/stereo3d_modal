@@ -22,8 +22,12 @@ export interface RunStatus {
 function refunded(c: Conversion, t: Tr): string | null {
   const s = c.billing?.status;
   if (s !== "refunded" && s !== "refund_pending") return null;
-  // owner 2026-11-07: a refund goes back in the currency the card paid
-  return localAmount(c.presentment, t) ?? formatCents(c.billing?.charged_cents ?? c.quote.amount_cents, t);
+  const paid = c.billing?.charged_cents ?? c.quote.amount_cents;
+  const back = c.billing?.refunded_cents ?? paid;
+  // owner 2026-11-07: a refund goes back in the currency the card paid;
+  // REV-11: a part refunded reads in US dollars, the part only
+  if (back !== paid) return formatCents(back, t);
+  return localAmount(c.presentment, t) ?? formatCents(back, t);
 }
 
 export function runStatus(c: Conversion, t: Tr = EN): RunStatus {
