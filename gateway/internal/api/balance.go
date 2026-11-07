@@ -1057,7 +1057,7 @@ func (s *Service) mailTopup(ctx context.Context, t *store.Topup) {
 	line := money(t.PaidCents) + " was added to your balance."
 	if t.Auto {
 		kind = "Auto-reload"
-		line = "Auto-reload added " + money(t.PaidCents) + " to your balance."
+		line = "Auto-reload added " + money(t.PaidCents) + " to your balance. Charged in US dollars." // an off-session charge: never presented locally
 	}
 	b, _ := s.Store.GetBalance(ctx, t.UID)
 	lines := []string{line}
