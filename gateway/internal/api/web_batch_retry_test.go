@@ -122,6 +122,9 @@ func TestWebGroupRetryPays(t *testing.T) {
 	if got.State != store.BatchPaid || got.Retry.State != store.RetryPaid || got.Retry.Attempts != 2 || f.succeeded() != 1 || s.owedCents(ctx, uid) != 0 {
 		t.Fatalf("%s %+v succeeded %d", got.State, got.Retry, f.succeeded())
 	}
+	if got.SettleID == "" || !mailed(s, "E20_"+got.SettleID) {
+		t.Fatalf("no receipt for the collected debt (settle %q)", got.SettleID)
+	}
 	if pr, _ := s.Store.GetPayRequest(ctx, prID); pr.State != store.PayPaid {
 		t.Fatalf("pay link %s", pr.State)
 	}
@@ -220,5 +223,62 @@ func TestAppGroupRetryUnchanged(t *testing.T) {
 		if c["payment_method_configuration"] != "" {
 			t.Fatalf("app charge under a PMC: %v", c)
 		}
+	}
+}
+
+// Item 3: a paid web group mails its receipt (E20) and records its
+// invoice charge; an app group doesn't mail one.
+func TestWebGroupReceipt(t *testing.T) {
+	s, f := offService(t)
+	ctx := context.Background()
+	uid, _ := offCustomer(t, s, f, [2]string{"pm_1", ""})
+	b := offBatch(t, s, uid, "proj_1", 1000, 500)
+	if got, err := s.chargeBatch(ctx, b); err != nil || got.State != store.BatchPaid {
+		t.Fatalf("%v %+v", err, got)
+	}
+	if !mailed(s, "E20_"+b.ID) {
+		t.Fatal("no receipt")
+	}
+	ch, err := s.Store.GetCharge(ctx, store.ChargeGroup+"_"+b.ID)
+	if err != nil || len(ch.Lines) != 2 || ch.AmountCents != 1500 {
+		t.Fatalf("charge record %+v %v", ch, err)
+	}
+	uid2, _ := offCustomer(t, s, f, [2]string{"pm_2", ""})
+	app := offBatch(t, s, uid2, "", 1000)
+	if got, _ := s.chargeBatch(ctx, app); got.State != store.BatchPaid || mailed(s, "E20_"+app.ID) {
+		t.Fatalf("app group: %s, receipt mailed", got.State)
+	}
+}
+
+func TestReceiptMailText(t *testing.T) {
+	m := receiptMail(2250, []string{"A · $1.00", "B · $2.00", "C · $3.00", "D · $4.00", "E · $12.50"}, "https://site.example/billing")
+	if !strings.HasPrefix(m.Subject, "Spatial Video Studio: ") || !strings.Contains(m.Subject, "your last 5 3D videos · $22.50") || len(m.Lines) != 3 ||
+		!strings.Contains(m.Lines[0], "(charged in US dollars)") || m.Lines[1] != "A · $1.00; B · $2.00; C · $3.00; and 2 more." || !m.Receipt {
+		t.Fatalf("%+v", m)
+	}
+	if one := receiptMail(450, []string{"A · $4.50"}, ""); !strings.Contains(one.Subject, "your last 3D video · $4.50") || one.Lines[1] != "A · $4.50." {
+		t.Fatalf("%+v", one)
+	}
+}
+
+// Item 2: a web group's retry runs under pmc_web, so a Link (or PayPal)
+// saved as the default after the failure pays it (Link methods can't be
+// saved through the API in Stripe test mode: proven here only).
+func TestWebGroupRetryPaysWithLinkUnderPMC(t *testing.T) {
+	s, f := offService(t)
+	ctx := context.Background()
+	uid, cus := offCustomer(t, s, f, [2]string{"pm_card", "decline:insufficient_funds"})
+	b := offBatch(t, s, uid, "proj_1", 1300)
+	s.chargeBatch(ctx, b)
+	f.mu.Lock()
+	f.methods[cus], f.outcome["pm_link"] = []string{"pm_link"}, "needs_pmc"
+	f.mu.Unlock()
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.DefaultPaymentMethod = "pm_link"; return nil })
+	groupDueNow(t, s, b.ID)
+	s.settleSweep(ctx)
+	got, _ := s.Store.GetBatch(ctx, b.ID)
+	last := f.creates[len(f.creates)-1]
+	if got.State != store.BatchPaid || last["payment_method"] != "pm_link" || last["payment_method_configuration"] != "pmc_test" || f.succeeded() != 1 {
+		t.Fatalf("%s last create %v", got.State, last)
 	}
 }
