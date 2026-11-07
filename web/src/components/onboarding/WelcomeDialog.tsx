@@ -172,6 +172,14 @@ function ProLines({
   return <>{parts.filter((p) => p !== null).join(" ")}</>;
 }
 
+/** The mock's deep link to a welcome step (?welcomeStep=N, the iPhone Duo
+ * screenshots): 1 outside the mock. */
+function mockWelcomeStep(total: number): number {
+  if (process.env.NEXT_PUBLIC_API_MOCK !== "1" || typeof window === "undefined") return 1;
+  const n = Number(new URLSearchParams(window.location.search).get("welcomeStep"));
+  return Number.isInteger(n) && n >= 1 && n <= total ? n : 1;
+}
+
 /** The three steps; copy at onboarding.welcome.how.steps.<id>. */
 const HOW: readonly ("add" | "preview" | "make")[] = ["add", "preview", "make"];
 
@@ -196,7 +204,8 @@ export function WelcomeDialog({
   const { settings, update } = useAccountSettings();
   const steps = STEPS[variant];
   const total = steps.length;
-  const [step, setStep] = useState(1);
+  // the mock's screenshot deep link (?welcomeStep=2): never in a real build
+  const [step, setStep] = useState(() => mockWelcomeStep(total));
   const kind = steps[Math.min(step, total) - 1];
   const appPro = variant !== "default";
   // ADR 0138: the picks live in an atom, so a remount keeps them
@@ -264,20 +273,26 @@ export function WelcomeDialog({
       <DialogContent
         data-testid="welcome"
         showCloseButton={false}
-        className="flex h-dvh max-h-dvh w-full max-w-full flex-col gap-0 overflow-y-auto rounded-none p-0 sm:h-auto sm:max-h-[92dvh] sm:max-w-[560px] sm:rounded-2xl"
+        // owner 2026-11-07 (foldable): never taller or wider than the screen
+        // you can see; the body scrolls, the footer stays (sheet-fit)
+        className="sheet-fit flex w-full max-w-full min-w-0 flex-col gap-0 overflow-hidden rounded-none p-0 sm:max-w-[560px] sm:rounded-2xl"
       >
+        <div
+          data-testid="welcome-body"
+          className="min-h-0 min-w-0 flex-1 overflow-x-hidden overflow-y-auto overscroll-contain break-words"
+        >
         {/* owner 2026-11-07: no Skip; every new account goes through the
             welcome (closing the tab mid-way shows it again) */}
-        <div className="pt-4 sm:hidden" />
+        <div className="pt-4 sm:hidden short:pt-2" />
 
         {kind === "pro" ? (
           <div className="flex flex-col" data-testid="welcome-app-pro">
-            <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
+            <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8 short:gap-1 short:pt-3 sm:short:pt-5">
               <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
-              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
+              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px] short:text-xl sm:short:text-2xl">
                 {t("onboarding.welcome.pro.title", { pro: PRO })}
               </DialogTitle>
-              <DialogDescription className="text-[15px] leading-normal text-fg-muted">
+              <DialogDescription className="text-[15px] leading-normal text-fg-muted short:text-sm">
                 <ProLines pct={pct} previews={previews} credit={proCredit} />
               </DialogDescription>
               <BusinessLine />
@@ -287,14 +302,14 @@ export function WelcomeDialog({
           <div className="flex flex-col">
             {appPro ? (
               <div
-                className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8"
+                className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8 short:gap-1 short:pt-3 sm:short:pt-5"
                 data-testid="welcome-app-pro"
               >
                 <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
-                <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
+                <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px] short:text-xl sm:short:text-2xl">
                   {t("onboarding.welcome.pro.title", { pro: PRO })}
                 </DialogTitle>
-                <DialogDescription className="text-[15px] leading-normal text-fg-muted">
+                <DialogDescription className="text-[15px] leading-normal text-fg-muted short:text-sm">
                   <ProLines pct={pct} previews={previews} credit={proCredit} />
                 </DialogDescription>
                 <p className="pt-2 text-[15px] text-fg">
@@ -302,12 +317,12 @@ export function WelcomeDialog({
                 </p>
               </div>
             ) : (
-              <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
+              <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8 short:gap-1 short:pt-3 sm:short:pt-5">
                 <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
-                <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
+                <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px] short:text-xl sm:short:text-2xl">
                   {t("onboarding.welcome.headsets.title")}
                 </DialogTitle>
-                <DialogDescription className="text-[15px] leading-normal text-fg-muted">
+                <DialogDescription className="text-[15px] leading-normal text-fg-muted short:text-sm">
                   <span className="hidden sm:inline">
                     {t("onboarding.welcome.headsets.intro", { site: SITE_NAME })}
                   </span>
@@ -318,7 +333,9 @@ export function WelcomeDialog({
             <div
               role="group"
               aria-label={t("onboarding.welcome.headsets.question")}
-              className="grid grid-cols-1 gap-2.5 px-5 pt-5 sm:grid-cols-2 sm:px-9"
+              // two columns wherever two cards of 11rem fit (folded
+              // phones, foldables, the dialog), one on narrow phones
+              className="grid grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))] gap-2 px-5 pt-4 sm:gap-2.5 sm:px-9 sm:pt-5 short:gap-1.5 short:pt-3"
             >
               {WELCOME_DEVICES.map((d) => {
                 const on = chosen.includes(d.id);
@@ -329,7 +346,7 @@ export function WelcomeDialog({
                     aria-pressed={on}
                     data-testid={`welcome-device-${d.id}`}
                     onClick={() => toggle(d.id)}
-                    className={`flex min-h-12 items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-start transition-colors sm:min-h-14 ${
+                    className={`flex min-h-11 min-w-0 items-center gap-2.5 rounded-[10px] border px-3 py-2 text-start transition-colors sm:min-h-14 sm:gap-3 sm:px-3.5 sm:py-2.5 short:min-h-10 short:py-1.5 sm:short:min-h-11 ${
                       on
                         ? "border-primary bg-primary/10"
                         : "border-edge bg-surface-2 hover:border-fg-muted"
@@ -343,9 +360,9 @@ export function WelcomeDialog({
                     >
                       {on ? "✓" : ""}
                     </span>
-                    <span className="flex flex-col items-start gap-0.5">
-                      <span className="text-[15px] text-fg">{welcomeDeviceName(d.id, t)}</span>
-                      <span className="hidden text-xs text-fg-muted sm:block">
+                    <span className="flex min-w-0 flex-col items-start">
+                      <span className="text-sm leading-snug text-fg sm:text-[15px] short:text-sm">{welcomeDeviceName(d.id, t)}</span>
+                      <span className="text-[11px] leading-snug text-fg-muted sm:text-xs short:text-[11px]">
                         {welcomeDeviceFiles(d.id, t)}
                       </span>
                     </span>
@@ -353,7 +370,7 @@ export function WelcomeDialog({
                 );
               })}
             </div>
-            <p className="px-5 pt-3 text-[13px] text-fg-muted sm:px-9">
+            <p className="px-5 pt-3 pb-4 text-[13px] text-fg-muted sm:px-9 short:pt-2 short:pb-3 short:text-xs">
               {appPro && picked === null && fromApp.length > 0
                 ? t("onboarding.welcome.headsets.fromApp")
                 : otherHeadset && picked === null
@@ -365,7 +382,7 @@ export function WelcomeDialog({
           <div className="flex flex-col">
             <div
               data-testid="welcome-loop"
-              className="relative aspect-[16/7] w-full overflow-hidden bg-black sm:h-[220px] sm:aspect-auto"
+              className="relative aspect-[16/7] w-full overflow-hidden bg-black sm:h-[220px] sm:aspect-auto short:aspect-[16/5] sm:short:h-[150px]"
             >
               <LoopVideo
                 base="/landing/hero/sunset-session-2d-3d"
@@ -377,7 +394,7 @@ export function WelcomeDialog({
               <p className="text-[13px] font-medium text-primary">
                 {t("onboarding.welcome.how.eyebrow")}
               </p>
-              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
+              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px] short:text-xl sm:short:text-2xl">
                 <span className="hidden sm:inline">
                   {t("onboarding.welcome.how.title")}
                 </span>
@@ -413,11 +430,11 @@ export function WelcomeDialog({
           </div>
         ) : (
           <div className="flex flex-col">
-            <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
+            <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8 short:gap-1 short:pt-3 sm:short:pt-5">
               <p className="text-[13px] font-medium text-primary">
                 {t("onboarding.welcome.project.eyebrow")}
               </p>
-              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
+              <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px] short:text-xl sm:short:text-2xl">
                 {t("onboarding.welcome.project.title")}
               </DialogTitle>
               <DialogDescription className="sr-only">
@@ -458,8 +475,12 @@ export function WelcomeDialog({
           </div>
         )}
 
-        {/* phone: the buttons stay in reach at the bottom */}
-        <div className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t border-edge bg-popover px-5 pt-4 pb-5 sm:static sm:mt-0 sm:border-t-0 sm:px-9 sm:pt-6 sm:pb-7">
+        </div>
+        {/* the buttons stay in view at the bottom, whatever the body's length */}
+        <div
+          data-testid="welcome-footer"
+          className="flex shrink-0 items-center justify-between gap-3 border-t border-edge bg-popover px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-9 sm:pt-4 sm:pb-5 short:pt-2.5 short:pb-[max(0.75rem,env(safe-area-inset-bottom))]"
+        >
           <div
             className={`flex gap-1.5 ${total === 1 ? "invisible" : ""}`}
             aria-label={t("onboarding.welcome.stepOf", { step, total })}

@@ -101,13 +101,16 @@ export default async function RootLayout({
           <MswProvider>
           <BillingProvider>
           <header className="sticky top-0 z-40 border-b border-edge bg-surface-1 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur">
-            <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-3 px-4 sm:gap-6">
+            {/* owner 2026-11-07 (foldable): the header never makes the page
+                wider than the screen (Safari then lays fixed sheets out on
+                the wider page and they slide off the left edge) */}
+            <nav className="mx-auto flex h-12 w-full max-w-[1700px] items-center gap-2 px-4 min-[400px]:gap-3 sm:gap-6">
               <Link
                 href="/projects"
                 className="flex shrink-0 items-center gap-2 font-semibold tracking-tight text-fg"
               >
                 <AppIcon className="size-6" />
-                <span>
+                <span className="max-[379px]:sr-only">
                   Spatial Video&nbsp;
                   <span className="text-primary">Studio</span>
                 </span>

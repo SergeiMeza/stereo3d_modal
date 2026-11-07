@@ -55,6 +55,32 @@ function renderProjects() {
   );
 }
 
+describe("the welcome's layout on small and foldable screens (owner 2026-11-07)", () => {
+  // jsdom has no layout: these are the rules the overlay-bounds browser
+  // check measures in every posture (scripts/overlay-bounds.mjs)
+  it("fits the visible screen, scrolls its body, keeps Continue outside the scroll, and never scrolls sideways", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    mockDb.accountSettings.onboarding = {};
+    renderProjects();
+    const dialog = await screen.findByTestId("welcome");
+    expect(dialog.className).toContain("sheet-fit");
+    expect(dialog.className).toContain("overflow-hidden");
+    const body = screen.getByTestId("welcome-body");
+    expect(body.className).toMatch(/\boverflow-y-auto\b/);
+    expect(body.className).toMatch(/\boverflow-x-hidden\b/);
+    expect(body.className).toMatch(/\bmin-h-0\b/);
+    const footer = screen.getByTestId("welcome-footer");
+    expect(body.contains(footer)).toBe(false);
+    expect(footer.contains(screen.getByTestId("welcome-next"))).toBe(true);
+    expect(footer.className).toContain("shrink-0");
+    // two columns wherever two cards fit, one on narrow phones; subtitles shown
+    const grid = screen.getByRole("group");
+    expect(grid.className).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]");
+    expect(screen.getByTestId("welcome-device-avp").textContent).toContain("Spatial video");
+  });
+});
+
 describe("welcome after sign-up", () => {
   it("asks where they watch, saves it on the account, logs the event, then offers the sample", async () => {
     mockDb.projects.clear();
