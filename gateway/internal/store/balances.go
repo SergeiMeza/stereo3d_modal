@@ -119,6 +119,15 @@ type FifoItem struct {
 	// balance's frozen_cents); FrozenRef says why (plan credit freezes).
 	FrozenCents int64  `firestore:"frozen_cents,omitempty"`
 	FrozenRef   string `firestore:"frozen_ref,omitempty"`
+	// Grant: an additive credit (an admin's, Pro's one-time) that a new
+	// plan period never replaces; it ends on its own date or a removal.
+	Grant bool `firestore:"grant,omitempty"`
+}
+
+// isGrant: an additive credit item (flagged, or by its ref for items
+// written before the flag).
+func (it FifoItem) isGrant() bool {
+	return it.Grant || strings.HasPrefix(it.Ref, "admin:") || strings.HasPrefix(it.Ref, "pro:")
 }
 
 func (it FifoItem) spendable() int64 { return it.RemainingCents - it.FrozenCents }
@@ -337,6 +346,9 @@ type BalanceOp struct {
 	MatchRef bool
 	Restore  []FifoUse // refund_to_balance: the items the run used
 	EntryID  string    // a fixed id (once per PaymentIntent)
+	// AllCredit (plan_credit_removal): grants go too (a block for good,
+	// a deleted account); otherwise a plan's removal leaves them.
+	AllCredit bool
 }
 
 // ledger applies ops to a balance and records entries; then checks E0-8,
@@ -559,7 +571,7 @@ func (l *ledger) apply(op BalanceOp) error {
 			l.expirePlanCredit(op.Ref, true)
 		}
 		exp := op.ExpiresAt
-		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, ExpiresAt: exp, Ref: op.Ref})
+		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, ExpiresAt: exp, Ref: op.Ref, Grant: op.Additive})
 		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCredit, Cents: op.Cents, Delta: op.Cents, Ref: op.Ref, Note: op.Note})
 		b.Expired = false
 	case EntryPlanCreditExpiry:
@@ -605,7 +617,9 @@ func (l *ledger) apply(op BalanceOp) error {
 		var amt int64
 		keep := b.Fifo[:0]
 		for _, it := range b.Fifo {
-			if it.PlanCredit && (!op.MatchRef || it.Ref == op.Ref) {
+			// a plan's removal (refund, change, lost dispute) leaves the
+			// grants; MatchRef takes that one item, AllCredit everything
+			if it.PlanCredit && ((op.MatchRef && it.Ref == op.Ref) || (!op.MatchRef && (op.AllCredit || !it.isGrant()))) {
 				free := min(it.spendable(), room)
 				room -= free
 				take := it.FrozenCents + free
@@ -1195,7 +1209,8 @@ func (l *ledger) expirePlanCredit(ref string, all bool) {
 	var gone int64
 	keep := b.Fifo[:0]
 	for _, it := range b.Fifo {
-		due := it.PlanCredit && (all || (it.ExpiresAt != nil && !it.ExpiresAt.After(l.now)))
+		// all: a new period replaces the last one's credit, never a grant's
+		due := it.PlanCredit && ((all && !it.isGrant()) || (it.ExpiresAt != nil && !it.ExpiresAt.After(l.now)))
 		if due && room > 0 {
 			take := min(it.spendable(), room) // a frozen part waits for its dispute or block
 			room -= take
@@ -1231,6 +1246,24 @@ func (b *Balance) PlanCreditCents() int64 {
 		}
 	}
 	return n
+}
+
+// PeriodCreditCents is the plan period's own credit left, without
+// grants (an admin's, Pro's one-time): what a plan refund or change
+// values.
+func (b *Balance) PeriodCreditCents() int64 {
+	var n int64
+	for _, it := range b.Fifo {
+		if it.PlanCredit && !it.isGrant() {
+			n += it.RemainingCents
+		}
+	}
+	return n
+}
+
+// PeriodCreditUnheld is PlanCreditUnheld for the period's own credit.
+func (b *Balance) PeriodCreditUnheld() int64 {
+	return min(b.PeriodCreditCents(), b.PlanCreditFrozen()+max(b.Available(), 0))
 }
 
 // Credit is one unspent credit item for the Billing page.

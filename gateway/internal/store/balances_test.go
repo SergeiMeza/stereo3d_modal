@@ -190,3 +190,39 @@ func mustTime(s string) time.Time {
 	}
 	return t
 }
+
+// A grant (additive) survives the next plan period and a plan's removal;
+// a removal by its ref takes only it; a block for good takes everything.
+func TestGrantsOutlivePlanCredit(t *testing.T) {
+	s := settleStore(t)
+	ctx := context.Background()
+	uid := "u" + NewID()
+	exp := time.Now().Add(30 * 24 * time.Hour)
+	op := func(ops ...BalanceOp) *Balance {
+		t.Helper()
+		b, _, err := s.BalanceTx(ctx, uid, func(*Balance) ([]BalanceOp, error) { return ops, nil })
+		if err != nil {
+			t.Fatal(err)
+		}
+		return b
+	}
+	op(BalanceOp{Kind: EntryPlanCredit, Cents: 1000, EntryID: "p1", Ref: "sub_1", ExpiresAt: &exp})
+	op(BalanceOp{Kind: EntryPlanCredit, Cents: 300, EntryID: "g1", Ref: "admin:grant:g1", Additive: true})
+	op(BalanceOp{Kind: EntryPlanCredit, Cents: 2000, EntryID: "pro1", Ref: "pro:x", ExpiresAt: &exp, Additive: true})
+	b := op(BalanceOp{Kind: EntryPlanCredit, Cents: 1000, EntryID: "p2", Ref: "sub_1", ExpiresAt: &exp}) // next period
+	if b.PlanCreditCents() != 3300 || b.PeriodCreditCents() != 1000 {
+		t.Fatalf("after renewal %d / %d", b.PlanCreditCents(), b.PeriodCreditCents())
+	}
+	b = op(BalanceOp{Kind: EntryPlanCreditRemoval, EntryID: "r1", Ref: "refund:in_1"}) // the plan refunded
+	if b.PlanCreditCents() != 2300 || b.PeriodCreditCents() != 0 {
+		t.Fatalf("after the plan's removal %d", b.PlanCreditCents())
+	}
+	b = op(BalanceOp{Kind: EntryPlanCreditRemoval, EntryID: "r2", Ref: "admin:grant:g1", MatchRef: true}) // revoke one grant
+	if b.PlanCreditCents() != 2000 {
+		t.Fatalf("after the revoke %d", b.PlanCreditCents())
+	}
+	b = op(BalanceOp{Kind: EntryPlanCreditRemoval, EntryID: "r3", Ref: "block", AllCredit: true})
+	if b.PlanCreditCents() != 0 || b.Available() != 0 {
+		t.Fatalf("after a block %d %d", b.PlanCreditCents(), b.Available())
+	}
+}

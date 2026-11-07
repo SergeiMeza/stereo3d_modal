@@ -149,7 +149,7 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 	}
 	out["scheduled_change"] = scheduledChangeJSON(p) // {to, effective_at} or null
 	if b, berr := s.Store.GetBalance(ctx, uid); berr == nil {
-		out["credit_left_cents"] = b.PlanCreditCents()
+		out["credit_left_cents"] = b.PeriodCreditCents() // the plan's own; grants are in balance.credits
 	}
 	return out
 }

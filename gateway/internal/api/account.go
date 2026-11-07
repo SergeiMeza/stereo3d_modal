@@ -438,9 +438,9 @@ func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, 
 	} else if n > 0 {
 		slog.InfoContext(ctx, "account emails released", "count", n)
 	}
-	s.removeSamples(ctx, uid)                                                                                      // the onboarding sample goes with the account
-	s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted") // never paid out
-	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                           // the app's business/studio, never pro
+	s.removeSamples(ctx, uid)                                                                                               // the onboarding sample goes with the account
+	s.planCreditOpAll(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted", true) // never paid out
+	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                                    // the app's business/studio, never pro
 	if s.Auth == nil || keepSignIn {
 		return nil
 	}

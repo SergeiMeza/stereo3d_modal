@@ -509,7 +509,7 @@ func (s *Service) usageLeftShare(ctx context.Context, uid string, from planTarge
 	if err != nil {
 		return nil
 	}
-	v := float64(b.PlanCreditCents()) / float64(def.CreditCents)
+	v := float64(b.PeriodCreditCents()) / float64(def.CreditCents) // grants aren't the plan's
 	return &v
 }
 

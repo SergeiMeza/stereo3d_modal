@@ -39,6 +39,11 @@ const ReasonPlanRefund = "plan_refund"
 // planCreditOp writes one plan-credit entry (kind: freeze, unfreeze or
 // removal); entryID makes an event's op happen once. Returns the cents.
 func (s *Service) planCreditOp(ctx context.Context, uid, kind, ref, caseID, note, entryID string) int64 {
+	return s.planCreditOpAll(ctx, uid, kind, ref, caseID, note, entryID, false)
+}
+
+// planCreditOpAll is planCreditOp; all: a removal takes the grants too.
+func (s *Service) planCreditOpAll(ctx context.Context, uid, kind, ref, caseID, note, entryID string, all bool) int64 {
 	if s.Store == nil || uid == "" {
 		return 0
 	}
@@ -55,7 +60,7 @@ func (s *Service) planCreditOp(ctx context.Context, uid, kind, ref, caseID, note
 	before := b.PlanCreditCents()
 	frozenBefore := b.PlanCreditFrozen()
 	after, fx, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
-		return []store.BalanceOp{{Kind: kind, Ref: ref, CaseID: caseID, Note: note, EntryID: entryID}}, nil
+		return []store.BalanceOp{{Kind: kind, Ref: ref, CaseID: caseID, Note: note, EntryID: entryID, AllCredit: all}}, nil
 	})
 	if err != nil {
 		slog.ErrorContext(ctx, "plan credit op failed", "uid", uid, "kind", kind, "ref", ref, "err", err)
@@ -118,7 +123,7 @@ func (s *Service) planRefundQuote(ctx context.Context, uid string) (*planRefundQ
 	q := &planRefundQuote{InvoiceID: cust.Plan.LastInvoiceID, PI: pi, SubscriptionID: cust.Plan.SubscriptionID, Tier: cust.Plan.Tier,
 		PaidCents: paid, CreditCents: cust.Plan.LastCreditCents}
 	if b, berr := s.Store.GetBalance(ctx, uid); berr == nil {
-		q.UnspentCents = b.PlanCreditUnheld()
+		q.UnspentCents = b.PeriodCreditUnheld() // the period's own credit, not grants
 	}
 	if f, ferr := s.Stripe.PaymentFactsOf(pi); ferr == nil {
 		q.PaidCents = min(q.PaidCents, f.Received-f.Refunded)

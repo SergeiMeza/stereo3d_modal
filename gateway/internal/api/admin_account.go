@@ -172,7 +172,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		// A block that stays: the plan credit is removed (never paid out).
 		_, err = s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.Blocked = true; return nil })
 		if err == nil {
-			s.planCreditOp(ctx, uid, store.EntryPlanCreditRemoval, "block", req.CaseID, "account blocked for good", "")
+			s.planCreditOpAll(ctx, uid, store.EntryPlanCreditRemoval, "block", req.CaseID, "account blocked for good", "", true)
 			s.revokePlanEntitlement(ctx, uid, "account blocked for good")
 		}
 	case "resend_e2":
