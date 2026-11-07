@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 // addPaymentDocs adds each charged run's papers for the Details panel:
@@ -74,6 +75,9 @@ func (s *Service) addPaymentDocs(ctx context.Context, out []map[string]any, conv
 var receiptURLs sync.Map
 
 func (s *Service) receiptURL(ctx context.Context, pi string) string {
+	if !stripex.IsPaymentIntentID(pi) {
+		return "" // paid from the balance: no Stripe receipt
+	}
 	done := make(chan string, 1)
 	go func() {
 		info, err := s.Stripe.ChargeDetails(pi)

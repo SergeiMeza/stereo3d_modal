@@ -36,10 +36,19 @@ func (d *presentmentDetails) value(integration string) *Presentment {
 	return &Presentment{AmountMinor: d.PresentmentAmount, Currency: cur}
 }
 
+// IsPaymentIntentID: a real Stripe PaymentIntent id. Our records also
+// hold "balance:<settle>" for a debt paid from the balance, which Stripe
+// has never seen (owner bug 2026-11-07: billing history asked Stripe for
+// them and logged 404s).
+func IsPaymentIntentID(id string) bool { return strings.HasPrefix(id, "pi_") }
+
 // PaymentPresentment reads a PaymentIntent's presentment at WebAPIVersion
 // (the webhook endpoint's older version doesn't carry it); nil when it was
 // charged in USD.
 func (c *Client) PaymentPresentment(piID string) (*Presentment, error) {
+	if !IsPaymentIntentID(piID) {
+		return nil, nil // paid from the balance: no Stripe payment
+	}
 	var pi struct {
 		Currency           string              `json:"currency"`
 		PresentmentDetails *presentmentDetails `json:"presentment_details"`

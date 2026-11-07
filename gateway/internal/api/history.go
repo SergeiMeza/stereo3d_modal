@@ -13,6 +13,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
 
 // GET /v1/billing/history — the Billing page's purchase history (S3D-57):
@@ -338,8 +339,8 @@ func (s *Service) enrichHistory(ctx context.Context, page []historyEntry) {
 	sem := make(chan struct{}, 4)
 	for i := range page {
 		pi := page[i].paymentIntentID
-		if pi == "" {
-			continue
+		if !stripex.IsPaymentIntentID(pi) {
+			continue // none, or paid from the balance (no Stripe charge)
 		}
 		mu.Lock()
 		_, seen := details[pi]

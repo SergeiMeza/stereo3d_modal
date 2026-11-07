@@ -48,6 +48,7 @@ type fakeStripe struct {
 	portals        []string             // billing portal sessions' customers
 	piAmounts      []int64              // POST /v1/payment_intents amounts
 	idem           map[string][2]string // checkout session Idempotency-Key → {encoded form, session id}
+	piReads        []string             // GET /v1/payment_intents/{id} ids
 }
 
 func newFakeStripe() *fakeStripe {
@@ -345,6 +346,7 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pi["status"] = "canceled"
 		write(f.pi(id))
 	case strings.HasPrefix(p, "/v1/payment_intents/"):
+		f.piReads = append(f.piReads, strings.TrimPrefix(p, "/v1/payment_intents/"))
 		write(f.pi(strings.TrimPrefix(p, "/v1/payment_intents/")))
 	case p == "/v1/customers" && r.Method == http.MethodPost:
 		f.created++

@@ -285,8 +285,8 @@ func (s *Service) enrichRows(ctx context.Context, page []historyRow) {
 	sem := make(chan struct{}, 4)
 	for i := range page {
 		pi := page[i].pi
-		if pi == "" || page[i].Kind == "outstanding" {
-			continue
+		if !stripex.IsPaymentIntentID(pi) || page[i].Kind == "outstanding" {
+			continue // none, or paid from the balance: shown from our ledger below
 		}
 		mu.Lock()
 		_, seen := details[pi]
@@ -312,6 +312,10 @@ func (s *Service) enrichRows(ctx context.Context, page []historyRow) {
 	}
 	wg.Wait()
 	for i := range page {
+		if strings.HasPrefix(page[i].pi, "balance:") && page[i].Kind != "outstanding" {
+			page[i].PaymentMethod = map[string]string{"label": "Balance"} // our ledger paid it; no receipt from Stripe
+			continue
+		}
 		d := details[page[i].pi]
 		if d == nil {
 			continue

@@ -635,6 +635,9 @@ type ChargeInfo struct {
 // ChargeDetails reads the PaymentIntent's latest charge: receipt link and
 // the card it went on. Empty info (no error) when the PI has no charge.
 func (c *Client) ChargeDetails(paymentIntentID string) (*ChargeInfo, error) {
+	if !IsPaymentIntentID(paymentIntentID) {
+		return &ChargeInfo{}, nil // paid from the balance: no Stripe charge
+	}
 	params := &stripe.PaymentIntentParams{}
 	params.AddExpand("latest_charge")
 	pi, err := paymentintent.Get(paymentIntentID, params)
