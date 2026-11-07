@@ -1043,6 +1043,17 @@ max_preset, presets, starts_at, ends_at, label}`. Console: run rows carry
 quoted_cents, discounted_runs, discounted_cents, by_state}, by_month,
 truncated}` (discounted = succeeded runs).
 
+### Run Details fields (2026-11-07)
+
+Every run carries `started_at` (when it left the line; null before),
+`free_preview_units` (null unless free previews paid it), `quick_look`
+(the request's own `quick_look` flag) and `intro` (the brand intro was
+on). `GET /v1/conversions/{id}` and `GET /v1/projects/{id}`'s
+conversions add `invoice {id, number, hosted_url, pdf_url}` (our invoice
+for the charge that paid it: its own, its group's or its settle's) and
+`receipt_url` (Stripe's; fetched on the single read, cached, then on
+lists too); both null when not charged or not known yet.
+
 ### Source details (owner 2026-11-07)
 
 Projects carry `source_details` for the web's Source panel:
