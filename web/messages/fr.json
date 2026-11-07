@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "Langue",
+    "richExample": "Bonjour <b>{name}</b>",
+    "ui": {
+      "close": "Fermer"
+    },
+    "header": {
+      "projects": "Projets"
+    },
+    "checkingSession": "Vérification de la session…",
+    "analytics": {
+      "bannerLabel": "Consentement aux statistiques",
+      "banner": "Pouvons-nous utiliser des cookies de statistiques ? Microsoft Clarity nous montre comment le studio est utilisé afin de l’améliorer — sans publicité, et jamais le contenu de vos vidéos. <link>Politique de confidentialité</link>",
+      "deny": "Non merci",
+      "allow": "Autoriser les statistiques",
+      "switchLabel": "Statistiques",
+      "switchOn": "Statistiques activées",
+      "switchOff": "Statistiques désactivées",
+      "reset": "réinitialiser votre choix pour les statistiques"
+    },
+    "sectionBoundary": {
+      "failed": "{name} : cette partie n’a pas pu être affichée.",
+      "tryAgain": "Réessayer"
+    },
+    "feedback": {
+      "openLabel": "Envoyer un retour",
+      "open": "Retour",
+      "sentTitle": "Merci, nous lisons chaque message.",
+      "sentDescription": "Votre retour a été envoyé.",
+      "done": "Terminé",
+      "title": "Envoyer un retour",
+      "description": "Idées, problèmes, tout est bienvenu. Une personne vous lit.",
+      "kindLabel": "Type",
+      "kinds": {
+        "idea": "Idée",
+        "problem": "Problème",
+        "other": "Autre chose"
+      },
+      "message": "Message",
+      "email": "E-mail",
+      "yourEmail": "Votre e-mail",
+      "okToContact": "Vous pouvez me contacter",
+      "includePage": "Joindre cette page",
+      "failed": "Envoi impossible. Vous pouvez aussi écrire à <mail>{email}</mail>",
+      "sending": "Envoi…",
+      "send": "Envoyer"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "Fil d’Ariane",
+      "breadcrumbDevices": "Appareils",
+      "readyFor": "Prêt pour {name}",
+      "worksWith": "Compatible avec {name}",
+      "cta": "Passez votre vidéo en 3D",
+      "othersLabel": "Autres appareils",
+      "others": "Autres appareils :"
+    },
+    "cancel": "Annuler"
+  },
   "business": {
     "entry": {
       "card": "Vous utilisez {site} pour le travail ? Configurez {business} ou {studio}",
@@ -684,6 +742,246 @@
       "upgradeTo": "Passer à {plan}"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "Vous êtes déconnecté. Connectez-vous pour continuer.",
+      "incorrectCredentials": "E-mail ou mot de passe incorrect.",
+      "userNotFound": "Aucun compte n’existe avec cet e-mail.",
+      "invalidEmail": "Cette adresse e-mail n’est pas valide.",
+      "emailExists": "Un compte existe déjà avec cet e-mail — connectez-vous plutôt.",
+      "weakPassword": "Mot de passe trop faible — utilisez au moins 6 caractères.",
+      "missingPassword": "Saisissez votre mot de passe.",
+      "popupClosed": "La fenêtre de connexion a été fermée avant la fin. Réessayez.",
+      "popupBlocked": "Votre navigateur a bloqué la fenêtre de connexion — autorisez les fenêtres contextuelles et réessayez.",
+      "tooManyAttempts": "Trop de tentatives — patientez un instant et réessayez.",
+      "network": "Erreur réseau — vérifiez votre connexion et réessayez.",
+      "accountDisabled": "Ce compte a été désactivé.",
+      "recentLogin": "Pour votre sécurité, cette action demande une session récente — déconnectez-vous, reconnectez-vous, puis réessayez.",
+      "emailOnly": "Connectez-vous avec votre e-mail.",
+      "authUnavailable": "La connexion est indisponible pour le moment. Réessayez dans un instant.",
+      "codeInvalid": "Ce code n’est pas le bon.",
+      "codeExpired": "Ce code a expiré. Envoyez-en un nouveau.",
+      "resendTooSoon": "Patientez un instant, puis envoyez un nouveau code.",
+      "tooManyCodes": "Trop de codes pour cet e-mail. Réessayez dans une heure.",
+      "credentialInUse": "Cette connexion a déjà son propre compte. Déconnectez-vous, puis connectez-vous avec elle pour utiliser ce compte.",
+      "alreadyLinked": "C’est déjà associé.",
+      "unauthorizedDomain": "La connexion n’est pas encore disponible sur cette adresse.",
+      "providerUnavailable": "Cette connexion n’est pas encore disponible.",
+      "customTokenInvalid": "La connexion a échoué. Envoyez un nouveau code.",
+      "noSuchProvider": "Cette connexion n’est pas associée.",
+      "failed": "L’authentification a échoué. Réessayez.",
+      "accountExists": "Vous avez déjà un compte avec {email}.",
+      "appleFailed": "La connexion avec Apple n’a pas fonctionné. Réessayez.",
+      "signInFailed": "La connexion a échoué. Réessayez.",
+      "otherAccountPasskey": "Cette clé d’accès appartient à un autre compte. Utilisez-en une enregistrée pour ce compte.",
+      "appleUnavailable": "La connexion avec Apple est indisponible pour le moment.",
+      "appleBlocked": "Votre navigateur a bloqué la fenêtre Apple. Autorisez les fenêtres contextuelles pour ce site et réessayez.",
+      "appleUnfinished": "La connexion avec Apple n’a pas abouti. Réessayez.",
+      "linkUnfinished": "L’association de {provider} n’a pas abouti. Réessayez.",
+      "signInUnfinished": "La connexion avec {provider} n’a pas abouti. Réessayez.",
+      "notConfirmed": "Non confirmé. Rien n’a été modifié.",
+      "somethingWrong": "Une erreur s’est produite.",
+      "didntWork": "Ça n’a pas fonctionné. Réessayez.",
+      "didntWorkShort": "Ça n’a pas fonctionné.",
+      "sendCodeFailed": "Impossible d’envoyer le code."
+    },
+    "passkeyErrors": {
+      "notRegistered": "Cette clé d’accès n’est pas enregistrée ici. Connectez-vous autrement.",
+      "didntWork": "Ça n’a pas fonctionné. Réessayez.",
+      "cloneSuspected": "Cette clé d’accès ne peut pas être utilisée. Connectez-vous autrement.",
+      "unavailable": "La connexion est indisponible pour le moment. Réessayez.",
+      "rateLimited": "Trop d’essais. Patientez quelques minutes.",
+      "closed": "La fenêtre de la clé d’accès a été fermée avant la fin. Réessayez.",
+      "didntFinish": "Ça n’a pas abouti. Réessayez.",
+      "unsupported": "Ce navigateur ne gère pas les clés d’accès. Connectez-vous autrement.",
+      "exists": "Cet appareil a déjà une clé d’accès pour votre compte.",
+      "security": "Les clés d’accès ne fonctionnent pas sur cette adresse. Connectez-vous autrement.",
+      "failed": "La clé d’accès n’a pas fonctionné. Réessayez ou connectez-vous autrement.",
+      "network": "Impossible de joindre le serveur. Vérifiez la connexion et réessayez.",
+      "cantAdd": "Ce navigateur ne peut pas ajouter de clés d’accès."
+    },
+    "methods": {
+      "email": "E-mail",
+      "password": "Mot de passe",
+      "loadFailed": "Impossible de charger vos méthodes de connexion.",
+      "heading": "Se connecter avec",
+      "codeTo": "Code envoyé à {email}",
+      "on": "Activé",
+      "adding": "Ajout…",
+      "add": "Ajouter"
+    },
+    "signIn": {
+      "title": "Connexion",
+      "mocked": "L’authentification est simulée dans cet environnement.",
+      "continue": "Continuer",
+      "subtitle": "Un seul compte pour {site} sur le web et dans l’app.",
+      "continueApple": "Continuer avec Apple",
+      "continueGoogle": "Continuer avec Google",
+      "or": "ou",
+      "emailLabel": "E-mail",
+      "emailPlaceholder": "vous@exemple.com",
+      "sending": "Envoi…",
+      "continueEmail": "Continuer avec l’e-mail",
+      "agree": "En continuant, vous acceptez nos <terms>Conditions d’utilisation</terms> et notre <privacy>Politique de confidentialité</privacy>."
+    },
+    "code": {
+      "wrongTriesLeft": "Ce code n’est pas le bon. {count, plural, one {# essai restant} other {# essais restants}}.",
+      "back": "Utiliser un autre e-mail",
+      "title": "Consultez votre e-mail",
+      "sentTo": "Saisissez le code envoyé à <addr>{email}</addr>.",
+      "linking": "Vous avez déjà un compte avec cet e-mail. {method} y sera ajouté.",
+      "signingIn": "Connexion…",
+      "newCodeSent": "Nouveau code envoyé.",
+      "resendIn": "Renvoyer un code dans {time}",
+      "resend": "Envoyer un nouveau code",
+      "inputLabel": "Code de connexion"
+    },
+    "providers": {
+      "emailCode": "un code par e-mail",
+      "passkey": "une clé d’accès",
+      "or": "{list} ou {last}",
+      "separator": ", "
+    },
+    "inUse": {
+      "identity": "Cette connexion appartient à un autre compte.",
+      "identityHow": "Cette connexion appartient à un autre compte (elle se connecte avec {how}).",
+      "email": "Cet e-mail appartient à un autre compte.",
+      "emailHow": "Cet e-mail appartient à un autre compte (il se connecte avec {how})."
+    },
+    "emails": {
+      "relayNotMain": "Utilisez un vrai e-mail pour votre forfait, pas une adresse Apple masquée.",
+      "mainNotRemovable": "Définissez d’abord un autre e-mail comme principal.",
+      "loadFailed": "Impossible de charger vos e-mails.",
+      "enterAddress": "Saisissez une adresse e-mail.",
+      "sendCode": "Envoyer le code",
+      "codeSentTo": "Saisissez le code envoyé à {email}.",
+      "checking": "Vérification…",
+      "add": "Ajouter un e-mail",
+      "makeItMain": "En faire mon e-mail principal",
+      "signInThere": "Se connecter à ce compte",
+      "heading": "E-mails · chacun se connecte avec un code",
+      "hiddenApple": "Adresse Apple masquée",
+      "main": "Principal",
+      "makeMain": "Définir comme principal",
+      "removeLabel": "Supprimer {email}",
+      "remove": "Supprimer",
+      "addAnother": "Ajouter un autre e-mail",
+      "full": "Votre compte compte {count} e-mails. Supprimez-en un pour en ajouter un autre."
+    },
+    "passkeys": {
+      "loadFailed": "Impossible de charger vos clés d’accès.",
+      "never": "jamais",
+      "title": "Clés d’accès",
+      "subtitle": "Connectez-vous avec Face ID, Touch ID, votre téléphone ou une clé de sécurité.",
+      "addTitle": "Ajouter une clé d’accès",
+      "added": "Ajoutée le {date}",
+      "lastUsed": "Dernière utilisation : {date}",
+      "renameLabel": "Renommer {name}",
+      "rename": "Renommer",
+      "removeLabel": "Supprimer {name}",
+      "remove": "Supprimer",
+      "empty": "Aucune clé d’accès pour l’instant.",
+      "emptyUnsupported": "Aucune clé d’accès pour l’instant. Ce navigateur ne peut pas en ajouter.",
+      "addedNotice": "Clé d’accès ajoutée.",
+      "renamedNotice": "Clé d’accès renommée.",
+      "removedNotice": "Clé d’accès supprimée.",
+      "addDescription": "La prochaine fois, connectez-vous avec Face ID, Touch ID, votre téléphone ou une clé de sécurité. Rien à saisir.",
+      "name": "Nom",
+      "confirmed": "Reconnecté. Ajoutez maintenant la clé d’accès.",
+      "waiting": "En attente de votre clé d’accès…",
+      "add": "Ajouter la clé d’accès",
+      "renameTitle": "Renommer la clé d’accès",
+      "renameDescription": "Un nom vous aide à distinguer vos clés d’accès.",
+      "removeTitle": "Supprimer « {name} » ?",
+      "removeDescription": "Vous ne pourrez plus vous connecter avec cette clé d’accès. Vous pourrez toujours vous connecter autrement.",
+      "removing": "Suppression…",
+      "removeButton": "Supprimer la clé d’accès",
+      "signIn": "Se connecter avec une clé d’accès"
+    },
+    "otherAccount": {
+      "line": "Un autre compte utilise cet e-mail (il se connecte avec {how})."
+    },
+    "passkeySuggestion": {
+      "added": "Clé d’accès ajoutée. La prochaine fois, connectez-vous avec elle.",
+      "line": "Ajoutez une clé d’accès pour vous connecter plus vite la prochaine fois.",
+      "dismiss": "Ignorer"
+    },
+    "reauth": {
+      "title": "Confirmez que c’est vous",
+      "description": "Reconnectez-vous pour continuer. Cela ne prend qu’un instant.",
+      "usePasskey": "Utiliser une clé d’accès",
+      "confirm": "Confirmer",
+      "sendCode": "Envoyer un code à {email}"
+    },
+    "menu": {
+      "label": "Menu du compte",
+      "planBilling": "Forfait et facturation"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "Votre compte sera supprimé le {date}. Vous pouvez encore changer d’avis : connectez-vous avant cette date.",
+      "pendingOn": "Votre compte doit être supprimé le {date}. Conservez votre compte pour l’éviter.",
+      "pending": "Votre compte doit être supprimé. Conservez votre compte pour l’éviter."
+    },
+    "title": "Compte",
+    "profile": {
+      "title": "Profil",
+      "noEmail": "Aucun e-mail",
+      "displayName": "Nom affiché",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré",
+      "save": "Enregistrer",
+      "saveFailed": "Impossible de modifier le nom.",
+      "idHint": "ID du compte — indiquez-le dans vos demandes d’assistance ; les projets et conversions y sont rattachés.",
+      "copied": "Copié",
+      "copyId": "Copier l’ID"
+    },
+    "security": {
+      "title": "Connexion et sécurité"
+    },
+    "billing": {
+      "title": "Facturation",
+      "card": "Votre carte et l’historique de vos achats sont dans <link>Facturation</link>.",
+      "businessDetails": "Factures avec le nom de votre entreprise, votre numéro de TVA et votre adresse : <link>Coordonnées professionnelles</link>."
+    },
+    "session": {
+      "title": "Session",
+      "signOut": "Se déconnecter"
+    },
+    "delete": {
+      "scheduledTitle": "Suppression du compte programmée",
+      "dangerZone": "Zone de danger",
+      "typeToConfirm": "Saisissez {word} pour supprimer définitivement votre compte",
+      "deleting": "Suppression…",
+      "button": "Supprimer le compte",
+      "refundFirst": "Nous rendons d’abord votre solde de {amount} à votre moyen de paiement.",
+      "refundAndDelete": "Rembourser et supprimer",
+      "returning": "Nous vous rendons {amount} ; votre compte est supprimé une fois cela terminé.",
+      "note": "Tout ce que vous devez encore est d’abord débité de votre moyen de paiement enregistré. Vos projets, vidéos et fichiers 3D sont retirés de votre compte immédiatement ; les enregistrements de facturation sont conservés pour l’assistance.",
+      "paymentNeededAmount": "Paiement requis ({amount}) : mettez à jour votre moyen de paiement dans Facturation, puis supprimez votre compte.",
+      "paymentNeeded": "Paiement requis : mettez à jour votre moyen de paiement dans Facturation, puis supprimez votre compte.",
+      "failed": "Impossible de supprimer le compte."
+    },
+    "deletionPrompt": {
+      "keepFailed": "Nous n’avons pas pu conserver votre compte. Réessayez.",
+      "title": "Votre compte doit être supprimé le {date}.",
+      "description": "Conservez-le, et tout reste comme avant. Ou laissez-le partir : nous le supprimerons alors.",
+      "signingOut": "Déconnexion…",
+      "deleteIt": "Le supprimer",
+      "keeping": "Conservation…",
+      "keep": "Conserver mon compte"
+    },
+    "deletePlan": {
+      "appStore": "Votre {plan} de l’App Store se renouvelle via Apple. Résiliez-le dans les réglages de votre identifiant Apple.",
+      "validUntil": "Votre forfait {plan} reste valable jusqu’au {date}.",
+      "validToPeriodEnd": "Votre forfait {plan} reste valable jusqu’à la fin de sa période.",
+      "restore": "Si vous vous réinscrivez avec cet e-mail, vous pourrez le rétablir.",
+      "cancelFirst": "Résiliez d’abord votre forfait.",
+      "cancelFirstUntil": "Résiliez d’abord votre forfait. Il reste valable jusqu’au {date}.",
+      "cancelPlan": "Résilier le forfait"
+    }
+  },
   "look": {
     "analysisRunning": "L’analyse est toujours en cours — les prix se débloquent à la fin.",
     "requestFailed": "échec de la requête",
@@ -1331,6 +1629,437 @@
       "addFunds": "Ajoutez des fonds dès {amount} et payez vos conversions avec votre solde.",
       "refundable": "Les fonds non dépensés sont remboursables sous {days} jours."
     }
+  },
+  "meta": {
+    "site": {
+      "title": "{site} sur le web — Convertir une vidéo 2D en 3D",
+      "description": "{site} sur le web. Convertissez vos vidéos 2D en 3D : vidéo spatiale pour Apple Vision Pro, côte à côte pour Meta Quest, Pico et tous les écrans 3D. Voyez le prix avant de commencer.",
+      "ogTitle": "{site} sur le web : transformez toute vidéo en 3D réaliste",
+      "ogImageAlt": "{site} sur le web : transformez toute vidéo en 3D réaliste, jusqu’à 8K, pour Vision Pro et tous les casques"
+    },
+    "home": {
+      "appDescription": "Convertissez vos vidéos 2D en 3D : vidéo spatiale pour Apple Vision Pro, et 3D côte à côte pour Meta Quest, Pico, Samsung Galaxy XR et les écrans 3D."
+    },
+    "billing": {
+      "title": "Facturation"
+    },
+    "businessDetails": {
+      "title": "Coordonnées professionnelles",
+      "heading": "Coordonnées professionnelles",
+      "intro": "Ce qu’affichent vos factures. L’enregistrement modifie vos prochaines factures, pas celles déjà envoyées."
+    },
+    "businessSetup": {
+      "title": "Configurer {business} ou {studio}"
+    },
+    "payHandoff": {
+      "title": "Payer votre vidéo 3D"
+    },
+    "payReturn": {
+      "title": "Paiement"
+    },
+    "plans": {
+      "title": "Forfaits",
+      "description": "Forfaits {business} et {studio} de {site} sur le web : utilisation incluse chaque mois, prix réduits, aperçus gratuits et Express."
+    },
+    "pricing": {
+      "title": "Prix",
+      "description": "Prix de {site} sur le web : payez à la minute de vidéo, ou économisez avec un forfait. {lifelike}, de 1080p à 8K."
+    },
+    "pro": {
+      "description": "{site} {pro} : prix réduits sur chaque vidéo 3D sur le web, crédit d’utilisation à l’inscription, aperçus gratuits et {pro} dans l’app sur iPhone, iPad, Mac et Vision Pro."
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "Fermer ce conseil",
+      "billing": "Votre solde, vos moyens de paiement et vos reçus. Rechargez ici, ou laissez votre solde se recharger tout seul.",
+      "usage": "Chaque conversion avec son prix, mois par mois. Téléchargez un CSV pour vos archives.",
+      "invoices": "Les factures de vos recharges et forfaits, prêtes à télécharger.",
+      "plans": "Les forfaits baissent le prix de chaque conversion et incluent de l’utilisation chaque mois. Payer à la vidéo fonctionne sans forfait.",
+      "pricing": "Les prix sont à la minute de vidéo, selon la taille choisie. Vous voyez toujours le prix exact avant de payer.",
+      "pro": "{pro} est une seule adhésion pour le web et les apps. Les membres paient moins à chaque conversion et reçoivent du crédit d’utilisation à l’inscription.",
+      "account": "Votre connexion, vos réglages et, si besoin, la suppression de votre compte.",
+      "devices": "Comment regarder vos vidéos 3D sur cet appareil.",
+      "scenes": "Les endroits où les scènes de votre vidéo changent. Les aperçus et les parties commencent à ces points ; vous avez rarement besoin de les modifier."
+    },
+    "tips": {
+      "progress": "{n} sur {total}",
+      "skip": "Passer les conseils",
+      "next": "Suivant",
+      "gotIt": "Compris",
+      "overview": {
+        "title": "Tout sur votre vidéo",
+        "body": "Durée, taille, scènes et prix de la vidéo entière. Regarder ne coûte rien."
+      },
+      "preview": {
+        "title": "Essayez d’abord un court extrait",
+        "body": "Choisissez quelques secondes et regardez-les en 3D avant de décider. Votre premier aperçu est gratuit."
+      },
+      "make": {
+        "title": "Choisissez, puis payez",
+        "body": "Choisissez où vous regarderez et la qualité. Le prix se met à jour au fur et à mesure, et rien n’est débité avant d’appuyer sur Passer en 3D."
+      },
+      "files": {
+        "title": "Vos fichiers 3D",
+        "body": "Téléchargez-les, ou ouvrez cette page dans le navigateur de votre casque et lancez la lecture."
+      }
+    },
+    "getStarted": {
+      "title": "Premiers pas",
+      "progress": "{done} sur {total} terminées",
+      "hide": "Masquer",
+      "done": "✓ Fait",
+      "next": "Suivant",
+      "pickNow": "Choisir",
+      "listSeparator": ", ",
+      "steps": {
+        "headset": {
+          "title": "Choisissez votre casque",
+          "body": "Pour créer les bons fichiers."
+        },
+        "firstVideo": {
+          "title": "Ajoutez votre première vidéo",
+          "body": "Nous l’analysons et affichons le prix. Gratuit."
+        },
+        "firstPreview": {
+          "title": "Regardez votre aperçu gratuit",
+          "body": "Un court extrait en 3D, offert."
+        },
+        "first3d": {
+          "title": "Passez-la en 3D",
+          "body": "Vous voyez le prix avant de payer."
+        },
+        "watched": {
+          "title": "Regardez-la dans votre casque",
+          "body": "Ouvrez stereo3d.studio dans son navigateur, ou téléchargez le fichier."
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "Vidéo spatiale"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "Côte à côte"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "Côte à côte"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "Côte à côte"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "Côte à côte"
+      },
+      "glasses": {
+        "name": "Lunettes XR",
+        "files": "Côte à côte"
+      },
+      "tv": {
+        "name": "Téléviseur 3D ou projecteur",
+        "files": "Côte à côte (demi-taille)"
+      },
+      "unsure": {
+        "name": "Pas encore sûr",
+        "files": "Nous incluons les deux"
+      }
+    },
+    "welcome": {
+      "eyebrow": "Bienvenue",
+      "skip": "Passer",
+      "back": "Retour",
+      "gotIt": "Compris",
+      "continue": "Continuer",
+      "later": "Plus tard",
+      "stepOf": "Étape {step} sur {total}",
+      "business": "Vous travaillez pour des clients ? <link>{plan}</link> ajoute de l’utilisation mensuelle, l’usage commercial et les factures.",
+      "pro": {
+        "title": "Votre {pro} fonctionne aussi ici",
+        "prices": "Prix {pro} sur chaque vidéo.",
+        "pricesPct": "Prix {pro} sur chaque vidéo, {pct} % de réduction.",
+        "previews": "Votre forfait inclut {count, plural, one {# aperçu gratuit} other {# aperçus gratuits}} {period, select, pass {avec votre pass} month {par mois} week {par semaine} year {par an} day {par jour} other {par {period}}}.",
+        "credit": "Vous avez {amount} de crédit d’utilisation à utiliser avant le {date}.",
+        "nothingBilled": "Rien de nouveau n’est facturé."
+      },
+      "headsets": {
+        "title": "Vos vidéos, en 3D.",
+        "intro": "{site} transforme toute vidéo 2D en 3D à regarder dans votre casque. D’abord, où allez-vous regarder ?",
+        "question": "Où allez-vous regarder ?",
+        "fromApp": "Depuis votre app. Nous l’utilisons pour choisir les bons fichiers pour vous. Vous pouvez le modifier sur chaque projet.",
+        "otherHeadset": "Vous avez indiqué à l’app que vous utilisez un casque. Nous l’utilisons pour choisir les bons fichiers pour vous.",
+        "note": "Nous l’utilisons pour choisir les bons fichiers pour vous. Vous pouvez le modifier sur chaque projet."
+      },
+      "how": {
+        "loopLabel": "Une chanteuse devant son groupe au coucher du soleil : à gauche la vidéo 2D, à droite le même instant en 3D",
+        "eyebrow": "Comment ça marche",
+        "title": "Trois étapes. Vous voyez le prix avant de payer.",
+        "titleShort": "Vous voyez le prix avant de payer.",
+        "description": "Comment fonctionne {site}",
+        "steps": {
+          "add": {
+            "title": "Ajoutez une vidéo",
+            "body": "Nous examinons chaque scène et vous montrons le prix. Gratuit.",
+            "short": "Voyez le prix gratuitement."
+          },
+          "preview": {
+            "title": "Regardez un aperçu",
+            "body": "Voyez un court extrait en 3D dans votre casque. Votre premier aperçu est offert.",
+            "short": "Le premier est offert."
+          },
+          "make": {
+            "title": "Passez-la en 3D",
+            "body": "Payez la vidéo entière, puis téléchargez-la ou lisez-la dans le navigateur de votre casque.",
+            "short": "Téléchargez-la ou lisez-la dans votre casque."
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "Votre premier projet",
+        "title": "Commencez par l’une de vos vidéos.",
+        "description": "Ajoutez une vidéo ou ouvrez l’exemple",
+        "sample": "Pas de vidéo sous la main ? Ouvrez d’abord un exemple terminé et explorez."
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "Confirmation du paiement",
+      "waitingInLine": "En file d’attente",
+      "making": "Création de votre 3D",
+      "readyPaymentNeeded": "Prêt, paiement requis",
+      "ready": "Prêt",
+      "failedRefunded": "Échec, {amount} remboursés",
+      "failedNotCharged": "Échec, non débité",
+      "cancelledRefunded": "Annulé · {amount} remboursés",
+      "cancelledNotCharged": "Annulé · non débité",
+      "expiredNotCharged": "Non démarré, non débité",
+      "waitingNote": "Démarre dès qu’une machine est libre, en général en quelques minutes. Le prix ne change pas.",
+      "short": {
+        "failed": "Échec",
+        "cancelled": "Annulé",
+        "expired": "Non démarré"
+      }
+    },
+    "stages": {
+      "preprocess": "Préparation de la vidéo",
+      "profile_scenes": "Mesure des scènes",
+      "video_depth": "Mesure de la profondeur",
+      "video_stereo": "Création de la vidéo 3D",
+      "encode_outputs": "Encodage de vos fichiers",
+      "encode_mvhevc": "Encodage du fichier Vision Pro",
+      "image_stereo": "Création de l’image 3D",
+      "queued": "En attente de démarrage",
+      "plan": "Préparation",
+      "render": "Rendu en 3D",
+      "encode": "Encodage",
+      "publish": "Publication",
+      "done": "Finalisation",
+      "analyze": "Analyse",
+      "proxy": "Création de l’aperçu",
+      "scene_detect": "Détection des scènes",
+      "thumbnails": "Rendu des miniatures"
+    },
+    "tracker": {
+      "expressWait": "Démarrage imminent (Express).",
+      "expressWaitWithin": "Démarrage imminent (Express). Dans environ {minutes} min.",
+      "cancelNowRefund": "{time} · Remboursement intégral si vous annulez maintenant",
+      "cancelNowNotCharged": "{time} · Non débité si vous annulez maintenant",
+      "cancelWhileWaitingRefund": "Annulez à tout moment pendant l’attente pour un remboursement intégral.",
+      "cancelWhileWaitingNotCharged": "Annulez à tout moment pendant l’attente et vous ne serez pas débité.",
+      "steps": {
+        "ready": "Préparation",
+        "making": "Création de la vidéo 3D",
+        "saving": "Enregistrement de vos fichiers"
+      },
+      "runFallback": "Conversion",
+      "billing": {
+        "refundPending": "Votre remboursement est en route. La totalité est rendue à votre moyen de paiement.",
+        "refunded": "Remboursé intégralement.",
+        "notCharged": "Vous n’avez pas été débité.",
+        "paidAtStart": "Payée au démarrage. Remboursée intégralement en cas d’échec.",
+        "paidAtStartRefunded": "Cette conversion a été payée au démarrage, elle est donc remboursée intégralement."
+      },
+      "cancelFailed": "échec de l’annulation",
+      "estimated": "Estimation : {duration}",
+      "allFiles": "Tous les fichiers",
+      "cancel": "Annuler",
+      "waitingForConfirmation": "En attente de la confirmation de votre paiement.",
+      "confirmingWithBank": "Confirmation du paiement auprès de votre banque. Le démarrage a lieu dès qu’il est validé.",
+      "chargeFailed": "Il y a un problème avec votre dernier paiement.",
+      "payNow": "Payer maintenant",
+      "failed": "Un problème est survenu de notre côté. Réessayez."
+    },
+    "overdue": {
+      "reported": "Merci de nous avoir prévenus. Nous examinons cette conversion et vous répondrons par e-mail.",
+      "title": "Cela prend beaucoup plus de temps que prévu.",
+      "body": "Quelque chose est peut-être bloqué de notre côté. Signalez-le, nous examinerons et vous répondrons par e-mail.",
+      "notePlaceholder": "Quelque chose à nous dire ? (facultatif)",
+      "sending": "Envoi…",
+      "report": "Le signaler",
+      "sendFailed": "Impossible d’envoyer le signalement. Réessayez."
+    },
+    "previous": {
+      "word": {
+        "refunded": "Remboursé",
+        "making": "Création…"
+      },
+      "notCharged": "Non débité",
+      "wholeVideo": "Vidéo entière",
+      "title": "Conversions précédentes",
+      "allFiles": "Tous les fichiers",
+      "showFewer": "Afficher moins",
+      "showAll": "Tout afficher ({count})",
+      "filesDeleted": "Ces fichiers ont été supprimés le {date}.",
+      "filesUnavailable": "Les fichiers ne peuvent pas être ouverts pour le moment.",
+      "watch": "Regarder",
+      "partsInFiles": "{count} parties, dans Fichiers",
+      "files": "Fichiers",
+      "alreadyMade": "Vous l’avez déjà créée le {day} · <link>Télécharger</link>"
+    },
+    "prior": {
+      "hideDownloads": "Masquer les téléchargements",
+      "downloads": "Téléchargements",
+      "fetching": "Récupération des liens de téléchargement…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "L’exemple est indisponible pour le moment.",
+      "failed": "Impossible de charger les fichiers."
+    },
+    "groups": {
+      "anyScreen": "Tout écran",
+      "previewLifelikeHow": "Se lit ici, avec la vérification 3D gratuite.",
+      "previewHow": "Se lit ici, ou dans le lecteur d’un casque.",
+      "mvhevcHow": "AirDrop ou Fichiers. S’affiche dans Photos.",
+      "sbsDevice": "Meta Quest, Galaxy XR, Pico, Steam Frame, lunettes XR",
+      "halfSbsDevice": "Téléviseurs 3D, projecteurs, Meta Quest en 4K et plus",
+      "sideBySideHow": "Ouvrez-le dans le lecteur et choisissez la 3D côte à côte.",
+      "anaglyphHow": "À regarder avec des lunettes rouge-cyan.",
+      "depthDevice": "Vidéo de profondeur",
+      "depthHow": "Pour vos propres outils de montage."
+    },
+    "short": {
+      "sbs": "Côte à côte",
+      "halfSbs": "Demi côte à côte",
+      "anaglyph": "Rouge-cyan"
+    },
+    "download": "Télécharger",
+    "fetching": "Récupération de vos fichiers…",
+    "empty": "Aucun fichier dans cette conversion.",
+    "thisHeadset": "Ce casque",
+    "row": {
+      "part": "Partie {part}",
+      "clip": "Extrait",
+      "full": "Complet"
+    },
+    "otherFiles": "Fichiers {devices} ({count})",
+    "another": {
+      "longWait": "Cela peut prendre un moment. Vous pouvez quitter cette page ; le fichier apparaît ici quand il est prêt.",
+      "aboutMinutes": "{count, plural, one {Environ # minute} other {Environ # minutes}}",
+      "almostReady": "Presque prêt…",
+      "left": "Environ {time} restantes",
+      "almostDone": "Presque terminé…",
+      "unavailable": {
+        "halfOnly": "Cette conversion n’a que le fichier demi-taille. Lancez une nouvelle conversion pour obtenir d’autres formats.",
+        "filesErased": "Ces fichiers ont été effacés après 90 jours sans utilisation.",
+        "splitRun": "Cette conversion est en parties, d’autres formats ne peuvent donc pas en être créés. Lancez une nouvelle conversion pour obtenir d’autres formats."
+      },
+      "failed": "Ça n’a pas fonctionné. Réessayez.",
+      "tooWide": "Le côte à côte complet n’est pas créé en 6K et 8K. Choisissez Côte à côte (demi-taille) ou Vidéo spatiale.",
+      "rateLimited": "Trop d’essais. Patientez quelques minutes.",
+      "open": "Obtenir un autre format",
+      "title": "Un autre format",
+      "free": "Gratuit",
+      "madeFrom": "Créé à partir des fichiers de cette conversion.",
+      "formatMaking": "{format} : création…",
+      "formatAlmostReady": "{format} : presque prêt…",
+      "formatFailed": "{format} : ça n’a pas fonctionné. Réessayez.",
+      "progressLabel": "Progression de {format}",
+      "tryAgain": "Réessayer"
+    },
+    "details": {
+      "toggle": "Détails",
+      "fileWords": {
+        "sbs": "Côte à côte .mp4",
+        "halfSbs": "Côte à côte (demi-taille) .mp4",
+        "anaglyph": "Rouge-cyan .mp4",
+        "depth": "Profondeur .mp4",
+        "depthVis": "Vue de profondeur .mp4"
+      },
+      "scene": "Scène {n}",
+      "scenes": "Scènes {a}–{b}",
+      "wholeVideo": "Vidéo entière",
+      "perEye": "{width}×{height} par œil",
+      "px": "{value} px",
+      "left": "Gauche",
+      "right": "Droit",
+      "on": "Activé",
+      "off": "Désactivé",
+      "included": "Inclus",
+      "freePreview": "Aperçu gratuit",
+      "proDiscountPct": "{plan} {pct} % · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "Voir le reçu",
+      "viewInvoice": "Voir la facture",
+      "deletedOn": "Supprimé le {date}",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} partie {part} {size}",
+      "copied": "Copié",
+      "copy": "Copier",
+      "rows": {
+        "what": "Contenu",
+        "part": "Partie",
+        "quality": "Qualité",
+        "frameRate": "Cadence",
+        "filesMade": "Fichiers créés",
+        "filesOrdered": "Fichiers commandés",
+        "parts": "Parties",
+        "strength": "Intensité 3D",
+        "depthDetail": "Détail de profondeur",
+        "scenesTuned": "Scènes ajustées",
+        "originalEye": "Œil d’origine",
+        "fileQuality": "Qualité de fichier",
+        "bitrate": "Débit",
+        "audio": "Audio",
+        "foveation": "Détail fovéal",
+        "express": "Express",
+        "quickLook": "Aperçu rapide",
+        "intro": "Intro",
+        "ordered": "Commandé",
+        "finished": "Terminé",
+        "took": "Durée",
+        "price": "Prix",
+        "freePreviewsUsed": "Aperçus gratuits utilisés",
+        "discount": "Réduction",
+        "launchOffer": "Offre de lancement",
+        "receipt": "Reçu",
+        "invoice": "Facture",
+        "runId": "ID de conversion",
+        "files": "Fichiers",
+        "fileSizes": "Tailles des fichiers",
+        "keptUntil": "Conservé jusqu’au"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, one {# partie} other {# parties}}",
+      "label": "Historique des conversions",
+      "empty": "Rien ici pour l’instant. Vos fichiers 3D apparaissent ici quand ils sont prêts.",
+      "launchOffer": "Offre de lancement",
+      "failed": "Un problème est survenu de notre côté."
+    }
+  },
+  "viewer": {
+    "viewIn3D": "Voir en 3D",
+    "fullScreen": "Plein écran",
+    "playsFlat": "Lue à plat ici. La vidéo spatiale Vision Pro se lit en 3D."
   },
   "workspace": {
     "analyze": {

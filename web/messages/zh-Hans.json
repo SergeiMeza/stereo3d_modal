@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "语言",
+    "richExample": "你好 <b>{name}</b>",
+    "ui": {
+      "close": "关闭"
+    },
+    "header": {
+      "projects": "项目"
+    },
+    "checkingSession": "正在检查登录状态…",
+    "analytics": {
+      "bannerLabel": "分析统计同意",
+      "banner": "可以使用分析 Cookie 吗？Microsoft Clarity 能让我们了解工作室的使用情况，以便改进，不含广告，也绝不涉及你的视频内容。<link>隐私政策</link>",
+      "deny": "不用了",
+      "allow": "允许分析",
+      "switchLabel": "分析统计",
+      "switchOn": "分析已开启",
+      "switchOff": "分析已关闭",
+      "reset": "重置你的分析选择"
+    },
+    "sectionBoundary": {
+      "failed": "{name}：此部分无法显示。",
+      "tryAgain": "重试"
+    },
+    "feedback": {
+      "openLabel": "发送反馈",
+      "open": "反馈",
+      "sentTitle": "谢谢，我们会阅读每一条留言。",
+      "sentDescription": "你的反馈已发送。",
+      "done": "完成",
+      "title": "发送反馈",
+      "description": "想法、问题，什么都可以。会有真人阅读。",
+      "kindLabel": "类型",
+      "kinds": {
+        "idea": "想法",
+        "problem": "问题",
+        "other": "其他"
+      },
+      "message": "留言",
+      "email": "邮箱",
+      "yourEmail": "你的邮箱",
+      "okToContact": "可以联系我",
+      "includePage": "附上此页面",
+      "failed": "无法发送。你也可以写信到 <mail>{email}</mail>",
+      "sending": "正在发送…",
+      "send": "发送"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "导航路径",
+      "breadcrumbDevices": "设备",
+      "readyFor": "适用于 {name}",
+      "worksWith": "支持 {name}",
+      "cta": "把你的视频变成 3D",
+      "othersLabel": "其他设备",
+      "others": "其他设备："
+    },
+    "cancel": "取消"
+  },
   "business": {
     "entry": {
       "card": "在工作中使用 {site}？设置 {business} 或 {studio}",
@@ -684,6 +742,246 @@
       "upgradeTo": "升级到 {plan}"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "你已退出登录。请登录后继续。",
+      "incorrectCredentials": "邮箱或密码不正确。",
+      "userNotFound": "找不到使用该邮箱的账户。",
+      "invalidEmail": "该邮箱地址无效。",
+      "emailExists": "使用该邮箱的账户已存在，请直接登录。",
+      "weakPassword": "密码太弱，请至少使用 6 个字符。",
+      "missingPassword": "请输入密码。",
+      "popupClosed": "登录窗口在完成前被关闭。请重试。",
+      "popupBlocked": "你的浏览器拦截了登录弹窗，请允许弹窗后重试。",
+      "tooManyAttempts": "尝试次数过多，请稍等片刻后重试。",
+      "network": "网络错误，请检查网络连接后重试。",
+      "accountDisabled": "此账户已被停用。",
+      "recentLogin": "出于安全考虑，此操作需要重新登录：请退出，重新登录，然后再试。",
+      "emailOnly": "请使用邮箱登录。",
+      "authUnavailable": "暂时无法登录。请稍后再试。",
+      "codeInvalid": "验证码不正确。",
+      "codeExpired": "验证码已过期。请获取新的验证码。",
+      "resendTooSoon": "请稍等片刻，再获取新的验证码。",
+      "tooManyCodes": "此邮箱的验证码请求过多。请一小时后再试。",
+      "credentialInUse": "该登录方式已有自己的账户。请退出，再用它登录以使用那个账户。",
+      "alreadyLinked": "已经关联过了。",
+      "unauthorizedDomain": "此地址暂不支持登录。",
+      "providerUnavailable": "该登录方式暂不可用。",
+      "customTokenInvalid": "登录失败。请获取新的验证码。",
+      "noSuchProvider": "该登录方式尚未关联。",
+      "failed": "验证失败。请重试。",
+      "accountExists": "你已有使用 {email} 的账户。",
+      "appleFailed": "通过 Apple 登录未成功。请重试。",
+      "signInFailed": "登录失败。请重试。",
+      "otherAccountPasskey": "该通行密钥属于另一个账户。请使用为此账户保存的通行密钥。",
+      "appleUnavailable": "暂时无法通过 Apple 登录。",
+      "appleBlocked": "你的浏览器拦截了 Apple 窗口。请允许此网站的弹窗后重试。",
+      "appleUnfinished": "通过 Apple 登录未完成。请重试。",
+      "linkUnfinished": "关联 {provider} 未完成。请重试。",
+      "signInUnfinished": "使用 {provider} 登录未完成。请重试。",
+      "notConfirmed": "未确认，没有做任何更改。",
+      "somethingWrong": "出了点问题。",
+      "didntWork": "未成功。请重试。",
+      "didntWorkShort": "未成功。",
+      "sendCodeFailed": "无法发送验证码。"
+    },
+    "passkeyErrors": {
+      "notRegistered": "此通行密钥未在这里注册。请换一种方式登录。",
+      "didntWork": "未成功。请重试。",
+      "cloneSuspected": "无法使用此通行密钥。请换一种方式登录。",
+      "unavailable": "暂时无法登录。请重试。",
+      "rateLimited": "尝试次数过多。请等几分钟。",
+      "closed": "通行密钥提示在完成前被关闭。请重试。",
+      "didntFinish": "未完成。请重试。",
+      "unsupported": "此浏览器不支持通行密钥。请换一种方式登录。",
+      "exists": "此设备已有你账户的通行密钥。",
+      "security": "通行密钥无法在此地址使用。请换一种方式登录。",
+      "failed": "通行密钥未成功。请重试，或换一种方式登录。",
+      "network": "无法连接服务器。请检查网络后重试。",
+      "cantAdd": "此浏览器无法添加通行密钥。"
+    },
+    "methods": {
+      "email": "邮箱",
+      "password": "密码",
+      "loadFailed": "无法加载你的登录方式。",
+      "heading": "登录方式",
+      "codeTo": "发送到 {email} 的验证码",
+      "on": "已开启",
+      "adding": "正在添加…",
+      "add": "添加"
+    },
+    "signIn": {
+      "title": "登录",
+      "mocked": "此环境中的登录为模拟。",
+      "continue": "继续",
+      "subtitle": "一个账户，通用于网页版和 App 中的 {site}。",
+      "continueApple": "通过 Apple 继续",
+      "continueGoogle": "通过 Google 继续",
+      "or": "或",
+      "emailLabel": "邮箱",
+      "emailPlaceholder": "you@example.com",
+      "sending": "正在发送…",
+      "continueEmail": "使用邮箱继续",
+      "agree": "继续即表示你同意我们的<terms>使用条款</terms>和<privacy>隐私政策</privacy>。"
+    },
+    "code": {
+      "wrongTriesLeft": "验证码不正确。还可以尝试 {count, plural, other {# 次}}。",
+      "back": "使用其他邮箱",
+      "title": "请查看你的邮箱",
+      "sentTo": "请输入我们发送到 <addr>{email}</addr> 的验证码。",
+      "linking": "你已有使用此邮箱的账户。{method}将添加到该账户。",
+      "signingIn": "正在登录…",
+      "newCodeSent": "新验证码已发送。",
+      "resendIn": "{time}后可重新发送验证码",
+      "resend": "发送新验证码",
+      "inputLabel": "登录验证码"
+    },
+    "providers": {
+      "emailCode": "邮箱验证码",
+      "passkey": "通行密钥",
+      "or": "{list}或{last}",
+      "separator": "、"
+    },
+    "inUse": {
+      "identity": "该登录方式属于另一个账户。",
+      "identityHow": "该登录方式属于另一个账户（使用{how}登录）。",
+      "email": "该邮箱属于另一个账户。",
+      "emailHow": "该邮箱属于另一个账户（使用{how}登录）。"
+    },
+    "emails": {
+      "relayNotMain": "请为你的套餐使用真实邮箱，而不是隐藏的 Apple 邮箱。",
+      "mainNotRemovable": "请先将另一个邮箱设为主邮箱。",
+      "loadFailed": "无法加载你的邮箱。",
+      "enterAddress": "请输入邮箱地址。",
+      "sendCode": "发送验证码",
+      "codeSentTo": "请输入我们发送到 {email} 的验证码。",
+      "checking": "正在验证…",
+      "add": "添加邮箱",
+      "makeItMain": "设为我的主邮箱",
+      "signInThere": "登录该账户",
+      "heading": "邮箱 · 每个邮箱都用验证码登录",
+      "hiddenApple": "隐藏的 Apple 邮箱",
+      "main": "主邮箱",
+      "makeMain": "设为主邮箱",
+      "removeLabel": "移除 {email}",
+      "remove": "移除",
+      "addAnother": "添加其他邮箱",
+      "full": "你的账户已有 {count} 个邮箱。请先移除一个再添加。"
+    },
+    "passkeys": {
+      "loadFailed": "无法加载你的通行密钥。",
+      "never": "从未",
+      "title": "通行密钥",
+      "subtitle": "使用面容 ID、触控 ID、手机或安全密钥登录。",
+      "addTitle": "添加通行密钥",
+      "added": "添加于 {date}",
+      "lastUsed": "上次使用：{date}",
+      "renameLabel": "重命名 {name}",
+      "rename": "重命名",
+      "removeLabel": "移除 {name}",
+      "remove": "移除",
+      "empty": "还没有通行密钥。",
+      "emptyUnsupported": "还没有通行密钥。此浏览器无法添加。",
+      "addedNotice": "通行密钥已添加。",
+      "renamedNotice": "通行密钥已重命名。",
+      "removedNotice": "通行密钥已移除。",
+      "addDescription": "下次用面容 ID、触控 ID、手机或安全密钥登录，无需输入。",
+      "name": "名称",
+      "confirmed": "已重新登录。现在添加通行密钥。",
+      "waiting": "正在等待你的通行密钥…",
+      "add": "添加通行密钥",
+      "renameTitle": "重命名通行密钥",
+      "renameDescription": "名称可帮你区分不同的通行密钥。",
+      "removeTitle": "移除“{name}”？",
+      "removeDescription": "你将无法再用此通行密钥登录，但仍可用其他方式登录。",
+      "removing": "正在移除…",
+      "removeButton": "移除通行密钥",
+      "signIn": "使用通行密钥登录"
+    },
+    "otherAccount": {
+      "line": "另一个账户使用此邮箱（使用{how}登录）。"
+    },
+    "passkeySuggestion": {
+      "added": "通行密钥已添加。下次用它登录。",
+      "line": "添加通行密钥，下次登录更快。",
+      "dismiss": "关闭"
+    },
+    "reauth": {
+      "title": "确认是你本人",
+      "description": "请重新登录以继续，只需片刻。",
+      "usePasskey": "使用通行密钥",
+      "confirm": "确认",
+      "sendCode": "向 {email} 发送验证码"
+    },
+    "menu": {
+      "label": "账户菜单",
+      "planBilling": "套餐与账单"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "你的账户将于 {date} 删除。你仍可改变主意：请在此之前登录。",
+      "pendingOn": "你的账户已设为于 {date} 删除。保留账户即可执行此操作。",
+      "pending": "你的账户已设为待删除。保留账户即可执行此操作。"
+    },
+    "title": "账户",
+    "profile": {
+      "title": "个人资料",
+      "noEmail": "无邮箱",
+      "displayName": "显示名称",
+      "saving": "正在保存…",
+      "saved": "已保存",
+      "save": "保存",
+      "saveFailed": "无法更新名称。",
+      "idHint": "账户 ID：联系支持时请告知；项目和转换都与它关联。",
+      "copied": "已复制",
+      "copyId": "复制 ID"
+    },
+    "security": {
+      "title": "登录与安全"
+    },
+    "billing": {
+      "title": "账单",
+      "card": "你的银行卡和购买记录在<link>账单</link>中。",
+      "businessDetails": "含公司名称、税号和地址的发票：<link>商务信息</link>。"
+    },
+    "session": {
+      "title": "登录状态",
+      "signOut": "退出登录"
+    },
+    "delete": {
+      "scheduledTitle": "已安排删除账户",
+      "dangerZone": "危险操作",
+      "typeToConfirm": "输入 {word} 以永久删除你的账户",
+      "deleting": "正在删除…",
+      "button": "删除账户",
+      "refundFirst": "我们会先把你 {amount} 的余额退回到你的付款方式。",
+      "refundAndDelete": "退款并删除",
+      "returning": "我们正在退回你的 {amount}，完成后账户将被删除。",
+      "note": "你尚未支付的款项会先从已保存的付款方式中扣除。你的项目、视频和 3D 文件会立即从账户中移除；账单记录会保留以供支持使用。",
+      "paymentNeededAmount": "需要付款（{amount}）：请在“账单”中更新付款方式，然后删除账户。",
+      "paymentNeeded": "需要付款：请在“账单”中更新付款方式，然后删除账户。",
+      "failed": "无法删除账户。"
+    },
+    "deletionPrompt": {
+      "keepFailed": "暂时无法保留你的账户。请重试。",
+      "title": "你的账户已设为于 {date} 删除。",
+      "description": "保留它，一切照旧。或者放手：届时我们会删除它。",
+      "signingOut": "正在退出登录…",
+      "deleteIt": "删除",
+      "keeping": "正在保留…",
+      "keep": "保留我的账户"
+    },
+    "deletePlan": {
+      "appStore": "App Store 的 {plan} 通过 Apple 续订。请在你的 Apple ID 设置中取消。",
+      "validUntil": "你的 {plan} 套餐有效期至 {date}。",
+      "validToPeriodEnd": "你的 {plan} 套餐有效期至当前周期结束。",
+      "restore": "如果你之后用此邮箱重新注册，可以恢复它。",
+      "cancelFirst": "请先取消你的套餐。",
+      "cancelFirstUntil": "请先取消你的套餐。它的有效期至 {date}。",
+      "cancelPlan": "取消套餐"
+    }
+  },
   "look": {
     "analysisRunning": "分析仍在进行 — 完成后才能报价。",
     "requestFailed": "请求失败",
@@ -1331,6 +1629,437 @@
       "addFunds": "充值 {amount} 起，用余额支付转换。",
       "refundable": "未花完的余额可在 {days} 天内退款。"
     }
+  },
+  "meta": {
+    "site": {
+      "title": "网页版 {site}：把 2D 视频转成 3D",
+      "description": "网页版 {site}。把 2D 视频转成 3D：适用于 Apple Vision Pro 的空间视频，适用于 Meta Quest、Pico 和各种 3D 显示设备的左右格式。开始前先看价格。",
+      "ogTitle": "网页版 {site}：把任何视频变成逼真的 3D",
+      "ogImageAlt": "网页版 {site}：把任何视频变成逼真的 3D，最高 8K，适用于 Vision Pro 和各种头显"
+    },
+    "home": {
+      "appDescription": "把 2D 视频转成 3D：适用于 Apple Vision Pro 的空间视频，以及适用于 Meta Quest、Pico、三星 Galaxy XR 和 3D 显示设备的左右格式 3D。"
+    },
+    "billing": {
+      "title": "账单"
+    },
+    "businessDetails": {
+      "title": "商务信息",
+      "heading": "商务信息",
+      "intro": "你的发票上显示的内容。保存后会影响之后的发票，已发送的不变。"
+    },
+    "businessSetup": {
+      "title": "设置 {business} 或 {studio}"
+    },
+    "payHandoff": {
+      "title": "为你的 3D 视频付款"
+    },
+    "payReturn": {
+      "title": "付款"
+    },
+    "plans": {
+      "title": "套餐",
+      "description": "网页版 {site}，{business} 和 {studio} 套餐：每月含用量、价格更低、免费预览和加急。"
+    },
+    "pricing": {
+      "title": "价格",
+      "description": "网页版 {site} 价格：按视频分钟数付费，或用套餐更省。{lifelike}，1080p 到 8K。"
+    },
+    "pro": {
+      "description": "{site} {pro}：网页版每个 3D 视频价格更低，加入即送用量额度、免费预览，并可在 iPhone、iPad、Mac 和 Vision Pro 的 App 中使用 {pro}。"
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "关闭此提示",
+      "billing": "你的余额、付款方式和收据。在这里充值，或让余额自动充值。",
+      "usage": "每次转换及其价格，按月显示。可下载 CSV 留存。",
+      "invoices": "充值和套餐的发票，可随时下载。",
+      "plans": "套餐会降低每次转换的价格，并每月含用量。不用套餐，按视频付费也可以。",
+      "pricing": "价格按你选择的尺寸，每分钟视频计算。付款前你总能看到确切价格。",
+      "pro": "{pro} 是网页版和 App 通用的一个会员。会员每次转换更省，加入时还有用量额度。",
+      "account": "你的登录、设置，以及（如有需要）删除账户。",
+      "devices": "如何在此设备上观看你的 3D 视频。",
+      "scenes": "视频中场景切换的位置。预览和分段从这些点开始，通常无需更改。"
+    },
+    "tips": {
+      "progress": "第 {n} 项，共 {total} 项",
+      "skip": "跳过提示",
+      "next": "下一步",
+      "gotIt": "知道了",
+      "overview": {
+        "title": "关于你视频的一切",
+        "body": "时长、尺寸、场景，以及整个视频的价格。查看不收费。"
+      },
+      "preview": {
+        "title": "先试一小段",
+        "body": "选几秒钟，在决定前先看 3D 效果。你的第一次预览免费。"
+      },
+      "make": {
+        "title": "先选择，再付款",
+        "body": "选择观看设备和画质。价格会随之更新，点击“生成 3D”之前不会扣费。"
+      },
+      "files": {
+        "title": "你的 3D 文件",
+        "body": "可下载，或在头显的浏览器中打开此页面并播放。"
+      }
+    },
+    "getStarted": {
+      "title": "开始使用",
+      "progress": "已完成 {done}/{total}",
+      "hide": "隐藏",
+      "done": "✓ 已完成",
+      "next": "下一步",
+      "pickNow": "现在选择",
+      "listSeparator": "、",
+      "steps": {
+        "headset": {
+          "title": "选择你的头显",
+          "body": "这样我们才能生成合适的文件。"
+        },
+        "firstVideo": {
+          "title": "添加你的第一个视频",
+          "body": "我们会分析它并显示价格。免费。"
+        },
+        "firstPreview": {
+          "title": "观看你的免费预览",
+          "body": "一小段 3D，我们请客。"
+        },
+        "first3d": {
+          "title": "生成 3D",
+          "body": "付款前先看价格。"
+        },
+        "watched": {
+          "title": "在头显中观看",
+          "body": "在头显的浏览器中打开 stereo3d.studio，或下载文件。"
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "空间视频"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "左右格式"
+      },
+      "galaxyxr": {
+        "name": "三星 Galaxy XR",
+        "files": "左右格式"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "左右格式"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "左右格式"
+      },
+      "glasses": {
+        "name": "XR 眼镜",
+        "files": "左右格式"
+      },
+      "tv": {
+        "name": "3D 电视或投影仪",
+        "files": "左右格式（半宽）"
+      },
+      "unsure": {
+        "name": "暂时不确定",
+        "files": "两种都包含"
+      }
+    },
+    "welcome": {
+      "eyebrow": "欢迎",
+      "skip": "跳过",
+      "back": "返回",
+      "gotIt": "知道了",
+      "continue": "继续",
+      "later": "稍后再说",
+      "stepOf": "第 {step} 步，共 {total} 步",
+      "business": "为客户工作？<link>{plan}</link>含每月用量、商用授权和发票。",
+      "pro": {
+        "title": "你的 {pro} 在这里同样适用",
+        "prices": "每个视频都按 {pro} 价格。",
+        "pricesPct": "每个视频都按 {pro} 价格，立减 {pct}%。",
+        "previews": "你的套餐{period, select, pass {在通行期内} month {每月} week {每周} year {每年} day {每天} other {每{period}}}含 {count, plural, other {# 次免费预览}}。",
+        "credit": "你有 {amount} 用量额度，请在 {date} 前使用。",
+        "nothingBilled": "不会产生新的费用。"
+      },
+      "headsets": {
+        "title": "你的视频，变成 3D。",
+        "intro": "{site} 能把任何 2D 视频变成可在头显中观看的 3D。首先，你打算在哪里观看？",
+        "question": "你打算在哪里观看？",
+        "fromApp": "来自你的 App。我们据此为你选择合适的文件。你可以在任何项目中更改。",
+        "otherHeadset": "你告诉过 App 你使用头显。我们据此为你选择合适的文件。",
+        "note": "我们据此为你选择合适的文件。你可以在任何项目中更改。"
+      },
+      "how": {
+        "loopLabel": "日落时一位歌手站在乐队前：左边是 2D 视频，右边是同一瞬间的 3D",
+        "eyebrow": "使用方式",
+        "title": "三步完成。付款前先看价格。",
+        "titleShort": "付款前先看价格。",
+        "description": "{site} 如何运作",
+        "steps": {
+          "add": {
+            "title": "添加视频",
+            "body": "我们会分析每个场景并显示价格。免费。",
+            "short": "免费查看价格。"
+          },
+          "preview": {
+            "title": "观看预览",
+            "body": "在头显中观看一小段 3D。第一次预览我们请客。",
+            "short": "第一次免费。"
+          },
+          "make": {
+            "title": "生成 3D",
+            "body": "为整个视频付款，然后下载，或在头显的浏览器中播放。",
+            "short": "下载，或在头显中播放。"
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "你的第一个项目",
+        "title": "从你自己的一个视频开始。",
+        "description": "添加视频或打开示例",
+        "sample": "手边没有视频？先打开一个成品示例看看。"
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "正在确认付款",
+      "waitingInLine": "排队中",
+      "making": "正在生成你的 3D",
+      "readyPaymentNeeded": "已就绪，需要付款",
+      "ready": "已就绪",
+      "failedRefunded": "失败，已退款 {amount}",
+      "failedNotCharged": "失败，未扣费",
+      "cancelledRefunded": "已取消 · 已退款 {amount}",
+      "cancelledNotCharged": "已取消 · 未扣费",
+      "expiredNotCharged": "未开始，未扣费",
+      "waitingNote": "一有空闲机器就会开始，通常几分钟内。价格不变。",
+      "short": {
+        "failed": "失败",
+        "cancelled": "已取消",
+        "expired": "未开始"
+      }
+    },
+    "stages": {
+      "preprocess": "正在准备视频",
+      "profile_scenes": "正在分析场景",
+      "video_depth": "正在计算深度",
+      "video_stereo": "正在生成 3D 视频",
+      "encode_outputs": "正在编码你的文件",
+      "encode_mvhevc": "正在编码 Vision Pro 文件",
+      "image_stereo": "正在生成 3D 图像",
+      "queued": "等待开始",
+      "plan": "正在准备",
+      "render": "正在渲染 3D",
+      "encode": "正在编码",
+      "publish": "正在发布",
+      "done": "即将完成",
+      "analyze": "正在分析",
+      "proxy": "正在生成预览",
+      "scene_detect": "正在检测场景",
+      "thumbnails": "正在渲染缩略图"
+    },
+    "tracker": {
+      "expressWait": "即将开始（加急）。",
+      "expressWaitWithin": "即将开始（加急）。约 {minutes} 分钟内。",
+      "cancelNowRefund": "{time} · 现在取消可全额退款",
+      "cancelNowNotCharged": "{time} · 现在取消不会扣费",
+      "cancelWhileWaitingRefund": "等待期间可随时取消并全额退款。",
+      "cancelWhileWaitingNotCharged": "等待期间可随时取消，不会扣费。",
+      "steps": {
+        "ready": "准备中",
+        "making": "生成 3D 视频",
+        "saving": "保存你的文件"
+      },
+      "runFallback": "转换",
+      "billing": {
+        "refundPending": "退款正在处理。全额将退回你的付款方式。",
+        "refunded": "已全额退款。",
+        "notCharged": "未向你扣费。",
+        "paidAtStart": "转换开始时已付款。若失败将全额退款。",
+        "paidAtStartRefunded": "此转换在开始时已付款，因此已全额退款。"
+      },
+      "cancelFailed": "取消失败",
+      "estimated": "预计：{duration}",
+      "allFiles": "全部文件",
+      "cancel": "取消",
+      "waitingForConfirmation": "正在等待确认你的付款。",
+      "confirmingWithBank": "正在与你的银行确认付款。到账后立即开始。",
+      "chargeFailed": "你上一笔付款有问题。",
+      "payNow": "立即付款",
+      "failed": "我们这边出了问题。请重试。"
+    },
+    "overdue": {
+      "reported": "谢谢你告知。我们正在调查此转换，并将通过邮件回复。",
+      "title": "耗时比预期长得多。",
+      "body": "我们这边可能卡住了。请反馈给我们，我们会调查并通过邮件回复。",
+      "notePlaceholder": "还有什么要告诉我们的吗？（选填）",
+      "sending": "正在发送…",
+      "report": "反馈问题",
+      "sendFailed": "无法发送反馈。请重试。"
+    },
+    "previous": {
+      "word": {
+        "refunded": "已退款",
+        "making": "生成中…"
+      },
+      "notCharged": "未扣费",
+      "wholeVideo": "整个视频",
+      "title": "以往的转换",
+      "allFiles": "全部文件",
+      "showFewer": "收起",
+      "showAll": "显示全部（{count}）",
+      "filesDeleted": "这些文件已于 {date} 删除。",
+      "filesUnavailable": "暂时无法打开这些文件。",
+      "watch": "观看",
+      "partsInFiles": "{count} 个分段，在“文件”中",
+      "files": "文件",
+      "alreadyMade": "你已在 {day} 生成过 · <link>下载</link>"
+    },
+    "prior": {
+      "hideDownloads": "隐藏下载",
+      "downloads": "下载",
+      "fetching": "正在获取下载链接…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "暂时无法使用示例。",
+      "failed": "无法加载文件。"
+    },
+    "groups": {
+      "anyScreen": "任何屏幕",
+      "previewLifelikeHow": "可在此播放，并含免费 3D 检查。",
+      "previewHow": "可在此播放，或用头显的播放器播放。",
+      "mvhevcHow": "用隔空投送或“文件”传输。在“照片”中显示。",
+      "sbsDevice": "Meta Quest、Galaxy XR、Pico、Steam Frame、XR 眼镜",
+      "halfSbsDevice": "3D 电视、投影仪、4K 及以上的 Meta Quest",
+      "sideBySideHow": "在播放器中打开，并选择 3D 左右格式。",
+      "anaglyphHow": "戴红蓝眼镜观看。",
+      "depthDevice": "深度视频",
+      "depthHow": "供你自己的编辑工具使用。"
+    },
+    "short": {
+      "sbs": "左右格式",
+      "halfSbs": "半宽左右格式",
+      "anaglyph": "红蓝"
+    },
+    "download": "下载",
+    "fetching": "正在获取你的文件…",
+    "empty": "此转换没有文件。",
+    "thisHeadset": "此头显",
+    "row": {
+      "part": "第 {part} 段",
+      "clip": "片段",
+      "full": "完整"
+    },
+    "otherFiles": "{devices}文件（{count}）",
+    "another": {
+      "longWait": "这可能需要一段时间。你可以离开此页面，文件准备好后会显示在这里。",
+      "aboutMinutes": "{count, plural, other {约 # 分钟}}",
+      "almostReady": "即将就绪…",
+      "left": "还剩约 {time}",
+      "almostDone": "即将完成…",
+      "unavailable": {
+        "halfOnly": "此转换只有半宽文件。如需其他格式，请重新转换。",
+        "filesErased": "这些文件因 90 天未使用已被清除。",
+        "splitRun": "此转换是分段的，无法生成其他格式。如需其他格式，请重新转换。"
+      },
+      "failed": "未成功。请重试。",
+      "tooWide": "6K 和 8K 不生成完整左右格式。请选择左右格式（半宽）或空间视频。",
+      "rateLimited": "尝试次数过多。请等几分钟。",
+      "open": "获取其他格式",
+      "title": "其他格式",
+      "free": "免费",
+      "madeFrom": "由此转换的文件生成。",
+      "formatMaking": "{format}：生成中…",
+      "formatAlmostReady": "{format}：即将就绪…",
+      "formatFailed": "{format}：未成功。请重试。",
+      "progressLabel": "{format} 进度",
+      "tryAgain": "重试"
+    },
+    "details": {
+      "toggle": "详情",
+      "fileWords": {
+        "sbs": "左右格式 .mp4",
+        "halfSbs": "左右格式（半宽）.mp4",
+        "anaglyph": "红蓝 .mp4",
+        "depth": "深度 .mp4",
+        "depthVis": "深度视图 .mp4"
+      },
+      "scene": "场景 {n}",
+      "scenes": "场景 {a}–{b}",
+      "wholeVideo": "整个视频",
+      "perEye": "每只眼睛 {width}×{height}",
+      "px": "{value} 像素",
+      "left": "左",
+      "right": "右",
+      "on": "开",
+      "off": "关",
+      "included": "已包含",
+      "freePreview": "免费预览",
+      "proDiscountPct": "{plan} {pct}% · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "查看收据",
+      "viewInvoice": "查看发票",
+      "deletedOn": "删除于 {date}",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} 第 {part} 段 {size}",
+      "copied": "已复制",
+      "copy": "复制",
+      "rows": {
+        "what": "内容",
+        "part": "分段",
+        "quality": "画质",
+        "frameRate": "帧率",
+        "filesMade": "已生成文件",
+        "filesOrdered": "已订购文件",
+        "parts": "分段",
+        "strength": "3D 强度",
+        "depthDetail": "深度细节",
+        "scenesTuned": "已调整场景",
+        "originalEye": "原片眼睛",
+        "fileQuality": "文件画质",
+        "bitrate": "码率",
+        "audio": "音频",
+        "foveation": "注视点细节",
+        "express": "加急",
+        "quickLook": "快速预览",
+        "intro": "片头",
+        "ordered": "下单时间",
+        "finished": "完成时间",
+        "took": "耗时",
+        "price": "价格",
+        "freePreviewsUsed": "已用免费预览",
+        "discount": "折扣",
+        "launchOffer": "首发优惠",
+        "receipt": "收据",
+        "invoice": "发票",
+        "runId": "转换 ID",
+        "files": "文件",
+        "fileSizes": "文件大小",
+        "keptUntil": "保留至"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, other {# 段}}",
+      "label": "转换历史",
+      "empty": "这里还没有内容。你的 3D 文件准备好后会显示在这里。",
+      "launchOffer": "首发优惠",
+      "failed": "我们这边出了问题。"
+    }
+  },
+  "viewer": {
+    "viewIn3D": "以 3D 观看",
+    "fullScreen": "全屏",
+    "playsFlat": "在这里为平面播放。Vision Pro 空间视频会以 3D 播放。"
   },
   "workspace": {
     "analyze": {

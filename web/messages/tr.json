@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "Dil",
+    "richExample": "Merhaba <b>{name}</b>",
+    "ui": {
+      "close": "Kapat"
+    },
+    "header": {
+      "projects": "Projeler"
+    },
+    "checkingSession": "Oturum denetleniyor…",
+    "analytics": {
+      "bannerLabel": "Analiz izni",
+      "banner": "Analiz çerezlerini kullanabilir miyiz? Microsoft Clarity, stüdyonun nasıl kullanıldığını göstererek onu geliştirmemize yardımcı olur; reklam yok ve videolarınızın içeriği asla görülmez. <link>Gizlilik Politikası</link>",
+      "deny": "Hayır, teşekkürler",
+      "allow": "Analize izin ver",
+      "switchLabel": "Analiz",
+      "switchOn": "Analiz açık",
+      "switchOff": "Analiz kapalı",
+      "reset": "analiz tercihinizi sıfırlayın"
+    },
+    "sectionBoundary": {
+      "failed": "{name}: Bu bölüm gösterilemedi.",
+      "tryAgain": "Tekrar dene"
+    },
+    "feedback": {
+      "openLabel": "Geri bildirim gönder",
+      "open": "Geri bildirim",
+      "sentTitle": "Teşekkürler, her mesajı okuyoruz.",
+      "sentDescription": "Geri bildiriminiz gönderildi.",
+      "done": "Bitti",
+      "title": "Geri bildirim gönder",
+      "description": "Fikir, sorun, her şey olur. Bir kişi okur.",
+      "kindLabel": "Tür",
+      "kinds": {
+        "idea": "Fikir",
+        "problem": "Sorun",
+        "other": "Başka bir şey"
+      },
+      "message": "Mesaj",
+      "email": "E-posta",
+      "yourEmail": "E-postanız",
+      "okToContact": "Benimle iletişime geçebilirsiniz",
+      "includePage": "Bu sayfayı ekle",
+      "failed": "Gönderilemedi. Şu adrese de yazabilirsiniz: <mail>{email}</mail>",
+      "sending": "Gönderiliyor…",
+      "send": "Gönder"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "Gezinti yolu",
+      "breadcrumbDevices": "Cihazlar",
+      "readyFor": "{name} için hazır",
+      "worksWith": "{name} ile çalışır",
+      "cta": "Videonuzu 3D yapın",
+      "othersLabel": "Diğer cihazlar",
+      "others": "Diğer cihazlar:"
+    },
+    "cancel": "Vazgeç"
+  },
   "business": {
     "entry": {
       "card": "{site} uygulamasını iş için mi kullanıyorsunuz? {business} veya {studio} kurun",
@@ -684,6 +742,246 @@
       "upgradeTo": "{plan} planına geç"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "Oturumunuz kapandı. Devam etmek için giriş yapın.",
+      "incorrectCredentials": "E-posta veya parola hatalı.",
+      "userNotFound": "Bu e-postayla bir hesap bulunamadı.",
+      "invalidEmail": "Bu e-posta adresi geçerli değil.",
+      "emailExists": "Bu e-postayla bir hesap zaten var; bunun yerine giriş yapın.",
+      "weakPassword": "Parola çok zayıf; en az 6 karakter kullanın.",
+      "missingPassword": "Parolanızı girin.",
+      "popupClosed": "Giriş penceresi işlem bitmeden kapatıldı. Tekrar deneyin.",
+      "popupBlocked": "Tarayıcınız giriş açılır penceresini engelledi; açılır pencerelere izin verip tekrar deneyin.",
+      "tooManyAttempts": "Çok fazla deneme; biraz bekleyip tekrar deneyin.",
+      "network": "Ağ hatası; bağlantınızı kontrol edip tekrar deneyin.",
+      "accountDisabled": "Bu hesap devre dışı bırakıldı.",
+      "recentLogin": "Güvenlik için bu işlem yeni bir oturum gerektirir; çıkış yapın, tekrar giriş yapın ve yeniden deneyin.",
+      "emailOnly": "E-postanızla giriş yapın.",
+      "authUnavailable": "Giriş şu anda kullanılamıyor. Biraz sonra tekrar deneyin.",
+      "codeInvalid": "Bu kod doğru değil.",
+      "codeExpired": "Bu kodun süresi doldu. Yeni bir kod gönderin.",
+      "resendTooSoon": "Biraz bekleyin, sonra yeni bir kod gönderin.",
+      "tooManyCodes": "Bu e-posta için çok fazla kod istendi. Bir saat sonra tekrar deneyin.",
+      "credentialInUse": "Bu girişin zaten kendi hesabı var. Çıkış yapın, sonra o hesabı kullanmak için bununla giriş yapın.",
+      "alreadyLinked": "Bu zaten bağlı.",
+      "unauthorizedDomain": "Giriş bu adreste henüz kullanılamıyor.",
+      "providerUnavailable": "Bu giriş yöntemi henüz kullanılamıyor.",
+      "customTokenInvalid": "Giriş başarısız. Yeni bir kod gönderin.",
+      "noSuchProvider": "Bu giriş yöntemi bağlı değil.",
+      "failed": "Kimlik doğrulama başarısız. Tekrar deneyin.",
+      "accountExists": "{email} ile zaten bir hesabınız var.",
+      "appleFailed": "Apple ile giriş çalışmadı. Tekrar deneyin.",
+      "signInFailed": "Giriş başarısız. Tekrar deneyin.",
+      "otherAccountPasskey": "Bu geçiş anahtarı başka bir hesaba ait. Bu hesap için kaydedilmiş birini kullanın.",
+      "appleUnavailable": "Apple ile giriş şu anda kullanılamıyor.",
+      "appleBlocked": "Tarayıcınız Apple penceresini engelledi. Bu site için açılır pencerelere izin verip tekrar deneyin.",
+      "appleUnfinished": "Apple ile giriş tamamlanmadı. Tekrar deneyin.",
+      "linkUnfinished": "{provider} bağlantısı tamamlanmadı. Tekrar deneyin.",
+      "signInUnfinished": "{provider} ile giriş tamamlanmadı. Tekrar deneyin.",
+      "notConfirmed": "Onaylanmadı. Hiçbir şey değişmedi.",
+      "somethingWrong": "Bir şeyler ters gitti.",
+      "didntWork": "Olmadı. Tekrar deneyin.",
+      "didntWorkShort": "Olmadı.",
+      "sendCodeFailed": "Kod gönderilemedi."
+    },
+    "passkeyErrors": {
+      "notRegistered": "Bu geçiş anahtarı burada kayıtlı değil. Başka bir yolla giriş yapın.",
+      "didntWork": "Olmadı. Tekrar deneyin.",
+      "cloneSuspected": "Bu geçiş anahtarı kullanılamaz. Başka bir yolla giriş yapın.",
+      "unavailable": "Giriş şu anda kullanılamıyor. Tekrar deneyin.",
+      "rateLimited": "Çok fazla deneme. Birkaç dakika bekleyin.",
+      "closed": "Geçiş anahtarı istemi bitmeden kapatıldı. Tekrar deneyin.",
+      "didntFinish": "Tamamlanmadı. Tekrar deneyin.",
+      "unsupported": "Bu tarayıcı geçiş anahtarlarını kullanamıyor. Başka bir yolla giriş yapın.",
+      "exists": "Bu cihazda hesabınız için zaten bir geçiş anahtarı var.",
+      "security": "Geçiş anahtarları bu adreste çalışmaz. Başka bir yolla giriş yapın.",
+      "failed": "Geçiş anahtarı çalışmadı. Tekrar deneyin veya başka bir yolla giriş yapın.",
+      "network": "Sunucuya ulaşılamadı. Bağlantıyı kontrol edip tekrar deneyin.",
+      "cantAdd": "Bu tarayıcı geçiş anahtarı ekleyemiyor."
+    },
+    "methods": {
+      "email": "E-posta",
+      "password": "Parola",
+      "loadFailed": "Giriş yöntemleriniz yüklenemedi.",
+      "heading": "Giriş yöntemi",
+      "codeTo": "{email} adresine kod",
+      "on": "Açık",
+      "adding": "Ekleniyor…",
+      "add": "Ekle"
+    },
+    "signIn": {
+      "title": "Giriş yap",
+      "mocked": "Bu ortamda kimlik doğrulama taklit ediliyor.",
+      "continue": "Devam",
+      "subtitle": "Web’de ve uygulamada {site} için tek hesap.",
+      "continueApple": "Apple ile devam et",
+      "continueGoogle": "Google ile devam et",
+      "or": "veya",
+      "emailLabel": "E-posta",
+      "emailPlaceholder": "siz@ornek.com",
+      "sending": "Gönderiliyor…",
+      "continueEmail": "E-postayla devam et",
+      "agree": "Devam ederek <terms>Kullanım Koşulları</terms> ve <privacy>Gizlilik Politikası</privacy> metinlerini kabul etmiş olursunuz."
+    },
+    "code": {
+      "wrongTriesLeft": "Bu kod doğru değil. {count, plural, other {# deneme}} kaldı.",
+      "back": "Başka bir e-posta kullan",
+      "title": "E-postanızı kontrol edin",
+      "sentTo": "<addr>{email}</addr> adresine gönderdiğimiz kodu girin.",
+      "linking": "Bu e-postayla zaten bir hesabınız var. {method} ona eklenecek.",
+      "signingIn": "Giriş yapılıyor…",
+      "newCodeSent": "Yeni kod gönderildi.",
+      "resendIn": "{time} sonra yeni kod gönder",
+      "resend": "Yeni kod gönder",
+      "inputLabel": "Giriş kodu"
+    },
+    "providers": {
+      "emailCode": "bir e-posta kodu",
+      "passkey": "bir geçiş anahtarı",
+      "or": "{list} veya {last}",
+      "separator": ", "
+    },
+    "inUse": {
+      "identity": "Bu giriş yöntemi başka bir hesaba ait.",
+      "identityHow": "Bu giriş yöntemi başka bir hesaba ait (şununla giriş yapılıyor: {how}).",
+      "email": "Bu e-posta başka bir hesaba ait.",
+      "emailHow": "Bu e-posta başka bir hesaba ait (şununla giriş yapılıyor: {how})."
+    },
+    "emails": {
+      "relayNotMain": "Planınız için gizlenmiş bir Apple adresi değil, gerçek bir e-posta kullanın.",
+      "mainNotRemovable": "Önce başka bir e-postayı ana e-posta yapın.",
+      "loadFailed": "E-postalarınız yüklenemedi.",
+      "enterAddress": "Bir e-posta adresi girin.",
+      "sendCode": "Kod gönder",
+      "codeSentTo": "{email} adresine gönderdiğimiz kodu girin.",
+      "checking": "Denetleniyor…",
+      "add": "E-posta ekle",
+      "makeItMain": "Ana e-postam yap",
+      "signInThere": "O hesaba giriş yap",
+      "heading": "E-postalar · her biriyle kodla giriş yapılır",
+      "hiddenApple": "Gizlenmiş Apple adresi",
+      "main": "Ana",
+      "makeMain": "Ana yap",
+      "removeLabel": "{email} adresini kaldır",
+      "remove": "Kaldır",
+      "addAnother": "Başka bir e-posta ekle",
+      "full": "Hesabınızda {count} e-posta var. Yenisini eklemek için birini kaldırın."
+    },
+    "passkeys": {
+      "loadFailed": "Geçiş anahtarlarınız yüklenemedi.",
+      "never": "hiç",
+      "title": "Geçiş anahtarları",
+      "subtitle": "Face ID, Touch ID, telefonunuz veya bir güvenlik anahtarıyla giriş yapın.",
+      "addTitle": "Geçiş anahtarı ekle",
+      "added": "{date} tarihinde eklendi",
+      "lastUsed": "Son kullanım: {date}",
+      "renameLabel": "{name} adını değiştir",
+      "rename": "Yeniden adlandır",
+      "removeLabel": "{name} anahtarını kaldır",
+      "remove": "Kaldır",
+      "empty": "Henüz geçiş anahtarı yok.",
+      "emptyUnsupported": "Henüz geçiş anahtarı yok. Bu tarayıcı ekleyemiyor.",
+      "addedNotice": "Geçiş anahtarı eklendi.",
+      "renamedNotice": "Geçiş anahtarı yeniden adlandırıldı.",
+      "removedNotice": "Geçiş anahtarı kaldırıldı.",
+      "addDescription": "Bir dahaki sefere Face ID, Touch ID, telefonunuz veya bir güvenlik anahtarıyla giriş yapın. Yazacak bir şey yok.",
+      "name": "Ad",
+      "confirmed": "Tekrar giriş yapıldı. Şimdi geçiş anahtarını ekleyin.",
+      "waiting": "Geçiş anahtarınız bekleniyor…",
+      "add": "Geçiş anahtarı ekle",
+      "renameTitle": "Geçiş anahtarını yeniden adlandır",
+      "renameDescription": "Bir ad, geçiş anahtarlarınızı ayırt etmenize yardımcı olur.",
+      "removeTitle": "“{name}” kaldırılsın mı?",
+      "removeDescription": "Artık bu geçiş anahtarıyla giriş yapamazsınız. Yine de başka bir yolla giriş yapabilirsiniz.",
+      "removing": "Kaldırılıyor…",
+      "removeButton": "Geçiş anahtarını kaldır",
+      "signIn": "Geçiş anahtarıyla giriş yap"
+    },
+    "otherAccount": {
+      "line": "Başka bir hesap bu e-postayı kullanıyor (şununla giriş yapılıyor: {how})."
+    },
+    "passkeySuggestion": {
+      "added": "Geçiş anahtarı eklendi. Bir dahaki sefere onunla giriş yapın.",
+      "line": "Bir dahaki sefere daha hızlı girmek için geçiş anahtarı ekleyin.",
+      "dismiss": "Kapat"
+    },
+    "reauth": {
+      "title": "Siz olduğunuzu onaylayın",
+      "description": "Devam etmek için tekrar giriş yapın. Bir dakikanızı alır.",
+      "usePasskey": "Geçiş anahtarı kullan",
+      "confirm": "Onayla",
+      "sendCode": "{email} adresine kod gönder"
+    },
+    "menu": {
+      "label": "Hesap menüsü",
+      "planBilling": "Plan ve faturalandırma"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "Hesabınız {date} tarihinde silinecek. Fikrinizi hâlâ değiştirebilirsiniz: o tarihten önce giriş yapın.",
+      "pendingOn": "Hesabınızın {date} tarihinde silinmesi planlandı. Bunu yapmak için hesabınızı koruyun.",
+      "pending": "Hesabınızın silinmesi planlandı. Bunu yapmak için hesabınızı koruyun."
+    },
+    "title": "Hesap",
+    "profile": {
+      "title": "Profil",
+      "noEmail": "E-posta yok",
+      "displayName": "Görünen ad",
+      "saving": "Kaydediliyor…",
+      "saved": "Kaydedildi",
+      "save": "Kaydet",
+      "saveFailed": "Ad güncellenemedi.",
+      "idHint": "Hesap kimliği: destek taleplerinde belirtin; projeler ve dönüştürmeler buna bağlıdır.",
+      "copied": "Kopyalandı",
+      "copyId": "Kimliği kopyala"
+    },
+    "security": {
+      "title": "Giriş ve güvenlik"
+    },
+    "billing": {
+      "title": "Faturalandırma",
+      "card": "Kartınız ve satın alım geçmişiniz <link>Faturalandırma</link> sayfasında.",
+      "businessDetails": "Şirket adınız, vergi numaranız ve adresinizle faturalar: <link>İşletme bilgileri</link>."
+    },
+    "session": {
+      "title": "Oturum",
+      "signOut": "Çıkış yap"
+    },
+    "delete": {
+      "scheduledTitle": "Hesap silme planlandı",
+      "dangerZone": "Tehlikeli bölge",
+      "typeToConfirm": "Hesabınızı kalıcı olarak silmek için {word} yazın",
+      "deleting": "Siliniyor…",
+      "button": "Hesabı sil",
+      "refundFirst": "Önce {amount} bakiyenizi ödeme yönteminize iade ederiz.",
+      "refundAndDelete": "İade et ve sil",
+      "returning": "{amount} tutarını iade ediyoruz; bu bitince hesabınız silinir.",
+      "note": "Borcunuz varsa önce kayıtlı ödeme yönteminizden tahsil edilir. Projeleriniz, videolarınız ve 3D dosyalarınız hesabınızdan hemen kaldırılır; faturalandırma kayıtları destek için saklanır.",
+      "paymentNeededAmount": "Ödeme gerekli ({amount}): Faturalandırma’da ödeme yönteminizi güncelleyin, sonra hesabınızı silin.",
+      "paymentNeeded": "Ödeme gerekli: Faturalandırma’da ödeme yönteminizi güncelleyin, sonra hesabınızı silin.",
+      "failed": "Hesap silinemedi."
+    },
+    "deletionPrompt": {
+      "keepFailed": "Hesabınızı şu anda koruyamadık. Tekrar deneyin.",
+      "title": "Hesabınızın {date} tarihinde silinmesi planlandı.",
+      "description": "Koruyun, her şey olduğu gibi kalır. Ya da bırakın: o zaman sileriz.",
+      "signingOut": "Çıkış yapılıyor…",
+      "deleteIt": "Sil",
+      "keeping": "Korunuyor…",
+      "keep": "Hesabımı koru"
+    },
+    "deletePlan": {
+      "appStore": "App Store’dan aldığınız {plan} Apple üzerinden yenilenir. Apple Kimliği ayarlarınızdan iptal edin.",
+      "validUntil": "{plan} planınız {date} tarihine kadar geçerli kalır.",
+      "validToPeriodEnd": "{plan} planınız dönemin sonuna kadar geçerli kalır.",
+      "restore": "Bu e-postayla tekrar kaydolursanız geri yükleyebilirsiniz.",
+      "cancelFirst": "Önce planınızı iptal edin.",
+      "cancelFirstUntil": "Önce planınızı iptal edin. {date} tarihine kadar geçerli kalır.",
+      "cancelPlan": "Planı iptal et"
+    }
+  },
   "look": {
     "analysisRunning": "Analiz hâlâ sürüyor — teklifler bittiğinde açılır.",
     "requestFailed": "istek başarısız oldu",
@@ -1331,6 +1629,437 @@
       "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin.",
       "refundable": "Harcanmamış para {days} gün içinde iade edilebilir."
     }
+  },
+  "meta": {
+    "site": {
+      "title": "Web’de {site} — 2D Videoyu 3D’ye Çevirin",
+      "description": "Web’de {site}. 2D videoları 3D’ye çevirin: Apple Vision Pro için uzamsal video, Meta Quest, Pico ve her 3D ekran için yan yana. Başlamadan önce fiyatı görün.",
+      "ogTitle": "Web’de {site}: her videoyu gerçeğe yakın 3D’ye çevirin",
+      "ogImageAlt": "Web’de {site}: her videoyu Vision Pro ve her başlık için 8K’ya kadar gerçeğe yakın 3D’ye çevirin"
+    },
+    "home": {
+      "appDescription": "2D videoları 3D’ye çevirin: Apple Vision Pro için Vision Pro uzamsal videosu; Meta Quest, Pico, Samsung Galaxy XR ve 3D ekranlar için yan yana 3D."
+    },
+    "billing": {
+      "title": "Faturalandırma"
+    },
+    "businessDetails": {
+      "title": "İşletme bilgileri",
+      "heading": "İşletme bilgileri",
+      "intro": "Faturalarınızda görünenler. Kaydetmek sonraki faturalarınızı değiştirir, gönderilmiş olanları değil."
+    },
+    "businessSetup": {
+      "title": "{business} veya {studio} kurulumu"
+    },
+    "payHandoff": {
+      "title": "3D videonuz için ödeme yapın"
+    },
+    "payReturn": {
+      "title": "Ödeme"
+    },
+    "plans": {
+      "title": "Planlar",
+      "description": "Web’de {site}, {business} ve {studio} planları: her ay kullanım dahil, daha düşük fiyatlar, ücretsiz önizlemeler ve Express."
+    },
+    "pricing": {
+      "title": "Fiyatlar",
+      "description": "Web’de {site} fiyatları: video dakikası başına ödeyin veya bir planla tasarruf edin. {lifelike}, 1080p’den 8K’ya."
+    },
+    "pro": {
+      "description": "{site} {pro}: web’de her 3D videoda daha düşük fiyatlar, katıldığınızda kullanım kredisi, ücretsiz önizlemeler ve iPhone, iPad, Mac ve Vision Pro uygulamasında {pro}."
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "Bu ipucunu kapat",
+      "billing": "Bakiyeniz, ödeme yöntemleriniz ve makbuzlarınız. Buradan yükleyin veya bakiyenizin kendiliğinden yeniden yüklenmesine izin verin.",
+      "usage": "Her dönüştürme fiyatıyla, ay ay. Kayıtlarınız için CSV indirin.",
+      "invoices": "Bakiye yüklemeleriniz ve planlarınız için indirmeye hazır faturalar.",
+      "plans": "Planlar her dönüştürmenin fiyatını düşürür ve her ay kullanım içerir. Video başına ödeme plansız da çalışır.",
+      "pricing": "Fiyatlar, seçtiğiniz boyutta video dakikası başınadır. Ödemeden önce kesin fiyatı her zaman görürsünüz.",
+      "pro": "{pro}, web ve uygulamalar için tek bir üyeliktir. Üyeler her dönüştürmede daha az öder ve katıldıklarında kullanım kredisi alır.",
+      "account": "Girişiniz, ayarlarınız ve gerekirse hesabınızı silme.",
+      "devices": "3D videolarınızı bu cihazda nasıl izleyeceğiniz.",
+      "scenes": "Videonuzun sahnelerinin değiştiği yerler. Önizlemeler ve parçalar bu noktalardan başlar; nadiren değiştirmeniz gerekir."
+    },
+    "tips": {
+      "progress": "{n} / {total}",
+      "skip": "İpuçlarını atla",
+      "next": "İleri",
+      "gotIt": "Anladım",
+      "overview": {
+        "title": "Videonuz hakkında her şey",
+        "body": "Uzunluk, boyut, sahneler ve tüm videonun fiyatı. Bakmak ücretsizdir."
+      },
+      "preview": {
+        "title": "Önce kısa bir parçayı deneyin",
+        "body": "Birkaç saniye seçin ve karar vermeden önce 3D izleyin. İlk önizlemeniz ücretsiz."
+      },
+      "make": {
+        "title": "Seçin, sonra ödeyin",
+        "body": "Nerede izleyeceğinizi ve kaliteyi seçin. Fiyat siz seçtikçe güncellenir; 3D yap’a basana kadar hiçbir şey tahsil edilmez."
+      },
+      "files": {
+        "title": "3D dosyalarınız",
+        "body": "İndirin veya bu sayfayı başlığınızın tarayıcısında açıp oynatın."
+      }
+    },
+    "getStarted": {
+      "title": "Başlayın",
+      "progress": "{done} / {total} tamamlandı",
+      "hide": "Gizle",
+      "done": "✓ Bitti",
+      "next": "İleri",
+      "pickNow": "Şimdi seç",
+      "listSeparator": ", ",
+      "steps": {
+        "headset": {
+          "title": "Başlığınızı seçin",
+          "body": "Doğru dosyaları yapalım diye."
+        },
+        "firstVideo": {
+          "title": "İlk videonuzu ekleyin",
+          "body": "Ona bakıp fiyatı gösteririz. Ücretsiz."
+        },
+        "firstPreview": {
+          "title": "Ücretsiz önizlemenizi izleyin",
+          "body": "3D kısa bir parça, bizden."
+        },
+        "first3d": {
+          "title": "3D yapın",
+          "body": "Ödemeden önce fiyatı görürsünüz."
+        },
+        "watched": {
+          "title": "Başlığınızda izleyin",
+          "body": "Tarayıcısında stereo3d.studio’yu açın veya dosyayı indirin."
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "Uzamsal video"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "Yan yana"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "Yan yana"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "Yan yana"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "Yan yana"
+      },
+      "glasses": {
+        "name": "XR gözlükler",
+        "files": "Yan yana"
+      },
+      "tv": {
+        "name": "3D TV veya projektör",
+        "files": "Yan yana (yarım boyut)"
+      },
+      "unsure": {
+        "name": "Henüz emin değilim",
+        "files": "İkisini de ekleriz"
+      }
+    },
+    "welcome": {
+      "eyebrow": "Hoş geldiniz",
+      "skip": "Atla",
+      "back": "Geri",
+      "gotIt": "Anladım",
+      "continue": "Devam",
+      "later": "Sonra yaparım",
+      "stepOf": "Adım {step} / {total}",
+      "business": "Müşteriler için mi çalışıyorsunuz? <link>{plan}</link> aylık kullanım, ticari kullanım ve fatura ekler.",
+      "pro": {
+        "title": "{pro} planınız burada da geçerli",
+        "prices": "Her videoda {pro} fiyatları.",
+        "pricesPct": "Her videoda {pro} fiyatları, %{pct} indirimli.",
+        "previews": "Planınız {count, plural, other {# ücretsiz önizleme}} içerir ({period, select, pass {geçişiniz süresince} month {her ay} week {her hafta} year {her yıl} day {her gün} other {{period} başına}}).",
+        "credit": "{date} tarihine kadar kullanabileceğiniz {amount} kullanım krediniz var.",
+        "nothingBilled": "Yeni bir ücret alınmaz."
+      },
+      "headsets": {
+        "title": "Videolarınız, 3D’de.",
+        "intro": "{site}, her 2D videoyu başlığınızda izleyebileceğiniz 3D’ye çevirir. Önce, nerede izleyeceksiniz?",
+        "question": "Nerede izleyeceksiniz?",
+        "fromApp": "Uygulamanızdan. Bunu sizin için doğru dosyaları seçmekte kullanırız. Her projede değiştirebilirsiniz.",
+        "otherHeadset": "Uygulamaya bir başlık kullandığınızı söylediniz. Bunu sizin için doğru dosyaları seçmekte kullanırız.",
+        "note": "Bunu sizin için doğru dosyaları seçmekte kullanırız. Her projede değiştirebilirsiniz."
+      },
+      "how": {
+        "loopLabel": "Gün batımında grubunun önünde bir şarkıcı: solda 2D video, sağda aynı an 3D’de",
+        "eyebrow": "Nasıl çalışır",
+        "title": "Üç adım. Ödemeden önce fiyatı görürsünüz.",
+        "titleShort": "Ödemeden önce fiyatı görürsünüz.",
+        "description": "{site} nasıl çalışır",
+        "steps": {
+          "add": {
+            "title": "Video ekleyin",
+            "body": "Her sahneye bakıp fiyatı gösteririz. Ücretsiz.",
+            "short": "Fiyatı ücretsiz görün."
+          },
+          "preview": {
+            "title": "Önizleme izleyin",
+            "body": "Kısa bir parçayı başlığınızda 3D görün. İlk önizlemeniz bizden.",
+            "short": "İlki bizden."
+          },
+          "make": {
+            "title": "3D yapın",
+            "body": "Tüm video için ödeyin, sonra indirin veya başlığınızın tarayıcısında oynatın.",
+            "short": "İndirin veya başlığınızda oynatın."
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "İlk projeniz",
+        "title": "Videolarınızdan biriyle başlayın.",
+        "description": "Bir video ekleyin veya örneği açın",
+        "sample": "Elinizde video yok mu? Önce bitmiş bir örneği açıp göz atın."
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "Ödeme onaylanıyor",
+      "waitingInLine": "Sırada bekliyor",
+      "making": "3D’niz yapılıyor",
+      "readyPaymentNeeded": "Hazır, ödeme gerekli",
+      "ready": "Hazır",
+      "failedRefunded": "Başarısız, {amount} iade edildi",
+      "failedNotCharged": "Başarısız, tahsil edilmedi",
+      "cancelledRefunded": "İptal edildi · {amount} iade edildi",
+      "cancelledNotCharged": "İptal edildi · tahsil edilmedi",
+      "expiredNotCharged": "Başlamadı, tahsil edilmedi",
+      "waitingNote": "Bir makine boşalır boşalmaz başlar, genellikle birkaç dakika içinde. Fiyat aynı kalır.",
+      "short": {
+        "failed": "Başarısız",
+        "cancelled": "İptal edildi",
+        "expired": "Başlamadı"
+      }
+    },
+    "stages": {
+      "preprocess": "Video hazırlanıyor",
+      "profile_scenes": "Sahneler ölçülüyor",
+      "video_depth": "Derinlik ölçülüyor",
+      "video_stereo": "3D video oluşturuluyor",
+      "encode_outputs": "Dosyalarınız kodlanıyor",
+      "encode_mvhevc": "Vision Pro dosyası kodlanıyor",
+      "image_stereo": "3D görüntü oluşturuluyor",
+      "queued": "Başlaması bekleniyor",
+      "plan": "Hazırlanıyor",
+      "render": "3D olarak işleniyor",
+      "encode": "Kodlanıyor",
+      "publish": "Yayınlanıyor",
+      "done": "Tamamlanıyor",
+      "analyze": "Çözümleniyor",
+      "proxy": "Önizleme oluşturuluyor",
+      "scene_detect": "Sahneler algılanıyor",
+      "thumbnails": "Küçük resimler oluşturuluyor"
+    },
+    "tracker": {
+      "expressWait": "Yakında başlıyor (Express).",
+      "expressWaitWithin": "Yakında başlıyor (Express). Yaklaşık {minutes} dk içinde.",
+      "cancelNowRefund": "{time} · Şimdi iptal ederseniz tam iade",
+      "cancelNowNotCharged": "{time} · Şimdi iptal ederseniz tahsil edilmez",
+      "cancelWhileWaitingRefund": "Beklerken istediğiniz zaman iptal edip tam iade alabilirsiniz.",
+      "cancelWhileWaitingNotCharged": "Beklerken istediğiniz zaman iptal edebilirsiniz; tahsil edilmezsiniz.",
+      "steps": {
+        "ready": "Hazırlanıyor",
+        "making": "3D video yapılıyor",
+        "saving": "Dosyalarınız kaydediliyor"
+      },
+      "runFallback": "Dönüştürme",
+      "billing": {
+        "refundPending": "İadeniz yolda. Tutarın tamamı ödeme yönteminize döner.",
+        "refunded": "Tamamen iade edildi.",
+        "notCharged": "Tahsil edilmediniz.",
+        "paidAtStart": "Dönüştürme başlarken ödendi. Başarısız olursa tamamen iade edilir.",
+        "paidAtStartRefunded": "Bu dönüştürme başlarken ödendi, bu yüzden tamamen iade edilir."
+      },
+      "cancelFailed": "iptal edilemedi",
+      "estimated": "Tahmini: {duration}",
+      "allFiles": "Tüm dosyalar",
+      "cancel": "Vazgeç",
+      "waitingForConfirmation": "Ödemenizin onaylanması bekleniyor.",
+      "confirmingWithBank": "Ödeme bankanızla onaylanıyor. Onaylanır onaylanmaz başlar.",
+      "chargeFailed": "Son ödemenizde bir sorun var.",
+      "payNow": "Şimdi öde",
+      "failed": "Bizim tarafımızda bir şeyler ters gitti. Tekrar deneyin."
+    },
+    "overdue": {
+      "reported": "Bildirdiğiniz için teşekkürler. Bu dönüştürmeye bakıyoruz, e-postayla yanıt vereceğiz.",
+      "title": "Bu beklenenden çok daha uzun sürüyor.",
+      "body": "Bizim tarafımızda bir şey takılmış olabilir. Bildirin, bakıp e-postayla yanıt verelim.",
+      "notePlaceholder": "Bilmemiz gereken bir şey var mı? (isteğe bağlı)",
+      "sending": "Gönderiliyor…",
+      "report": "Bildir",
+      "sendFailed": "Bildirim gönderilemedi. Tekrar deneyin."
+    },
+    "previous": {
+      "word": {
+        "refunded": "İade edildi",
+        "making": "Yapılıyor…"
+      },
+      "notCharged": "Tahsil edilmedi",
+      "wholeVideo": "Tüm video",
+      "title": "Önceki dönüştürmeler",
+      "allFiles": "Tüm dosyalar",
+      "showFewer": "Daha az göster",
+      "showAll": "Tümünü göster ({count})",
+      "filesDeleted": "Bu dosyalar {date} tarihinde silindi.",
+      "filesUnavailable": "Dosyalar şu anda açılamıyor.",
+      "watch": "İzle",
+      "partsInFiles": "{count} parça, Dosyalar’da",
+      "files": "Dosyalar",
+      "alreadyMade": "Bunu {day} günü zaten yaptınız · <link>İndir</link>"
+    },
+    "prior": {
+      "hideDownloads": "İndirmeleri gizle",
+      "downloads": "İndirmeler",
+      "fetching": "İndirme bağlantıları alınıyor…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "Örnek şu anda kullanılamıyor.",
+      "failed": "Dosyalar yüklenemedi."
+    },
+    "groups": {
+      "anyScreen": "Her ekran",
+      "previewLifelikeHow": "Burada oynar, ücretsiz 3D denetimiyle.",
+      "previewHow": "Burada veya bir başlığın oynatıcısında oynar.",
+      "mvhevcHow": "AirDrop veya Dosyalar. Fotoğraflar’da görünür.",
+      "sbsDevice": "Meta Quest, Galaxy XR, Pico, Steam Frame, XR gözlükler",
+      "halfSbsDevice": "3D TV’ler, projektörler, 4K ve üzerinde Meta Quest",
+      "sideBySideHow": "Oynatıcıda açın ve 3D yan yana’yı seçin.",
+      "anaglyphHow": "Kırmızı-camgöbeği gözlükle izleyin.",
+      "depthDevice": "Derinlik videosu",
+      "depthHow": "Kendi düzenleme araçlarınız için."
+    },
+    "short": {
+      "sbs": "Yan yana",
+      "halfSbs": "Yarım yan yana",
+      "anaglyph": "Kırmızı-camgöbeği"
+    },
+    "download": "İndir",
+    "fetching": "Dosyalarınız alınıyor…",
+    "empty": "Bu dönüştürmede dosya yok.",
+    "thisHeadset": "Bu başlık",
+    "row": {
+      "part": "Parça {part}",
+      "clip": "Klip",
+      "full": "Tam"
+    },
+    "otherFiles": "{devices} dosyaları ({count})",
+    "another": {
+      "longWait": "Bu biraz sürebilir. Sayfadan ayrılabilirsiniz; dosya hazır olduğunda burada görünür.",
+      "aboutMinutes": "{count, plural, other {Yaklaşık # dakika}}",
+      "almostReady": "Neredeyse hazır…",
+      "left": "Yaklaşık {time} kaldı",
+      "almostDone": "Neredeyse bitti…",
+      "unavailable": {
+        "halfOnly": "Bu dönüştürmede yalnızca yarım boyutlu dosya var. Başka biçimler için yeni bir dönüştürme yapın.",
+        "filesErased": "Bu dosyalar 90 gün kullanılmadığı için silindi.",
+        "splitRun": "Bu dönüştürme parçalara bölünmüş, bu yüzden ondan başka biçimler yapılamaz. Başka biçimler için yeni bir dönüştürme yapın."
+      },
+      "failed": "Olmadı. Tekrar deneyin.",
+      "tooWide": "Tam yan yana 6K ve 8K’da yapılmaz. Yan yana (yarım boyut) veya Uzamsal video seçin.",
+      "rateLimited": "Çok fazla deneme. Birkaç dakika bekleyin.",
+      "open": "Başka bir biçim al",
+      "title": "Başka bir biçim",
+      "free": "Ücretsiz",
+      "madeFrom": "Bu dönüştürmenin dosyalarından yapılır.",
+      "formatMaking": "{format}: Yapılıyor…",
+      "formatAlmostReady": "{format}: Neredeyse hazır…",
+      "formatFailed": "{format}: Olmadı. Tekrar deneyin.",
+      "progressLabel": "{format} ilerlemesi",
+      "tryAgain": "Tekrar dene"
+    },
+    "details": {
+      "toggle": "Ayrıntılar",
+      "fileWords": {
+        "sbs": "Yan yana .mp4",
+        "halfSbs": "Yan yana (yarım boyut) .mp4",
+        "anaglyph": "Kırmızı-camgöbeği .mp4",
+        "depth": "Derinlik .mp4",
+        "depthVis": "Derinlik görünümü .mp4"
+      },
+      "scene": "Sahne {n}",
+      "scenes": "Sahneler {a}–{b}",
+      "wholeVideo": "Tüm video",
+      "perEye": "Göz başına {width}×{height}",
+      "px": "{value} px",
+      "left": "Sol",
+      "right": "Sağ",
+      "on": "Açık",
+      "off": "Kapalı",
+      "included": "Dahil",
+      "freePreview": "Ücretsiz önizleme",
+      "proDiscountPct": "{plan} %{pct} · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "Makbuzu gör",
+      "viewInvoice": "Faturayı gör",
+      "deletedOn": "{date} tarihinde silindi",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} parça {part} {size}",
+      "copied": "Kopyalandı",
+      "copy": "Kopyala",
+      "rows": {
+        "what": "Ne",
+        "part": "Parça",
+        "quality": "Kalite",
+        "frameRate": "Kare hızı",
+        "filesMade": "Yapılan dosyalar",
+        "filesOrdered": "İstenen dosyalar",
+        "parts": "Parçalar",
+        "strength": "3D gücü",
+        "depthDetail": "Derinlik ayrıntısı",
+        "scenesTuned": "Ayarlanan sahneler",
+        "originalEye": "Orijinal göz",
+        "fileQuality": "Dosya kalitesi",
+        "bitrate": "Bit hızı",
+        "audio": "Ses",
+        "foveation": "Odaklı Ayrıntı",
+        "express": "Express",
+        "quickLook": "Hızlı bakış",
+        "intro": "Tanıtım",
+        "ordered": "İstendi",
+        "finished": "Bitti",
+        "took": "Süre",
+        "price": "Fiyat",
+        "freePreviewsUsed": "Kullanılan ücretsiz önizlemeler",
+        "discount": "İndirim",
+        "launchOffer": "Lansman teklifi",
+        "receipt": "Makbuz",
+        "invoice": "Fatura",
+        "runId": "Dönüştürme kimliği",
+        "files": "Dosyalar",
+        "fileSizes": "Dosya boyutları",
+        "keptUntil": "Saklanma süresi"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, other {# parça}}",
+      "label": "Dönüştürme geçmişi",
+      "empty": "Burada henüz bir şey yok. 3D dosyalarınız hazır olduğunda burada görünür.",
+      "launchOffer": "Lansman teklifi",
+      "failed": "Bizim tarafımızda bir şeyler ters gitti."
+    }
+  },
+  "viewer": {
+    "viewIn3D": "3D’de gör",
+    "fullScreen": "Tam ekran",
+    "playsFlat": "Burada düz oynar. Vision Pro uzamsal videosu 3D oynar."
   },
   "workspace": {
     "analyze": {

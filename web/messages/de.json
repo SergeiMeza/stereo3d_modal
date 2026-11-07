@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "Sprache",
+    "richExample": "Hallo <b>{name}</b>",
+    "ui": {
+      "close": "Schließen"
+    },
+    "header": {
+      "projects": "Projekte"
+    },
+    "checkingSession": "Sitzung wird geprüft …",
+    "analytics": {
+      "bannerLabel": "Zustimmung zur Analyse",
+      "banner": "Dürfen wir Analyse-Cookies nutzen? Microsoft Clarity zeigt uns, wie das Studio genutzt wird, damit wir es verbessern können – keine Werbung und nie der Inhalt deiner Videos. <link>Datenschutzerklärung</link>",
+      "deny": "Nein, danke",
+      "allow": "Analyse erlauben",
+      "switchLabel": "Analyse",
+      "switchOn": "Analyse an",
+      "switchOff": "Analyse aus",
+      "reset": "deine Analyse-Auswahl zurücksetzen"
+    },
+    "sectionBoundary": {
+      "failed": "{name}: Dieser Bereich konnte nicht angezeigt werden.",
+      "tryAgain": "Erneut versuchen"
+    },
+    "feedback": {
+      "openLabel": "Feedback senden",
+      "open": "Feedback",
+      "sentTitle": "Danke, wir lesen jede Nachricht.",
+      "sentDescription": "Dein Feedback wurde gesendet.",
+      "done": "Fertig",
+      "title": "Feedback senden",
+      "description": "Ideen, Probleme, alles. Ein Mensch liest es.",
+      "kindLabel": "Art",
+      "kinds": {
+        "idea": "Idee",
+        "problem": "Problem",
+        "other": "Etwas anderes"
+      },
+      "message": "Nachricht",
+      "email": "E-Mail",
+      "yourEmail": "Deine E-Mail",
+      "okToContact": "Ich bin mit einer Kontaktaufnahme einverstanden",
+      "includePage": "Diese Seite mitsenden",
+      "failed": "Senden fehlgeschlagen. Du kannst auch an <mail>{email}</mail> schreiben",
+      "sending": "Wird gesendet …",
+      "send": "Senden"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "Brotkrumennavigation",
+      "breadcrumbDevices": "Geräte",
+      "readyFor": "Bereit für {name}",
+      "worksWith": "Funktioniert mit {name}",
+      "cta": "Mach dein Video 3D",
+      "othersLabel": "Andere Geräte",
+      "others": "Andere Geräte:"
+    },
+    "cancel": "Abbrechen"
+  },
   "business": {
     "entry": {
       "card": "Du nutzt {site} beruflich? Richte {business} oder {studio} ein",
@@ -684,6 +742,246 @@
       "upgradeTo": "Auf {plan} upgraden"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "Du bist abgemeldet. Melde dich an, um fortzufahren.",
+      "incorrectCredentials": "E-Mail oder Passwort stimmt nicht.",
+      "userNotFound": "Zu dieser E-Mail gibt es kein Konto.",
+      "invalidEmail": "Diese E-Mail-Adresse ist ungültig.",
+      "emailExists": "Mit dieser E-Mail gibt es schon ein Konto – melde dich stattdessen an.",
+      "weakPassword": "Das Passwort ist zu schwach – nimm mindestens 6 Zeichen.",
+      "missingPassword": "Gib dein Passwort ein.",
+      "popupClosed": "Das Anmeldefenster wurde vor dem Abschluss geschlossen. Versuche es erneut.",
+      "popupBlocked": "Dein Browser hat das Anmelde-Popup blockiert – erlaube Popups und versuche es erneut.",
+      "tooManyAttempts": "Zu viele Versuche – warte einen Moment und versuche es erneut.",
+      "network": "Netzwerkfehler – prüfe deine Verbindung und versuche es erneut.",
+      "accountDisabled": "Dieses Konto wurde deaktiviert.",
+      "recentLogin": "Aus Sicherheitsgründen braucht diese Aktion eine frische Sitzung – melde dich ab, wieder an und versuche es dann erneut.",
+      "emailOnly": "Melde dich mit deiner E-Mail an.",
+      "authUnavailable": "Die Anmeldung ist gerade nicht verfügbar. Versuche es gleich noch einmal.",
+      "codeInvalid": "Dieser Code stimmt nicht.",
+      "codeExpired": "Dieser Code ist abgelaufen. Sende einen neuen.",
+      "resendTooSoon": "Warte einen Moment und sende dann einen neuen Code.",
+      "tooManyCodes": "Zu viele Codes für diese E-Mail. Versuche es in einer Stunde erneut.",
+      "credentialInUse": "Zu dieser Anmeldung gehört schon ein eigenes Konto. Melde dich ab und dann damit an, um dieses Konto zu nutzen.",
+      "alreadyLinked": "Das ist schon verknüpft.",
+      "unauthorizedDomain": "Die Anmeldung ist unter dieser Adresse noch nicht verfügbar.",
+      "providerUnavailable": "Diese Anmeldung ist noch nicht verfügbar.",
+      "customTokenInvalid": "Anmeldung fehlgeschlagen. Sende einen neuen Code.",
+      "noSuchProvider": "Diese Anmeldung ist nicht verknüpft.",
+      "failed": "Authentifizierung fehlgeschlagen. Versuche es erneut.",
+      "accountExists": "Du hast schon ein Konto mit {email}.",
+      "appleFailed": "Die Anmeldung mit Apple hat nicht geklappt. Versuche es erneut.",
+      "signInFailed": "Anmeldung fehlgeschlagen. Versuche es erneut.",
+      "otherAccountPasskey": "Dieser Passkey gehört zu einem anderen Konto. Nimm einen, der für dieses Konto gespeichert ist.",
+      "appleUnavailable": "Die Anmeldung mit Apple ist gerade nicht verfügbar.",
+      "appleBlocked": "Dein Browser hat das Apple-Fenster blockiert. Erlaube Pop-ups für diese Seite und versuche es erneut.",
+      "appleUnfinished": "Die Anmeldung mit Apple wurde nicht abgeschlossen. Versuche es erneut.",
+      "linkUnfinished": "Die Verknüpfung mit {provider} wurde nicht abgeschlossen. Versuche es erneut.",
+      "signInUnfinished": "Die Anmeldung mit {provider} wurde nicht abgeschlossen. Versuche es erneut.",
+      "notConfirmed": "Nicht bestätigt. Es wurde nichts geändert.",
+      "somethingWrong": "Etwas ist schiefgelaufen.",
+      "didntWork": "Das hat nicht geklappt. Versuche es erneut.",
+      "didntWorkShort": "Das hat nicht geklappt.",
+      "sendCodeFailed": "Der Code konnte nicht gesendet werden."
+    },
+    "passkeyErrors": {
+      "notRegistered": "Dieser Passkey ist hier nicht registriert. Melde dich anders an.",
+      "didntWork": "Das hat nicht geklappt. Versuche es erneut.",
+      "cloneSuspected": "Dieser Passkey kann nicht verwendet werden. Melde dich anders an.",
+      "unavailable": "Die Anmeldung ist gerade nicht verfügbar. Versuche es erneut.",
+      "rateLimited": "Zu viele Versuche. Warte ein paar Minuten.",
+      "closed": "Die Passkey-Abfrage wurde vor dem Abschluss geschlossen. Versuche es erneut.",
+      "didntFinish": "Das wurde nicht abgeschlossen. Versuche es erneut.",
+      "unsupported": "Dieser Browser unterstützt keine Passkeys. Melde dich anders an.",
+      "exists": "Dieses Gerät hat schon einen Passkey für dein Konto.",
+      "security": "Passkeys funktionieren unter dieser Adresse nicht. Melde dich anders an.",
+      "failed": "Der Passkey hat nicht funktioniert. Versuche es erneut oder melde dich anders an.",
+      "network": "Der Server ist nicht erreichbar. Prüfe die Verbindung und versuche es erneut.",
+      "cantAdd": "Dieser Browser kann keine Passkeys hinzufügen."
+    },
+    "methods": {
+      "email": "E-Mail",
+      "password": "Passwort",
+      "loadFailed": "Deine Anmeldemethoden konnten nicht geladen werden.",
+      "heading": "Anmelden mit",
+      "codeTo": "Code an {email}",
+      "on": "An",
+      "adding": "Wird hinzugefügt …",
+      "add": "Hinzufügen"
+    },
+    "signIn": {
+      "title": "Anmelden",
+      "mocked": "Die Anmeldung ist in dieser Umgebung simuliert.",
+      "continue": "Weiter",
+      "subtitle": "Ein Konto für {site} im Web und in der App.",
+      "continueApple": "Weiter mit Apple",
+      "continueGoogle": "Weiter mit Google",
+      "or": "oder",
+      "emailLabel": "E-Mail",
+      "emailPlaceholder": "du@beispiel.de",
+      "sending": "Wird gesendet …",
+      "continueEmail": "Weiter mit E-Mail",
+      "agree": "Wenn du fortfährst, stimmst du unseren <terms>Nutzungsbedingungen</terms> und der <privacy>Datenschutzerklärung</privacy> zu."
+    },
+    "code": {
+      "wrongTriesLeft": "Dieser Code stimmt nicht. {count, plural, one {# Versuch} other {# Versuche}} übrig.",
+      "back": "Andere E-Mail verwenden",
+      "title": "Prüfe deine E-Mails",
+      "sentTo": "Gib den Code ein, den wir an <addr>{email}</addr> gesendet haben.",
+      "linking": "Du hast schon ein Konto mit dieser E-Mail. {method} wird dazu hinzugefügt.",
+      "signingIn": "Anmeldung läuft …",
+      "newCodeSent": "Neuer Code gesendet.",
+      "resendIn": "Neuen Code senden in {time}",
+      "resend": "Neuen Code senden",
+      "inputLabel": "Anmeldecode"
+    },
+    "providers": {
+      "emailCode": "E-Mail-Code",
+      "passkey": "Passkey",
+      "or": "{list} oder {last}",
+      "separator": ", "
+    },
+    "inUse": {
+      "identity": "Diese Anmeldung gehört zu einem anderen Konto.",
+      "identityHow": "Diese Anmeldung gehört zu einem anderen Konto (angemeldet wird mit {how}).",
+      "email": "Diese E-Mail gehört zu einem anderen Konto.",
+      "emailHow": "Diese E-Mail gehört zu einem anderen Konto (angemeldet wird mit {how})."
+    },
+    "emails": {
+      "relayNotMain": "Nimm für deinen Plan eine echte E-Mail, keine versteckte Apple-Adresse.",
+      "mainNotRemovable": "Lege zuerst eine andere E-Mail als Haupt-E-Mail fest.",
+      "loadFailed": "Deine E-Mails konnten nicht geladen werden.",
+      "enterAddress": "Gib eine E-Mail-Adresse ein.",
+      "sendCode": "Code senden",
+      "codeSentTo": "Gib den Code ein, den wir an {email} gesendet haben.",
+      "checking": "Wird geprüft …",
+      "add": "E-Mail hinzufügen",
+      "makeItMain": "Als meine Haupt-E-Mail festlegen",
+      "signInThere": "In diesem Konto anmelden",
+      "heading": "E-Mails · jede meldet mit einem Code an",
+      "hiddenApple": "Versteckte Apple-Adresse",
+      "main": "Haupt",
+      "makeMain": "Als Haupt festlegen",
+      "removeLabel": "{email} entfernen",
+      "remove": "Entfernen",
+      "addAnother": "Weitere E-Mail hinzufügen",
+      "full": "Dein Konto hat {count} E-Mails. Entferne eine, um eine weitere hinzuzufügen."
+    },
+    "passkeys": {
+      "loadFailed": "Deine Passkeys konnten nicht geladen werden.",
+      "never": "nie",
+      "title": "Passkeys",
+      "subtitle": "Melde dich mit Face ID, Touch ID, deinem Handy oder einem Sicherheitsschlüssel an.",
+      "addTitle": "Passkey hinzufügen",
+      "added": "Hinzugefügt am {date}",
+      "lastUsed": "Zuletzt verwendet am {date}",
+      "renameLabel": "{name} umbenennen",
+      "rename": "Umbenennen",
+      "removeLabel": "{name} entfernen",
+      "remove": "Entfernen",
+      "empty": "Noch keine Passkeys.",
+      "emptyUnsupported": "Noch keine Passkeys. Dieser Browser kann keinen hinzufügen.",
+      "addedNotice": "Passkey hinzugefügt.",
+      "renamedNotice": "Passkey umbenannt.",
+      "removedNotice": "Passkey entfernt.",
+      "addDescription": "Melde dich beim nächsten Mal mit Face ID, Touch ID, deinem Handy oder einem Sicherheitsschlüssel an. Nichts zu tippen.",
+      "name": "Name",
+      "confirmed": "Wieder angemeldet. Füge jetzt den Passkey hinzu.",
+      "waiting": "Warte auf deinen Passkey …",
+      "add": "Passkey hinzufügen",
+      "renameTitle": "Passkey umbenennen",
+      "renameDescription": "Mit einem Namen kannst du deine Passkeys auseinanderhalten.",
+      "removeTitle": "„{name}“ entfernen?",
+      "removeDescription": "Mit diesem Passkey kannst du dich nicht mehr anmelden. Du kannst dich weiterhin anders anmelden.",
+      "removing": "Wird entfernt …",
+      "removeButton": "Passkey entfernen",
+      "signIn": "Mit einem Passkey anmelden"
+    },
+    "otherAccount": {
+      "line": "Ein anderes Konto nutzt diese E-Mail (angemeldet wird mit {how})."
+    },
+    "passkeySuggestion": {
+      "added": "Passkey hinzugefügt. Melde dich nächstes Mal damit an.",
+      "line": "Füge einen Passkey hinzu, um dich nächstes Mal schneller anzumelden.",
+      "dismiss": "Schließen"
+    },
+    "reauth": {
+      "title": "Bestätige, dass du es bist",
+      "description": "Melde dich noch einmal an, um fortzufahren. Das dauert nur einen Moment.",
+      "usePasskey": "Passkey verwenden",
+      "confirm": "Bestätigen",
+      "sendCode": "Code an {email} senden"
+    },
+    "menu": {
+      "label": "Kontomenü",
+      "planBilling": "Plan & Abrechnung"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "Dein Konto wird am {date} gelöscht. Du kannst es dir noch anders überlegen: Melde dich vorher an.",
+      "pendingOn": "Dein Konto soll am {date} gelöscht werden. Behalte dein Konto, um das zu tun.",
+      "pending": "Dein Konto soll gelöscht werden. Behalte dein Konto, um das zu tun."
+    },
+    "title": "Konto",
+    "profile": {
+      "title": "Profil",
+      "noEmail": "Keine E-Mail",
+      "displayName": "Anzeigename",
+      "saving": "Wird gespeichert …",
+      "saved": "Gespeichert",
+      "save": "Speichern",
+      "saveFailed": "Der Name konnte nicht aktualisiert werden.",
+      "idHint": "Konto-ID – nenne sie bei Support-Anfragen; Projekte und Umwandlungen sind ihr zugeordnet.",
+      "copied": "Kopiert",
+      "copyId": "ID kopieren"
+    },
+    "security": {
+      "title": "Anmeldung & Sicherheit"
+    },
+    "billing": {
+      "title": "Abrechnung",
+      "card": "Deine Karte und dein Kaufverlauf stehen unter <link>Abrechnung</link>.",
+      "businessDetails": "Rechnungen mit Firmenname, Steuernummer und Adresse: <link>Geschäftsdaten</link>."
+    },
+    "session": {
+      "title": "Sitzung",
+      "signOut": "Abmelden"
+    },
+    "delete": {
+      "scheduledTitle": "Kontolöschung geplant",
+      "dangerZone": "Gefahrenbereich",
+      "typeToConfirm": "Tippe {word}, um dein Konto endgültig zu löschen",
+      "deleting": "Wird gelöscht …",
+      "button": "Konto löschen",
+      "refundFirst": "Wir erstatten dir zuerst dein Guthaben von {amount} auf deine Zahlungsmethode.",
+      "refundAndDelete": "Erstatten und löschen",
+      "returning": "Wir erstatten dir {amount}; dein Konto wird danach gelöscht.",
+      "note": "Was du noch schuldest, wird zuerst von deiner gespeicherten Zahlungsmethode abgebucht. Deine Projekte, Videos und 3D-Dateien werden sofort aus deinem Konto entfernt; Abrechnungsdaten bleiben für den Support erhalten.",
+      "paymentNeededAmount": "Zahlung nötig ({amount}): Aktualisiere deine Zahlungsmethode unter Abrechnung und lösche dann dein Konto.",
+      "paymentNeeded": "Zahlung nötig: Aktualisiere deine Zahlungsmethode unter Abrechnung und lösche dann dein Konto.",
+      "failed": "Das Konto konnte nicht gelöscht werden."
+    },
+    "deletionPrompt": {
+      "keepFailed": "Wir konnten dein Konto gerade nicht behalten. Versuche es erneut.",
+      "title": "Dein Konto soll am {date} gelöscht werden.",
+      "description": "Behalte es, und alles bleibt, wie es war. Oder lass es los: Dann löschen wir es.",
+      "signingOut": "Abmeldung läuft …",
+      "deleteIt": "Löschen",
+      "keeping": "Wird behalten …",
+      "keep": "Mein Konto behalten"
+    },
+    "deletePlan": {
+      "appStore": "{plan} aus dem App Store verlängert sich über Apple. Kündige es in den Einstellungen deiner Apple-ID.",
+      "validUntil": "Dein {plan}-Plan bleibt bis {date} gültig.",
+      "validToPeriodEnd": "Dein {plan}-Plan bleibt bis zum Ende seiner Laufzeit gültig.",
+      "restore": "Wenn du dich mit dieser E-Mail neu anmeldest, kannst du ihn wiederherstellen.",
+      "cancelFirst": "Kündige zuerst deinen Plan.",
+      "cancelFirstUntil": "Kündige zuerst deinen Plan. Er bleibt bis {date} gültig.",
+      "cancelPlan": "Plan kündigen"
+    }
+  },
   "look": {
     "analysisRunning": "Die Analyse läuft noch. Preisangebote werden danach freigeschaltet.",
     "requestFailed": "Anfrage fehlgeschlagen",
@@ -1331,6 +1629,437 @@
       "addFunds": "Lade ab {amount} Guthaben auf und bezahle Umwandlungen davon.",
       "refundable": "Nicht ausgegebenes Guthaben kann innerhalb von {days} Tagen erstattet werden."
     }
+  },
+  "meta": {
+    "site": {
+      "title": "{site} im Web – 2D-Video in 3D umwandeln",
+      "description": "{site} im Web. Wandle 2D-Videos in 3D um: räumliches Video für Apple Vision Pro, Side by Side für Meta Quest, Pico und jedes 3D-Display. Du siehst den Preis, bevor du startest.",
+      "ogTitle": "{site} im Web: Mach aus jedem Video lebensechtes 3D",
+      "ogImageAlt": "{site} im Web: Mach aus jedem Video lebensechtes 3D, bis zu 8K, für Vision Pro und jedes Headset"
+    },
+    "home": {
+      "appDescription": "Wandle 2D-Videos in 3D um: räumliches Video für Apple Vision Pro und Side-by-Side-3D für Meta Quest, Pico, Samsung Galaxy XR und 3D-Displays."
+    },
+    "billing": {
+      "title": "Abrechnung"
+    },
+    "businessDetails": {
+      "title": "Geschäftsdaten",
+      "heading": "Geschäftsdaten",
+      "intro": "Das steht auf deinen Rechnungen. Speichern ändert deine nächsten Rechnungen, nicht die bereits versendeten."
+    },
+    "businessSetup": {
+      "title": "{business} oder {studio} einrichten"
+    },
+    "payHandoff": {
+      "title": "Dein 3D-Video bezahlen"
+    },
+    "payReturn": {
+      "title": "Zahlung"
+    },
+    "plans": {
+      "title": "Pläne",
+      "description": "{site} im Web, Pläne {business} und {studio}: Nutzung jeden Monat inklusive, niedrigere Preise, kostenlose Vorschauen und Express."
+    },
+    "pricing": {
+      "title": "Preise",
+      "description": "Preise von {site} im Web: pro Videominute zahlen oder mit einem Plan sparen. {lifelike}, 1080p bis 8K."
+    },
+    "pro": {
+      "description": "{site} {pro}: niedrigere Preise für jedes 3D-Video im Web, Nutzungsgutschrift zum Start, kostenlose Vorschauen und {pro} in der App auf iPhone, iPad, Mac und Vision Pro."
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "Diesen Tipp ausblenden",
+      "billing": "Dein Guthaben, deine Zahlungsmethoden und Belege. Lade hier auf oder lass dein Guthaben automatisch nachladen.",
+      "usage": "Jede Umwandlung mit Preis, Monat für Monat. Lade eine CSV für deine Unterlagen herunter.",
+      "invoices": "Rechnungen für deine Aufladungen und Pläne, bereit zum Download.",
+      "plans": "Pläne senken den Preis jeder Umwandlung und enthalten jeden Monat Nutzung. Pro Video zahlen geht auch ohne.",
+      "pricing": "Preise gelten pro Videominute in der gewählten Größe. Den genauen Preis siehst du immer vor der Zahlung.",
+      "pro": "{pro} ist eine Mitgliedschaft für Web und Apps. Mitglieder zahlen weniger für jede Umwandlung und bekommen zum Start eine Nutzungsgutschrift.",
+      "account": "Deine Anmeldung, deine Einstellungen und, falls nötig, das Löschen deines Kontos.",
+      "devices": "So siehst du deine 3D-Videos auf diesem Gerät an.",
+      "scenes": "Wo sich die Szenen deines Videos ändern. Vorschauen und Teile beginnen an diesen Stellen; du musst sie selten ändern."
+    },
+    "tips": {
+      "progress": "{n} von {total}",
+      "skip": "Tipps überspringen",
+      "next": "Weiter",
+      "gotIt": "Verstanden",
+      "overview": {
+        "title": "Alles zu deinem Video",
+        "body": "Länge, Größe, Szenen und der Preis für das ganze Video. Ansehen kostet nichts."
+      },
+      "preview": {
+        "title": "Probiere zuerst einen kurzen Teil",
+        "body": "Wähle ein paar Sekunden und sieh sie in 3D an, bevor du dich entscheidest. Deine erste Vorschau ist gratis."
+      },
+      "make": {
+        "title": "Erst wählen, dann zahlen",
+        "body": "Wähle, wo du schaust, und die Qualität. Der Preis passt sich an, und es wird nichts abgebucht, bis du auf In 3D umwandeln drückst."
+      },
+      "files": {
+        "title": "Deine 3D-Dateien",
+        "body": "Lade sie herunter oder öffne diese Seite im Browser deines Headsets und drücke Play."
+      }
+    },
+    "getStarted": {
+      "title": "Los geht’s",
+      "progress": "{done} von {total} erledigt",
+      "hide": "Ausblenden",
+      "done": "✓ Erledigt",
+      "next": "Weiter",
+      "pickNow": "Jetzt wählen",
+      "listSeparator": ", ",
+      "steps": {
+        "headset": {
+          "title": "Wähle dein Headset",
+          "body": "Damit wir die passenden Dateien erstellen."
+        },
+        "firstVideo": {
+          "title": "Füge dein erstes Video hinzu",
+          "body": "Wir sehen es uns an und zeigen den Preis. Gratis."
+        },
+        "firstPreview": {
+          "title": "Sieh dir deine kostenlose Vorschau an",
+          "body": "Ein kurzer Teil in 3D, auf uns."
+        },
+        "first3d": {
+          "title": "In 3D umwandeln",
+          "body": "Den Preis siehst du vor der Zahlung."
+        },
+        "watched": {
+          "title": "Sieh es dir im Headset an",
+          "body": "Öffne stereo3d.studio in dessen Browser oder lade die Datei herunter."
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "Räumliches Video"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "Side by Side"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "Side by Side"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "Side by Side"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "Side by Side"
+      },
+      "glasses": {
+        "name": "XR-Brille",
+        "files": "Side by Side"
+      },
+      "tv": {
+        "name": "3D-Fernseher oder Beamer",
+        "files": "Side by Side (halbe Größe)"
+      },
+      "unsure": {
+        "name": "Noch nicht sicher",
+        "files": "Wir legen beides bei"
+      }
+    },
+    "welcome": {
+      "eyebrow": "Willkommen",
+      "skip": "Überspringen",
+      "back": "Zurück",
+      "gotIt": "Verstanden",
+      "continue": "Weiter",
+      "later": "Später",
+      "stepOf": "Schritt {step} von {total}",
+      "business": "Du arbeitest für Kunden? <link>{plan}</link> bringt monatliche Nutzung, kommerzielle Nutzung und Rechnungen.",
+      "pro": {
+        "title": "Dein {pro} gilt auch hier",
+        "prices": "{pro}-Preise für jedes Video.",
+        "pricesPct": "{pro}-Preise für jedes Video, {pct} % Rabatt.",
+        "previews": "Dein Plan enthält {count, plural, one {# kostenlose Vorschau} other {# kostenlose Vorschauen}} {period, select, pass {mit deinem Pass} month {im Monat} week {pro Woche} year {im Jahr} day {pro Tag} other {pro {period}}}.",
+        "credit": "Du hast {amount} Nutzungsgutschrift, nutzbar bis {date}.",
+        "nothingBilled": "Es wird nichts Neues abgebucht."
+      },
+      "headsets": {
+        "title": "Deine Videos in 3D.",
+        "intro": "{site} macht aus jedem 2D-Video 3D, das du im Headset ansehen kannst. Zuerst: Wo schaust du?",
+        "question": "Wo schaust du?",
+        "fromApp": "Aus deiner App. Damit wählen wir die passenden Dateien für dich. Du kannst es in jedem Projekt ändern.",
+        "otherHeadset": "Du hast der App gesagt, dass du ein Headset nutzt. Damit wählen wir die passenden Dateien für dich.",
+        "note": "Damit wählen wir die passenden Dateien für dich. Du kannst es in jedem Projekt ändern."
+      },
+      "how": {
+        "loopLabel": "Eine Sängerin vor ihrer Band bei Sonnenuntergang: links das 2D-Video, rechts derselbe Moment in 3D",
+        "eyebrow": "So funktioniert es",
+        "title": "Drei Schritte. Den Preis siehst du vor der Zahlung.",
+        "titleShort": "Den Preis siehst du vor der Zahlung.",
+        "description": "So funktioniert {site}",
+        "steps": {
+          "add": {
+            "title": "Video hinzufügen",
+            "body": "Wir sehen uns jede Szene an und zeigen dir den Preis. Gratis.",
+            "short": "Preis gratis ansehen."
+          },
+          "preview": {
+            "title": "Vorschau ansehen",
+            "body": "Sieh einen kurzen Teil in 3D in deinem Headset. Deine erste Vorschau geht auf uns.",
+            "short": "Die erste geht auf uns."
+          },
+          "make": {
+            "title": "In 3D umwandeln",
+            "body": "Bezahle das ganze Video, lade es dann herunter oder spiele es im Browser deines Headsets ab.",
+            "short": "Herunterladen oder im Headset abspielen."
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "Dein erstes Projekt",
+        "title": "Beginne mit einem deiner Videos.",
+        "description": "Video hinzufügen oder das Beispiel öffnen",
+        "sample": "Kein Video zur Hand? Öffne zuerst ein fertiges Beispiel und sieh dich um."
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "Zahlung wird bestätigt",
+      "waitingInLine": "In der Warteschlange",
+      "making": "Dein 3D wird erstellt",
+      "readyPaymentNeeded": "Fertig, Zahlung nötig",
+      "ready": "Fertig",
+      "failedRefunded": "Fehlgeschlagen, {amount} erstattet",
+      "failedNotCharged": "Fehlgeschlagen, nichts abgebucht",
+      "cancelledRefunded": "Abgebrochen · {amount} erstattet",
+      "cancelledNotCharged": "Abgebrochen · nichts abgebucht",
+      "expiredNotCharged": "Nicht gestartet, nichts abgebucht",
+      "waitingNote": "Startet, sobald eine Maschine frei ist, meist innerhalb weniger Minuten. Der Preis bleibt gleich.",
+      "short": {
+        "failed": "Fehlgeschlagen",
+        "cancelled": "Abgebrochen",
+        "expired": "Nicht gestartet"
+      }
+    },
+    "stages": {
+      "preprocess": "Video wird vorbereitet",
+      "profile_scenes": "Szenen werden vermessen",
+      "video_depth": "Tiefe wird vermessen",
+      "video_stereo": "3D-Video wird erstellt",
+      "encode_outputs": "Deine Dateien werden kodiert",
+      "encode_mvhevc": "Vision-Pro-Datei wird kodiert",
+      "image_stereo": "3D-Bild wird erstellt",
+      "queued": "Wartet auf den Start",
+      "plan": "Vorbereitung",
+      "render": "Rendern in 3D",
+      "encode": "Kodierung",
+      "publish": "Veröffentlichung",
+      "done": "Abschluss",
+      "analyze": "Analyse",
+      "proxy": "Vorschau wird erstellt",
+      "scene_detect": "Szenen werden erkannt",
+      "thumbnails": "Vorschaubilder werden gerendert"
+    },
+    "tracker": {
+      "expressWait": "Startet gleich (Express).",
+      "expressWaitWithin": "Startet gleich (Express). In etwa {minutes} Min.",
+      "cancelNowRefund": "{time} · Volle Erstattung bei Abbruch jetzt",
+      "cancelNowNotCharged": "{time} · Nichts abgebucht bei Abbruch jetzt",
+      "cancelWhileWaitingRefund": "Brich jederzeit während der Wartezeit ab und erhalte die volle Erstattung.",
+      "cancelWhileWaitingNotCharged": "Brich jederzeit während der Wartezeit ab, dann wird nichts abgebucht.",
+      "steps": {
+        "ready": "Vorbereitung",
+        "making": "3D-Video wird erstellt",
+        "saving": "Deine Dateien werden gespeichert"
+      },
+      "runFallback": "Umwandlung",
+      "billing": {
+        "refundPending": "Deine Erstattung ist unterwegs. Der volle Betrag geht zurück auf deine Zahlungsmethode.",
+        "refunded": "Vollständig erstattet.",
+        "notCharged": "Es wurde nichts abgebucht.",
+        "paidAtStart": "Beim Start bezahlt. Bei einem Fehler vollständig erstattet.",
+        "paidAtStartRefunded": "Diese Umwandlung wurde beim Start bezahlt und wird deshalb vollständig erstattet."
+      },
+      "cancelFailed": "Abbruch fehlgeschlagen",
+      "estimated": "Geschätzt: {duration}",
+      "allFiles": "Alle Dateien",
+      "cancel": "Abbrechen",
+      "waitingForConfirmation": "Warte auf die Bestätigung deiner Zahlung.",
+      "confirmingWithBank": "Die Zahlung wird mit deiner Bank bestätigt. Es startet, sobald sie durch ist.",
+      "chargeFailed": "Mit deiner letzten Zahlung gibt es ein Problem.",
+      "payNow": "Jetzt zahlen",
+      "failed": "Bei uns ist etwas schiefgelaufen. Versuche es erneut."
+    },
+    "overdue": {
+      "reported": "Danke für den Hinweis. Wir prüfen diese Umwandlung und antworten per E-Mail.",
+      "title": "Das dauert deutlich länger als erwartet.",
+      "body": "Bei uns hängt vielleicht etwas. Melde es, dann prüfen wir es und antworten per E-Mail.",
+      "notePlaceholder": "Sollen wir noch etwas wissen? (optional)",
+      "sending": "Wird gesendet …",
+      "report": "Melden",
+      "sendFailed": "Die Meldung konnte nicht gesendet werden. Versuche es erneut."
+    },
+    "previous": {
+      "word": {
+        "refunded": "Erstattet",
+        "making": "Wird erstellt …"
+      },
+      "notCharged": "Nichts abgebucht",
+      "wholeVideo": "Ganzes Video",
+      "title": "Frühere Umwandlungen",
+      "allFiles": "Alle Dateien",
+      "showFewer": "Weniger anzeigen",
+      "showAll": "Alle anzeigen ({count})",
+      "filesDeleted": "Diese Dateien wurden am {date} gelöscht.",
+      "filesUnavailable": "Die Dateien lassen sich gerade nicht öffnen.",
+      "watch": "Ansehen",
+      "partsInFiles": "{count} Teile, in Dateien",
+      "files": "Dateien",
+      "alreadyMade": "Das hast du schon am {day} gemacht · <link>Herunterladen</link>"
+    },
+    "prior": {
+      "hideDownloads": "Downloads ausblenden",
+      "downloads": "Downloads",
+      "fetching": "Download-Links werden abgerufen …"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "Das Beispiel ist gerade nicht verfügbar.",
+      "failed": "Die Dateien konnten nicht geladen werden."
+    },
+    "groups": {
+      "anyScreen": "Jeder Bildschirm",
+      "previewLifelikeHow": "Spielt hier ab, mit der kostenlosen 3D-Prüfung.",
+      "previewHow": "Spielt hier oder im Player eines Headsets ab.",
+      "mvhevcHow": "Per AirDrop oder Dateien. Erscheint in Fotos.",
+      "sbsDevice": "Meta Quest, Galaxy XR, Pico, Steam Frame, XR-Brillen",
+      "halfSbsDevice": "3D-Fernseher, Beamer, Meta Quest ab 4K",
+      "sideBySideHow": "Im Player öffnen und 3D Side by Side wählen.",
+      "anaglyphHow": "Mit Rot-Cyan-Brille ansehen.",
+      "depthDevice": "Tiefenvideo",
+      "depthHow": "Für deine eigenen Schnittprogramme."
+    },
+    "short": {
+      "sbs": "Side by Side",
+      "halfSbs": "Halbes Side by Side",
+      "anaglyph": "Rot-Cyan"
+    },
+    "download": "Herunterladen",
+    "fetching": "Deine Dateien werden abgerufen …",
+    "empty": "Keine Dateien in dieser Umwandlung.",
+    "thisHeadset": "Dieses Headset",
+    "row": {
+      "part": "Teil {part}",
+      "clip": "Clip",
+      "full": "Komplett"
+    },
+    "otherFiles": "{devices}-Dateien ({count})",
+    "another": {
+      "longWait": "Das kann dauern. Du kannst diese Seite verlassen; die Datei erscheint hier, sobald sie fertig ist.",
+      "aboutMinutes": "{count, plural, one {Etwa # Minute} other {Etwa # Minuten}}",
+      "almostReady": "Gleich fertig …",
+      "left": "Noch etwa {time}",
+      "almostDone": "Gleich geschafft …",
+      "unavailable": {
+        "halfOnly": "Diese Umwandlung hat nur die Datei in halber Größe. Starte eine neue Umwandlung für andere Formate.",
+        "filesErased": "Diese Dateien wurden nach 90 Tagen ohne Nutzung gelöscht.",
+        "splitRun": "Diese Umwandlung besteht aus Teilen, daher lassen sich daraus keine anderen Formate erstellen. Starte eine neue Umwandlung für andere Formate."
+      },
+      "failed": "Das hat nicht geklappt. Versuche es erneut.",
+      "tooWide": "Volles Side by Side gibt es bei 6K und 8K nicht. Wähle Side by Side (halbe Größe) oder Räumliches Video.",
+      "rateLimited": "Zu viele Versuche. Warte ein paar Minuten.",
+      "open": "Anderes Format holen",
+      "title": "Anderes Format",
+      "free": "Gratis",
+      "madeFrom": "Erstellt aus den Dateien dieser Umwandlung.",
+      "formatMaking": "{format}: Wird erstellt …",
+      "formatAlmostReady": "{format}: Gleich fertig …",
+      "formatFailed": "{format}: Das hat nicht geklappt. Versuche es erneut.",
+      "progressLabel": "Fortschritt {format}",
+      "tryAgain": "Erneut versuchen"
+    },
+    "details": {
+      "toggle": "Details",
+      "fileWords": {
+        "sbs": "Side-by-Side-.mp4",
+        "halfSbs": "Side-by-Side-.mp4 (halbe Größe)",
+        "anaglyph": "Rot-Cyan-.mp4",
+        "depth": "Tiefen-.mp4",
+        "depthVis": "Tiefenansicht-.mp4"
+      },
+      "scene": "Szene {n}",
+      "scenes": "Szenen {a}–{b}",
+      "wholeVideo": "Ganzes Video",
+      "perEye": "{width}×{height} pro Auge",
+      "px": "{value} px",
+      "left": "Links",
+      "right": "Rechts",
+      "on": "An",
+      "off": "Aus",
+      "included": "Inklusive",
+      "freePreview": "Kostenlose Vorschau",
+      "proDiscountPct": "{plan} {pct} % · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "Beleg ansehen",
+      "viewInvoice": "Rechnung ansehen",
+      "deletedOn": "Gelöscht am {date}",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} Teil {part} {size}",
+      "copied": "Kopiert",
+      "copy": "Kopieren",
+      "rows": {
+        "what": "Was",
+        "part": "Teil",
+        "quality": "Qualität",
+        "frameRate": "Bildrate",
+        "filesMade": "Erstellte Dateien",
+        "filesOrdered": "Bestellte Dateien",
+        "parts": "Teile",
+        "strength": "3D-Stärke",
+        "depthDetail": "Tiefendetail",
+        "scenesTuned": "Angepasste Szenen",
+        "originalEye": "Originalauge",
+        "fileQuality": "Dateiqualität",
+        "bitrate": "Bitrate",
+        "audio": "Audio",
+        "foveation": "Foveated Detail",
+        "express": "Express",
+        "quickLook": "Kurzer Blick",
+        "intro": "Intro",
+        "ordered": "Bestellt",
+        "finished": "Fertig",
+        "took": "Dauer",
+        "price": "Preis",
+        "freePreviewsUsed": "Genutzte kostenlose Vorschauen",
+        "discount": "Rabatt",
+        "launchOffer": "Einführungsangebot",
+        "receipt": "Beleg",
+        "invoice": "Rechnung",
+        "runId": "Umwandlungs-ID",
+        "files": "Dateien",
+        "fileSizes": "Dateigrößen",
+        "keptUntil": "Aufbewahrt bis"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, one {# Teil} other {# Teile}}",
+      "label": "Umwandlungsverlauf",
+      "empty": "Noch nichts hier. Deine 3D-Dateien erscheinen hier, sobald sie fertig sind.",
+      "launchOffer": "Einführungsangebot",
+      "failed": "Bei uns ist etwas schiefgelaufen."
+    }
+  },
+  "viewer": {
+    "viewIn3D": "In 3D ansehen",
+    "fullScreen": "Vollbild",
+    "playsFlat": "Spielt hier flach ab. Räumliches Video für Vision Pro spielt in 3D ab."
   },
   "workspace": {
     "analyze": {

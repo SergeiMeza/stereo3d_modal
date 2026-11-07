@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "言語",
+    "richExample": "こんにちは、<b>{name}</b>さん",
+    "ui": {
+      "close": "閉じる"
+    },
+    "header": {
+      "projects": "プロジェクト"
+    },
+    "checkingSession": "セッションを確認中…",
+    "analytics": {
+      "bannerLabel": "アナリティクスの同意",
+      "banner": "アナリティクス用Cookieを使ってもよいですか？Microsoft Clarityでスタジオの使われ方を把握し、改善に役立てます。広告には使わず、動画の内容も見ません。<link>プライバシーポリシー</link>",
+      "deny": "許可しない",
+      "allow": "許可する",
+      "switchLabel": "アナリティクス",
+      "switchOn": "アナリティクスはオン",
+      "switchOff": "アナリティクスはオフ",
+      "reset": "アナリティクスの選択をリセット"
+    },
+    "sectionBoundary": {
+      "failed": "{name}：この部分を表示できませんでした。",
+      "tryAgain": "もう一度試す"
+    },
+    "feedback": {
+      "openLabel": "フィードバックを送る",
+      "open": "フィードバック",
+      "sentTitle": "ありがとうございます。すべて目を通しています。",
+      "sentDescription": "フィードバックを送信しました。",
+      "done": "完了",
+      "title": "フィードバックを送る",
+      "description": "ご意見、問題点、何でもどうぞ。担当者が読みます。",
+      "kindLabel": "種類",
+      "kinds": {
+        "idea": "アイデア",
+        "problem": "問題",
+        "other": "その他"
+      },
+      "message": "メッセージ",
+      "email": "メールアドレス",
+      "yourEmail": "あなたのメールアドレス",
+      "okToContact": "連絡してもかまいません",
+      "includePage": "このページを含める",
+      "failed": "送信できませんでした。<mail>{email}</mail>まで直接ご連絡いただくこともできます。",
+      "sending": "送信中…",
+      "send": "送信"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "パンくずリスト",
+      "breadcrumbDevices": "対応機器",
+      "readyFor": "{name}に対応",
+      "worksWith": "{name}で使えます",
+      "cta": "動画を3Dにする",
+      "othersLabel": "ほかの機器",
+      "others": "ほかの機器："
+    },
+    "cancel": "キャンセル"
+  },
   "business": {
     "entry": {
       "card": "{site}を仕事で使いますか？{business}や{studio}を設定",
@@ -684,6 +742,246 @@
       "upgradeTo": "{plan}にアップグレード"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "サインアウトされました。続けるにはサインインしてください。",
+      "incorrectCredentials": "メールアドレスまたはパスワードが違います。",
+      "userNotFound": "このメールアドレスのアカウントが見つかりません。",
+      "invalidEmail": "メールアドレスが正しくありません。",
+      "emailExists": "このメールアドレスのアカウントはすでにあります。サインインしてください。",
+      "weakPassword": "パスワードが短すぎます。6文字以上にしてください。",
+      "missingPassword": "パスワードを入力してください。",
+      "popupClosed": "サインインのウインドウが完了前に閉じられました。もう一度お試しください。",
+      "popupBlocked": "ブラウザがサインインのポップアップをブロックしました。許可してからもう一度お試しください。",
+      "tooManyAttempts": "試行回数が多すぎます。しばらく待ってからもう一度お試しください。",
+      "network": "ネットワークエラーです。接続を確認してもう一度お試しください。",
+      "accountDisabled": "このアカウントは無効になっています。",
+      "recentLogin": "安全のため、この操作には再サインインが必要です。サインアウトしてサインインし直してから、もう一度お試しください。",
+      "emailOnly": "メールアドレスでサインインしてください。",
+      "authUnavailable": "現在サインインできません。しばらくしてからもう一度お試しください。",
+      "codeInvalid": "コードが正しくありません。",
+      "codeExpired": "コードの有効期限が切れました。新しいコードを送信してください。",
+      "resendTooSoon": "しばらく待ってから、新しいコードを送信してください。",
+      "tooManyCodes": "このメールアドレスへのコード送信が多すぎます。1時間後にもう一度お試しください。",
+      "credentialInUse": "このサインイン方法にはすでに別のアカウントがあります。サインアウトして、そのサインインでアカウントを使ってください。",
+      "alreadyLinked": "すでに連携されています。",
+      "unauthorizedDomain": "このアドレスではまだサインインできません。",
+      "providerUnavailable": "このサインイン方法はまだ使えません。",
+      "customTokenInvalid": "サインインに失敗しました。新しいコードを送信してください。",
+      "noSuchProvider": "このサインイン方法は連携されていません。",
+      "failed": "認証に失敗しました。もう一度お試しください。",
+      "accountExists": "{email}のアカウントはすでにあります。",
+      "appleFailed": "Appleでサインインできませんでした。もう一度お試しください。",
+      "signInFailed": "サインインに失敗しました。もう一度お試しください。",
+      "otherAccountPasskey": "このパスキーは別のアカウント用です。このアカウントに保存したパスキーを使ってください。",
+      "appleUnavailable": "現在Appleでサインインできません。",
+      "appleBlocked": "ブラウザがAppleのウインドウをブロックしました。このサイトのポップアップを許可してもう一度お試しください。",
+      "appleUnfinished": "Appleでのサインインが完了しませんでした。もう一度お試しください。",
+      "linkUnfinished": "{provider}の連携が完了しませんでした。もう一度お試しください。",
+      "signInUnfinished": "{provider}でのサインインが完了しませんでした。もう一度お試しください。",
+      "notConfirmed": "確認されませんでした。何も変更していません。",
+      "somethingWrong": "問題が発生しました。",
+      "didntWork": "うまくいきませんでした。もう一度お試しください。",
+      "didntWorkShort": "うまくいきませんでした。",
+      "sendCodeFailed": "コードを送信できませんでした。"
+    },
+    "passkeyErrors": {
+      "notRegistered": "このパスキーはここに登録されていません。別の方法でサインインしてください。",
+      "didntWork": "うまくいきませんでした。もう一度お試しください。",
+      "cloneSuspected": "このパスキーは使えません。別の方法でサインインしてください。",
+      "unavailable": "現在サインインできません。もう一度お試しください。",
+      "rateLimited": "試行回数が多すぎます。数分待ってください。",
+      "closed": "パスキーの画面が完了前に閉じられました。もう一度お試しください。",
+      "didntFinish": "完了しませんでした。もう一度お試しください。",
+      "unsupported": "このブラウザではパスキーを使えません。別の方法でサインインしてください。",
+      "exists": "このデバイスには、あなたのアカウントのパスキーがすでにあります。",
+      "security": "このアドレスではパスキーを使えません。別の方法でサインインしてください。",
+      "failed": "パスキーが使えませんでした。もう一度試すか、別の方法でサインインしてください。",
+      "network": "サーバーに接続できませんでした。接続を確認してもう一度お試しください。",
+      "cantAdd": "このブラウザではパスキーを追加できません。"
+    },
+    "methods": {
+      "email": "メール",
+      "password": "パスワード",
+      "loadFailed": "サインイン方法を読み込めませんでした。",
+      "heading": "サインイン方法",
+      "codeTo": "{email}宛てのコード",
+      "on": "オン",
+      "adding": "追加中…",
+      "add": "追加"
+    },
+    "signIn": {
+      "title": "サインイン",
+      "mocked": "この環境では認証はモックです。",
+      "continue": "続ける",
+      "subtitle": "Webとアプリで使える、{site}の共通アカウントです。",
+      "continueApple": "Appleで続ける",
+      "continueGoogle": "Googleで続ける",
+      "or": "または",
+      "emailLabel": "メールアドレス",
+      "emailPlaceholder": "you@example.com",
+      "sending": "送信中…",
+      "continueEmail": "メールで続ける",
+      "agree": "続けると、<terms>利用規約</terms>と<privacy>プライバシーポリシー</privacy>に同意したものとみなされます。"
+    },
+    "code": {
+      "wrongTriesLeft": "コードが正しくありません。残り{count, plural, other {#回}}です。",
+      "back": "別のメールアドレスを使う",
+      "title": "メールを確認してください",
+      "sentTo": "<addr>{email}</addr>に送ったコードを入力してください。",
+      "linking": "このメールアドレスのアカウントはすでにあります。{method}がそのアカウントに追加されます。",
+      "signingIn": "サインイン中…",
+      "newCodeSent": "新しいコードを送信しました。",
+      "resendIn": "{time}後に新しいコードを送信できます",
+      "resend": "新しいコードを送信",
+      "inputLabel": "サインインコード"
+    },
+    "providers": {
+      "emailCode": "メールのコード",
+      "passkey": "パスキー",
+      "or": "{list}または{last}",
+      "separator": "、"
+    },
+    "inUse": {
+      "identity": "このサインイン方法は別のアカウントのものです。",
+      "identityHow": "このサインイン方法は別のアカウントのものです（{how}でサインインします）。",
+      "email": "このメールアドレスは別のアカウントのものです。",
+      "emailHow": "このメールアドレスは別のアカウントのものです（{how}でサインインします）。"
+    },
+    "emails": {
+      "relayNotMain": "プランには、非公開のAppleアドレスではなく実際のメールアドレスを使ってください。",
+      "mainNotRemovable": "先に別のメールアドレスをメインにしてください。",
+      "loadFailed": "メールアドレスを読み込めませんでした。",
+      "enterAddress": "メールアドレスを入力してください。",
+      "sendCode": "コードを送信",
+      "codeSentTo": "{email}に送ったコードを入力してください。",
+      "checking": "確認中…",
+      "add": "メールアドレスを追加",
+      "makeItMain": "メインのメールアドレスにする",
+      "signInThere": "そのアカウントにサインイン",
+      "heading": "メールアドレス · それぞれコードでサインインします",
+      "hiddenApple": "非公開のAppleアドレス",
+      "main": "メイン",
+      "makeMain": "メインにする",
+      "removeLabel": "{email}を削除",
+      "remove": "削除",
+      "addAnother": "別のメールアドレスを追加",
+      "full": "アカウントのメールアドレスが{count}件あります。追加するには1件削除してください。"
+    },
+    "passkeys": {
+      "loadFailed": "パスキーを読み込めませんでした。",
+      "never": "なし",
+      "title": "パスキー",
+      "subtitle": "Face ID、Touch ID、スマートフォン、セキュリティキーでサインインできます。",
+      "addTitle": "パスキーを追加",
+      "added": "{date}に追加",
+      "lastUsed": "最終使用 {date}",
+      "renameLabel": "{name}の名前を変更",
+      "rename": "名前を変更",
+      "removeLabel": "{name}を削除",
+      "remove": "削除",
+      "empty": "パスキーはまだありません。",
+      "emptyUnsupported": "パスキーはまだありません。このブラウザでは追加できません。",
+      "addedNotice": "パスキーを追加しました。",
+      "renamedNotice": "パスキーの名前を変更しました。",
+      "removedNotice": "パスキーを削除しました。",
+      "addDescription": "次回からFace ID、Touch ID、スマートフォン、セキュリティキーでサインインできます。入力は不要です。",
+      "name": "名前",
+      "confirmed": "再サインインしました。パスキーを追加してください。",
+      "waiting": "パスキーを待っています…",
+      "add": "パスキーを追加",
+      "renameTitle": "パスキーの名前を変更",
+      "renameDescription": "名前を付けると、パスキーを見分けやすくなります。",
+      "removeTitle": "「{name}」を削除しますか？",
+      "removeDescription": "このパスキーではサインインできなくなります。ほかの方法ではサインインできます。",
+      "removing": "削除中…",
+      "removeButton": "パスキーを削除",
+      "signIn": "パスキーでサインイン"
+    },
+    "otherAccount": {
+      "line": "このメールアドレスは別のアカウントで使われています（{how}でサインインします）。"
+    },
+    "passkeySuggestion": {
+      "added": "パスキーを追加しました。次回はこれでサインインできます。",
+      "line": "パスキーを追加すると、次回からすばやくサインインできます。",
+      "dismiss": "閉じる"
+    },
+    "reauth": {
+      "title": "本人確認",
+      "description": "続けるには、もう一度サインインしてください。すぐに終わります。",
+      "usePasskey": "パスキーを使う",
+      "confirm": "確認",
+      "sendCode": "{email}にコードを送信"
+    },
+    "menu": {
+      "label": "アカウントメニュー",
+      "planBilling": "プランとお支払い"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "アカウントは{date}に削除されます。それまでにサインインすれば取りやめられます。",
+      "pendingOn": "アカウントは{date}に削除される予定です。この操作をするには、アカウントを残してください。",
+      "pending": "アカウントは削除される予定です。この操作をするには、アカウントを残してください。"
+    },
+    "title": "アカウント",
+    "profile": {
+      "title": "プロフィール",
+      "noEmail": "メールアドレスなし",
+      "displayName": "表示名",
+      "saving": "保存中…",
+      "saved": "保存しました",
+      "save": "保存",
+      "saveFailed": "名前を更新できませんでした。",
+      "idHint": "アカウントID：サポートへのお問い合わせ時にお知らせください。プロジェクトと変換はこのIDに紐づいています。",
+      "copied": "コピーしました",
+      "copyId": "IDをコピー"
+    },
+    "security": {
+      "title": "サインインとセキュリティ"
+    },
+    "billing": {
+      "title": "お支払い",
+      "card": "カードと購入履歴は<link>お支払い</link>で確認できます。",
+      "businessDetails": "会社名、税ID、住所入りの請求書：<link>会社情報</link>。"
+    },
+    "session": {
+      "title": "セッション",
+      "signOut": "サインアウト"
+    },
+    "delete": {
+      "scheduledTitle": "アカウントの削除を予約済み",
+      "dangerZone": "危険な操作",
+      "typeToConfirm": "アカウントを完全に削除するには{word}と入力してください",
+      "deleting": "削除中…",
+      "button": "アカウントを削除",
+      "refundFirst": "先に、残高{amount}をお支払い方法へ返金します。",
+      "refundAndDelete": "返金して削除",
+      "returning": "{amount}を返金しています。完了するとアカウントが削除されます。",
+      "note": "未払いの金額がある場合は、先に保存済みのお支払い方法に請求されます。プロジェクト、動画、3Dファイルはアカウントからすぐに削除されます。請求記録はサポートのため保管されます。",
+      "paymentNeededAmount": "お支払いが必要です（{amount}）：お支払いでお支払い方法を更新してから、アカウントを削除してください。",
+      "paymentNeeded": "お支払いが必要です：お支払いでお支払い方法を更新してから、アカウントを削除してください。",
+      "failed": "アカウントを削除できませんでした。"
+    },
+    "deletionPrompt": {
+      "keepFailed": "アカウントを残せませんでした。もう一度お試しください。",
+      "title": "アカウントは{date}に削除される予定です。",
+      "description": "残せば、すべてそのままです。手放す場合は、その日に削除します。",
+      "signingOut": "サインアウト中…",
+      "deleteIt": "削除する",
+      "keeping": "処理中…",
+      "keep": "アカウントを残す"
+    },
+    "deletePlan": {
+      "appStore": "App Storeの{plan}はAppleを通じて更新されます。Apple IDの設定で解約してください。",
+      "validUntil": "{plan}プランは{date}まで有効です。",
+      "validToPeriodEnd": "{plan}プランは期間の終わりまで有効です。",
+      "restore": "同じメールアドレスで再登録すると、復元できます。",
+      "cancelFirst": "先にプランを解約してください。",
+      "cancelFirstUntil": "先にプランを解約してください。{date}まで有効です。",
+      "cancelPlan": "プランを解約"
+    }
+  },
   "look": {
     "analysisRunning": "解析中です。完了すると見積もりが利用できます。",
     "requestFailed": "リクエストに失敗しました",
@@ -1331,6 +1629,437 @@
       "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。",
       "refundable": "使わなかった残高は{days}日以内なら返金できます。"
     }
+  },
+  "meta": {
+    "site": {
+      "title": "Web版{site} — 2D動画を3Dに変換",
+      "description": "Web版{site}。2D動画を3Dに変換：Apple Vision Pro向けの空間ビデオ、Meta Quest、Pico、あらゆる3Dディスプレイ向けのサイドバイサイド。開始前に料金を確認できます。",
+      "ogTitle": "Web版{site}：どんな動画もリアルな3Dに",
+      "ogImageAlt": "Web版{site}：どんな動画もリアルな3Dに。最大8Kで、Vision Proとあらゆるヘッドセットに対応"
+    },
+    "home": {
+      "appDescription": "2D動画を3Dに変換：Apple Vision Pro向けの空間ビデオ、Meta Quest、Pico、Samsung Galaxy XR、3Dディスプレイ向けのサイドバイサイド3D。"
+    },
+    "billing": {
+      "title": "お支払い"
+    },
+    "businessDetails": {
+      "title": "会社情報",
+      "heading": "会社情報",
+      "intro": "請求書に表示される内容です。保存すると、今後の請求書が変わります。送信済みの請求書は変わりません。"
+    },
+    "businessSetup": {
+      "title": "{business}または{studio}を設定"
+    },
+    "payHandoff": {
+      "title": "3D動画の支払い"
+    },
+    "payReturn": {
+      "title": "お支払い"
+    },
+    "plans": {
+      "title": "プラン",
+      "description": "Web版{site}の{business}と{studio}プラン：毎月の利用額、お得な料金、無料プレビュー、Express付き。"
+    },
+    "pricing": {
+      "title": "料金",
+      "description": "Web版{site}の料金：動画1分ごとのお支払い、またはプランでお得に。{lifelike}、1080pから8K。"
+    },
+    "pro": {
+      "description": "{site} {pro}：Webのすべての3D動画がお得に、加入時に利用クレジット、無料プレビュー、iPhone、iPad、Mac、Vision Proのアプリでも{pro}。"
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "このヒントを閉じる",
+      "billing": "残高、お支払い方法、領収書。ここでチャージするか、残高の自動チャージを設定できます。",
+      "usage": "すべての変換を料金とともに月ごとに表示。記録用にCSVをダウンロードできます。",
+      "invoices": "チャージとプランの請求書をダウンロードできます。",
+      "plans": "プランに入ると、すべての変換がお得になり、毎月の利用額が付きます。プランなしで動画ごとに支払うこともできます。",
+      "pricing": "料金は選んだサイズの動画1分ごとです。お支払い前に、正確な料金がいつも表示されます。",
+      "pro": "{pro}は、Webとアプリで使える1つのメンバーシップです。メンバーはすべての変換がお得になり、加入時に利用クレジットが付きます。",
+      "account": "サインイン、設定、そして必要な場合はアカウントの削除。",
+      "devices": "このデバイスで3D動画を観る方法。",
+      "scenes": "動画のシーンが切り替わる位置です。プレビューや分割はここから始まります。変更が必要になることはほとんどありません。"
+    },
+    "tips": {
+      "progress": "{n}/{total}",
+      "skip": "ヒントをスキップ",
+      "next": "次へ",
+      "gotIt": "OK",
+      "overview": {
+        "title": "動画のすべてがわかります",
+        "body": "長さ、サイズ、シーン、動画全体の料金。見るだけなら無料です。"
+      },
+      "preview": {
+        "title": "まず短い部分を試す",
+        "body": "数秒間を選び、3Dで確認してから決められます。最初のプレビューは無料です。"
+      },
+      "make": {
+        "title": "選んでから支払う",
+        "body": "観る場所と画質を選びます。料金は選ぶたびに更新され、「3Dにする」を押すまで請求されません。"
+      },
+      "files": {
+        "title": "3Dファイル",
+        "body": "ダウンロードするか、ヘッドセットのブラウザでこのページを開いて再生してください。"
+      }
+    },
+    "getStarted": {
+      "title": "はじめましょう",
+      "progress": "{done}/{total}完了",
+      "hide": "隠す",
+      "done": "✓ 完了",
+      "next": "次へ",
+      "pickNow": "今すぐ選ぶ",
+      "listSeparator": "、",
+      "steps": {
+        "headset": {
+          "title": "ヘッドセットを選ぶ",
+          "body": "最適なファイルを作るためです。"
+        },
+        "firstVideo": {
+          "title": "最初の動画を追加",
+          "body": "内容を確認して料金を表示します。無料です。"
+        },
+        "firstPreview": {
+          "title": "無料プレビューを観る",
+          "body": "短い部分を3Dで。費用はこちら持ちです。"
+        },
+        "first3d": {
+          "title": "3Dにする",
+          "body": "お支払い前に料金を確認できます。"
+        },
+        "watched": {
+          "title": "ヘッドセットで観る",
+          "body": "ヘッドセットのブラウザでstereo3d.studioを開くか、ファイルをダウンロードしてください。"
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "空間ビデオ"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "サイドバイサイド"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "サイドバイサイド"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "サイドバイサイド"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "サイドバイサイド"
+      },
+      "glasses": {
+        "name": "XRグラス",
+        "files": "サイドバイサイド"
+      },
+      "tv": {
+        "name": "3Dテレビまたはプロジェクター",
+        "files": "サイドバイサイド（ハーフサイズ）"
+      },
+      "unsure": {
+        "name": "まだ未定",
+        "files": "両方を含めます"
+      }
+    },
+    "welcome": {
+      "eyebrow": "ようこそ",
+      "skip": "スキップ",
+      "back": "戻る",
+      "gotIt": "OK",
+      "continue": "続ける",
+      "later": "あとで行う",
+      "stepOf": "ステップ{step}/{total}",
+      "business": "クライアント向けのお仕事ですか？<link>{plan}</link>なら毎月の利用額、商用利用、請求書が付きます。",
+      "pro": {
+        "title": "{pro}はここでも使えます",
+        "prices": "すべての動画が{pro}価格です。",
+        "pricesPct": "すべての動画が{pro}価格、{pct}%オフです。",
+        "previews": "プランには、{period, select, pass {パスの期間中} month {毎月} week {毎週} year {毎年} day {毎日} other {{period}ごとに}}{count, plural, other {無料プレビュー#回}}が含まれます。",
+        "credit": "{date}までに使える利用クレジットが{amount}あります。",
+        "nothingBilled": "新たな請求はありません。"
+      },
+      "headsets": {
+        "title": "あなたの動画を3Dで。",
+        "intro": "{site}は、どんな2D動画もヘッドセットで観られる3Dにします。まず、どこで観ますか？",
+        "question": "どこで観ますか？",
+        "fromApp": "アプリの設定からです。最適なファイルを選ぶために使います。プロジェクトごとに変更できます。",
+        "otherHeadset": "アプリでヘッドセットを使うと回答されました。最適なファイルを選ぶために使います。",
+        "note": "最適なファイルを選ぶために使います。プロジェクトごとに変更できます。"
+      },
+      "how": {
+        "loopLabel": "夕暮れのバンドの前で歌うシンガー：左が2D動画、右が同じ瞬間の3D",
+        "eyebrow": "しくみ",
+        "title": "3ステップ。お支払い前に料金がわかります。",
+        "titleShort": "お支払い前に料金がわかります。",
+        "description": "{site}のしくみ",
+        "steps": {
+          "add": {
+            "title": "動画を追加",
+            "body": "すべてのシーンを確認して料金を表示します。無料です。",
+            "short": "料金を無料で確認。"
+          },
+          "preview": {
+            "title": "プレビューを観る",
+            "body": "短い部分をヘッドセットで3Dで確認。最初のプレビューは無料です。",
+            "short": "最初の1回は無料です。"
+          },
+          "make": {
+            "title": "3Dにする",
+            "body": "動画全体の料金を支払い、ダウンロードするか、ヘッドセットのブラウザで再生します。",
+            "short": "ダウンロードまたはヘッドセットで再生。"
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "最初のプロジェクト",
+        "title": "まず1本、動画を選びましょう。",
+        "description": "動画を追加するか、サンプルを開く",
+        "sample": "手元に動画がありませんか？完成したサンプルを開いて、まず見てみましょう。"
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "お支払いを確認中",
+      "waitingInLine": "順番待ち",
+      "making": "3Dを作成中",
+      "readyPaymentNeeded": "準備完了、お支払いが必要",
+      "ready": "準備完了",
+      "failedRefunded": "失敗、{amount}を返金",
+      "failedNotCharged": "失敗、請求なし",
+      "cancelledRefunded": "キャンセル · {amount}を返金",
+      "cancelledNotCharged": "キャンセル · 請求なし",
+      "expiredNotCharged": "開始せず、請求なし",
+      "waitingNote": "空きができ次第、通常は数分以内に開始します。料金は変わりません。",
+      "short": {
+        "failed": "失敗",
+        "cancelled": "キャンセル",
+        "expired": "未開始"
+      }
+    },
+    "stages": {
+      "preprocess": "動画を準備中",
+      "profile_scenes": "シーンを計測中",
+      "video_depth": "奥行きを計測中",
+      "video_stereo": "3D動画を作成中",
+      "encode_outputs": "ファイルをエンコード中",
+      "encode_mvhevc": "Vision Pro用ファイルをエンコード中",
+      "image_stereo": "3D画像を作成中",
+      "queued": "開始待ち",
+      "plan": "準備中",
+      "render": "3Dでレンダリング中",
+      "encode": "エンコード中",
+      "publish": "公開中",
+      "done": "仕上げ中",
+      "analyze": "解析中",
+      "proxy": "プレビューを作成中",
+      "scene_detect": "シーンを検出中",
+      "thumbnails": "サムネイルをレンダリング中"
+    },
+    "tracker": {
+      "expressWait": "まもなく開始（Express）。",
+      "expressWaitWithin": "まもなく開始（Express）。約{minutes}分以内。",
+      "cancelNowRefund": "{time} · 今キャンセルすると全額返金",
+      "cancelNowNotCharged": "{time} · 今キャンセルすると請求なし",
+      "cancelWhileWaitingRefund": "待機中はいつでもキャンセルでき、全額返金されます。",
+      "cancelWhileWaitingNotCharged": "待機中はいつでもキャンセルでき、請求されません。",
+      "steps": {
+        "ready": "準備",
+        "making": "3D動画の作成",
+        "saving": "ファイルの保存"
+      },
+      "runFallback": "変換",
+      "billing": {
+        "refundPending": "返金手続き中です。全額がお支払い方法に戻ります。",
+        "refunded": "全額返金済み。",
+        "notCharged": "請求はされていません。",
+        "paidAtStart": "変換の開始時にお支払い済みです。失敗した場合は全額返金されます。",
+        "paidAtStartRefunded": "この変換は開始時にお支払い済みのため、全額返金されます。"
+      },
+      "cancelFailed": "キャンセルできませんでした",
+      "estimated": "目安：{duration}",
+      "allFiles": "すべてのファイル",
+      "cancel": "キャンセル",
+      "waitingForConfirmation": "お支払いの確認を待っています。",
+      "confirmingWithBank": "銀行でお支払いを確認中です。完了次第、開始します。",
+      "chargeFailed": "前回のお支払いに問題があります。",
+      "payNow": "今すぐ支払う",
+      "failed": "こちら側で問題が発生しました。もう一度お試しください。"
+    },
+    "overdue": {
+      "reported": "お知らせありがとうございます。この変換を調べて、メールでお返事します。",
+      "title": "想定よりかなり時間がかかっています。",
+      "body": "こちら側で止まっている可能性があります。報告していただければ調べて、メールでお返事します。",
+      "notePlaceholder": "お知らせしたいことがあれば（任意）",
+      "sending": "送信中…",
+      "report": "報告する",
+      "sendFailed": "報告を送信できませんでした。もう一度お試しください。"
+    },
+    "previous": {
+      "word": {
+        "refunded": "返金済み",
+        "making": "作成中…"
+      },
+      "notCharged": "請求なし",
+      "wholeVideo": "動画全体",
+      "title": "過去の変換",
+      "allFiles": "すべてのファイル",
+      "showFewer": "表示を減らす",
+      "showAll": "すべて表示（{count}）",
+      "filesDeleted": "これらのファイルは{date}に削除されました。",
+      "filesUnavailable": "現在ファイルを開けません。",
+      "watch": "観る",
+      "partsInFiles": "{count}パート、ファイルに保存",
+      "files": "ファイル",
+      "alreadyMade": "{day}にすでに作成済みです · <link>ダウンロード</link>"
+    },
+    "prior": {
+      "hideDownloads": "ダウンロードを隠す",
+      "downloads": "ダウンロード",
+      "fetching": "ダウンロードリンクを取得中…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "現在サンプルを利用できません。",
+      "failed": "ファイルを読み込めませんでした。"
+    },
+    "groups": {
+      "anyScreen": "どの画面でも",
+      "previewLifelikeHow": "ここで再生でき、無料の3Dチェックも使えます。",
+      "previewHow": "ここで、またはヘッドセットのプレーヤーで再生できます。",
+      "mvhevcHow": "AirDropまたはファイルAppで。写真アプリに表示されます。",
+      "sbsDevice": "Meta Quest、Galaxy XR、Pico、Steam Frame、XRグラス",
+      "halfSbsDevice": "3Dテレビ、プロジェクター、4K以上のMeta Quest",
+      "sideBySideHow": "プレーヤーで開き、3Dサイドバイサイドを選んでください。",
+      "anaglyphHow": "赤とシアンのメガネで観ます。",
+      "depthDevice": "奥行き動画",
+      "depthHow": "ご自身の編集ツール用です。"
+    },
+    "short": {
+      "sbs": "サイドバイサイド",
+      "halfSbs": "ハーフサイドバイサイド",
+      "anaglyph": "赤とシアン"
+    },
+    "download": "ダウンロード",
+    "fetching": "ファイルを取得中…",
+    "empty": "この変換にファイルはありません。",
+    "thisHeadset": "このヘッドセット",
+    "row": {
+      "part": "パート{part}",
+      "clip": "クリップ",
+      "full": "全編"
+    },
+    "otherFiles": "{devices}のファイル（{count}）",
+    "another": {
+      "longWait": "時間がかかることがあります。このページを離れても、準備ができるとここに表示されます。",
+      "aboutMinutes": "約{count, plural, other {#分}}",
+      "almostReady": "まもなく完了…",
+      "left": "残り約{time}",
+      "almostDone": "まもなく完了…",
+      "unavailable": {
+        "halfOnly": "この変換にはハーフサイズのファイルしかありません。ほかの形式は新しく変換してください。",
+        "filesErased": "これらのファイルは、90日間使われなかったため消去されました。",
+        "splitRun": "この変換は分割されているため、ほかの形式は作成できません。ほかの形式は新しく変換してください。"
+      },
+      "failed": "うまくいきませんでした。もう一度お試しください。",
+      "tooWide": "フルサイズのサイドバイサイドは6Kと8Kでは作成されません。サイドバイサイド（ハーフサイズ）または空間ビデオを選んでください。",
+      "rateLimited": "試行回数が多すぎます。数分待ってください。",
+      "open": "ほかの形式を入手",
+      "title": "ほかの形式",
+      "free": "無料",
+      "madeFrom": "この変換のファイルから作成します。",
+      "formatMaking": "{format}：作成中…",
+      "formatAlmostReady": "{format}：まもなく完了…",
+      "formatFailed": "{format}：うまくいきませんでした。もう一度お試しください。",
+      "progressLabel": "{format}の進行状況",
+      "tryAgain": "もう一度試す"
+    },
+    "details": {
+      "toggle": "詳細",
+      "fileWords": {
+        "sbs": "サイドバイサイド .mp4",
+        "halfSbs": "サイドバイサイド（ハーフサイズ）.mp4",
+        "anaglyph": "赤とシアン .mp4",
+        "depth": "奥行き .mp4",
+        "depthVis": "奥行き表示 .mp4"
+      },
+      "scene": "シーン{n}",
+      "scenes": "シーン{a}〜{b}",
+      "wholeVideo": "動画全体",
+      "perEye": "片目あたり{width}×{height}",
+      "px": "{value} px",
+      "left": "左",
+      "right": "右",
+      "on": "オン",
+      "off": "オフ",
+      "included": "含まれる",
+      "freePreview": "無料プレビュー",
+      "proDiscountPct": "{plan} {pct}% · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "領収書を見る",
+      "viewInvoice": "請求書を見る",
+      "deletedOn": "{date}に削除",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} パート{part} {size}",
+      "copied": "コピーしました",
+      "copy": "コピー",
+      "rows": {
+        "what": "内容",
+        "part": "パート",
+        "quality": "画質",
+        "frameRate": "フレームレート",
+        "filesMade": "作成したファイル",
+        "filesOrdered": "注文したファイル",
+        "parts": "パート",
+        "strength": "3Dの強さ",
+        "depthDetail": "奥行きの精細さ",
+        "scenesTuned": "調整したシーン",
+        "originalEye": "元の映像の目",
+        "fileQuality": "ファイル品質",
+        "bitrate": "ビットレート",
+        "audio": "音声",
+        "foveation": "Foveated Detail",
+        "express": "Express",
+        "quickLook": "クイックルック",
+        "intro": "イントロ",
+        "ordered": "注文日時",
+        "finished": "完了日時",
+        "took": "所要時間",
+        "price": "料金",
+        "freePreviewsUsed": "使用した無料プレビュー",
+        "discount": "割引",
+        "launchOffer": "ローンチ特典",
+        "receipt": "領収書",
+        "invoice": "請求書",
+        "runId": "変換ID",
+        "files": "ファイル",
+        "fileSizes": "ファイルサイズ",
+        "keptUntil": "保管期限"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, other {#パート}}",
+      "label": "変換履歴",
+      "empty": "まだ何もありません。3Dファイルは準備ができるとここに表示されます。",
+      "launchOffer": "ローンチ特典",
+      "failed": "こちら側で問題が発生しました。"
+    }
+  },
+  "viewer": {
+    "viewIn3D": "3Dで観る",
+    "fullScreen": "全画面",
+    "playsFlat": "ここでは平面で再生されます。Vision Proの空間ビデオは3Dで再生されます。"
   },
   "workspace": {
     "analyze": {

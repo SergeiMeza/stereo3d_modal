@@ -1,4 +1,62 @@
 {
+  "common": {
+    "language": "언어",
+    "richExample": "안녕하세요 <b>{name}</b>",
+    "ui": {
+      "close": "닫기"
+    },
+    "header": {
+      "projects": "프로젝트"
+    },
+    "checkingSession": "세션 확인 중…",
+    "analytics": {
+      "bannerLabel": "분석 동의",
+      "banner": "분석 쿠키를 사용해도 될까요? Microsoft Clarity로 스튜디오가 어떻게 쓰이는지 파악해 개선하는 데 활용해요. 광고에는 쓰이지 않고, 영상 내용은 수집하지 않아요. <link>개인정보 처리방침</link>",
+      "deny": "괜찮아요",
+      "allow": "분석 허용",
+      "switchLabel": "분석",
+      "switchOn": "분석 켜짐",
+      "switchOff": "분석 꺼짐",
+      "reset": "분석 선택 초기화"
+    },
+    "sectionBoundary": {
+      "failed": "{name}: 이 부분을 표시하지 못했어요.",
+      "tryAgain": "다시 시도"
+    },
+    "feedback": {
+      "openLabel": "피드백 보내기",
+      "open": "피드백",
+      "sentTitle": "감사합니다. 모든 메시지를 읽고 있어요.",
+      "sentDescription": "피드백을 보냈어요.",
+      "done": "완료",
+      "title": "피드백 보내기",
+      "description": "아이디어, 문제, 무엇이든 좋아요. 사람이 직접 읽어요.",
+      "kindLabel": "종류",
+      "kinds": {
+        "idea": "아이디어",
+        "problem": "문제",
+        "other": "기타"
+      },
+      "message": "메시지",
+      "email": "이메일",
+      "yourEmail": "내 이메일",
+      "okToContact": "연락해도 좋아요",
+      "includePage": "이 페이지 포함",
+      "failed": "보내지 못했어요. <mail>{email}</mail>로 직접 보내셔도 돼요",
+      "sending": "보내는 중…",
+      "send": "보내기"
+    },
+    "devicePage": {
+      "breadcrumbLabel": "이동 경로",
+      "breadcrumbDevices": "기기",
+      "readyFor": "{name} 지원",
+      "worksWith": "{name}에서 사용 가능",
+      "cta": "내 영상을 3D로",
+      "othersLabel": "다른 기기",
+      "others": "다른 기기:"
+    },
+    "cancel": "취소"
+  },
   "business": {
     "entry": {
       "card": "업무용으로 {site}를 쓰시나요? {business} 또는 {studio}를 설정해 보세요",
@@ -684,6 +742,246 @@
       "upgradeTo": "{plan}(으)로 업그레이드"
     }
   },
+  "auth": {
+    "errors": {
+      "signedOut": "로그아웃됐어요. 계속하려면 로그인하세요.",
+      "incorrectCredentials": "이메일 또는 비밀번호가 올바르지 않아요.",
+      "userNotFound": "해당 이메일의 계정을 찾을 수 없어요.",
+      "invalidEmail": "올바른 이메일 주소가 아니에요.",
+      "emailExists": "이 이메일의 계정이 이미 있어요. 대신 로그인하세요.",
+      "weakPassword": "비밀번호가 너무 약해요. 6자 이상으로 입력하세요.",
+      "missingPassword": "비밀번호를 입력하세요.",
+      "popupClosed": "로그인 창이 끝나기 전에 닫혔어요. 다시 시도하세요.",
+      "popupBlocked": "브라우저가 로그인 팝업을 차단했어요. 팝업을 허용한 뒤 다시 시도하세요.",
+      "tooManyAttempts": "시도 횟수가 너무 많아요. 잠시 후 다시 시도하세요.",
+      "network": "네트워크 오류예요. 연결을 확인한 뒤 다시 시도하세요.",
+      "accountDisabled": "이 계정은 사용 중지됐어요.",
+      "recentLogin": "보안을 위해 새 세션이 필요해요. 로그아웃하고 다시 로그인한 뒤 시도하세요.",
+      "emailOnly": "이메일로 로그인하세요.",
+      "authUnavailable": "지금은 로그인할 수 없어요. 잠시 후 다시 시도하세요.",
+      "codeInvalid": "코드가 올바르지 않아요.",
+      "codeExpired": "코드가 만료됐어요. 새 코드를 받으세요.",
+      "resendTooSoon": "잠시 기다린 뒤 새 코드를 받으세요.",
+      "tooManyCodes": "이 이메일로 요청한 코드가 너무 많아요. 한 시간 뒤에 다시 시도하세요.",
+      "credentialInUse": "이 로그인 방법은 이미 다른 계정에 연결돼 있어요. 로그아웃한 뒤 이 방법으로 로그인해 그 계정을 사용하세요.",
+      "alreadyLinked": "이미 연결돼 있어요.",
+      "unauthorizedDomain": "이 주소에서는 아직 로그인할 수 없어요.",
+      "providerUnavailable": "이 로그인 방법은 아직 사용할 수 없어요.",
+      "customTokenInvalid": "로그인하지 못했어요. 새 코드를 받으세요.",
+      "noSuchProvider": "이 로그인 방법은 연결돼 있지 않아요.",
+      "failed": "인증하지 못했어요. 다시 시도하세요.",
+      "accountExists": "{email}로 만든 계정이 이미 있어요.",
+      "appleFailed": "Apple로 로그인하지 못했어요. 다시 시도하세요.",
+      "signInFailed": "로그인하지 못했어요. 다시 시도하세요.",
+      "otherAccountPasskey": "다른 계정의 패스키예요. 이 계정에 저장된 패스키를 사용하세요.",
+      "appleUnavailable": "지금은 Apple로 로그인할 수 없어요.",
+      "appleBlocked": "브라우저가 Apple 창을 차단했어요. 이 사이트의 팝업을 허용한 뒤 다시 시도하세요.",
+      "appleUnfinished": "Apple 로그인이 끝나지 않았어요. 다시 시도하세요.",
+      "linkUnfinished": "{provider} 연결이 끝나지 않았어요. 다시 시도하세요.",
+      "signInUnfinished": "{provider} 로그인이 끝나지 않았어요. 다시 시도하세요.",
+      "notConfirmed": "확인되지 않았어요. 변경된 내용은 없어요.",
+      "somethingWrong": "문제가 생겼어요.",
+      "didntWork": "실패했어요. 다시 시도하세요.",
+      "didntWorkShort": "실패했어요.",
+      "sendCodeFailed": "코드를 보내지 못했어요."
+    },
+    "passkeyErrors": {
+      "notRegistered": "이 패스키는 여기에 등록되지 않았어요. 다른 방법으로 로그인하세요.",
+      "didntWork": "실패했어요. 다시 시도하세요.",
+      "cloneSuspected": "이 패스키는 사용할 수 없어요. 다른 방법으로 로그인하세요.",
+      "unavailable": "지금은 로그인할 수 없어요. 다시 시도하세요.",
+      "rateLimited": "시도 횟수가 너무 많아요. 몇 분 뒤에 다시 시도하세요.",
+      "closed": "패스키 창이 끝나기 전에 닫혔어요. 다시 시도하세요.",
+      "didntFinish": "끝나지 않았어요. 다시 시도하세요.",
+      "unsupported": "이 브라우저는 패스키를 지원하지 않아요. 다른 방법으로 로그인하세요.",
+      "exists": "이 기기에는 내 계정의 패스키가 이미 있어요.",
+      "security": "이 주소에서는 패스키를 사용할 수 없어요. 다른 방법으로 로그인하세요.",
+      "failed": "패스키가 작동하지 않았어요. 다시 시도하거나 다른 방법으로 로그인하세요.",
+      "network": "서버에 연결하지 못했어요. 연결을 확인한 뒤 다시 시도하세요.",
+      "cantAdd": "이 브라우저에서는 패스키를 추가할 수 없어요."
+    },
+    "methods": {
+      "email": "이메일",
+      "password": "비밀번호",
+      "loadFailed": "로그인 방법을 불러오지 못했어요.",
+      "heading": "로그인 방법",
+      "codeTo": "{email}로 코드 받기",
+      "on": "켜짐",
+      "adding": "추가 중…",
+      "add": "추가"
+    },
+    "signIn": {
+      "title": "로그인",
+      "mocked": "이 환경에서는 인증이 모의로 동작해요.",
+      "continue": "계속",
+      "subtitle": "웹과 앱에서 {site}를 하나의 계정으로 이용하세요.",
+      "continueApple": "Apple로 계속",
+      "continueGoogle": "Google로 계속",
+      "or": "또는",
+      "emailLabel": "이메일",
+      "emailPlaceholder": "you@example.com",
+      "sending": "보내는 중…",
+      "continueEmail": "이메일로 계속",
+      "agree": "계속하면 <terms>이용약관</terms> 및 <privacy>개인정보 처리방침</privacy>에 동의하는 것으로 간주돼요."
+    },
+    "code": {
+      "wrongTriesLeft": "코드가 올바르지 않아요. {count, plural, other {#번}} 남았어요.",
+      "back": "다른 이메일 사용",
+      "title": "이메일을 확인하세요",
+      "sentTo": "<addr>{email}</addr>로 보낸 코드를 입력하세요.",
+      "linking": "이 이메일로 만든 계정이 이미 있어요. 그 계정에 {method}이(가) 추가돼요.",
+      "signingIn": "로그인 중…",
+      "newCodeSent": "새 코드를 보냈어요.",
+      "resendIn": "{time} 후에 새 코드 받기",
+      "resend": "새 코드 받기",
+      "inputLabel": "로그인 코드"
+    },
+    "providers": {
+      "emailCode": "이메일 코드",
+      "passkey": "패스키",
+      "or": "{list} 또는 {last}",
+      "separator": ", "
+    },
+    "inUse": {
+      "identity": "이 로그인 방법은 다른 계정에 속해 있어요.",
+      "identityHow": "이 로그인 방법은 다른 계정에 속해 있어요({how}(으)로 로그인).",
+      "email": "이 이메일은 다른 계정에 속해 있어요.",
+      "emailHow": "이 이메일은 다른 계정에 속해 있어요({how}(으)로 로그인)."
+    },
+    "emails": {
+      "relayNotMain": "플랜에는 숨김 처리된 Apple 주소가 아닌 실제 이메일을 사용하세요.",
+      "mainNotRemovable": "먼저 다른 이메일을 대표로 설정하세요.",
+      "loadFailed": "이메일을 불러오지 못했어요.",
+      "enterAddress": "이메일 주소를 입력하세요.",
+      "sendCode": "코드 보내기",
+      "codeSentTo": "{email}로 보낸 코드를 입력하세요.",
+      "checking": "확인 중…",
+      "add": "이메일 추가",
+      "makeItMain": "대표 이메일로 설정",
+      "signInThere": "해당 계정으로 로그인",
+      "heading": "이메일 · 각각 코드로 로그인해요",
+      "hiddenApple": "숨김 처리된 Apple 주소",
+      "main": "대표",
+      "makeMain": "대표로 설정",
+      "removeLabel": "{email} 삭제",
+      "remove": "삭제",
+      "addAnother": "이메일 더 추가",
+      "full": "계정에 이메일이 {count}개 있어요. 하나를 삭제해야 추가할 수 있어요."
+    },
+    "passkeys": {
+      "loadFailed": "패스키를 불러오지 못했어요.",
+      "never": "사용 안 함",
+      "title": "패스키",
+      "subtitle": "Face ID, Touch ID, 휴대폰 또는 보안 키로 로그인하세요.",
+      "addTitle": "패스키 추가",
+      "added": "{date}에 추가됨",
+      "lastUsed": "마지막 사용 {date}",
+      "renameLabel": "{name} 이름 변경",
+      "rename": "이름 변경",
+      "removeLabel": "{name} 삭제",
+      "remove": "삭제",
+      "empty": "아직 패스키가 없어요.",
+      "emptyUnsupported": "아직 패스키가 없어요. 이 브라우저에서는 추가할 수 없어요.",
+      "addedNotice": "패스키를 추가했어요.",
+      "renamedNotice": "패스키 이름을 변경했어요.",
+      "removedNotice": "패스키를 삭제했어요.",
+      "addDescription": "다음부터는 Face ID, Touch ID, 휴대폰 또는 보안 키로 로그인하세요. 입력할 필요가 없어요.",
+      "name": "이름",
+      "confirmed": "다시 로그인했어요. 이제 패스키를 추가하세요.",
+      "waiting": "패스키를 기다리는 중…",
+      "add": "패스키 추가",
+      "renameTitle": "패스키 이름 변경",
+      "renameDescription": "이름을 붙이면 패스키를 구분하기 쉬워요.",
+      "removeTitle": "\"{name}\"을(를) 삭제할까요?",
+      "removeDescription": "이 패스키로는 더 이상 로그인할 수 없어요. 다른 방법으로는 계속 로그인할 수 있어요.",
+      "removing": "삭제 중…",
+      "removeButton": "패스키 삭제",
+      "signIn": "패스키로 로그인"
+    },
+    "otherAccount": {
+      "line": "다른 계정이 이 이메일을 사용 중이에요({how}(으)로 로그인)."
+    },
+    "passkeySuggestion": {
+      "added": "패스키를 추가했어요. 다음부터는 패스키로 로그인하세요.",
+      "line": "패스키를 추가하면 다음에 더 빠르게 로그인해요.",
+      "dismiss": "닫기"
+    },
+    "reauth": {
+      "title": "본인 확인",
+      "description": "계속하려면 다시 로그인하세요. 금방 끝나요.",
+      "usePasskey": "패스키 사용",
+      "confirm": "확인",
+      "sendCode": "{email}로 코드 보내기"
+    },
+    "menu": {
+      "label": "계정 메뉴",
+      "planBilling": "플랜 및 결제"
+    }
+  },
+  "account": {
+    "deletion": {
+      "scheduled": "{date}에 계정이 삭제돼요. 마음이 바뀌면 그 전에 로그인하세요.",
+      "pendingOn": "계정이 {date}에 삭제될 예정이에요. 이 작업을 하려면 계정을 유지하세요.",
+      "pending": "계정이 삭제될 예정이에요. 이 작업을 하려면 계정을 유지하세요."
+    },
+    "title": "계정",
+    "profile": {
+      "title": "프로필",
+      "noEmail": "이메일 없음",
+      "displayName": "표시 이름",
+      "saving": "저장 중…",
+      "saved": "저장됨",
+      "save": "저장",
+      "saveFailed": "이름을 업데이트하지 못했어요.",
+      "idHint": "계정 ID — 지원 요청 시 알려 주세요. 프로젝트와 변환이 이 ID에 연결돼 있어요.",
+      "copied": "복사됨",
+      "copyId": "ID 복사"
+    },
+    "security": {
+      "title": "로그인 및 보안"
+    },
+    "billing": {
+      "title": "결제",
+      "card": "카드와 구매 내역은 <link>결제</link>에서 확인하세요.",
+      "businessDetails": "회사 이름, 세금 ID, 주소가 담긴 인보이스: <link>사업자 정보</link>."
+    },
+    "session": {
+      "title": "세션",
+      "signOut": "로그아웃"
+    },
+    "delete": {
+      "scheduledTitle": "계정 삭제 예약됨",
+      "dangerZone": "위험 영역",
+      "typeToConfirm": "계정을 영구 삭제하려면 {word}을(를) 입력하세요",
+      "deleting": "삭제 중…",
+      "button": "계정 삭제",
+      "refundFirst": "먼저 잔액 {amount}을 결제 수단으로 돌려 드려요.",
+      "refundAndDelete": "환불하고 삭제",
+      "returning": "{amount}을 돌려 드리는 중이에요. 완료되면 계정이 삭제돼요.",
+      "note": "아직 내지 않은 금액이 있으면 먼저 저장된 결제 수단으로 결제돼요. 프로젝트, 영상, 3D 파일은 계정에서 즉시 삭제되고, 결제 기록은 지원을 위해 보관돼요.",
+      "paymentNeededAmount": "결제가 필요해요({amount}). 결제에서 결제 수단을 업데이트한 뒤 계정을 삭제하세요.",
+      "paymentNeeded": "결제가 필요해요. 결제에서 결제 수단을 업데이트한 뒤 계정을 삭제하세요.",
+      "failed": "계정을 삭제하지 못했어요."
+    },
+    "deletionPrompt": {
+      "keepFailed": "지금은 계정을 유지하지 못했어요. 다시 시도하세요.",
+      "title": "계정이 {date}에 삭제될 예정이에요.",
+      "description": "유지하면 모든 것이 그대로예요. 그대로 두면 그때 삭제돼요.",
+      "signingOut": "로그아웃 중…",
+      "deleteIt": "삭제",
+      "keeping": "유지 중…",
+      "keep": "계정 유지"
+    },
+    "deletePlan": {
+      "appStore": "App Store의 {plan}은 Apple을 통해 갱신돼요. Apple ID 설정에서 해지하세요.",
+      "validUntil": "{plan} 플랜은 {date}까지 유효해요.",
+      "validToPeriodEnd": "{plan} 플랜은 이번 기간이 끝날 때까지 유효해요.",
+      "restore": "이 이메일로 다시 가입하면 복원할 수 있어요.",
+      "cancelFirst": "먼저 플랜을 해지하세요.",
+      "cancelFirstUntil": "먼저 플랜을 해지하세요. {date}까지 유효해요.",
+      "cancelPlan": "플랜 해지"
+    }
+  },
   "look": {
     "analysisRunning": "분석이 아직 진행 중이에요 — 끝나면 견적을 확인할 수 있어요.",
     "requestFailed": "요청 실패",
@@ -1331,6 +1629,437 @@
       "addFunds": "{amount}부터 충전해서 잔액으로 변환 비용을 결제하세요.",
       "refundable": "사용하지 않은 금액은 {days}일 안에 환불받을 수 있어요."
     }
+  },
+  "meta": {
+    "site": {
+      "title": "웹에서 쓰는 {site} — 2D 영상을 3D로 변환",
+      "description": "웹에서 쓰는 {site}. 2D 영상을 3D로 변환하세요. Apple Vision Pro용 공간 비디오, Meta Quest, Pico 및 모든 3D 디스플레이용 사이드 바이 사이드. 시작하기 전에 가격을 확인하세요.",
+      "ogTitle": "웹에서 쓰는 {site}: 모든 영상을 생생한 3D로",
+      "ogImageAlt": "웹에서 쓰는 {site}: 모든 영상을 최대 8K 생생한 3D로, Vision Pro와 모든 헤드셋용"
+    },
+    "home": {
+      "appDescription": "2D 영상을 3D로 변환하세요. Apple Vision Pro용 공간 비디오, Meta Quest, Pico, Samsung Galaxy XR, 3D 디스플레이용 사이드 바이 사이드 3D."
+    },
+    "billing": {
+      "title": "결제"
+    },
+    "businessDetails": {
+      "title": "사업자 정보",
+      "heading": "사업자 정보",
+      "intro": "인보이스에 표시되는 정보예요. 저장하면 앞으로의 인보이스가 바뀌고, 이미 보낸 인보이스는 그대로예요."
+    },
+    "businessSetup": {
+      "title": "{business} 또는 {studio} 설정"
+    },
+    "payHandoff": {
+      "title": "3D 영상 결제"
+    },
+    "payReturn": {
+      "title": "결제"
+    },
+    "plans": {
+      "title": "플랜",
+      "description": "웹에서 쓰는 {site}의 {business} 및 {studio} 플랜: 매달 사용량 포함, 더 낮은 가격, 무료 미리보기, Express."
+    },
+    "pricing": {
+      "title": "가격",
+      "description": "웹에서 쓰는 {site} 가격: 영상 분당 결제하거나 플랜으로 절약하세요. {lifelike}, 1080p~8K."
+    },
+    "pro": {
+      "description": "{site} {pro}: 웹의 모든 3D 영상 가격 인하, 가입 시 사용량 크레딧, 무료 미리보기, iPhone, iPad, Mac, Vision Pro 앱의 {pro}."
+    }
+  },
+  "onboarding": {
+    "hints": {
+      "dismiss": "이 팁 닫기",
+      "billing": "잔액, 결제 수단, 영수증을 확인하세요. 여기서 충전하거나 잔액이 자동으로 충전되게 할 수 있어요.",
+      "usage": "모든 변환과 가격을 월별로 볼 수 있어요. CSV를 다운로드해 기록용으로 쓰세요.",
+      "invoices": "충전과 플랜 인보이스를 바로 다운로드할 수 있어요.",
+      "plans": "플랜은 모든 변환의 가격을 낮추고 매달 사용량을 포함해요. 플랜 없이 영상당 결제도 가능해요.",
+      "pricing": "가격은 선택한 크기 기준 영상 분당 금액이에요. 결제 전에 정확한 가격이 항상 표시돼요.",
+      "pro": "{pro}는 웹과 앱에서 쓰는 하나의 멤버십이에요. 멤버는 모든 변환이 더 저렴하고 가입 시 사용량 크레딧을 받아요.",
+      "account": "로그인, 설정, 그리고 필요할 때 계정 삭제까지.",
+      "devices": "이 기기에서 3D 영상을 보는 방법이에요.",
+      "scenes": "영상의 장면이 바뀌는 지점이에요. 미리보기와 파트는 이 지점에서 시작하며, 바꿀 일은 거의 없어요."
+    },
+    "tips": {
+      "progress": "{n}/{total}",
+      "skip": "팁 건너뛰기",
+      "next": "다음",
+      "gotIt": "확인",
+      "overview": {
+        "title": "내 영상의 모든 것",
+        "body": "길이, 크기, 장면, 전체 영상 가격을 확인해요. 보기만 하면 비용은 없어요."
+      },
+      "preview": {
+        "title": "먼저 짧은 부분을 해 보세요",
+        "body": "몇 초를 골라 3D로 본 뒤에 결정하세요. 첫 미리보기는 무료예요."
+      },
+      "make": {
+        "title": "고른 다음 결제",
+        "body": "어디서 볼지와 품질을 고르세요. 가격은 바로바로 바뀌고, 3D로 만들기를 누르기 전에는 결제되지 않아요."
+      },
+      "files": {
+        "title": "내 3D 파일",
+        "body": "다운로드하거나, 헤드셋 브라우저에서 이 페이지를 열고 재생하세요."
+      }
+    },
+    "getStarted": {
+      "title": "시작하기",
+      "progress": "{done}/{total} 완료",
+      "hide": "숨기기",
+      "done": "✓ 완료",
+      "next": "다음",
+      "pickNow": "지금 고르기",
+      "listSeparator": ", ",
+      "steps": {
+        "headset": {
+          "title": "헤드셋 고르기",
+          "body": "알맞은 파일을 만들기 위해서예요."
+        },
+        "firstVideo": {
+          "title": "첫 영상 추가",
+          "body": "영상을 살펴보고 가격을 보여 드려요. 무료예요."
+        },
+        "firstPreview": {
+          "title": "무료 미리보기 보기",
+          "body": "짧은 부분을 3D로, 무료로 보세요."
+        },
+        "first3d": {
+          "title": "3D로 만들기",
+          "body": "결제 전에 가격을 확인할 수 있어요."
+        },
+        "watched": {
+          "title": "헤드셋에서 보기",
+          "body": "헤드셋 브라우저에서 stereo3d.studio를 열거나 파일을 다운로드하세요."
+        }
+      }
+    },
+    "devices": {
+      "avp": {
+        "name": "Apple Vision Pro",
+        "files": "공간 비디오"
+      },
+      "quest": {
+        "name": "Meta Quest",
+        "files": "사이드 바이 사이드"
+      },
+      "galaxyxr": {
+        "name": "Samsung Galaxy XR",
+        "files": "사이드 바이 사이드"
+      },
+      "pico": {
+        "name": "Pico",
+        "files": "사이드 바이 사이드"
+      },
+      "steamframe": {
+        "name": "Steam Frame",
+        "files": "사이드 바이 사이드"
+      },
+      "glasses": {
+        "name": "XR 글라스",
+        "files": "사이드 바이 사이드"
+      },
+      "tv": {
+        "name": "3D TV 또는 프로젝터",
+        "files": "사이드 바이 사이드 (절반 크기)"
+      },
+      "unsure": {
+        "name": "아직 모르겠어요",
+        "files": "둘 다 포함해요"
+      }
+    },
+    "welcome": {
+      "eyebrow": "환영해요",
+      "skip": "건너뛰기",
+      "back": "뒤로",
+      "gotIt": "확인",
+      "continue": "계속",
+      "later": "나중에 할게요",
+      "stepOf": "{step}/{total} 단계",
+      "business": "고객을 위해 작업하나요? <link>{plan}</link>에는 매달 사용량, 상업적 이용, 인보이스가 포함돼요.",
+      "pro": {
+        "title": "{pro}를 여기서도 쓸 수 있어요",
+        "prices": "모든 영상에 {pro} 가격이 적용돼요.",
+        "pricesPct": "모든 영상에 {pro} 가격이 적용돼 {pct}% 할인돼요.",
+        "previews": "내 플랜에는 {period, select, pass {패스 기간 동안} month {매달} week {매주} year {매년} day {매일} other {{period}마다}} {count, plural, other {무료 미리보기 #회}}가 포함돼요.",
+        "credit": "{date}까지 쓸 수 있는 사용량 크레딧 {amount}이 있어요.",
+        "nothingBilled": "새로 결제되는 금액은 없어요."
+      },
+      "headsets": {
+        "title": "내 영상을 3D로.",
+        "intro": "{site}는 모든 2D 영상을 헤드셋에서 볼 수 있는 3D로 바꿔요. 먼저, 어디서 볼 건가요?",
+        "question": "어디서 볼 건가요?",
+        "fromApp": "앱에서 가져왔어요. 알맞은 파일을 고르는 데 사용해요. 프로젝트마다 바꿀 수 있어요.",
+        "otherHeadset": "앱에서 헤드셋을 쓴다고 알려 주셨어요. 알맞은 파일을 고르는 데 사용해요.",
+        "note": "알맞은 파일을 고르는 데 사용해요. 프로젝트마다 바꿀 수 있어요."
+      },
+      "how": {
+        "loopLabel": "노을 속에서 밴드 앞에 선 가수: 왼쪽은 2D 영상, 오른쪽은 같은 순간의 3D",
+        "eyebrow": "이용 방법",
+        "title": "세 단계. 결제 전에 가격을 확인해요.",
+        "titleShort": "결제 전에 가격을 확인해요.",
+        "description": "{site} 이용 방법",
+        "steps": {
+          "add": {
+            "title": "영상 추가",
+            "body": "모든 장면을 살펴보고 가격을 보여 드려요. 무료예요.",
+            "short": "가격을 무료로 확인하세요."
+          },
+          "preview": {
+            "title": "미리보기 보기",
+            "body": "짧은 부분을 헤드셋에서 3D로 보세요. 첫 미리보기는 무료예요.",
+            "short": "첫 번째는 무료예요."
+          },
+          "make": {
+            "title": "3D로 만들기",
+            "body": "전체 영상을 결제한 뒤 다운로드하거나 헤드셋 브라우저에서 재생하세요.",
+            "short": "다운로드하거나 헤드셋에서 재생하세요."
+          }
+        }
+      },
+      "project": {
+        "eyebrow": "첫 프로젝트",
+        "title": "내 영상으로 시작하세요.",
+        "description": "영상을 추가하거나 샘플 열기",
+        "sample": "영상이 없나요? 완성된 샘플을 열어 먼저 둘러보세요."
+      }
+    }
+  },
+  "runs": {
+    "status": {
+      "confirmingPayment": "결제 확인 중",
+      "waitingInLine": "대기 중",
+      "making": "3D 만드는 중",
+      "readyPaymentNeeded": "준비 완료, 결제 필요",
+      "ready": "준비 완료",
+      "failedRefunded": "실패, {amount} 환불됨",
+      "failedNotCharged": "실패, 결제되지 않음",
+      "cancelledRefunded": "취소됨 · {amount} 환불됨",
+      "cancelledNotCharged": "취소됨 · 결제되지 않음",
+      "expiredNotCharged": "시작되지 않음, 결제되지 않음",
+      "waitingNote": "사용 가능한 기기가 생기는 대로 시작해요. 보통 몇 분 안에 시작돼요. 가격은 그대로예요.",
+      "short": {
+        "failed": "실패",
+        "cancelled": "취소됨",
+        "expired": "시작 안 됨"
+      }
+    },
+    "stages": {
+      "preprocess": "영상 준비 중",
+      "profile_scenes": "장면 측정 중",
+      "video_depth": "깊이 측정 중",
+      "video_stereo": "3D 영상 만드는 중",
+      "encode_outputs": "파일 인코딩 중",
+      "encode_mvhevc": "Vision Pro 파일 인코딩 중",
+      "image_stereo": "3D 이미지 만드는 중",
+      "queued": "시작 대기 중",
+      "plan": "준비 중",
+      "render": "3D 렌더링 중",
+      "encode": "인코딩 중",
+      "publish": "게시 중",
+      "done": "마무리 중",
+      "analyze": "분석 중",
+      "proxy": "미리보기 만드는 중",
+      "scene_detect": "장면 감지 중",
+      "thumbnails": "썸네일 렌더링 중"
+    },
+    "tracker": {
+      "expressWait": "곧 시작돼요 (Express).",
+      "expressWaitWithin": "곧 시작돼요 (Express). 약 {minutes}분 이내예요.",
+      "cancelNowRefund": "{time} · 지금 취소하면 전액 환불",
+      "cancelNowNotCharged": "{time} · 지금 취소하면 결제되지 않음",
+      "cancelWhileWaitingRefund": "대기 중에는 언제든 취소하고 전액 환불받을 수 있어요.",
+      "cancelWhileWaitingNotCharged": "대기 중에는 언제든 취소할 수 있고 결제되지 않아요.",
+      "steps": {
+        "ready": "준비 중",
+        "making": "3D 영상 만드는 중",
+        "saving": "파일 저장 중"
+      },
+      "runFallback": "변환",
+      "billing": {
+        "refundPending": "환불이 진행 중이에요. 전액이 결제 수단으로 돌아가요.",
+        "refunded": "전액 환불됐어요.",
+        "notCharged": "결제되지 않았어요.",
+        "paidAtStart": "변환이 시작될 때 결제됐어요. 실패하면 전액 환불돼요.",
+        "paidAtStartRefunded": "이 변환은 시작될 때 결제돼서 전액 환불돼요."
+      },
+      "cancelFailed": "취소하지 못했어요",
+      "estimated": "예상: {duration}",
+      "allFiles": "모든 파일",
+      "cancel": "취소",
+      "waitingForConfirmation": "결제가 확인되기를 기다리는 중이에요.",
+      "confirmingWithBank": "은행에서 결제를 확인하는 중이에요. 승인되는 대로 시작돼요.",
+      "chargeFailed": "마지막 결제에 문제가 있어요.",
+      "payNow": "지금 결제",
+      "failed": "저희 쪽에서 문제가 생겼어요. 다시 시도하세요."
+    },
+    "overdue": {
+      "reported": "알려 주셔서 감사합니다. 이 변환을 확인하고 이메일로 답변드릴게요.",
+      "title": "예상보다 훨씬 오래 걸리고 있어요.",
+      "body": "저희 쪽에서 멈췄을 수 있어요. 신고해 주시면 확인한 뒤 이메일로 답변드릴게요.",
+      "notePlaceholder": "알려 주실 내용이 있나요? (선택)",
+      "sending": "보내는 중…",
+      "report": "신고",
+      "sendFailed": "신고를 보내지 못했어요. 다시 시도하세요."
+    },
+    "previous": {
+      "word": {
+        "refunded": "환불됨",
+        "making": "만드는 중…"
+      },
+      "notCharged": "결제되지 않음",
+      "wholeVideo": "전체 영상",
+      "title": "이전 변환",
+      "allFiles": "모든 파일",
+      "showFewer": "간략히 보기",
+      "showAll": "모두 보기 ({count})",
+      "filesDeleted": "이 파일은 {date}에 삭제됐어요.",
+      "filesUnavailable": "지금은 파일을 열 수 없어요.",
+      "watch": "보기",
+      "partsInFiles": "파트 {count}개, 파일에서 확인",
+      "files": "파일",
+      "alreadyMade": "{day}에 이미 만들었어요 · <link>다운로드</link>"
+    },
+    "prior": {
+      "hideDownloads": "다운로드 숨기기",
+      "downloads": "다운로드",
+      "fetching": "다운로드 링크를 가져오는 중…"
+    }
+  },
+  "files": {
+    "load": {
+      "sampleUnavailable": "지금은 샘플을 사용할 수 없어요.",
+      "failed": "파일을 불러오지 못했어요."
+    },
+    "groups": {
+      "anyScreen": "모든 화면",
+      "previewLifelikeHow": "여기서 재생되며, 무료 3D 확인도 가능해요.",
+      "previewHow": "여기서 재생하거나 헤드셋 플레이어에서 재생하세요.",
+      "mvhevcHow": "AirDrop 또는 파일 앱으로 보내세요. 사진 앱에 표시돼요.",
+      "sbsDevice": "Meta Quest, Galaxy XR, Pico, Steam Frame, XR 글라스",
+      "halfSbsDevice": "3D TV, 프로젝터, 4K 이상의 Meta Quest",
+      "sideBySideHow": "플레이어에서 열고 3D 사이드 바이 사이드를 선택하세요.",
+      "anaglyphHow": "빨강-청록 안경으로 보세요.",
+      "depthDevice": "깊이 영상",
+      "depthHow": "직접 쓰는 편집 도구용이에요."
+    },
+    "short": {
+      "sbs": "사이드 바이 사이드",
+      "halfSbs": "절반 사이드 바이 사이드",
+      "anaglyph": "빨강-청록"
+    },
+    "download": "다운로드",
+    "fetching": "파일을 가져오는 중…",
+    "empty": "이 변환에는 파일이 없어요.",
+    "thisHeadset": "이 헤드셋",
+    "row": {
+      "part": "파트 {part}",
+      "clip": "클립",
+      "full": "전체"
+    },
+    "otherFiles": "{devices} 파일 ({count})",
+    "another": {
+      "longWait": "시간이 걸릴 수 있어요. 이 페이지를 나가도 되고, 준비되면 파일이 여기에 표시돼요.",
+      "aboutMinutes": "{count, plural, other {약 #분}}",
+      "almostReady": "거의 준비됐어요…",
+      "left": "약 {time} 남음",
+      "almostDone": "거의 끝났어요…",
+      "unavailable": {
+        "halfOnly": "이 변환에는 절반 크기 파일만 있어요. 다른 형식은 새로 변환하세요.",
+        "filesErased": "이 파일은 90일 동안 사용되지 않아 삭제됐어요.",
+        "splitRun": "이 변환은 파트로 나뉘어 있어서 다른 형식을 만들 수 없어요. 다른 형식은 새로 변환하세요."
+      },
+      "failed": "실패했어요. 다시 시도하세요.",
+      "tooWide": "6K와 8K에서는 전체 사이드 바이 사이드를 만들지 않아요. 사이드 바이 사이드(절반 크기) 또는 공간 비디오를 선택하세요.",
+      "rateLimited": "시도 횟수가 너무 많아요. 몇 분 뒤에 다시 시도하세요.",
+      "open": "다른 형식 받기",
+      "title": "다른 형식",
+      "free": "무료",
+      "madeFrom": "이 변환의 파일로 만들어요.",
+      "formatMaking": "{format}: 만드는 중…",
+      "formatAlmostReady": "{format}: 거의 준비됐어요…",
+      "formatFailed": "{format}: 실패했어요. 다시 시도하세요.",
+      "progressLabel": "{format} 진행 상황",
+      "tryAgain": "다시 시도"
+    },
+    "details": {
+      "toggle": "세부 정보",
+      "fileWords": {
+        "sbs": "사이드 바이 사이드 .mp4",
+        "halfSbs": "사이드 바이 사이드(절반 크기) .mp4",
+        "anaglyph": "빨강-청록 .mp4",
+        "depth": "깊이 .mp4",
+        "depthVis": "깊이 보기 .mp4"
+      },
+      "scene": "장면 {n}",
+      "scenes": "장면 {a}–{b}",
+      "wholeVideo": "전체 영상",
+      "perEye": "눈당 {width}×{height}",
+      "px": "{value}px",
+      "left": "왼쪽",
+      "right": "오른쪽",
+      "on": "켜짐",
+      "off": "꺼짐",
+      "included": "포함",
+      "freePreview": "무료 미리보기",
+      "proDiscountPct": "{plan} {pct}% · −{amount}",
+      "proDiscount": "{plan} · −{amount}",
+      "minus": "−{amount}",
+      "offer": "{label} · −{amount}",
+      "viewReceipt": "영수증 보기",
+      "viewInvoice": "인보이스 보기",
+      "deletedOn": "{date}에 삭제됨",
+      "fileSize": "{name} {size}",
+      "fileSizePart": "{name} 파트 {part} {size}",
+      "copied": "복사됨",
+      "copy": "복사",
+      "rows": {
+        "what": "항목",
+        "part": "파트",
+        "quality": "품질",
+        "frameRate": "프레임 레이트",
+        "filesMade": "만든 파일",
+        "filesOrdered": "주문한 파일",
+        "parts": "파트",
+        "strength": "3D 강도",
+        "depthDetail": "깊이 디테일",
+        "scenesTuned": "조정한 장면",
+        "originalEye": "원본 눈",
+        "fileQuality": "파일 품질",
+        "bitrate": "비트 레이트",
+        "audio": "오디오",
+        "foveation": "Foveated Detail",
+        "express": "Express",
+        "quickLook": "퀵 룩",
+        "intro": "인트로",
+        "ordered": "주문",
+        "finished": "완료",
+        "took": "소요 시간",
+        "price": "가격",
+        "freePreviewsUsed": "사용한 무료 미리보기",
+        "discount": "할인",
+        "launchOffer": "출시 혜택",
+        "receipt": "영수증",
+        "invoice": "인보이스",
+        "runId": "변환 ID",
+        "files": "파일",
+        "fileSizes": "파일 크기",
+        "keptUntil": "보관 기한"
+      }
+    },
+    "history": {
+      "parts": "{count, plural, other {파트 #개}}",
+      "label": "변환 내역",
+      "empty": "아직 없어요. 3D 파일이 준비되면 여기에 표시돼요.",
+      "launchOffer": "출시 혜택",
+      "failed": "저희 쪽에서 문제가 생겼어요."
+    }
+  },
+  "viewer": {
+    "viewIn3D": "3D로 보기",
+    "fullScreen": "전체 화면",
+    "playsFlat": "여기서는 평면으로 재생돼요. Vision Pro 공간 비디오는 3D로 재생돼요."
   },
   "workspace": {
     "analyze": {
