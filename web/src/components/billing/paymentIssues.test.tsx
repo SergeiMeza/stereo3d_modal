@@ -7,6 +7,7 @@
 import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
+import AccountScreen from "@/components/auth/AccountScreen";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import type { AccountPlan } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
@@ -95,6 +96,20 @@ describe("a plan past due", () => {
     pastDue();
     banner();
     expect((await screen.findByTestId("payment-issue-past_due")).textContent).toContain("Pay now to keep your plan.");
+  });
+
+  it("the Account page shows it too (owner 2026-11-07: people check their plan there)", async () => {
+    pastDue();
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <AccountScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const issue = await screen.findByTestId("payment-issue-past_due");
+    expect(issue.textContent).toContain("Your Business payment didn't go through. Pay now to keep your plan.");
+    expect(within(issue).getByTestId("payment-issue-pay-past_due").getAttribute("href")).toBe("https://stereo3d.studio/pay/tok_plan");
   });
 
   it("when the bank wants a confirmation, it says to confirm with the bank", async () => {

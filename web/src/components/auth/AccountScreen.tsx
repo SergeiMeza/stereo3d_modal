@@ -54,6 +54,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { errorText } from "@/lib/authErrors";
+import { PaymentIssues } from "@/components/billing/PaymentIssues";
 
 function CardShell({
   title,
@@ -214,6 +215,11 @@ export default function AccountScreen() {
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6">
       <h1 className="text-xl font-semibold tracking-tight">{tr("account.title")}</h1>
+      {/* owner 2026-11-07 (D): people check their plan here; a past-due
+          plan or a payment being retried shows here too */}
+      <div className="overflow-hidden rounded-lg">
+        <PaymentIssues />
+      </div>
       <AlertDialog open={scheduled !== null}>
         <AlertDialogContent data-testid="deletion-scheduled" onEscapeKeyDown={(e) => e.preventDefault()}>
           <AlertDialogHeader>
