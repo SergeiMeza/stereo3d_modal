@@ -96,7 +96,7 @@ func TestRCAttributes(t *testing.T) {
 	p := stub.posts[allowed][0]
 	if p["web_email"] != "web@example.test" || p["web_display_name"] != "Web Person" || p["web_sign_in_methods"] != "email,google.com" ||
 		p["web_lifetime_spend_usd"] != "12.34" || p["web_locale"] != "ja" || p["web_plan"] != "none" || p["web_credit_balance_usd"] != "0.00" ||
-		p["web_last_active_at"] == nil {
+		p["web_last_active_at"] == nil || p["web_source"] != "web" {
 		t.Fatalf("attributes %v", p)
 	}
 	if _, set := p["$email"]; set {
@@ -136,8 +136,11 @@ func TestRCAttributes(t *testing.T) {
 	s.rcAttrsClear(ctx, allowed)
 	s.syncRCAttributes(ctx)
 	got := stub.posts[allowed]
-	if len(got) != 3 || len(got[2]) != len(rcWebAttrs) {
+	if len(got) != 3 || len(got[2]) != len(rcWebAttrs)-1 {
 		t.Fatalf("clear %v", got)
+	}
+	if _, cleared := got[2]["web_source"]; cleared {
+		t.Fatal("web_source cleared")
 	}
 	for k, v := range got[2] {
 		if !strings.HasPrefix(k, "web_") || v != nil {
@@ -171,5 +174,56 @@ func TestRCReadGateByEnv(t *testing.T) {
 	r.RCAttrAllowUIDs = nil // the default: nobody on TEST
 	if g(context.Background(), "qa1") {
 		t.Fatal("empty allowlist reads")
+	}
+}
+
+// web_source "web" goes with an account's first attribute write, once; a
+// customer that already has a web_source keeps it (never overwritten).
+func TestRCWebSource(t *testing.T) {
+	s, _ := e0Service(t)
+	ctx := context.Background()
+	prev := rcAttrDebounce
+	rcAttrDebounce = 0
+	t.Cleanup(func() { rcAttrDebounce = prev })
+	fresh, app := "u"+store.NewID(), "u"+store.NewID()
+	rates := pricing.DefaultsFor("test")
+	rates.RCAttrAllowUIDs = []string{fresh, app}
+	s.Pricing = pricing.NewStatic(rates)
+	stub := &rcStub{attrs: map[string]map[string]string{app: {"web_source": "app"}}, posts: map[string][]map[string]any{}}
+	srv := httptest.NewServer(stub)
+	t.Cleanup(srv.Close)
+	s.RevenueCat = revenuecat.New("sk_test_fake").WithBase(srv.URL, time.Now)
+	ids := newFakeIdentities()
+	ids.add(fresh, "fresh@example.test", "email")
+	ids.add(app, "app@example.test", "apple.com")
+	s.Identities = ids
+	for _, uid := range []string{fresh, app} {
+		s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_" + uid, LifetimePaidCents: 100})
+		s.rcAttrsTouch(ctx, uid, "balance")
+	}
+	s.syncRCAttributes(ctx)
+	if p := stub.posts[fresh]; len(p) != 1 || p[0]["web_source"] != "web" {
+		t.Fatalf("fresh %v", p)
+	}
+	if p := stub.posts[app]; len(p) != 1 || p[0]["web_source"] != nil {
+		t.Fatalf("existing web_source overwritten %v", p)
+	}
+	if _, set := stub.posts[app][0]["web_source"]; set {
+		t.Fatal("web_source sent over the existing one")
+	}
+	// later changes never send it again
+	for _, uid := range []string{fresh, app} {
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.LifetimePaidCents = 500; return nil })
+		s.rcAttrsTouch(ctx, uid, "spend")
+	}
+	s.syncRCAttributes(ctx)
+	for _, uid := range []string{fresh, app} {
+		got := stub.posts[uid]
+		if len(got) != 2 {
+			t.Fatalf("%s posts %v", uid, got)
+		}
+		if _, set := got[1]["web_source"]; set {
+			t.Fatalf("%s web_source sent again %v", uid, got[1])
+		}
 	}
 }

@@ -964,7 +964,11 @@ The gateway writes its own subscriber attributes to RevenueCat (POST
 google.com, passkey), `web_country` (the edge's country of the last web
 visit, never the IP), `web_locale`, `web_plan` (the web plan's id, or
 none), `web_plan_renews_at`, `web_lifetime_spend_usd`,
-`web_credit_balance_usd`, `web_last_active_at`. `$email` and
+`web_credit_balance_usd`, `web_last_active_at`, and `web_source: "web"`
+(sent with the account's first attribute write, once, and never over a
+web_source the customer already has; never changed or cleared, a
+deletion included, so the KPI ingest can tell web-only customers apart).
+`$email` and
 `$displayName` only when the customer has no value yet (read first; the
 app owns them). Never written: newsletter, locale, free_tier_arm,
 svs_simulated, delete_account, any `$` attribution attribute; no IPs,
@@ -976,13 +980,19 @@ tokens or payment details; no consent (the web stores none).
   sweep sends only what changed (`rc_attr_sync_{env}/{uid}` keeps hashes
   of the personal values, never the values).
 - **Deletion:** a completed deletion clears the web_* attributes (null),
-  once; a deleted account never gets them back. delete_account stays
+  once, except `web_source`; a deleted account never gets them back. delete_account stays
   svs-backend's.
 - **Who:** `rc_attr_sync` off | dry_run | allowlist | on; the default is
   allowlist off prod (only `rc_attr_allow_uids` are written; the rest log
   the attribute names they would send) and off on prod (on at the
   release, with the owner's yes). RevenueCat is one shared project: no
   backfill on TEST beyond the allowlisted uid.
+- **Reads on TEST** (2026-11-07): a v1 subscriber read creates the customer
+  it reads (answering 201), so TEST reads RevenueCat (Pro checks, Pro
+  credit, promotional grant snapshots, attribute reads) only for
+  `rc_attr_allow_uids`; everyone else reads as no app Pro and nothing is
+  sent. Prod reads every account (creating web customers there is
+  intended). 200 and 201 are both a successful read.
 
 ### Grant credit (owner 2026-11-07)
 

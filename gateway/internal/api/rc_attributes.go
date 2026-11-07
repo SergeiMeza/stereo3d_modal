@@ -43,7 +43,12 @@ const (
 
 // rcWebAttrs are the gateway's own attributes.
 var rcWebAttrs = []string{"web_email", "web_display_name", "web_account_created_at", "web_sign_in_methods", "web_country", "web_locale",
-	"web_plan", "web_plan_renews_at", "web_lifetime_spend_usd", "web_credit_balance_usd", "web_last_active_at"}
+	"web_plan", "web_plan_renews_at", "web_lifetime_spend_usd", "web_credit_balance_usd", "web_last_active_at", "web_source"}
+
+// rcWebSource is web_source's one value (owner 2026-11-07): set with an
+// account's first attribute write and never changed or cleared, so the
+// KPI ingest can tell customers the web made from the app's.
+const rcWebSource = "web"
 
 // rcPersonal are kept as hashes in the sync record, never in clear.
 var rcPersonal = map[string]bool{"web_email": true, "web_display_name": true, "$email": true, "$displayName": true}
@@ -103,6 +108,7 @@ func (s *Service) rcAttrsOf(ctx context.Context, uid string, rec *store.RCAttrSy
 	for _, k := range rcWebAttrs {
 		out[k] = ""
 	}
+	out["web_source"] = rcWebSource
 	iso := func(t time.Time) string {
 		if t.IsZero() {
 			return ""
@@ -184,6 +190,9 @@ func (s *Service) syncRCAttrsOne(ctx context.Context, rec *store.RCAttrSync, rea
 	if rec.Clear {
 		attrs = map[string]string{}
 		for _, k := range rcWebAttrs {
+			if k == "web_source" {
+				continue // where the customer came from stays, even after a deletion
+			}
 			attrs[k] = "" // only ours: never delete_account, newsletter or the app's
 		}
 	} else {
@@ -191,6 +200,9 @@ func (s *Service) syncRCAttrsOne(ctx context.Context, rec *store.RCAttrSync, rea
 	}
 	changed, marks := map[string]string{}, map[string]string{}
 	for k, v := range attrs {
+		if k == "web_source" && rec.Sent[k] != "" {
+			continue // set once (by us or already there): never again
+		}
 		if rec.Sent[k] != rcSentValue(k, v) { // never-set and empty: nothing to send
 			changed[k] = v
 		}
@@ -201,9 +213,21 @@ func (s *Service) syncRCAttrsOne(ctx context.Context, rec *store.RCAttrSync, rea
 			changed = map[string]string{} // already cleared: a deleted account never gets them back
 		}
 	}
-	// $email / $displayName: only where the customer has none yet
-	if real && !rec.Clear && (rec.Sent["$email"] == "" || rec.Sent["$displayName"] == "") && (attrs["web_email"] != "" || attrs["web_display_name"] != "") {
-		if have, err := s.RevenueCat.SubscriberAttributes(ctx, uid); err == nil {
+	// $email / $displayName only where the customer has none yet, and
+	// web_source only once and never over a value already there: both
+	// read the customer's attributes first.
+	_, firstSource := changed["web_source"]
+	wantNames := (rec.Sent["$email"] == "" || rec.Sent["$displayName"] == "") && (attrs["web_email"] != "" || attrs["web_display_name"] != "")
+	if real && !rec.Clear && (wantNames || firstSource) {
+		have, err := s.RevenueCat.SubscriberAttributes(ctx, uid)
+		switch {
+		case err != nil:
+			delete(changed, "web_source") // unknown: tried again with the next sync
+		case have["web_source"] != "":
+			delete(changed, "web_source")
+			marks["web_source"] = "present" // already set: never ours to change, not read again
+		}
+		if err == nil && wantNames {
 			for _, k := range []struct{ rc, ours string }{{"$email", "web_email"}, {"$displayName", "web_display_name"}} {
 				switch {
 				case rec.Sent[k.rc] != "":
