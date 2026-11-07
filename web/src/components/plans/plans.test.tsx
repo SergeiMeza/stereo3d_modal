@@ -359,6 +359,25 @@ describe("quote A and the Business note", () => {
     expect(pro.textContent).toContain("$12.34");
   });
 
+  it("a new account's first full-run quote offers Pro beside the free-preview line (TEST 2026-11-07)", async () => {
+    // the gateway sends free_previews on every quote; a new account's says
+    // the first preview is free, on the full run's quote too
+    wrap(
+      <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
+    );
+    const pro = await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 });
+    expect(pro).toBeTruthy();
+    expect(screen.getByTestId("free-previews").textContent).toBe("Your first preview is free");
+    cleanup();
+    // and the same once the free preview is used
+    mockDb.freePreviews.introUsed = true;
+    resetAccountSettingsCache();
+    wrap(
+      <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
+    );
+    expect(await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 })).toBeTruthy();
+  });
+
   it("a $50+ quote carries the Business note", async () => {
     const p = project();
     p.probe = {

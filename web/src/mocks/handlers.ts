@@ -567,9 +567,9 @@ function tierQuoteExtras(
   const tier = mockTier();
   const out: Record<string, unknown> = { tier, discount: bd.discount ?? null };
   if (tier) out.tier_label = TIER_LABEL[tier];
-  if (req.step === "lifelike_preview") {
-    out.free_previews = freePreviewState((bd.free_preview_units as number) ?? 1);
-  }
+  // projects.go sends free_previews on every quote (units 0 off previews);
+  // the intro's free says the first preview is free, whatever the step
+  out.free_previews = freePreviewState(req.step === "lifelike_preview" ? ((bd.free_preview_units as number) ?? 1) : 0);
   if (bd.free_preview === true) {
     out.payment_flow = "free_preview";
     out.charge_timing = "before";

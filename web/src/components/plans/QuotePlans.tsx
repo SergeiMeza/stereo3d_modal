@@ -67,10 +67,14 @@ export function useQuoteProChoice(quote: StepQuoteResponse | null): {
   const pricing = usePricing();
   const { dismissed } = useDismissal("quote", 7);
   if (!quote || tier !== "none" || dismissed !== false) return null;
-  // alt_prices don't apply free previews: a free run has nothing to save
+  // alt_prices don't apply free previews: a free run has nothing to save.
+  // free_previews.free speaks for previews only: the gateway sends it on
+  // every quote, and for a new account it says the first preview is free
+  // on the full run's quote too (TEST 2026-11-07: the Pro row hid on a new
+  // account's first quote, and showed once the free preview was used).
   if (
     quote.payment_flow === "free_preview" ||
-    quote.free_previews?.free ||
+    (quote.step === "lifelike_preview" && quote.free_previews?.free) ||
     quote.quote.amount_cents === 0
   )
     return null;
