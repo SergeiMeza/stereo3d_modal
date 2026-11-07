@@ -525,8 +525,9 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		"pro_is":      "the SVS Pro entitlement or a running pass",
 	}
 	out["addons"] = map[string]any{
-		AddOnFoveated: map[string]any{"pct": r.AddOnPct(AddOnFoveated), "methods": []string{"lifelike"}, "enabled": r.FoveationEnabled},
-		AddOnMaster:   map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"}, "request": map[string]any{"bitrate": "master"}},
+		AddOnFoveated: map[string]any{"pct": r.AddOnPct(AddOnFoveated), "methods": []string{"lifelike"}, "enabled": r.FoveationEnabled,
+			"included_presets": []string{"1080p"}}, // free and always on at 1080p (owner 2026-11-07)
+		AddOnMaster: map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"}, "request": map[string]any{"bitrate": "master"}},
 		AddOnExpress: map[string]any{"pct": r.AddOnPct(AddOnExpress), "methods": []string{"lifelike"}, "request": map[string]any{"express": true},
 			"included_in": []string{TierBusiness, TierStudio}, "effect": "first in the GPU line"},
 		"on": "the run's price at its tier, before the bulk discount",

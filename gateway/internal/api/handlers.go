@@ -1076,6 +1076,20 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"kind":          c.Kind,
 		"params":        c.Params,
 	}
+	if c.Method == store.MethodLifelike && c.Step != "" {
+		paid := false // a 1080p run quoted before 2026-11-07 paid for it
+		switch v := c.Quote.Breakdown["foveation_cents"].(type) {
+		case int64:
+			paid = v > 0
+		case float64:
+			paid = v > 0
+		}
+		fv := map[string]any{"applied": c.Params.Foveation != "", "included": c.Params.Preset == foveationIncludedPreset && !paid}
+		if fv["included"] == true && c.Params.Foveation == "" {
+			fv["reason"] = "output_not_below_source"
+		}
+		resp["foveation"] = fv
+	}
 	if split := splitBilling(c); split != nil {
 		resp["pay_split"] = split // credit and balance first: the covered part and the card's
 	}

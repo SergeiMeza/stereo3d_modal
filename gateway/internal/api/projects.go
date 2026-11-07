@@ -1054,7 +1054,7 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		// knobs, nothing reused (pricing.QuoteLifelike).
 		in := s.stepQuoteInputs(p, params, step, billable)
 		in.Preset = pricePreset(params)
-		in.Foveated = params.Foveation != ""
+		in.Foveated = params.Foveation != "" && params.Preset != foveationIncludedPreset // included at 1080p
 		in.CreditCents = creditCents
 		at, alt := quoteTierOverride(ctx)
 		if !alt {
@@ -1250,6 +1250,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
 		"fps":           s.fpsInfo(ctx, p, params),
+	}
+	if fv := foveationView(p, params, method); fv != nil {
+		resp["foveation"] = fv // {applied, included, reason?}: "Foveated Detail · included" at 1080p
 	}
 	if alt := s.altPrices(ctx, p, params, req.Step, credit); alt != nil {
 		resp["alt_prices"] = alt // the same run at Pro, Business and Studio

@@ -536,7 +536,18 @@ source's, at ×`foveation_price_multiplier` (its own `foveation_cents`
 breakdown line), and only while `foveation_enabled` is on (else 400
 `feature_unavailable`). Once on, it is the DEFAULT whenever the size is
 below the source (previews too); only an explicit `"foveation": null`
-turns it off. Off, nothing changes. Classic-only
+turns it off. Off, nothing changes. **At 1080p it's included (owner
+2026-11-07)**: always on when the output is below the source, whatever
+the request says (null or "static"), with no price (`foveation_cents` 0,
+no add-on); a source at 1080p or smaller is a no-op there (the pipeline
+only re-spends bits, never renders above the source), so nothing is
+sent. Quotes and runs carry `foveation {applied, included, reason?:
+"output_not_below_source"}`; `/v1/pricing` adds `included_presets:
+["1080p"]` to `addons.foveated` and `methods.lifelike.foveation`.
+**Release step**: prod config `foveation_enabled: true` (that's the only
+key; `foveation_price_multiplier` stays 1.3 unless the owner changes it),
+then a prod 1080p quote reads `foveation {applied: true, included: true}`
+and no foveation price. Classic-only
 knobs (`depth_res`, `depth_scale`, `inpaint`, `warp`, `scene_overrides`,
 `use_uploaded_depth`, `displacement`) are 400s; the project's cut list is
 always forwarded. Classic refuses `split_max_seconds` (400

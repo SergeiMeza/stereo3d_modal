@@ -259,3 +259,59 @@ func TestQuotePayNowWithoutDeferred(t *testing.T) {
 		t.Fatalf("covered %v %v", out["payment_flow"], out["pay_split"])
 	}
 }
+
+// Foveated Detail at 1080p is included: the quote has no foveation price
+// and says {applied, included}; at 1440p it's still the paid add-on.
+func TestQuoteFoveationIncludedAt1080p(t *testing.T) {
+	s, _, uid := splitFixture(t, 0)
+	ctx := context.Background()
+	c := projCaller{t, s, &AuthedUser{UID: uid}}
+	p := barsProject(3840, 2160, "3840:2160:0:0")
+	p.ID, p.UID, p.Source.GCSKey, p.Analyze.State = store.NewID(), uid, "stereo3d/test/uploads/x.mp4", store.AnalyzeSucceeded
+	p.Scenes = &store.Scenes{Version: 1, Cuts: []int{}}
+	s.Store.CreateProject(ctx, p)
+	quote := func(body string) map[string]any {
+		code, raw := c.do(s.HandleQuoteStep, p.ID, body)
+		var out map[string]any
+		json.Unmarshal([]byte(raw), &out)
+		if code != 200 {
+			t.Fatalf("quote %d %s", code, raw)
+		}
+		return out
+	}
+	hd := quote(`{"step":"production","preset":"1080p","foveation":"static"}`)
+	bd := hd["quote"].(map[string]any)["breakdown"].(map[string]any)
+	fv := hd["foveation"].(map[string]any)
+	if bd["foveation_cents"] != float64(0) || bd["foveation_multiplier"] != float64(1) || fv["applied"] != true || fv["included"] != true ||
+		hd["quote"].(map[string]any)["amount_cents"] != float64(400) {
+		t.Fatalf("1080p %v %v %v", hd["quote"], fv, bd["addons"])
+	}
+	if addons, _ := bd["addons"].(map[string]any); len(addons) != 0 {
+		t.Fatalf("1080p add-ons %v", addons)
+	}
+	qhd := quote(`{"step":"production","preset":"qhd","foveation":"static"}`)
+	if fv := qhd["foveation"].(map[string]any); fv["applied"] != true || fv["included"] != false ||
+		qhd["quote"].(map[string]any)["amount_cents"] == float64(700) {
+		t.Fatalf("qhd %v %v", qhd["quote"], fv)
+	}
+}
+
+// A 1080p run reports foveation included (free); a 1080p run quoted with a
+// foveation price before the change reports it as paid.
+func TestRunFoveationView(t *testing.T) {
+	s := &Service{}
+	run := &store.Conversion{Method: store.MethodLifelike, Step: store.StepProduction,
+		Params: store.Params{Preset: "1080p", Foveation: "static"}, Quote: store.Quote{Breakdown: map[string]any{"foveation_cents": int64(0)}}}
+	if fv := s.conversionResponse(run, nil)["foveation"].(map[string]any); fv["applied"] != true || fv["included"] != true {
+		t.Fatalf("included %v", fv)
+	}
+	run.Quote.Breakdown["foveation_cents"] = int64(120)
+	if fv := s.conversionResponse(run, nil)["foveation"].(map[string]any); fv["included"] != false {
+		t.Fatalf("paid before %v", fv)
+	}
+	run.Params.Foveation = ""
+	run.Quote.Breakdown["foveation_cents"] = int64(0)
+	if fv := s.conversionResponse(run, nil)["foveation"].(map[string]any); fv["applied"] != false || fv["reason"] != "output_not_below_source" {
+		t.Fatalf("a 1080p source %v", fv)
+	}
+}

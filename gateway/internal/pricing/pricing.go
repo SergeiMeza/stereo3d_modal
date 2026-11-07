@@ -1447,6 +1447,7 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 				"foveation": map[string]any{
 					"enabled":          rates.FoveationEnabled,
 					"price_multiplier": rates.FoveationMultiplier(),
+					"included_presets": []string{"1080p"}, // free, always on (owner 2026-11-07)
 				},
 				"max_source_duration_s": rates.MaxSourceDurationFor("lifelike"),
 				"max_source_bytes":      rates.MaxSourceBytesFor("lifelike"),

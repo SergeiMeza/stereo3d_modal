@@ -190,7 +190,9 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		// means the left.
 		params.OriginalEye = "left"
 	}
-	if fov := req.Foveation.value(); fov != "" {
+	// At 1080p the server decides (S3D-50, owner 2026-11-07): included and
+	// on whenever it can apply, whatever the request says (below).
+	if fov := req.Foveation.value(); fov != "" && params.Preset != foveationIncludedPreset {
 		if fov != "static" {
 			return params, httpx.ErrInvalid("foveation must be static")
 		}
@@ -741,9 +743,19 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	}
 	// S3D-50: once switched on, foveation is the default whenever the size
 	// is below the source; only an explicit "foveation": null turns it off.
-	if rates.FoveationEnabled && !req.Foveation.Set && projectMethod(p) == store.MethodLifelike &&
-		foveationFits(p, params) {
-		params.Foveation = "static"
+	// At 1080p it's included, free and always on when it can apply (owner
+	// 2026-11-07); at the source's own size it's a no-op (the pipeline only
+	// re-spends bits, never renders above the source), so it isn't sent.
+	if rates.FoveationEnabled && projectMethod(p) == store.MethodLifelike {
+		switch {
+		case params.Preset == foveationIncludedPreset:
+			params.Foveation = ""
+			if foveationFits(p, params) {
+				params.Foveation = "static"
+			}
+		case !req.Foveation.Set && foveationFits(p, params):
+			params.Foveation = "static"
+		}
 	}
 	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
 		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {
@@ -808,6 +820,24 @@ func (o optString) value() string {
 		return ""
 	}
 	return *o.Value
+}
+
+// foveationIncludedPreset: Foveated Detail is free and always on here
+// (owner 2026-11-07).
+const foveationIncludedPreset = "1080p"
+
+// foveationView is the quote's and the run's foveation: {applied,
+// included, reason?}; nil for Classic.
+func foveationView(p *store.Project, params store.Params, method string) map[string]any {
+	if method != store.MethodLifelike {
+		return nil
+	}
+	included := params.Preset == foveationIncludedPreset
+	out := map[string]any{"applied": params.Foveation != "", "included": included}
+	if included && params.Foveation == "" {
+		out["reason"] = "output_not_below_source" // nothing to re-spend at the source's own size
+	}
+	return out
 }
 
 // foveationFits: foveation spends the source's extra pixels on the centre
