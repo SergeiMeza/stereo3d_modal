@@ -168,15 +168,46 @@ func (s *Service) payRequestFor(w http.ResponseWriter, r *http.Request, lim *ipL
 }
 
 // GET /v1/pay-requests/{token} (public, read-only: a link preview pays
-// nothing) → {label, amount_cents, currency: "usd", state: open | paid |
-// void | expired}. 404 pay_link_not_found for any token that isn't one.
+// nothing) → {label, kind: topup | settle | invoice | stepup,
+// amount_cents, currency: "usd", state: open | paid | void | expired,
+// plan_id?, plan_name?}. plan_* (REV-13): the plan a step-up goes to, the
+// plan an invoice renews; the web words its heading from kind and
+// plan_name, label stays as it was. 404 pay_link_not_found for any token
+// that isn't one.
 func (s *Service) HandleGetPayRequest(w http.ResponseWriter, r *http.Request) {
 	p, ok := s.payRequestFor(w, r, payReadLimit)
 	if !ok {
 		return
 	}
-	state, amount := s.payLive(r.Context(), p)
-	httpx.WriteOK(w, map[string]any{"label": p.Label, "amount_cents": amount, "currency": "usd", "state": state})
+	ctx := r.Context()
+	state, amount := s.payLive(ctx, p)
+	out := map[string]any{"label": p.Label, "kind": p.Kind, "amount_cents": amount, "currency": "usd", "state": state}
+	if id, name := s.payPlan(ctx, p); name != "" {
+		out["plan_id"], out["plan_name"] = id, name
+	}
+	httpx.WriteOK(w, out)
+}
+
+// payPlan names the plan a pay request is about (stepup: its target;
+// invoice: the account's plan, which the invoice renews).
+func (s *Service) payPlan(ctx context.Context, p *store.PayRequest) (string, string) {
+	id := ""
+	switch p.Kind {
+	case store.PayKindStepUp:
+		id = p.PlanTo
+	case store.PayKindInvoice:
+		if c, err := s.Store.GetCustomer(ctx, p.UID); err == nil && c.Plan != nil {
+			id = c.Plan.Key()
+		}
+	}
+	if id == "" {
+		return "", ""
+	}
+	t, ok := s.planTarget(ctx, id)
+	if !ok || t.ID == planNone {
+		return "", ""
+	}
+	return publicPlanID(id), t.Name
 }
 
 // POST /v1/pay-requests/{token}/checkout (public) {ui?: elements |

@@ -84,8 +84,8 @@ func TestStepUpPaidOnPayPage(t *testing.T) {
 	tok := tokenOf(t, out["details"].(map[string]any)["pay_url"].(string))
 	_, got := payCall(t, f.s.HandleGetPayRequest, "GET", tok, "")
 	today := got["amount_cents"].(float64)
-	if got["state"] != "open" || today <= 0 {
-		t.Fatalf("GET %v", got)
+	if got["state"] != "open" || today <= 0 || got["kind"] != "stepup" || got["plan_id"] != "pro_yearly" || got["plan_name"] != "Pro" {
+		t.Fatalf("GET %v", got) // REV-13: kind and the target plan for the heading
 	}
 	code, co := payCall(t, f.s.HandlePayRequestCheckout, "POST", tok, `{}`)
 	if code != 200 || co["checkout"] == nil {

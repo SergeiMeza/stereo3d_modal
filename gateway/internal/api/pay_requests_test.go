@@ -56,7 +56,8 @@ func TestPayLinkTopup(t *testing.T) {
 	}
 	tok := tokenOf(t, link)
 	code, got := payCall(t, s.HandleGetPayRequest, "GET", tok, "")
-	if code != 200 || len(got) != 4 || got["label"] != "Auto-reload · $20.00" || got["amount_cents"] != float64(2000) || got["currency"] != "usd" || got["state"] != "open" {
+	if code != 200 || len(got) != 5 || got["label"] != "Auto-reload · $20.00" || got["kind"] != "topup" || got["amount_cents"] != float64(2000) ||
+		got["currency"] != "usd" || got["state"] != "open" || got["plan_name"] != nil {
 		t.Fatalf("GET %d %v", code, got)
 	}
 	code, out := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{"amount_cents":1,"ui":"elements"}`)
@@ -113,7 +114,7 @@ func TestPayLinkSettle(t *testing.T) {
 	link, _ := s.payLink(ctx, uid, store.PayKindSettle, "deletion", 1500, "Your last runs")
 	tok := tokenOf(t, link)
 	owedConversion(t, s, uid, 500) // more owed since the mail: the live amount
-	if _, got := payCall(t, s.HandleGetPayRequest, "GET", tok, ""); got["amount_cents"] != float64(2000) || got["state"] != "open" {
+	if _, got := payCall(t, s.HandleGetPayRequest, "GET", tok, ""); got["amount_cents"] != float64(2000) || got["state"] != "open" || got["kind"] != "settle" {
 		t.Fatalf("GET %v", got)
 	}
 	code, out := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{}`)
@@ -151,6 +152,11 @@ func TestPayLinkInvoiceAndExpiry(t *testing.T) {
 	}())
 	if code, out := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{}`); code != 200 || out["url"] != "https://invoice.stripe.example/in_1" {
 		t.Fatalf("%d %v", code, out)
+	}
+	// REV-13: the plan the invoice renews, for the page's heading
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.Plan = &store.Plan{Tier: "business"}; return nil })
+	if _, got := payCall(t, s.HandleGetPayRequest, "GET", tok, ""); got["kind"] != "invoice" || got["plan_id"] != "business" || got["plan_name"] == nil || got["plan_name"] == "" {
+		t.Fatalf("invoice GET %v", got)
 	}
 	f.invoices["in_1"]["status"] = "paid"
 	if _, got := payCall(t, s.HandleGetPayRequest, "GET", tok, ""); got["state"] != "paid" {
