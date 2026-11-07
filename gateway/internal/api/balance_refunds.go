@@ -114,13 +114,25 @@ func (s *Service) cashRefundBalance(ctx context.Context, cs *store.Case, cents i
 		}); err != nil {
 			return err
 		}
+		var bonusBack int64
+		if t.BonusCents > 0 && t.PaidCents > 0 { // BUX-23: the refunded share of its bonus goes too (rounded up)
+			bonusBack = s.clawBackTopupBonus(ctx, cs.UID, p.topupID, "bonusback_"+entryID, (t.BonusCents*p.cents+t.PaidCents-1)/t.PaidCents, "refund")
+		}
+		restore := func(why string) {
+			s.restoreCash(ctx, cs, p.topupID, p.cents, why)
+			if bonusBack > 0 { // the refund didn't happen: its bonus share comes back
+				s.Store.BalanceTx(ctx, cs.UID, func(*store.Balance) ([]store.BalanceOp, error) {
+					return []store.BalanceOp{{Kind: store.EntryTopupBonus, Cents: bonusBack, TopupID: p.topupID, EntryID: "bonusrestore_" + entryID, Note: "Top-up bonus back"}}, nil
+				})
+			}
+		}
 		chargeID := store.ChargeID(store.ChargeTopup, p.topupID)
 		line := "topup_" + p.topupID
 		row, err := s.Store.ReserveRefund(ctx, store.ReserveSpec{ChargeID: chargeID, PI: t.PaymentIntentID, CaseID: cs.ID, UID: cs.UID,
 			Items: map[string]int64{line: p.cents}, StripeRemainder: -1, Source: "gateway",
 			Fallback: fallbackCharge(cs.UID, store.ChargeTopup, p.topupID, t.PaymentIntentID, t.PaidCents, []store.ChargeLine{{ConversionID: line, AmountCents: t.PaidCents}})})
 		if err != nil {
-			s.restoreCash(ctx, cs, p.topupID, p.cents, "not refundable: "+err.Error())
+			restore("not refundable: " + err.Error())
 			continue
 		}
 		re, rerr := s.Stripe.RefundAmount(t.PaymentIntentID, row.TotalCents, fmt.Sprintf("refund_%s_%s_%s_%d", s.Cfg.Env, t.PaymentIntentID, cs.ID, row.K),
@@ -133,7 +145,7 @@ func (s *Service) cashRefundBalance(ctx context.Context, cs *store.Case, cents i
 				r.Status, r.FailReason = store.RefundFailed, stripex.ErrMessage(rerr)
 				return nil
 			})
-			s.restoreCash(ctx, cs, p.topupID, p.cents, stripex.ErrMessage(rerr))
+			restore(stripex.ErrMessage(rerr))
 			s.refundFailed(ctx, cs.ID, row, stripex.ErrMessage(rerr))
 			continue
 		}

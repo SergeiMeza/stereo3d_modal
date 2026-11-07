@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -309,6 +310,10 @@ type Rates struct {
 	// web checkouts of it and changes to it are refused; weekly plans that
 	// exist renew as before. Absent = false in every env.
 	WebProWeeklyHidden bool `firestore:"web_pro_weekly_hidden"`
+	// TopupBonus (BUX-23): usage credit added to a top-up the customer
+	// makes (sheet or China; never an auto-reload or a pay link's), by the
+	// highest tier its amount reaches. Absent or empty = no bonus.
+	TopupBonus []BonusTier `firestore:"topup_bonus"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
 	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
 	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
@@ -919,6 +924,38 @@ func Defaults() *Rates { return defaults() }
 // 5K-8K, foveation (S3D-50), the Pro discount (S3D-67) and the brand
 // intro (BL-25). A key in
 // config/pricing_{env} still overrides each.
+// BonusTier: from MinCents paid, Pct of it as usage credit.
+type BonusTier struct {
+	MinCents int64   `firestore:"min_cents" json:"min_cents"`
+	Pct      float64 `firestore:"pct" json:"pct"`
+}
+
+// TopupBonusFor is the bonus a top-up of cents earns (0: none). Tiers
+// outside 0 < pct <= 0.5 are ignored.
+func (r *Rates) TopupBonusFor(cents int64) int64 {
+	var pct float64
+	var at int64 = -1
+	for _, t := range r.TopupBonus {
+		if t.Pct <= 0 || t.Pct > 0.5 || cents < t.MinCents || t.MinCents < at {
+			continue
+		}
+		pct, at = t.Pct, t.MinCents
+	}
+	return int64(float64(cents) * pct) // whole cents, rounded down
+}
+
+// publicBonusTiers: the valid tiers, lowest first ([] when off).
+func (r *Rates) publicBonusTiers() []BonusTier {
+	out := []BonusTier{}
+	for _, t := range r.TopupBonus {
+		if t.Pct > 0 && t.Pct <= 0.5 && t.MinCents > 0 {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].MinCents < out[j].MinCents })
+	return out
+}
+
 func DefaultsFor(env string) *Rates {
 	r := defaults()
 	if env == "test" {
@@ -1551,6 +1588,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		"china_payments": rates.ChinaPaymentsEnabled,
 		// BUX-24: true → the web leaves Pro Weekly out of its plan picker.
 		"web_pro_weekly_hidden": rates.WebProWeeklyHidden,
+		// BUX-23: top-up bonus tiers [{min_cents, pct}] ([] = none).
+		"topup_bonus": rates.publicBonusTiers(),
 		// Classic 3D is retired for new projects (2026-11-04): the web
 		// hides it; its prices stay for projects that already ran it.
 		"classic_new_projects": false,

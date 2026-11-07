@@ -49,6 +49,10 @@ const (
 	EntryDisputeLoss     = "dispute_loss"
 	EntryExpiry          = "expiry"
 	EntryAdjustment      = "adjustment"
+	// EntryTopupBonus (BUX-23): a top-up's bonus, usage-only credit (an
+	// additive credit item, Ref bonus:{topup id}): never paid out, gone
+	// with a dispute or a refund of its top-up.
+	EntryTopupBonus = "topup_bonus"
 	// Plan credit (pricing 2026-11): a plan's monthly credit, non-cash,
 	// spent first, gone at the period's end.
 	EntryPlanCredit       = "plan_credit"
@@ -276,6 +280,8 @@ type Topup struct {
 	ConversionID string       `firestore:"conversion_id,omitempty" json:"-"` // the run waiting for this reload
 	// PayRequestID: the pay link this top-up was opened from (D7).
 	PayRequestID string `firestore:"pay_request_id,omitempty" json:"-"`
+	// BonusCents (BUX-23): the usage credit this top-up adds when paid.
+	BonusCents int64 `firestore:"bonus_cents,omitempty" json:"bonus_cents,omitempty"`
 	// Retry: a failed auto-reload's retry schedule (D2).
 	Retry     *OffSessionRetry `firestore:"retry,omitempty" json:"-"`
 	Attempt   int              `firestore:"attempt" json:"-"`
@@ -356,6 +362,9 @@ type BalanceOp struct {
 	// AllCredit (plan_credit_removal): grants go too (a block for good,
 	// a deleted account); otherwise a plan's removal leaves them.
 	AllCredit bool
+	// UpTo (plan_credit_removal with MatchRef): take at most this much
+	// (0 = all of it).
+	UpTo int64
 }
 
 // ledger applies ops to a balance and records entries; then checks E0-8,
@@ -581,6 +590,11 @@ func (l *ledger) apply(op BalanceOp) error {
 		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, ExpiresAt: exp, Ref: op.Ref, Grant: op.Additive})
 		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCredit, Cents: op.Cents, Delta: op.Cents, Ref: op.Ref, Note: op.Note})
 		b.Expired = false
+	case EntryTopupBonus:
+		ref := "bonus:" + op.TopupID
+		b.Fifo = append(b.Fifo, FifoItem{RemainingCents: op.Cents, At: l.now, PlanCredit: true, Grant: true, Ref: ref})
+		l.add(Entry{ID: op.EntryID, Kind: EntryTopupBonus, Cents: op.Cents, Delta: op.Cents, Ref: ref, TopupID: op.TopupID, Note: op.Note})
+		b.Expired = false
 	case EntryPlanCreditExpiry:
 		l.expirePlanCredit("", false)
 	case EntryPlanCreditFreeze:
@@ -628,6 +642,9 @@ func (l *ledger) apply(op BalanceOp) error {
 			// grants; MatchRef takes that one item, AllCredit everything
 			if it.PlanCredit && ((op.MatchRef && it.Ref == op.Ref) || (!op.MatchRef && (op.AllCredit || !it.isGrant()))) {
 				free := min(it.spendable(), room)
+				if op.MatchRef && op.UpTo > 0 {
+					free = min(free, max(op.UpTo-amt-it.FrozenCents, 0))
+				}
 				room -= free
 				take := it.FrozenCents + free
 				b.FrozenCents -= it.FrozenCents

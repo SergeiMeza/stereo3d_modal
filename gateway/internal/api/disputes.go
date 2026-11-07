@@ -126,6 +126,7 @@ func (s *Service) handleDisputeEvent(ctx context.Context, eventType string, raw 
 			s.setRunDispute(ctx, id, d.ID)
 		}
 		if o.TopupID != "" { // N8: a dispute on a top-up freezes the balance
+			s.clawBackTopupBonus(ctx, o.UID, o.TopupID, "bonusback_"+d.ID, 0, "dispute") // BUX-23: its unspent bonus goes first
 			s.Store.BalanceTx(ctx, o.UID, func(b *store.Balance) ([]store.BalanceOp, error) {
 				return []store.BalanceOp{{Kind: store.EntryDisputeFreeze, Cents: d.Amount, Ref: d.ID, TopupID: o.TopupID, EntryID: "freeze_" + d.ID}}, nil
 			})

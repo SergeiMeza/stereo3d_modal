@@ -222,7 +222,8 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 		httpx.WriteErr(ctx, w, e)
 		return
 	}
-	t := &store.Topup{ID: "t" + store.NewID(), UID: user.UID, Cents: req.AmountCents, Currency: "usd", State: store.TopupOpen, CustomerID: customerID}
+	t := &store.Topup{ID: "t" + store.NewID(), UID: user.UID, Cents: req.AmountCents, Currency: "usd", State: store.TopupOpen, CustomerID: customerID,
+		BonusCents: s.rates(ctx).TopupBonusFor(req.AmountCents)} // BUX-23: what it adds when paid, fixed now
 	if err := s.Store.CreateTopup(ctx, t); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
@@ -249,7 +250,7 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 			x.CurrentPayment, x.Payments = &p, append(x.Payments, p)
 			return nil
 		})
-		httpx.WriteOK(w, map[string]any{"topup_id": t.ID, "amount_cents": t.Cents, "redirect_url": redirect,
+		httpx.WriteOK(w, map[string]any{"topup_id": t.ID, "amount_cents": t.Cents, "bonus_cents": t.BonusCents, "redirect_url": redirect,
 			"next_action": map[string]any{"type": "redirect", "redirect_url": redirect}})
 		return
 	}
@@ -281,7 +282,7 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 		x.CurrentPayment, x.Payments = &p, append(x.Payments, p)
 		return nil
 	})
-	resp := map[string]any{"topup_id": t.ID, "amount_cents": t.Cents, "publishable_key": s.Stripe.PublishableKey,
+	resp := map[string]any{"topup_id": t.ID, "amount_cents": t.Cents, "bonus_cents": t.BonusCents, "publishable_key": s.Stripe.PublishableKey,
 		"checkout": map[string]any{"client_secret": sess.ClientSecret, "expires_at": exp.Format(time.RFC3339)}}
 	if ui == "hosted_page" {
 		resp["url"] = sess.URL
@@ -352,6 +353,7 @@ func (s *Service) afterTopup(ctx context.Context, t *store.Topup, promoted []str
 	if t.PaidAt != nil {
 		paidAt = *t.PaidAt
 	}
+	s.addTopupBonus(ctx, t) // BUX-23
 	s.writeCharge(ctx, &store.Charge{UID: t.UID, Kind: store.ChargeTopup, SourceID: t.ID, CustomerID: t.CustomerID,
 		PaymentIntentID: t.PaymentIntentID, AmountCents: t.PaidCents, Currency: "usd", PaidWith: t.PaidWith, PaidAt: paidAt,
 		Lines: []store.ChargeLine{{ConversionID: "topup_" + t.ID, AmountCents: t.PaidCents, Description: "Spatial Video Studio balance top-up"}}})
@@ -361,6 +363,64 @@ func (s *Service) afterTopup(ctx context.Context, t *store.Topup, promoted []str
 	}
 	s.handleBalanceEffects(ctx, t.UID, fx)
 	s.payDebtsFromBalance(ctx, t.UID)
+}
+
+// addTopupBonus credits a paid top-up's bonus (BUX-23) once: usage-only
+// credit, never on an auto-reload or a pay link's top-up, scaled down if
+// less was paid than asked.
+func (s *Service) addTopupBonus(ctx context.Context, t *store.Topup) {
+	if t.BonusCents <= 0 || t.Auto || t.PayRequestID != "" {
+		return
+	}
+	bonus := t.BonusCents
+	if t.PaidCents > 0 && t.PaidCents < t.Cents {
+		bonus = t.BonusCents * t.PaidCents / t.Cents
+	}
+	if bonus <= 0 {
+		return
+	}
+	if _, _, err := s.Store.BalanceTx(ctx, t.UID, func(*store.Balance) ([]store.BalanceOp, error) {
+		return []store.BalanceOp{{Kind: store.EntryTopupBonus, Cents: bonus, TopupID: t.ID, EntryID: "bonus_" + t.ID,
+			Note: "Top-up bonus"}}, nil
+	}); err != nil {
+		slog.WarnContext(ctx, "top-up bonus not added", "topup_id", t.ID, "err", err)
+		s.Slack.Alert(ctx, "topup_bonus_failed", fmt.Sprintf("top-up %s's bonus (%s) for `%s` wasn't added: %v", t.ID, money(bonus), t.UID, err))
+	}
+}
+
+// clawBackTopupBonus removes what is left of a top-up's bonus (a dispute
+// of the top-up: all of it, upTo 0; a cash refund: its share) and answers
+// how much went.
+func (s *Service) clawBackTopupBonus(ctx context.Context, uid, topupID, entryID string, upTo int64, why string) int64 {
+	if topupID == "" {
+		return 0
+	}
+	left := func(b *store.Balance) int64 {
+		var n int64
+		for _, it := range b.Fifo {
+			if it.PlanCredit && it.Ref == "bonus:"+topupID {
+				n += it.RemainingCents
+			}
+		}
+		return n
+	}
+	var before int64
+	after, _, err := s.Store.BalanceTx(ctx, uid, func(b *store.Balance) ([]store.BalanceOp, error) {
+		before = left(b)
+		if before == 0 {
+			return nil, nil
+		}
+		return []store.BalanceOp{{Kind: store.EntryPlanCreditRemoval, Ref: "bonus:" + topupID, MatchRef: true, UpTo: upTo,
+			EntryID: entryID, Note: "Top-up bonus removed (" + why + ")"}}, nil
+	})
+	if err != nil {
+		slog.WarnContext(ctx, "top-up bonus not removed", "topup_id", topupID, "err", err)
+		return 0
+	}
+	if after == nil {
+		return 0
+	}
+	return max(before-left(after), 0)
 }
 
 // startPromotedRun queues a run whose pending_reload hold became a
@@ -1196,6 +1256,11 @@ func ledgerRow(e store.Entry) map[string]any {
 		detail = e.Note
 	case store.EntryPlanCreditRemoval:
 		detail = e.Note
+		if strings.HasPrefix(e.Ref, "bonus:") {
+			kind = "topup_bonus_removed" // BUX-23: a disputed or refunded top-up's bonus
+		}
+	case store.EntryTopupBonus:
+		detail = e.Note
 	}
 	if cents == 0 && (e.Kind == store.EntryPlanCreditFreeze || e.Kind == store.EntryPlanCreditUnfreeze || e.Kind == store.EntryPlanCreditRemoval) {
 		return nil // nothing moved
@@ -1207,8 +1272,8 @@ func ledgerRow(e store.Entry) map[string]any {
 	if detail != "" {
 		row["detail"] = detail
 	}
-	if e.Kind == store.EntryTopup && e.TopupID != "" {
-		row["topup_id"] = e.TopupID // REV-14: the return page matches its own top-up
+	if (e.Kind == store.EntryTopup || e.Kind == store.EntryTopupBonus) && e.TopupID != "" {
+		row["topup_id"] = e.TopupID // REV-14: the return page matches its own top-up; BUX-23: the bonus its top-up's
 	}
 	return row
 }
