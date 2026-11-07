@@ -77,6 +77,8 @@ export interface Tr {
   readonly locale: Locale;
   /** the Intl tag for formatters ("en-US", "de-DE"…) */
   readonly intl: string;
+  /** the language's own messages (null for English); rich() reads them */
+  readonly messages: Messages | null;
 }
 
 export function makeTr(locale: Locale, messages: Messages | null): Tr {
@@ -84,6 +86,7 @@ export function makeTr(locale: Locale, messages: Messages | null): Tr {
   const fn = ((key: string, values?: Values) => translate(locale, own, key, values)) as Tr;
   Object.defineProperty(fn, "locale", { value: locale });
   Object.defineProperty(fn, "intl", { value: intlTag(locale) });
+  Object.defineProperty(fn, "messages", { value: own });
   return fn;
 }
 

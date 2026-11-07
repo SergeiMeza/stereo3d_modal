@@ -18,6 +18,7 @@ import { Suspense, use } from "react";
 import { I18nProvider, useT } from "./I18nProvider";
 import { LanguagePicker } from "./LanguagePicker";
 import { dirOf, fromAcceptLanguage, LOCALES, matchTag, resolveLocale } from "./locales";
+import { rich } from "./rich";
 import { EN, hasKey, makeTr, translate } from "./t";
 
 afterEach(() => {
@@ -143,6 +144,19 @@ describe("messages", () => {
   });
 });
 
+describe("rich messages", () => {
+  it("tags wrap their text; the language's own message, else English", () => {
+    const Rich = ({ tr }: { tr: ReturnType<typeof makeTr> }) => (
+      <p data-testid="r">{rich(tr, "common.richExample", { b: (c) => <strong>{c}</strong> }, { name: "Kim" })}</p>
+    );
+    render(<Rich tr={EN} />);
+    expect(screen.getByTestId("r").innerHTML).toBe("Hello <strong>Kim</strong>");
+    cleanup();
+    render(<Rich tr={makeTr("de", { common: { richExample: "Hallo <b>{name}</b>!" } })} />);
+    expect(screen.getByTestId("r").innerHTML).toBe("Hallo <strong>Kim</strong>!");
+  });
+});
+
 describe("formatters follow the language; USD stays", () => {
   it("English as before (and without a translator)", () => {
     expect(formatCents(150000)).toBe("$1,500.00");
@@ -171,9 +185,10 @@ function sources(dir: string): string[] {
 describe("en.json", () => {
   it("has every key the code uses", () => {
     const missing: string[] = [];
-    for (const file of sources(join(__dirname, "..", ".."))) {
+    // lib/i18n's own comments hold examples
+    for (const file of sources(join(__dirname, "..", "..")).filter((f) => !f.includes("/lib/i18n/"))) {
       const text = readFileSync(file, "utf8");
-      for (const m of text.matchAll(/\bt\(\s*"([a-zA-Z0-9_.]+)"/g)) {
+      for (const m of text.matchAll(/\b(?:t|tr|rich\(\s*\w+\s*,)\(?\s*"([a-zA-Z][a-zA-Z0-9_]*\.[a-zA-Z0-9_.]+)"/g)) {
         if (!hasKey(m[1])) missing.push(`${file.split("/src/")[1]}: ${m[1]}`);
       }
     }

@@ -1,5 +1,6 @@
 {
   "common": {
-    "language": "Language"
+    "language": "Language",
+    "richExample": "Hello <b>{name}</b>"
   }
 }
