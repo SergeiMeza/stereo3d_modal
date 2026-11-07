@@ -11,6 +11,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 import type { JSX } from "react";
 
+import { useT } from "@/lib/i18n/I18nProvider";
 import {
   creditShort,
   monthlyMicros,
@@ -18,6 +19,7 @@ import {
   planName,
   planTerms,
 } from "@/lib/pro/plans";
+import { SITE_NAME } from "@/lib/site";
 import type { ProPlan } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 import { cn } from "@/lib/utils";
@@ -37,6 +39,7 @@ export function ProPlans({
   onPurchased: () => void;
 }): JSX.Element {
   const plans = useProPlans();
+  const t = useT();
   const buy = useBuyPro();
   const [chosen, setChosen] = useState<string | null>(null);
   const [buying, setBuying] = useState(false);
@@ -55,8 +58,8 @@ export function ProPlans({
     return (
       <p data-testid="pro-plans-none" className="rounded-xl border border-edge bg-surface-1 p-4 text-fg-muted">
         {plans.state === "error"
-          ? plans.message
-          : "Pro isn't on sale on the web yet. Get it in Spatial Video Studio on iPhone, iPad, Mac or Vision Pro."}
+          ? plans.message || t("pro.plans.loadFailed")
+          : t("pro.list.notOnSale", { app: SITE_NAME })}
       </p>
     );
   }
@@ -71,7 +74,7 @@ export function ProPlans({
     try {
       if ((await buy(selected)) === "purchased") onPurchased();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "The purchase didn't go through.");
+      setError(e instanceof Error ? e.message : t("pro.list.purchaseFailed"));
     } finally {
       setBuying(false);
     }
@@ -79,10 +82,10 @@ export function ProPlans({
 
   return (
     <div className="space-y-4" data-testid="pro-plans">
-      <div role="radiogroup" aria-label="Pro plans" className="space-y-2">
+      <div role="radiogroup" aria-label={t("pro.list.ariaLabel")} className="space-y-2">
         {list.map((p) => {
           const on = p.id === selected.id;
-          const credit = creditShort(p.creditCents);
+          const credit = creditShort(p.creditCents, t);
           return (
             <button
               key={p.id}
@@ -110,15 +113,15 @@ export function ProPlans({
               </span>
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-2">
-                  <span className="font-medium text-fg">{planName(p)}</span>
+                  <span className="font-medium text-fg">{planName(p, t)}</span>
                   {p.kind === "yearly" && saving !== null && (
-                    <span className="ll-tag-new">Save {saving}%</span>
+                    <span className="ll-tag-new">{t("pro.list.save", { pct: saving })}</span>
                   )}
                 </span>
                 {/* owner 2026-11-07: the credit joining Pro gives, from /v1/pricing */}
                 {credit !== null && (
                   <span data-testid={`pro-plan-credit-${p.kind}`} className="block text-xs text-chart-2">
-                    + {credit}
+                    {t("pro.list.creditPlus", { credit })}
                   </span>
                 )}
               </span>
@@ -126,7 +129,7 @@ export function ProPlans({
                 <span className="block font-semibold tabular-nums text-fg">
                   {p.price}
                 </span>
-                <span className="block text-xs text-fg-muted">{planCadence(p)}</span>
+                <span className="block text-xs text-fg-muted">{planCadence(p, t)}</span>
               </span>
             </button>
           );
@@ -140,9 +143,9 @@ export function ProPlans({
         onClick={() => void getPro()}
         className="h-12 w-full rounded-xl bg-primary text-base font-semibold text-primary-foreground transition-colors hover:bg-primary/85 disabled:opacity-60"
       >
-        {buying ? "Opening checkout…" : "Get Pro"}
+        {buying ? t("pro.list.opening") : t("pro.list.getPro")}
       </button>
-      <p className="text-center text-xs text-fg-muted">{planTerms(selected)}</p>
+      <p className="text-center text-xs text-fg-muted">{planTerms(selected, t)}</p>
       {error !== null && (
         <p role="alert" className="text-center text-sm text-destructive">
           {error}

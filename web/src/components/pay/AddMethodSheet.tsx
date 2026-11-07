@@ -13,18 +13,21 @@ import type { JSX, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
-export const ADD_TITLE = "Add a payment method";
-export const SAVE_DECLINED = "We couldn't save this payment method. Try another one.";
-export const SAVE_TOO_MANY = "Too many attempts. Try again tomorrow.";
-export const SAVE_LIMIT = "You can save up to 5 payment methods. Remove one first.";
+export const ADD_TITLE = EN("pay.addMethod.title");
+export const SAVE_DECLINED = EN("pay.addMethod.saveDeclined");
+export const SAVE_TOO_MANY = EN("pay.addMethod.saveTooMany");
+export const SAVE_LIMIT = EN("pay.addMethod.saveLimit");
 
 type Phase =
   | { kind: "loading" }
+  /** notice: the error line's message key */
   | { kind: "ready"; secret: string; publishableKey?: string; notice?: string }
   | { kind: "saving"; secret: string; publishableKey?: string }
   | { kind: "done" }
@@ -41,6 +44,7 @@ export function AddMethodSheet({
   onClose: (saved: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const big = useSheetFrame() === "headset";
   const [makeDefault, setMakeDefault] = useState(false);
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
@@ -62,8 +66,8 @@ export function AddMethodSheet({
 
   useEffect(() => {
     if (phase.kind !== "done") return;
-    const t = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
+    return () => clearTimeout(timer);
   }, [phase.kind, onClose]);
 
   function handle(r: ConfirmResult, secret: string, publishableKey?: string): void {
@@ -73,7 +77,7 @@ export function AddMethodSheet({
       kind: "ready",
       secret,
       publishableKey,
-      notice: r === "too_many" ? SAVE_TOO_MANY : SAVE_DECLINED,
+      notice: r === "too_many" ? "pay.addMethod.saveTooMany" : "pay.addMethod.saveDeclined",
     });
   }
 
@@ -89,7 +93,7 @@ export function AddMethodSheet({
             onClose={() => onClose(false)}
             locked={saving}
             testId="add-method-sheet"
-            title={ADD_TITLE}
+            title={t("pay.addMethod.title")}
             footer={
               <div className="flex flex-col gap-3">
                 {!first ? (
@@ -101,7 +105,7 @@ export function AddMethodSheet({
                       onChange={(e) => setMakeDefault(e.target.checked)}
                       className="accent-primary"
                     />
-                    Make this my default
+                    {t("pay.addMethod.makeDefault")}
                   </label>
                 ) : null}
                 <Button
@@ -122,7 +126,7 @@ export function AddMethodSheet({
                     handle(r, secret, publishableKey);
                   }}
                 >
-                  {saving ? "Saving…" : "Save payment method"}
+                  {saving ? t("pay.addMethod.saving") : t("pay.addMethod.save")}
                 </Button>
               </div>
             }
@@ -131,7 +135,7 @@ export function AddMethodSheet({
               {body}
               {notice ? (
                 <p data-testid="add-method-error" className="text-sm text-red-400">
-                  {notice}
+                  {t(notice)}
                 </p>
               ) : null}
             </div>
@@ -150,14 +154,14 @@ export function AddMethodSheet({
       </div>
     );
   } else if (phase.kind === "done") {
-    body = <Success text="Saved." />;
+    body = <Success text={t("pay.addMethod.saved")} />;
   } else if (phase.kind === "limit") {
-    body = <StateLine testId="add-method-limit" text={SAVE_LIMIT} />;
+    body = <StateLine testId="add-method-limit" text={t("pay.addMethod.saveLimit")} />;
   } else {
-    body = <StateLine testId="pay-unavailable" text="Payment isn't available in this region yet." />;
+    body = <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} />;
   }
   return (
-    <SheetFrame open onClose={() => onClose(phase.kind === "done")} testId="add-method-sheet" title={ADD_TITLE}>
+    <SheetFrame open onClose={() => onClose(phase.kind === "done")} testId="add-method-sheet" title={t("pay.addMethod.title")}>
       {body}
     </SheetFrame>
   );

@@ -18,10 +18,10 @@ import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { useLiveRunById } from "@/lib/live/useLive";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { HandoffSheet } from "./HandoffSheet";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import { CHARGED_IN_USD, REFUNDED_IF_FAILS, UNAVAILABLE, WAITING_FOR_PAYMENT, WITHDRAWAL_LINE } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 /** Injectable for tests (jsdom cannot navigate). */
@@ -45,6 +45,7 @@ export function ChinaPaySheet({
   onClose: (paid: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const frame = useSheetFrame();
   const big = frame === "headset";
   const [phase, setPhase] = useState<
@@ -84,14 +85,14 @@ export function ChinaPaySheet({
   useEffect(() => {
     if (phase.kind !== "qr" || !phase.expires) return;
     const left = Date.parse(phase.expires) - Date.now();
-    const t = setTimeout(() => setPhase({ kind: "expired" }), Math.max(0, left));
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setPhase({ kind: "expired" }), Math.max(0, left));
+    return () => clearTimeout(timer);
   }, [phase]);
 
   useEffect(() => {
     if (phase.kind !== "paid") return;
-    const t = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
+    return () => clearTimeout(timer);
   }, [phase.kind, onClose]);
 
   if (phase.kind === "handoff") {
@@ -105,7 +106,7 @@ export function ChinaPaySheet({
     );
   }
 
-  const title = `Pay for your 3D video`;
+  const title = t("pay.china.title");
   const sub = subtitle;
   const textBtn = big ? "py-3 text-xl" : "text-sm";
 
@@ -115,12 +116,12 @@ export function ChinaPaySheet({
         <div className="flex flex-col items-center gap-3 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img data-testid="wechat-qr" src={phase.qr} alt="" className="size-[200px] rounded-lg bg-white p-3" />
-          <p className="text-base text-fg tabular-nums">Scan with WeChat to pay {formatCents(amountCents)}</p>
-          <p className="text-xs text-fg-muted">{CHARGED_IN_USD}</p>
-          <p className="text-xs text-fg-muted">{REFUNDED_IF_FAILS}</p>
+          <p className="text-base text-fg tabular-nums">{t("pay.china.scanWechat", { amount: formatCents(amountCents, t) })}</p>
+          <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
+          <p className="text-xs text-fg-muted">{t("pay.copy.refundedIfFails")}</p>
           <p className="flex items-center gap-2 text-sm text-fg">
             <span aria-hidden className="size-2 animate-pulse rounded-full bg-primary" />
-            {WAITING_FOR_PAYMENT}
+            {t("pay.copy.waitingForPayment")}
           </p>
         </div>
       </SheetFrame>
@@ -129,7 +130,7 @@ export function ChinaPaySheet({
   if (phase.kind === "paid") {
     return (
       <SheetFrame open onClose={() => onClose(true)} testId="china-sheet" title={title}>
-        <Success text="Paid." />
+        <Success text={t("pay.china.paid")} />
       </SheetFrame>
     );
   }
@@ -142,11 +143,11 @@ export function ChinaPaySheet({
         title={title}
         footer={
           <Button size="lg" className="h-12 w-full" onClick={() => setPhase({ kind: "choose" })}>
-            Start again
+            {t("pay.china.startAgain")}
           </Button>
         }
       >
-        <StateLine text="The code expired." />
+        <StateLine text={t("pay.china.codeExpired")} />
       </SheetFrame>
     );
   }
@@ -161,7 +162,7 @@ export function ChinaPaySheet({
         onClick={() => setPhase({ kind: "handoff" })}
         className={`text-primary hover:underline ${textBtn}`}
       >
-        Pay on another device
+        {t("pay.china.payOtherDevice")}
       </button>
       {line ? <span className="text-xs text-fg-muted">{line}</span> : null}
     </div>
@@ -174,7 +175,7 @@ export function ChinaPaySheet({
       disabled={busy !== undefined}
       onClick={() => void pay("alipay")}
     >
-      {busy === "alipay" ? "Opening…" : "Alipay"}
+      {busy === "alipay" ? t("pay.china.opening") : "Alipay"}
     </Button>
   );
   return (
@@ -190,7 +191,7 @@ export function ChinaPaySheet({
         ) : (
           <MainButtonArea
             big={big}
-            lines={[CHARGED_IN_USD, WITHDRAWAL_LINE]}
+            lines={[t("pay.copy.chargedInUsd"), t("pay.copy.withdrawal")]}
             button={
               <div className="flex flex-col gap-2">
                 {alipay}
@@ -203,21 +204,21 @@ export function ChinaPaySheet({
                     disabled={busy !== undefined}
                     onClick={() => void pay("wechat_pay")}
                   >
-                    {busy === "wechat_pay" ? "Opening…" : "WeChat Pay"}
+                    {busy === "wechat_pay" ? t("pay.china.opening") : "WeChat Pay"}
                   </Button>
                 ) : frame === "phone" ? (
-                  handoffButton("To pay with WeChat, use a computer.")
+                  handoffButton(t("pay.china.wechatPhone"))
                 ) : (
-                  handoffButton("Pay with WeChat on a computer")
+                  handoffButton(t("pay.china.wechatHeadset"))
                 )}
               </div>
             }
-            foot={REFUNDED_IF_FAILS}
+            foot={t("pay.copy.refundedIfFails")}
           />
         )
       }
     >
-      {unavailable ? <StateLine testId="pay-unavailable" text={UNAVAILABLE} /> : null}
+      {unavailable ? <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} /> : null}
     </SheetFrame>
   );
 }

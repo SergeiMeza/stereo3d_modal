@@ -20,33 +20,27 @@ import { appStore, useAppAtom } from "@/lib/state/stores";
 import { balanceDialogAtom } from "./payAtoms";
 import type { JSX, ReactNode } from "react";
 
-import { formatCents } from "@/components/steps/money";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { chinaPayments } from "@/lib/paymentRegion";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
-  CHARGED_IN_USD,
-  DECLINED,
-  PAYING,
-  TOO_MANY,
-  TOPUP_DAILY,
-  topupDayLeft,
-  AUTO_RELOAD_BLOCKED,
-  PAYMENT_METHOD_BLOCKED,
-  DELETION_PENDING_BLOCK,
-  TOPUP_MIN,
-  TOPUP_SMALL_PRINT,
+  autoReloadBlocked,
   reloadConsent,
+  topupDayLeft,
   topupDone,
   topupMax,
+  topupMin,
 } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
@@ -87,20 +81,22 @@ const CHIPS = [1000, 2500, 5000, 10000];
 const MIN = 1000;
 
 /** P17's error lines from the gateway's top-up refusals. */
-function topupErrorText(e: unknown, amount: number, first: boolean): string {
+function topupErrorText(e: unknown, amount: number, first: boolean, t: Tr = EN): string {
   const g = e instanceof GatewayError ? e : null;
   const max = typeof g?.details?.max === "number" ? g.details.max : first ? 10000 : 50000;
   switch (g?.code) {
     case "amount_out_of_range":
-      return amount < MIN ? TOPUP_MIN : topupMax(max, first);
+      return amount < MIN ? topupMin(t) : topupMax(max, first, t);
     case "topup_daily_cap":
-      return typeof g?.details?.day_left_cents === "number" ? topupDayLeft(g.details.day_left_cents) : TOPUP_DAILY;
+      return typeof g?.details?.day_left_cents === "number"
+        ? topupDayLeft(g.details.day_left_cents, t)
+        : t("balance.copy.topupDaily");
     case "payment_method_blocked":
-      return PAYMENT_METHOD_BLOCKED;
+      return t("balance.copy.paymentMethodBlocked");
     case "deletion_pending":
-      return DELETION_PENDING_BLOCK;
+      return t("balance.copy.deletionPending");
     default:
-      return "Payment isn't available in this region yet.";
+      return t("pay.copy.unavailable");
   }
 }
 
@@ -108,6 +104,7 @@ function topupErrorText(e: unknown, amount: number, first: boolean): string {
 export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element {
   const gateway = useGateway();
   const billing = useBilling();
+  const t = useT();
   const big = useSheetFrame() === "headset";
   const prepaid = prepaidOf(billing.status);
   const first = prepaid?.never_topped_up !== false;
@@ -117,22 +114,24 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const [session, setSession] = useState<
     | { kind: "none" }
     | { kind: "loading" }
+    /** notice: the error line's message key */
     | { kind: "ready"; secret: string; publishableKey?: string; amount: number; notice?: string }
     | { kind: "paying"; secret: string; publishableKey?: string; amount: number }
     | { kind: "done"; text: string }
-    | { kind: "error"; text: string }
+    /** the top-up's refusal (null: no payment came back) */
+    | { kind: "error"; error: unknown }
   >({ kind: "none" });
   const [chinaError, setChinaError] = useState<string | null>(null);
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const invalid =
-    chip === "other" && other !== "" && amount < MIN ? TOPUP_MIN : null;
+    chip === "other" && other !== "" && amount < MIN ? topupMin(t) : null;
 
   // one top-up payment per amount; a new amount opens a new one
   useEffect(() => {
     if (chinaPayments() || invalid || amount < MIN) return;
     let live = true;
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       setSession({ kind: "loading" });
       gateway.topUp(amount).then(
         (r) =>
@@ -140,17 +139,17 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           setSession(
             r.checkout
               ? { kind: "ready", secret: r.checkout.client_secret, publishableKey: r.publishable_key, amount }
-              : { kind: "error", text: "Payment isn't available in this region yet." },
+              : { kind: "error", error: null },
           ),
         (e: unknown) => {
           if (!live) return;
-          setSession({ kind: "error", text: topupErrorText(e, amount, first) });
+          setSession({ kind: "error", error: e });
         },
       );
     }, 250);
     return () => {
       live = false;
-      clearTimeout(t);
+      clearTimeout(timer);
     };
   }, [gateway, amount, invalid, first]);
 
@@ -164,25 +163,25 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   async function finish(added: number): Promise<void> {
     const s = await billing.refresh();
     const bal = prepaidOf(s)?.balance_cents ?? (prepaid?.balance_cents ?? 0) + added;
-    setSession({ kind: "done", text: topupDone(added, bal) });
+    setSession({ kind: "done", text: topupDone(added, bal, t) });
     closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
   }
 
   function handle(r: ConfirmResult, s: { secret: string; publishableKey?: string; amount: number }): void {
     if (r === "paid" || r === "already_paid") return void finish(s.amount);
     if (r === "redirect") return;
-    setSession({ kind: "ready", ...s, notice: r === "too_many" ? TOO_MANY : DECLINED });
+    setSession({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
   const header = (
     <div className="flex flex-col gap-3">
       <div className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 text-sm">
-        <span className="text-fg-muted">Balance</span>
+        <span className="text-fg-muted">{t("balance.addFunds.balance")}</span>
         <span data-testid="funds-balance" className="font-semibold tabular-nums text-fg">
           {formatCents(prepaid?.balance_cents ?? 0)}
         </span>
       </div>
-      <div role="radiogroup" aria-label="Amount" className="grid grid-cols-5 gap-2">
+      <div role="radiogroup" aria-label={t("balance.addFunds.amount")} className="grid grid-cols-5 gap-2">
         {[...CHIPS, "other" as const].map((c) => (
           <button
             key={c}
@@ -194,18 +193,18 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
               chip === c ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted hover:text-fg"
             }`}
           >
-            {c === "other" ? "Other" : `$${c / 100}`}
+            {c === "other" ? t("balance.addFunds.other") : formatCentsShort(c, t)}
           </button>
         ))}
       </div>
       {chip === "other" ? (
         <label className="flex flex-col gap-1">
-          <span className="text-xs text-fg-muted">Amount</span>
+          <span className="text-xs text-fg-muted">{t("balance.addFunds.amount")}</span>
           <span className="flex h-11 items-center rounded-lg border border-edge bg-surface-2 px-3">
             <span className="text-fg-muted">$</span>
             <input
               inputMode="numeric"
-              aria-label="Amount"
+              aria-label={t("balance.addFunds.amount")}
               value={other}
               onChange={(e) => setOther(e.target.value.replace(/[^0-9]/g, ""))}
               className="w-full bg-transparent px-1 text-sm text-fg tabular-nums outline-none"
@@ -219,7 +218,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
 
   if (session.kind === "done") {
     return (
-      <SheetFrame open onClose={onClose} testId="add-funds-sheet" title="Add funds">
+      <SheetFrame open onClose={onClose} testId="add-funds-sheet" title={t("balance.addFunds.title")}>
         <Success text={session.text} />
       </SheetFrame>
     );
@@ -231,10 +230,10 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         open
         onClose={onClose}
         testId="add-funds-sheet"
-        title="Add funds"
+        title={t("balance.addFunds.title")}
         footer={
           <div className="flex flex-col gap-2">
-            <p className="text-xs text-fg-muted">{CHARGED_IN_USD}</p>
+            <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
             <Button
               size="lg"
               className="h-12 w-full"
@@ -242,7 +241,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
               onClick={async () => {
                 setChinaError(null);
                 const r = await gateway.topUp(amount, "alipay").catch((e: unknown) => {
-                  setChinaError(topupErrorText(e, amount, first));
+                  setChinaError(topupErrorText(e, amount, first, t));
                   return null;
                 });
                 if (r?.redirect_url) window.location.assign(r.redirect_url);
@@ -250,7 +249,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             >
               Alipay
             </Button>
-            <p className="text-center text-xs text-fg-muted">{TOPUP_SMALL_PRINT}</p>
+            <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
           </div>
         }
       >
@@ -267,7 +266,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const footer = (form?: { ready: boolean; confirm: () => Promise<ConfirmResult> }) => (
     <div className="flex flex-col gap-3">
       <p className="flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
-        {CHARGED_IN_USD}
+        {t("pay.copy.chargedInUsd")}
       </p>
       <Button
         size="lg"
@@ -282,25 +281,25 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         }}
       >
         {paying ? (
-          PAYING
+          t("pay.copy.paying")
         ) : (
           <>
             <LockIcon className="size-4" aria-hidden />
-            Add {formatCents(amount >= MIN ? amount : 0)}
+            {t("balance.addFunds.add", { amount: formatCents(amount >= MIN ? amount : 0, t) })}
           </>
         )}
       </Button>
-      <p className="text-center text-xs text-fg-muted">{TOPUP_SMALL_PRINT}</p>
+      <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
     </div>
   );
 
   if (!ready) {
     return (
-      <SheetFrame open onClose={onClose} testId="add-funds-sheet" title="Add funds" footer={footer()}>
+      <SheetFrame open onClose={onClose} testId="add-funds-sheet" title={t("balance.addFunds.title")} footer={footer()}>
         <div className="flex flex-col gap-4">
           {header}
           {session.kind === "error" ? (
-            <ErrorLine text={session.text} />
+            <ErrorLine text={topupErrorText(session.error, amount, first, t)} />
           ) : session.kind === "loading" ? (
             <div data-testid="pay-skeleton" className="h-40 animate-pulse rounded-lg bg-surface-2" />
           ) : null}
@@ -311,11 +310,11 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   return (
     <CheckoutPane clientSecret={ready.secret} publishableKey={ready.publishableKey} big={big} returnQuery="topup=1">
       {(form, body) => (
-        <SheetFrame open onClose={onClose} locked={paying} testId="add-funds-sheet" title="Add funds" footer={footer(form)}>
+        <SheetFrame open onClose={onClose} locked={paying} testId="add-funds-sheet" title={t("balance.addFunds.title")} footer={footer(form)}>
           <div className={`flex flex-col gap-4 ${paying ? "pointer-events-none opacity-60" : ""}`}>
             {header}
             {body}
-            {session.kind === "ready" && session.notice ? <ErrorLine text={session.notice} /> : null}
+            {session.kind === "ready" && session.notice ? <ErrorLine text={t(session.notice)} /> : null}
           </div>
         </SheetFrame>
       )}
@@ -400,6 +399,7 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
   const gateway = useGateway();
   const billing = useBilling();
   const { list } = useBillingMethods();
+  const t = useT();
   const prepaid = prepaidOf(billing.status);
   const ar = prepaid?.auto_reload ?? { enabled: false, below_cents: 1000, add_cents: 2500 };
   // "Set up" and "Edit" both open it switched on
@@ -417,9 +417,9 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
   const belowC = cents(below);
   const invalid = on
     ? addC < 1000
-      ? "Add at least $10."
+      ? t("balance.autoReload.addAtLeast", { amount: formatCentsShort(1000, t) })
       : addC < belowC
-        ? `Add at least as much as the threshold (${formatCents(belowC)}).`
+        ? t("balance.autoReload.atLeastThreshold", { amount: formatCents(belowC, t) })
         : null
     : null;
 
@@ -438,10 +438,10 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
       const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
       setError(
         code === "auto_reload_blocked"
-          ? (AUTO_RELOAD_BLOCKED[reason] ?? AUTO_RELOAD_BLOCKED.under_review)
+          ? autoReloadBlocked(reason, t)
           : code === "method_needed"
-            ? "Save a payment method to use auto-reload."
-            : "Couldn't save that. Try again.",
+            ? t("balance.autoReload.methodNeeded")
+            : t("balance.autoReload.saveFailed"),
       );
     }
   }
@@ -452,38 +452,38 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
       onClose={onClose}
       locked={state === "saving"}
       testId="auto-reload-dialog"
-      title="Auto-reload"
+      title={t("balance.autoReload.title")}
       footer={
         noMethod ? (
           <Button size="lg" className="h-12 w-full" onClick={() => setAdding(true)}>
-            Add payment method
+            {t("balance.autoReload.addMethod")}
           </Button>
         ) : state === "saved" ? (
-          <SavedLine text={on ? "Auto-reload is on." : "Saved."} />
+          <SavedLine text={on ? t("balance.autoReload.isOn") : t("balance.autoReload.saved")} />
         ) : (
           <Button size="lg" data-testid="auto-reload-save" className="h-12 w-full" disabled={state === "saving"} onClick={() => void save()}>
-            {state === "saving" ? "Saving…" : "Save"}
+            {state === "saving" ? t("balance.autoReload.saving") : t("balance.autoReload.save")}
           </Button>
         )
       }
     >
       <div className="flex flex-col gap-4">
-        <Toggle label="Auto-reload" on={on && !noMethod} onChange={setOn} />
+        <Toggle label={t("balance.autoReload.title")} on={on && !noMethod} onChange={setOn} />
         {noMethod ? (
           <p className="flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm text-fg">
             <CreditCardIcon className="size-4 text-primary" aria-hidden />
-            Save a payment method to use auto-reload.
+            {t("balance.autoReload.methodNeeded")}
           </p>
         ) : on ? (
           <>
             <div className="flex gap-3">
-              <Money label="When my balance drops below" value={below} onChange={setBelow} />
-              <Money label="Add" value={add} onChange={setAdd} invalid={invalid !== null && error !== null} />
+              <Money label={t("balance.autoReload.below")} value={below} onChange={setBelow} />
+              <Money label={t("balance.autoReload.add")} value={add} onChange={setAdd} invalid={invalid !== null && error !== null} />
             </div>
             {error ? <ErrorLine text={error} /> : null}
             <p data-testid="reload-consent" className="flex gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
               <RefreshCwIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              {reloadConsent(def ? methodLabel(def) : null, addC, belowC)}
+              {reloadConsent(def ? methodLabel(def) : null, addC, belowC, t)}
             </p>
           </>
         ) : error ? (
@@ -508,6 +508,7 @@ export function SpendingDialog({ onClose }: { onClose: () => void }): JSX.Elemen
   const gateway = useGateway();
   const billing = useBilling();
   const prepaid: BalanceSummary | null = prepaidOf(billing.status);
+  const t = useT();
   const [limitOn, setLimitOn] = useState((prepaid?.spend_limit_cents ?? null) !== null);
   const [limit, setLimit] = useState(String(Math.round((prepaid?.spend_limit_cents ?? 10000) / 100)));
   const [alert, setAlert] = useState(dollars(prepaid?.low_balance_cents ?? 500));
@@ -527,7 +528,7 @@ export function SpendingDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       setTimeout(onClose, SUCCESS_CLOSE_MS);
     } catch {
       setState("idle");
-      setError("Couldn't save that. Try again.");
+      setError(t("balance.autoReload.saveFailed"));
     }
   }
 
@@ -537,37 +538,37 @@ export function SpendingDialog({ onClose }: { onClose: () => void }): JSX.Elemen
       onClose={onClose}
       locked={state === "saving"}
       testId="spending-dialog"
-      title="Spending"
+      title={t("balance.spending.title")}
       footer={
         state === "saved" ? (
-          <SavedLine text="Saved." />
+          <SavedLine text={t("balance.autoReload.saved")} />
         ) : (
           <div className="flex flex-col gap-2">
             {error ? <ErrorLine text={error} /> : null}
             <Button size="lg" data-testid="spending-save" className="h-12 w-full" disabled={state === "saving"} onClick={() => void save()}>
-              {state === "saving" ? "Saving…" : "Save"}
+              {state === "saving" ? t("balance.autoReload.saving") : t("balance.autoReload.save")}
             </Button>
           </div>
         )
       }
     >
       <div className="flex flex-col gap-4">
-        <Toggle label="Monthly spend limit" on={limitOn} onChange={setLimitOn} />
+        <Toggle label={t("balance.spending.limit")} on={limitOn} onChange={setLimitOn} />
         {limitOn ? (
           <div className="flex flex-col gap-2">
             <div className="flex items-end gap-2">
-              <Money label="Monthly spend limit" value={limit} onChange={setLimit} />
+              <Money label={t("balance.spending.limit")} value={limit} onChange={setLimit} />
               <span className="pb-2.5 text-xs text-fg-muted tabular-nums">
-                a month · {formatCents(prepaid?.month_spent_cents ?? 0)} used
+                {t("balance.spending.used", { amount: formatCents(prepaid?.month_spent_cents ?? 0, t) })}
               </span>
             </div>
             <p className="text-xs text-fg-muted">
-              Runs stop when this month&apos;s spending reaches it. Resets on the 1st (UTC).
+              {t("balance.spending.resets")}
             </p>
           </div>
         ) : null}
         <div className="border-t border-edge pt-4">
-          <Money label="Email me when my balance drops below" value={alert} onChange={setAlert} />
+          <Money label={t("balance.spending.alert")} value={alert} onChange={setAlert} />
         </div>
       </div>
     </SheetFrame>

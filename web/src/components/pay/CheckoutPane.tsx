@@ -35,8 +35,7 @@ import { useMemo, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { getStripe } from "@/components/billing/stripeLoader";
-
-import { OR_PAY_ANOTHER_WAY, SAVE_LINE } from "./payCopy";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
@@ -438,6 +437,7 @@ function MockPane({
 
 /** Headset: the card fields wait under "Pay with a card" (spec B13). */
 function CardsToggle({ big, onOpen }: { big: boolean; onOpen: () => void }): JSX.Element {
+  const t = useT();
   return (
     <button
       type="button"
@@ -445,25 +445,27 @@ function CardsToggle({ big, onOpen }: { big: boolean; onOpen: () => void }): JSX
       onClick={onOpen}
       className={`w-full rounded-lg border border-edge text-fg hover:bg-surface-2 ${big ? "h-14 text-xl" : "h-12 text-sm"}`}
     >
-      Pay with a card
+      {t("pay.checkout.payWithCard")}
     </button>
   );
 }
 
 function Divider({ setup = false }: { setup?: boolean }): JSX.Element {
+  const t = useT();
   return (
     <div className="flex items-center gap-3 text-xs text-fg-muted">
       <span className="h-px flex-1 bg-edge" />
-      {setup ? "or add another way" : OR_PAY_ANOTHER_WAY}
+      {setup ? t("pay.checkout.orAddAnotherWay") : t("pay.copy.orPayAnotherWay")}
       <span className="h-px flex-1 bg-edge" />
     </div>
   );
 }
 
 function SaveLine(): JSX.Element {
+  const t = useT();
   return (
     <p data-testid="pay-save-line" className="text-xs text-fg-muted">
-      {SAVE_LINE}
+      {t("pay.copy.saveLine")}
     </p>
   );
 }

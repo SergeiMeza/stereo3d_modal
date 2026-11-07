@@ -12,11 +12,12 @@ import { useState } from "react";
 import type { JSX } from "react";
 
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 
-export const LIMITS_LINE =
-  "Make your first 3D video or save a payment method to keep more than 3 projects and 10 GB of uploads.";
+export const LIMITS_LINE = EN("pay.limits.line");
 
 /** true when the account may not add another project or upload. */
 export function useLimitsReached(): boolean {
@@ -27,6 +28,7 @@ export function useLimitsReached(): boolean {
 export function LimitsNotice({ force = false }: { force?: boolean }): JSX.Element | null {
   const reached = useLimitsReached();
   const billing = useBilling();
+  const t = useT();
   const [adding, setAdding] = useState(false);
   if (!reached && !force) return null;
   return (
@@ -34,13 +36,13 @@ export function LimitsNotice({ force = false }: { force?: boolean }): JSX.Elemen
       data-testid="limits-notice"
       className="rounded-lg border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-fg"
     >
-      {LIMITS_LINE}{" "}
+      {t("pay.limits.line")}{" "}
       <button
         type="button"
         onClick={() => setAdding(true)}
         className="font-medium text-primary hover:underline"
       >
-        Add payment method
+        {t("pay.limits.addMethod")}
       </button>
       {adding ? (
         <AddMethodSheet

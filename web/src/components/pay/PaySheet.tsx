@@ -24,27 +24,11 @@ import type { CheckoutHandle, Conversion, ConversionBilling } from "@/lib/api/ty
 import { useGateway } from "@/lib/api/useGateway";
 import { versionOf, type LiveRun } from "@/lib/live/events";
 import { useLiveRunById } from "@/lib/live/useLive";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { HandoffSheet } from "./HandoffSheet";
-import {
-  ALIPAY_LINE,
-  ALREADY_PAID,
-  BANK_WANTS,
-  CHARGED_IN_USD,
-  CONFIRM_TITLE,
-  DECLINED,
-  declinedChoose,
-  EXPIRED_RUN,
-  PAID_STARTING,
-  PAYING,
-  REFUNDED_IF_FAILS,
-  TOO_MANY,
-  UNAVAILABLE,
-  WAITING_CONFIRM,
-  WITHDRAWAL_LINE,
-  payAndStart,
-} from "./payCopy";
+import { declinedChoose, payAndStart } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -52,7 +36,8 @@ type Phase =
   | { kind: "ready"; checkout: CheckoutHandle; publishableKey?: string; notice?: "declined" | "too_many" }
   | { kind: "paying"; checkout: CheckoutHandle; publishableKey?: string }
   | { kind: "waiting" }
-  | { kind: "done"; text: string }
+  /** key: the success line's message (pay.copy.*) */
+  | { kind: "done"; key: string }
   | { kind: "expired" }
   | { kind: "unavailable" };
 
@@ -125,6 +110,7 @@ export function PaySheet({
   run?: (Pick<Conversion, "state" | "billing"> & Partial<Pick<Conversion, "updated_at">>) | null;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const frame = useSheetFrame();
   const big = frame === "headset";
   // The form needs the gateway's publishable key: Stripe given an empty
@@ -155,7 +141,7 @@ export function PaySheet({
       .then((s) => live && setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key }))
       .catch((e: { code?: string }) => {
         if (!live) return;
-        if (e.code === "already_paid") setPhase({ kind: "done", text: ALREADY_PAID });
+        if (e.code === "already_paid") setPhase({ kind: "done", key: "pay.copy.alreadyPaid" });
         else if (e.code === "expired") setPhase({ kind: "expired" });
         else setPhase({ kind: "unavailable" });
       });
@@ -167,8 +153,8 @@ export function PaySheet({
   // the success check shows, then the sheet closes
   useEffect(() => {
     if (phase.kind !== "done") return;
-    const t = setTimeout(() => onCloseRef.current("paid"), SUCCESS_CLOSE_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => onCloseRef.current("paid"), SUCCESS_CLOSE_MS);
+    return () => clearTimeout(timer);
   }, [phase.kind]);
 
   // staging 2026-11-05: while paying (or waiting for the processor) the
@@ -179,7 +165,7 @@ export function PaySheet({
   const current = newerRun(run, liveRun);
   const watched = phase.kind === "paying" || phase.kind === "waiting" ? runPayOutcome(current) : null;
   if (watched === "expired") setPhase({ kind: "expired" });
-  else if (watched === "paid") setPhase({ kind: "done", text: PAID_STARTING });
+  else if (watched === "paid") setPhase({ kind: "done", key: "pay.copy.paidStarting" });
   else if (watched === "waiting" && phase.kind === "paying") setPhase({ kind: "waiting" });
 
   // and a confirm that never answers goes back to the form after a minute
@@ -187,8 +173,8 @@ export function PaySheet({
   useEffect(() => {
     if (phase.kind !== "paying") return;
     const back: Phase = { kind: "ready", checkout: phase.checkout, publishableKey: phase.publishableKey };
-    const t = setTimeout(() => setPhase((p) => (p.kind === "paying" ? back : p)), CONFIRM_TIMEOUT_MS);
-    return () => clearTimeout(t);
+    const timer = setTimeout(() => setPhase((p) => (p.kind === "paying" ? back : p)), CONFIRM_TIMEOUT_MS);
+    return () => clearTimeout(timer);
     // the phase object changes only with its kind while paying
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase.kind]);
@@ -207,9 +193,9 @@ export function PaySheet({
     if (result === "redirect") return; // the browser is leaving for /pay/return
     const next: Phase =
       result === "paid"
-        ? { kind: "done", text: PAID_STARTING }
+        ? { kind: "done", key: "pay.copy.paidStarting" }
         : result === "already_paid"
-          ? { kind: "done", text: ALREADY_PAID }
+          ? { kind: "done", key: "pay.copy.alreadyPaid" }
           : result === "processing"
             ? { kind: "waiting" }
             : result === "expired"
@@ -223,12 +209,14 @@ export function PaySheet({
   }
 
   const confirmTitle = billing?.reason === "authentication" || billing?.reason === "declined";
-  const title = confirmTitle ? CONFIRM_TITLE : `${action} · ${formatCents(amountCents)}`;
+  const title = confirmTitle
+    ? t("pay.copy.confirmTitle")
+    : t("pay.sheet.title", { action, amount: formatCents(amountCents, t) });
   const why =
     billing?.reason === "authentication"
-      ? BANK_WANTS
+      ? t("pay.copy.bankWants")
       : billing?.reason === "declined"
-        ? declinedChoose(billing.declined_method_label ?? "payment method")
+        ? declinedChoose(billing.declined_method_label ?? t("pay.copy.paymentMethod"), t)
         : null;
   const locked = phase.kind === "paying";
 
@@ -278,8 +266,8 @@ export function PaySheet({
               footer={
                 <MainButtonArea
                   big={big}
-                  lines={[CHARGED_IN_USD, WITHDRAWAL_LINE]}
-                  extra={alipay ? ALIPAY_LINE : undefined}
+                  lines={[t("pay.copy.chargedInUsd"), t("pay.copy.withdrawal")]}
+                  extra={alipay ? t("pay.copy.alipayLine") : undefined}
                   button={
                     elsewhereFirst ? (
                       <Button
@@ -288,7 +276,7 @@ export function PaySheet({
                         className="h-14 w-full text-xl"
                         onClick={() => setHandoff(true)}
                       >
-                        Pay on another device
+                        {t("pay.sheet.payOtherDevice")}
                       </Button>
                     ) : (
                     <Button
@@ -306,20 +294,20 @@ export function PaySheet({
                     >
                       {locked ? (
                         <>
-                          <Spinner /> {PAYING}
+                          <Spinner /> {t("pay.copy.paying")}
                         </>
                       ) : alipay ? (
-                        "Continue to Alipay"
+                        t("pay.sheet.continueAlipay")
                       ) : (
                         <>
                           <LockIcon className="size-4" aria-hidden />
-                          {payAndStart(amountCents)}
+                          {payAndStart(amountCents, t)}
                         </>
                       )}
                     </Button>
                     )
                   }
-                  foot={REFUNDED_IF_FAILS}
+                  foot={t("pay.copy.refundedIfFails")}
                   after={
                     elsewhereFirst ? (
                       <button
@@ -328,7 +316,7 @@ export function PaySheet({
                         onClick={form.openCards}
                         className="w-full py-3 text-center text-xl text-primary hover:underline"
                       >
-                        Pay here instead
+                        {t("pay.sheet.payHereInstead")}
                       </button>
                     ) : big ? (
                       <button
@@ -338,7 +326,7 @@ export function PaySheet({
                         onClick={() => setHandoff(true)}
                         className="w-full py-3 text-center text-xl text-primary hover:underline"
                       >
-                        Pay on another device
+                        {t("pay.sheet.payOtherDevice")}
                       </button>
                     ) : undefined
                   }
@@ -349,7 +337,7 @@ export function PaySheet({
                 {why ? <p className="text-sm text-fg">{why}</p> : null}
                 {notice === "too_many" ? (
                   <p data-testid="pay-error" className="text-sm text-red-400">
-                    {TOO_MANY}
+                    {t("pay.copy.tooMany")}
                   </p>
                 ) : null}
                 {formBody}
@@ -360,7 +348,7 @@ export function PaySheet({
                 ) : null}
                 {notice === "declined" ? (
                   <p data-testid="pay-error" className="text-sm text-red-400">
-                    {form.message ?? DECLINED}
+                    {form.message ?? t("pay.copy.declined")}
                   </p>
                 ) : null}
               </div>
@@ -380,18 +368,18 @@ export function PaySheet({
       </div>
     );
   } else if (phase.kind === "waiting") {
-    body = <StateLine testId="pay-waiting" text={WAITING_CONFIRM} />;
+    body = <StateLine testId="pay-waiting" text={t("pay.copy.waitingConfirm")} />;
   } else if (phase.kind === "done") {
-    body = <Success text={phase.text} />;
+    body = <Success text={t(phase.key)} />;
   } else if (phase.kind === "expired") {
-    body = <StateLine testId="pay-expired" text={EXPIRED_RUN} />;
+    body = <StateLine testId="pay-expired" text={t("pay.copy.expiredRun")} />;
     footer = (
       <Button size="lg" className="h-12 w-full" onClick={() => void startAgain()}>
-        Start again
+        {t("pay.sheet.startAgain")}
       </Button>
     );
   } else {
-    body = <StateLine testId="pay-unavailable" text={UNAVAILABLE} />;
+    body = <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} />;
   }
   return (
     <SheetFrame

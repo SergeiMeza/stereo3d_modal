@@ -803,7 +803,12 @@
     "methods": {
       "email": "Email",
       "password": "Password",
-      "loadFailed": "Couldn't load your sign-in methods."
+      "loadFailed": "Couldn't load your sign-in methods.",
+      "heading": "Sign in with",
+      "codeTo": "Code to {email}",
+      "on": "On",
+      "adding": "Adding…",
+      "add": "Add"
     },
     "signIn": {
       "title": "Sign in",
@@ -828,7 +833,8 @@
       "signingIn": "Signing in…",
       "newCodeSent": "New code sent.",
       "resendIn": "Send a new code in {time}",
-      "resend": "Send a new code"
+      "resend": "Send a new code",
+      "inputLabel": "Sign-in code"
     },
     "providers": {
       "emailCode": "an email code",
@@ -889,10 +895,27 @@
       "removeTitle": "Remove \"{name}\"?",
       "removeDescription": "You won't be able to sign in with this passkey any more. You can still sign in another way.",
       "removing": "Removing…",
-      "removeButton": "Remove passkey"
+      "removeButton": "Remove passkey",
+      "signIn": "Sign in with a passkey"
     },
     "otherAccount": {
       "line": "Another account uses this email (it signs in with {how})."
+    },
+    "passkeySuggestion": {
+      "added": "Passkey added. Next time, sign in with it.",
+      "line": "Add a passkey to sign in faster next time.",
+      "dismiss": "Dismiss"
+    },
+    "reauth": {
+      "title": "Confirm it's you",
+      "description": "Sign in again to continue. It only takes a moment.",
+      "usePasskey": "Use a passkey",
+      "confirm": "Confirm",
+      "sendCode": "Send a code to {email}"
+    },
+    "menu": {
+      "label": "Account menu",
+      "planBilling": "Plan & billing"
     }
   },
   "account": {
@@ -2413,6 +2436,65 @@
           }
         }
       }
+    },
+    "devices": {
+      "glasses": "XR glasses (XREAL, VITURE, RayNeo)",
+      "tv": "3D TV or projector",
+      "unsure": "Not sure"
+    },
+    "controls": {
+      "watchQuestion": "Where will you watch it?",
+      "filesYoullGet": "Files you'll get",
+      "formatFor": {
+        "mvhevc": "For Apple Vision Pro",
+        "sbs": "For Meta Quest, Galaxy XR, Pico, Steam Frame and XR glasses",
+        "half_sbs": "For 3D TVs, projectors, and Meta Quest at 4K and above",
+        "anaglyph": "Any screen, with red-cyan glasses"
+      },
+      "halfSbsSizeHint": "About half the file size of full side-by-side. Handy when a file is too big to copy or stream.",
+      "quality": "Quality",
+      "highestChip": "Highest<sr> quality</sr>",
+      "originalEye": "One eye keeps your original picture.",
+      "startHandle": "Start handle",
+      "endHandle": "End handle",
+      "start": "Start",
+      "end": "End",
+      "trimWhole": "Whole video · {length}",
+      "trimPart": "Part · {length}",
+      "partsEstimate": "{count, plural, one {# part} other {# parts}}: about {list} min",
+      "bitrateMatchSource": "Match the source",
+      "bitrate": "Bitrate",
+      "estimatedSize": "Estimated size: about {size}"
+    },
+    "deliver": {
+      "analyzing": "We're still analyzing your video. Prices appear when it's done.",
+      "optionalLook": "Optional: check any 10 seconds on <link>3D look</link> first.",
+      "pickAll": "Pick all that apply.",
+      "allIncluded": "All included in the price.",
+      "edgeNote": {
+        "filled": "With filled edges. You can change this under Advanced.",
+        "stretched": "With stretched edges. You can change this under Advanced."
+      },
+      "whichPart": "Which part?",
+      "whichPartHint": "Drag the handles to pay for just a part.",
+      "advanced": "Advanced",
+      "depthFromPage": "{px} px (from the Depth page)",
+      "useAutoDepth": "Use automatic depth detail",
+      "depthStandard": "Standard for this quality. Higher detail is set on the Depth page.",
+      "ownDepthMap": "Your own depth map",
+      "uploadedDepth": "Uploaded depth video",
+      "uploadedDepthNamed": "Uploaded depth video · {name}",
+      "useUploadedDepth": "Use my uploaded depth video",
+      "usedAsIs": "Used as is; costs less.",
+      "sceneSettings": "Scene settings",
+      "stereoFromPage": "{count} scenes adjusted, 3D strength ×{scale} (from the 3D look page)",
+      "useAutoStereo": "Use automatic 3D for every scene",
+      "stereoAuto": "Every scene uses automatic 3D.",
+      "edges": "Edges",
+      "fromScratch": "Start from scratch",
+      "fromScratchHint": "Don't reuse earlier work on this video. Full price.",
+      "makeLabel": "Make 3D",
+      "pickOneFile": "Pick at least one file"
     }
   },
   "glossary": {

@@ -13,13 +13,7 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useState } from "react";
 import type { JSX } from "react";
 
-import {
-  isStepDown,
-  NOTHING_TODAY,
-  REPRICED,
-  stepDownLine,
-  upgradeLine,
-} from "@/components/billing/planChangeCopy";
+import { isStepDown, stepDownLine, upgradeLine } from "@/components/billing/planChangeCopy";
 import { formatCents } from "@/components/steps/money";
 import {
   AlertDialog,
@@ -42,7 +36,9 @@ import {
   previewPlanChangeAtom,
 } from "@/components/billing/planChangeAtoms";
 import { StepUpExtras } from "@/components/billing/StepUpDetails";
-import { planName } from "@/lib/pro/plans";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { planName, planPer, proPlanName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import {
   isWebPro,
@@ -51,8 +47,6 @@ import {
   useProStatus,
 } from "@/lib/pro/usePro";
 
-const PER = { weekly: "a week", monthly: "a month", yearly: "a year" } as const;
-
 /** The dialog's line: today's charge for a longer period, or for a
  * shorter one "Your Pro Yearly stays on until … Pro Monthly starts then
  * at $4.99 a month." */
@@ -60,20 +54,21 @@ export function previewLine(
   p: PlanChangePreview,
   current: ProPlan | undefined,
   target: ProPlan,
+  t: Tr = EN,
 ): string {
+  const from = current ? proPlanName(current, t) : "Pro";
+  const to = proPlanName(target, t);
   if (isStepDown(p)) {
-    return `${stepDownLine(current ? `Pro ${planName(current)}` : "Pro", { name: `Pro ${planName(target)}`, per: PER[target.kind] }, p)} ${NOTHING_TODAY}`;
+    return `${stepDownLine(from, { name: to, per: planPer(target, t) }, p, t)} ${t("billing.planChange.nothingToday")}`;
   }
-  return upgradeLine(p, {
-    from: current ? `Pro ${planName(current)}` : "Pro",
-    to: `Pro ${planName(target)}`,
-  });
+  return upgradeLine(p, { from, to }, t);
 }
 
 const SCOPE = "pro-period";
 
 export function ProPeriodChange(): JSX.Element | null {
   const gateway = useGateway();
+  const t = useT();
   const status = useProStatus();
   const plans = useProPlans();
   // the plan being switched to, by id (its row comes from the plans)
@@ -87,8 +82,8 @@ export function ProPeriodChange(): JSX.Element | null {
   const closeChange = useSetAtom(closePlanChangeAtom);
   const preview = change.to === target?.id ? change.preview : null;
   const error =
-    change.error ?? (change.previewFailed ? "Couldn't work out the price. Nothing was charged." : null);
-  const notice = change.repriced ? REPRICED : null;
+    change.error ?? (change.previewFailed ? t("pro.period.previewFailed") : null);
+  const notice = change.repriced ? t("billing.planChange.repriced") : null;
   const busy = change.busy;
   if (!isWebPro(status) || plans.state !== "ready") return null;
   // a step-down already waits for the period's end: Keep is on the page
@@ -118,7 +113,7 @@ export function ProPeriodChange(): JSX.Element | null {
     <div data-testid="pro-period-change" className="flex flex-wrap gap-2">
       {others.map((p) => (
         <Button key={p.id} variant="outline" size="sm" onClick={() => open(p)}>
-          Switch to {planName(p)}
+          {t("pro.period.switchTo", { name: planName(p, t) })}
         </Button>
       ))}
       <AlertDialog
@@ -132,19 +127,19 @@ export function ProPeriodChange(): JSX.Element | null {
         <AlertDialogContent data-testid="pro-change-dialog">
           <AlertDialogHeader>
             <AlertDialogTitle>
-              Switch to Pro {target ? planName(target) : ""}?
+              {t("pro.period.dialogTitle", { name: target ? planName(target, t) : "" })}
             </AlertDialogTitle>
             <AlertDialogDescription data-testid="pro-change-preview">
               {error ??
                 (preview && target
-                  ? previewLine(preview, currentPlan, target)
-                  : "Working out today's price…")}
+                  ? previewLine(preview, currentPlan, target, t)
+                  : t("pro.period.working"))}
             </AlertDialogDescription>
             {preview && target && !error && !isStepDown(preview) ? (
               <StepUpExtras
                 preview={preview}
-                from={currentPlan ? `Pro ${planName(currentPlan)}` : "Pro"}
-                to={`Pro ${planName(target)}`}
+                from={currentPlan ? proPlanName(currentPlan, t) : "Pro"}
+                to={proPlanName(target, t)}
               />
             ) : null}
             {notice ? (
@@ -154,7 +149,7 @@ export function ProPeriodChange(): JSX.Element | null {
             ) : null}
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep my plan</AlertDialogCancel>
+            <AlertDialogCancel>{t("pro.period.keep")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={preview === null || busy}
               onClick={(e) => {
@@ -163,8 +158,8 @@ export function ProPeriodChange(): JSX.Element | null {
               }}
             >
               {preview && !isStepDown(preview)
-                ? `Confirm and pay ${formatCents(preview.today_cents)}`
-                : "Confirm"}
+                ? t("pro.period.confirmPay", { amount: formatCents(preview.today_cents, t) })
+                : t("pro.period.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -16,9 +16,9 @@ import { Button } from "@/components/ui/button";
 import type { HandoffStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useFallbackTick, useLiveHandoff, useLiveRunById } from "@/lib/live/useLive";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import { EXPIRED, PAID_STARTING, WAITING_FOR_PAYMENT } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 /** "stereo3d.studio/p/K7M2-QX9P" from the link. */
@@ -46,6 +46,7 @@ export function HandoffSheet({
   onClose: (paid: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const big = useSheetFrame() === "headset";
   const [start, setStart] = useState<HandoffStart | null>(null);
   const [state, setState] = useState<"loading" | "open" | "paying" | "paid" | "expired" | "error">("loading");
@@ -114,7 +115,7 @@ export function HandoffSheet({
 
   const left = start ? Date.parse(start.expires_at) - now : 0;
   const expired = state === "expired" || (start !== null && left <= 0);
-  const title = computerOnly ? "Pay on a computer" : "Pay on your phone or computer";
+  const title = computerOnly ? t("pay.handoff.titleComputer") : t("pay.handoff.title");
 
   return (
     <SheetFrame
@@ -125,26 +126,26 @@ export function HandoffSheet({
       footer={
         expired ? (
           <Button size="lg" className="h-14 w-full text-xl" onClick={onPayHere}>
-            Start again
+            {t("pay.handoff.startAgain")}
           </Button>
         ) : state === "paid" ? null : (
           <button type="button" onClick={onPayHere} className={`w-full text-center text-primary hover:underline ${big ? "py-3 text-xl" : "text-sm"}`}>
-            Pay here instead
+            {t("pay.handoff.payHereInstead")}
           </button>
         )
       }
     >
       {state === "paid" ? (
-        <Success text={PAID_STARTING} />
+        <Success text={t("pay.copy.paidStarting")} />
       ) : expired ? (
-        <StateLine testId="handoff-expired" text={EXPIRED} />
+        <StateLine testId="handoff-expired" text={t("pay.copy.expired")} />
       ) : state === "error" ? (
-        <StateLine text="Payment isn't available in this region yet." />
+        <StateLine text={t("pay.copy.unavailable")} />
       ) : !start ? (
         <div className="h-40 animate-pulse rounded-lg bg-surface-2" />
       ) : (
         <div className="flex flex-col items-center gap-5 text-center">
-          <p className={big ? "text-xl text-fg-muted" : "text-sm text-fg-muted"}>Open this link:</p>
+          <p className={big ? "text-xl text-fg-muted" : "text-sm text-fg-muted"}>{t("pay.handoff.openLink")}</p>
           <p data-testid="handoff-link" className="font-mono text-[40px] leading-tight tracking-tight break-all text-fg">
             {shortLink(start.url)}
           </p>
@@ -164,14 +165,14 @@ export function HandoffSheet({
               }
             }}
           >
-            Email me the link
+            {t("pay.handoff.emailMe")}
           </Button>
           {email === "sent" ? (
             <p data-testid="handoff-email" className="text-sm text-fg">
-              Sent to {masked ?? "your email"}.
+              {masked ? t("pay.handoff.sentTo", { email: masked }) : t("pay.handoff.sentToYou")}
             </p>
           ) : email === "failed" ? (
-            <p className="text-sm text-red-400">Couldn&apos;t send the email. Try again.</p>
+            <p className="text-sm text-red-400">{t("pay.handoff.emailFailed")}</p>
           ) : null}
           {start.qr_image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -179,10 +180,10 @@ export function HandoffSheet({
           ) : null}
           <p data-testid="handoff-state" className="flex items-center gap-2 text-sm text-fg">
             <span aria-hidden className="size-2 animate-pulse rounded-full bg-primary" />
-            {state === "paying" ? "Paying on your other device…" : WAITING_FOR_PAYMENT}
+            {state === "paying" ? t("pay.handoff.payingOther") : t("pay.copy.waitingForPayment")}
           </p>
           <p data-testid="handoff-expires" className="text-xs text-fg-muted tabular-nums">
-            Expires in {countdown(left)}
+            {t("pay.handoff.expiresIn", { time: countdown(left) })}
           </p>
         </div>
       )}

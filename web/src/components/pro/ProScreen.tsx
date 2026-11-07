@@ -31,6 +31,8 @@ import { isTeamPlan, type AccountPlan } from "@/lib/api/types";
 import { ProBusinessLine } from "@/components/business/BusinessEntry";
 import { ProPeriodChange } from "@/components/pro/ProPeriodChange";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { SITE_NAME } from "@/lib/site";
 
 function safeNext(raw: string | null): string | null {
   return raw !== null && raw.startsWith("/") && !raw.startsWith("//") ? raw : null;
@@ -45,12 +47,13 @@ function usePct(): number {
 
 /** "Pro is included in your Business plan" · Billing. */
 export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element {
+  const t = useT();
   return (
     <div data-testid="pro-included" className="ll-edge ll-tint flex items-center gap-3 rounded-xl p-5">
       <BadgeCheck className="size-6 shrink-0 text-primary" aria-hidden="true" />
-      <p className="flex-1 text-sm text-fg">Pro is included in your {planName} plan.</p>
+      <p className="flex-1 text-sm text-fg">{t("pro.screen.included", { plan: planName })}</p>
       <Link href="/account/billing" className="text-sm text-primary hover:underline">
-        Billing
+        {t("pro.screen.billing")}
       </Link>
     </div>
   );
@@ -58,11 +61,12 @@ export function PlanIncludesPro({ planName }: { planName: string }): JSX.Element
 
 export function ProScreen(): JSX.Element {
   const status = useProStatus();
+  const t = useT();
   const pct = usePct();
   // owner 2026-11-07: the credit joining Pro gives (/v1/pricing), and
   // what's left of a member's (/v1/billing)
   const pricing = usePricing();
-  const credit = creditLine(proCreditCents(pricing));
+  const credit = creditLine(proCreditCents(pricing), t);
   const proCredit = useProCredit();
   const next = safeNext(useSearchParams().get("next"));
   const [justBought, setJustBought] = useState(false);
@@ -85,14 +89,12 @@ export function ProScreen(): JSX.Element {
     <section className="mx-auto w-full max-w-md space-y-8 px-4 py-12">
       <FirstTimeHint id="pro" />
       <header className="space-y-2">
-        <span className="ll-eyebrow">Spatial Video Studio Pro</span>
+        <span className="ll-eyebrow">{SITE_NAME} Pro</span>
         <h1 className="text-3xl font-semibold tracking-tight text-balance">
-          {pct}% off every 3D video
+          {t("pro.screen.headline", { pct })}
         </h1>
         <p className="text-fg-muted">
-          {credit
-            ? `Plus ${credit}, and Pro in the app on iPhone, iPad, Mac and Vision Pro.`
-            : "Plus Pro in the app on iPhone, iPad, Mac and Vision Pro."}
+          {credit ? t("pro.screen.plusCredit", { credit }) : t("pro.screen.plus")}
         </p>
       </header>
 
@@ -106,10 +108,10 @@ export function ProScreen(): JSX.Element {
             <BadgeCheck className="size-6 text-primary" aria-hidden="true" />
             <div>
               <p className="font-semibold text-fg">
-                {justBought ? "Welcome to Pro" : "You're Pro"}
+                {justBought ? t("pro.screen.welcome") : t("pro.screen.youArePro")}
               </p>
               <p className="text-sm text-fg-muted">
-                {pct}% off applies to every quote.
+                {t("pro.screen.appliesToEvery", { pct })}
               </p>
             </div>
           </div>
@@ -123,7 +125,7 @@ export function ProScreen(): JSX.Element {
               href={next ?? "/projects"}
               className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/85"
             >
-              {next ? "Back to your video" : "Your projects"}
+              {next ? t("pro.screen.backToVideo") : t("pro.screen.yourProjects")}
             </Link>
             {manage !== null && (
               <a
@@ -132,7 +134,7 @@ export function ProScreen(): JSX.Element {
                 rel="noreferrer"
                 className="rounded-lg border border-edge px-4 py-2 text-sm text-fg transition-colors hover:border-primary/60"
               >
-                Manage plan
+                {t("pro.screen.managePlan")}
               </a>
             )}
           </div>
@@ -142,7 +144,7 @@ export function ProScreen(): JSX.Element {
       )}
       {credit ? (
         <p data-testid="pro-credit-rules" className="text-xs text-fg-muted">
-          {creditRules(proCreditDays(pricing))}
+          {creditRules(proCreditDays(pricing), t)}
         </p>
       ) : null}
       {/* owner 2026-11-04: Business and Studio, one line at the bottom */}
@@ -160,22 +162,23 @@ function MembershipLine({
   status: ProStatus | null;
   plan: AccountPlan | null | undefined;
 }): JSX.Element | null {
-  const m = proMembership(status, plan);
+  const t = useT();
+  const m = proMembership(status, plan, t);
   if (!m) return null;
   return (
     <p data-testid="pro-membership" className="text-sm text-fg">
       {m.text}{" "}
       {m.manage === "billing" ? (
         <Link href="/account/billing" className="text-primary hover:underline">
-          Manage in Billing
+          {t("pro.screen.manageBilling")}
         </Link>
       ) : m.manage === "apple" ? (
         status?.management_url ? (
           <a href={status.management_url} target="_blank" rel="noreferrer" className="text-primary hover:underline">
-            Manage in your Apple ID settings
+            {t("pro.screen.manageApple")}
           </a>
         ) : (
-          <span className="text-fg-muted">Manage in your Apple ID settings.</span>
+          <span className="text-fg-muted">{t("pro.screen.manageAppleDot")}</span>
         )
       ) : null}
     </p>

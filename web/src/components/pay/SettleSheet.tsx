@@ -20,25 +20,11 @@ import { Button } from "@/components/ui/button";
 import { prepaidOf, type CheckoutStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import {
-  ALREADY_SETTLED,
-  BALANCE_SETTLE_FAILED,
-  CHARGED_IN_USD,
-  CONFIRMING,
-  DECLINED,
-  EXPIRED,
-  PAYING,
-  SETTLED,
-  SETTLE_FOOT,
-  SETTLE_TITLE,
-  TOO_MANY,
-  UNAVAILABLE,
-  paidMoreWaiting,
-  settleSubtitle,
-} from "./payCopy";
+import { paidMoreWaiting, settleSubtitle } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -46,7 +32,8 @@ type Phase =
   | { kind: "ready"; start: CheckoutStart; notice?: "declined" | "too_many" }
   | { kind: "paying"; start: CheckoutStart }
   | { kind: "confirming" }
-  | { kind: "done"; text: string }
+  /** key: the success line's message */
+  | { kind: "done"; key: string }
   | { kind: "more"; paid: number; owed: number }
   | { kind: "expired" }
   | { kind: "unavailable" };
@@ -87,6 +74,7 @@ export function SettleProvider({ children }: { children: ReactNode }): JSX.Eleme
 export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): JSX.Element {
   const gateway = useGateway();
   const billing = useBilling();
+  const t = useT();
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -105,7 +93,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
       })
       .catch((e: { code?: string }) => {
         if (!live) return;
-        if (e.code === "already_paid") done(ALREADY_SETTLED);
+        if (e.code === "already_paid") done("pay.copy.alreadySettled");
         else setPhase({ kind: "unavailable" });
       });
     return () => {
@@ -122,8 +110,8 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
     [],
   );
 
-  function done(text: string): void {
-    setPhase({ kind: "done", text });
+  function done(key: string): void {
+    setPhase({ kind: "done", key });
     void billing.refresh();
     timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
   }
@@ -146,11 +134,11 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
         const after = await billing.refresh();
         const owed = after?.outstanding?.amount_cents ?? 0;
         if (owed > 0) setPhase({ kind: "more", paid: start.amount_cents, owed });
-        else done(SETTLED);
+        else done("pay.copy.settled");
         return;
       }
       case "already_paid":
-        return done(ALREADY_SETTLED);
+        return done("pay.copy.alreadySettled");
       case "processing":
         void billing.refresh();
         return setPhase({ kind: "confirming" });
@@ -185,12 +173,12 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
             onClose={() => onClose(false)}
             locked={locked}
             testId="settle-sheet"
-            title={SETTLE_TITLE}
-            subtitle={start.runs ? settleSubtitle(start.runs) : undefined}
+            title={t("pay.copy.settleTitle")}
+            subtitle={start.runs ? settleSubtitle(start.runs, t) : undefined}
             footer={
               <MainButtonArea
                 big={big}
-                lines={[CHARGED_IN_USD]}
+                lines={[t("pay.copy.chargedInUsd")]}
                 button={
                   <Button
                     size="lg"
@@ -203,10 +191,10 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
                       await handle(await form.confirm(), start);
                     }}
                   >
-                    {locked ? PAYING : `Pay ${formatCents(start.amount_cents)}`}
+                    {locked ? t("pay.copy.paying") : t("pay.settle.pay", { amount: formatCents(start.amount_cents, t) })}
                   </Button>
                 }
-                foot={SETTLE_FOOT}
+                foot={t("pay.copy.settleFoot")}
               />
             }
           >
@@ -220,32 +208,34 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
                     disabled={locked}
                     onClick={() => void payFromBalance(start)}
                   >
-                    {fromBalance === "paying" ? PAYING : `Pay ${formatCents(start.amount_cents)} from your balance`}
+                    {fromBalance === "paying"
+                      ? t("pay.copy.paying")
+                      : t("pay.settle.payFromBalance", { amount: formatCents(start.amount_cents, t) })}
                   </Button>
                   <p className="text-center text-xs text-fg-muted tabular-nums">
-                    Balance {formatCents(prepaid.available_cents)}
+                    {t("pay.settle.balance", { amount: formatCents(prepaid.available_cents, t) })}
                   </p>
                   {fromBalance === "failed" ? (
                     <p data-testid="pay-error" className="text-sm text-red-400">
-                      {BALANCE_SETTLE_FAILED}
+                      {t("balance.copy.settleFailed")}
                     </p>
                   ) : null}
                   <p className="flex items-center gap-3 pt-1 text-xs text-fg-muted">
                     <span className="h-px flex-1 bg-edge" />
-                    or pay another way
+                    {t("pay.copy.orPayAnotherWay")}
                     <span className="h-px flex-1 bg-edge" />
                   </p>
                 </div>
               ) : null}
               {notice === "too_many" ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
-                  {TOO_MANY}
+                  {t("pay.copy.tooMany")}
                 </p>
               ) : null}
               {formBody}
               {notice === "declined" ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
-                  {form.message ?? DECLINED}
+                  {form.message ?? t("pay.copy.declined")}
                 </p>
               ) : null}
             </div>
@@ -267,36 +257,36 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
       );
       break;
     case "confirming":
-      body = <StateLine testId="settle-confirming" text={CONFIRMING} />;
+      body = <StateLine testId="settle-confirming" text={t("pay.copy.confirming")} />;
       break;
     case "done":
-      body = <Success text={phase.text} />;
+      body = <Success text={t(phase.key)} />;
       break;
     case "more":
-      body = <StateLine testId="settle-more" text={paidMoreWaiting(phase.paid)} />;
+      body = <StateLine testId="settle-more" text={paidMoreWaiting(phase.paid, t)} />;
       footer = (
         <Button size="lg" className="h-12 w-full" onClick={() => setPhase({ kind: "loading" })}>
-          Pay {formatCents(phase.owed)}
+          {t("pay.settle.pay", { amount: formatCents(phase.owed, t) })}
         </Button>
       );
       break;
     case "expired":
-      body = <StateLine testId="settle-expired" text={EXPIRED} />;
+      body = <StateLine testId="settle-expired" text={t("pay.copy.expired")} />;
       footer = (
         <Button size="lg" className="h-12 w-full" onClick={() => setPhase({ kind: "loading" })}>
-          Try again
+          {t("pay.settle.tryAgain")}
         </Button>
       );
       break;
     default:
-      body = <StateLine testId="pay-unavailable" text={UNAVAILABLE} />;
+      body = <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} />;
   }
   return (
     <SheetFrame
       open
       onClose={() => onClose(phase.kind === "done")}
       testId="settle-sheet"
-      title={SETTLE_TITLE}
+      title={t("pay.copy.settleTitle")}
       footer={footer}
     >
       {body}

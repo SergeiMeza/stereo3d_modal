@@ -19,6 +19,7 @@ import { AUTH_MODE, useAuth } from "@/lib/auth";
 import { gatewayBaseUrl } from "@/lib/region";
 import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { openProCheckout, proCheckoutAtom } from "@/lib/pro/checkoutStore";
 import { anchorLine, anchorPlan, plansFromPricing } from "@/lib/pro/plans";
 import { appStore, useAppAtomValue } from "@/lib/state/stores";
@@ -190,6 +191,7 @@ async function loadPlansFor(gateway: GatewayClient): Promise<ProPlan[]> {
 export type PlansState =
   | { state: "loading" }
   | { state: "ready"; plans: ProPlan[] }
+  /** message: the gateway's, or "" (the reader says Plans didn't load) */
   | { state: "error"; message: string };
 
 /** Read the plans for `uid` unless they're read or on their way; a
@@ -202,7 +204,7 @@ async function loadPlans(uid: string, gateway: GatewayClient): Promise<void> {
   try {
     v = { state: "ready", plans: await loadPlansFor(gateway) };
   } catch (e) {
-    v = { state: "error", message: e instanceof Error ? e.message : "Plans didn't load." };
+    v = { state: "error", message: e instanceof Error ? e.message : "" };
   }
   if (appStore.get(proPlansAtom)?.uid === uid) appStore.set(proPlansAtom, { uid, v, loading: false });
 }
@@ -224,9 +226,10 @@ export function useProPlans(): PlansState {
  * while loading, signed out, or with nothing on sale. */
 export function useProOffer(): { plan: ProPlan; line: string } | null {
   const plans = useProPlans();
+  const t = useT();
   if (plans.state !== "ready") return null;
   const plan = anchorPlan(plans.plans);
-  return plan ? { plan, line: anchorLine(plan) } : null;
+  return plan ? { plan, line: anchorLine(plan, t) } : null;
 }
 
 // ----------------------------------------------------------- purchase
@@ -239,9 +242,10 @@ export function useBuyPro(): (
   plan: ProPlan,
 ) => Promise<"purchased" | "cancelled"> {
   const { user, getToken } = useAuth();
+  const t = useT();
   return useCallback(
     async (plan: ProPlan) => {
-      if (!user) throw new Error("Sign in to get Pro.");
+      if (!user) throw new Error(t("pro.plans.signIn"));
       const outcome = await openProCheckout(plan);
       if (outcome === "cancelled") return outcome;
       // attribution and the new state: POST /v1/pro/refresh until it says Pro
@@ -254,7 +258,7 @@ export function useBuyPro(): (
       notifyProChanged();
       return outcome;
     },
-    [user, getToken],
+    [user, getToken, t],
   );
 }
 

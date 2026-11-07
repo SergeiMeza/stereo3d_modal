@@ -25,21 +25,17 @@ import {
   Success,
   SUCCESS_CLOSE_MS,
 } from "@/components/pay/PaySheet";
-import {
-  CHARGED_IN_USD,
-  DECLINED,
-  PAYING,
-  TOO_MANY,
-} from "@/components/pay/payCopy";
 import { Button } from "@/components/ui/button";
 import { SheetFrame, useSheetFrame } from "@/components/ui/sheet-frame";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import {
   finishProCheckout,
   proCheckoutAtom,
 } from "@/lib/pro/checkoutStore";
-import { creditShort, planName } from "@/lib/pro/plans";
+import { anchorLine, creditShort, proPlanName } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 
 export function ProCheckoutHost(): JSX.Element | null {
@@ -50,20 +46,21 @@ export function ProCheckoutHost(): JSX.Element | null {
 
 type Phase =
   | { kind: "loading" }
+  /** notice: the error line's message key */
   | { kind: "ready"; secret: string; publishableKey?: string; notice?: string }
   | { kind: "paying"; secret: string; publishableKey?: string }
   | { kind: "done" }
-  | { kind: "error"; text: string };
-
-const UNIT = { weekly: "week", monthly: "month", yearly: "year" } as const;
+  /** key: the error line's message key */
+  | { kind: "error"; key: string };
 
 /** "Renews at $5.99 a week until you cancel." */
-export function proRenewsLine(plan: ProPlan): string {
-  return `Renews at ${plan.price} a ${UNIT[plan.kind]} until you cancel.`;
+export function proRenewsLine(plan: ProPlan, t: Tr = EN): string {
+  return t("pro.checkout.renews", { price: anchorLine(plan, t) });
 }
 
 function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
 
@@ -82,10 +79,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
         const code = e instanceof GatewayError ? e.code : "";
         setPhase({
           kind: "error",
-          text:
-            code === "plan_active"
-              ? "You already have a plan. Manage it in Billing."
-              : "Pro isn't available right now. Try again later.",
+          key: code === "plan_active" ? "pro.checkout.planActive" : "pro.checkout.unavailable",
         });
       },
     );
@@ -107,15 +101,16 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
     setPhase({
       kind: "ready",
       ...s,
-      notice: r === "too_many" ? TOO_MANY : DECLINED,
+      notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined",
     });
   }
 
   const today = plan.price;
-  const title = `Pro ${planName(plan)}`;
+  const title = proPlanName(plan, t);
   // owner 2026-11-07: no intro offers on the web; the credit to start shows
-  const credit = creditShort(plan.creditCents);
-  const subtitle = `${plan.price} a ${UNIT[plan.kind]}${credit ? `, with ${credit}` : ""}`;
+  const credit = creditShort(plan.creditCents, t);
+  const perPeriod = anchorLine(plan, t);
+  const subtitle = credit ? t("pro.checkout.subtitleWithCredit", { price: perPeriod, credit }) : perPeriod;
 
   if (phase.kind === "ready" || phase.kind === "paying") {
     const s = { secret: phase.secret, publishableKey: phase.publishableKey };
@@ -139,7 +134,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
             footer={
               <MainButtonArea
                 big={big}
-                lines={[CHARGED_IN_USD, proRenewsLine(plan)]}
+                lines={[t("pay.copy.chargedInUsd"), proRenewsLine(plan, t)]}
                 button={
                   <Button
                     size="lg"
@@ -152,11 +147,11 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
                     }}
                   >
                     {paying ? (
-                      PAYING
+                      t("pay.copy.paying")
                     ) : (
                       <>
                         <LockIcon className="size-4" aria-hidden />
-                        Start Pro · {today}
+                        {t("pro.checkout.start", { price: today })}
                       </>
                     )}
                   </Button>
@@ -170,7 +165,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
               {body}
               {phase.kind === "ready" && phase.notice ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
-                  {form.message ?? phase.notice}
+                  {form.message ?? t(phase.notice)}
                 </p>
               ) : null}
             </div>
@@ -190,9 +185,9 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
       title={title}
     >
       {phase.kind === "done" ? (
-        <Success text="Pro is on. Every video is cheaper now." />
+        <Success text={t("pro.checkout.success")} />
       ) : phase.kind === "error" ? (
-        <StateLine testId="pro-stripe-error" text={phase.text} />
+        <StateLine testId="pro-stripe-error" text={t(phase.key)} />
       ) : (
         <div
           data-testid="pay-skeleton"

@@ -28,8 +28,6 @@ import {
   changeDate,
   isStepDown,
   nextPlanLine,
-  NOTHING_TODAY,
-  REPRICED,
   stepDownLine,
   upgradeLine,
 } from "@/components/billing/planChangeCopy";
@@ -40,15 +38,16 @@ import { SheetFrame } from "@/components/ui/sheet-frame";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { awaitPlanCredit } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 import { notifyProChanged } from "@/lib/pro/usePro";
 
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { planStarted } from "./PlanSheet";
-import { CHARGED_IN_USD } from "./payCopy";
 
 const SCOPE = "plans-section";
 
-export const PREVIEW_FAILED = "Couldn't work out the change. Nothing was charged.";
+export const PREVIEW_FAILED = EN("pay.planChange.previewFailed");
 
 export function PlanChangeSheet({
   plan,
@@ -66,6 +65,7 @@ export function PlanChangeSheet({
   onClose: (changed: boolean) => void;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const change = useAtomValue(planChangeAtom(SCOPE));
   const preview = useSetAtom(previewPlanChangeAtom);
   const confirm = useSetAtom(confirmPlanChangeAtom);
@@ -83,8 +83,8 @@ export function PlanChangeSheet({
 
   const p = change.to === plan ? change.preview : null;
   const down = p !== null && isStepDown(p);
-  const price = planPrice(def);
-  const title = `${def.name} · ${formatCentsShort(price.cents)} ${price.per}`;
+  const price = planPrice(def, t);
+  const title = t("pay.plan.title", { plan: def.name, price: formatCentsShort(price.cents, t), per: price.per });
 
   async function pay(): Promise<void> {
     if ((await confirm({ scope: SCOPE, client: gateway })) !== "done") return;
@@ -95,8 +95,8 @@ export function PlanChangeSheet({
     void awaitPlanCredit();
     setDone(
       down && p
-        ? nextPlanLine(from, p.effective_at, { name: def.name, per: price.per, cents: p.new_plan_cents })
-        : planStarted(def),
+        ? nextPlanLine(from, p.effective_at, { name: def.name, per: price.per, cents: p.new_plan_cents }, t)
+        : planStarted(def, t),
     );
     timer.current = setTimeout(() => onClose(true), SUCCESS_CLOSE_MS);
   }
@@ -109,7 +109,7 @@ export function PlanChangeSheet({
     );
   }
 
-  const error = change.error ?? (change.previewFailed && change.to === plan ? PREVIEW_FAILED : null);
+  const error = change.error ?? (change.previewFailed && change.to === plan ? t("pay.planChange.previewFailed") : null);
   return (
     <SheetFrame
       open
@@ -117,10 +117,10 @@ export function PlanChangeSheet({
       locked={change.busy}
       testId="plan-change-sheet"
       title={title}
-      subtitle={`Instead of your ${from}`}
+      subtitle={t("pay.planChange.insteadOf", { from })}
       footer={
         <MainButtonArea
-          lines={down ? [NOTHING_TODAY] : [CHARGED_IN_USD]}
+          lines={down ? [t("billing.planChange.nothingToday")] : [t("pay.copy.chargedInUsd")]}
           button={
             <Button
               size="lg"
@@ -130,16 +130,18 @@ export function PlanChangeSheet({
               onClick={() => void pay()}
             >
               {change.busy
-                ? "Changing…"
+                ? t("pay.planChange.changing")
                 : p && change.error
-                  ? "Try again"
+                  ? t("pay.planChange.tryAgain")
                   : p
                     ? down
-                      ? `Change to ${def.name} on ${p.effective_at ? changeDate(p.effective_at) : "renewal"}`
-                      : `Pay ${formatCents(p.today_cents)} and change`
+                      ? p.effective_at
+                        ? t("pay.planChange.changeOnDate", { plan: def.name, date: changeDate(p.effective_at, t) })
+                        : t("pay.planChange.changeOnRenewal", { plan: def.name })
+                      : t("pay.planChange.payAndChange", { amount: formatCents(p.today_cents, t) })
                     : error
-                      ? "Can't change right now"
-                      : "Working it out…"}
+                      ? t("pay.planChange.cantChange")
+                      : t("pay.planChange.workingOut")}
             </Button>
           }
         />
@@ -157,18 +159,18 @@ export function PlanChangeSheet({
                 className="w-fit"
                 onClick={() => void preview({ scope: SCOPE, client: gateway, to: plan })}
               >
-                Try again
+                {t("pay.planChange.tryAgain")}
               </Button>
             ) : null}
           </>
         ) : p && down ? (
           <p data-testid="plan-change-line" className="text-fg">
-            {stepDownLine(from, { name: def.name, per: price.per }, p)} {NOTHING_TODAY}
+            {stepDownLine(from, { name: def.name, per: price.per }, p, t)} {t("billing.planChange.nothingToday")}
           </p>
         ) : p ? (
           <>
             <p data-testid="plan-change-line" className="text-fg">
-              {upgradeLine(p, { from, to: def.name })}
+              {upgradeLine(p, { from, to: def.name }, t)}
             </p>
             <StepUpExtras preview={p} from={from} to={def.name} handoverCreditCents={handoverCreditCents ?? null} />
           </>
@@ -177,7 +179,7 @@ export function PlanChangeSheet({
         )}
         {change.repriced ? (
           <p role="status" className="text-xs text-amber-300">
-            {REPRICED}
+            {t("billing.planChange.repriced")}
           </p>
         ) : null}
       </div>

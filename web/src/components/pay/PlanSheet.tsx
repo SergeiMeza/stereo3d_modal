@@ -18,47 +18,51 @@ import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { awaitPlanCredit } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
+import { SITE_NAME } from "@/lib/site";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { checkoutEmailAtom } from "./payAtoms";
 import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
 import { useAppAtomValue } from "@/lib/state/stores";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import { CHARGED_IN_USD, DECLINED, PAYING, TOO_MANY } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
   | { kind: "loading" }
+  /** notice: the error line's message key */
   | { kind: "ready"; secret: string; publishableKey?: string; notice?: string }
   | { kind: "paying"; secret: string; publishableKey?: string }
   | { kind: "done" }
-  | { kind: "error"; text: string };
+  /** key: the error line's message key */
+  | { kind: "error"; key: string };
 
 /** "Business is on. $400 of usage is ready." */
-export function planStarted(def: PlanDef): string {
-  return `${def.name} is on. ${formatCentsShort(def.credit_cents)} of usage is ready.`;
+export function planStarted(def: PlanDef, t: Tr = EN): string {
+  return t("pay.plan.started", { plan: def.name, amount: formatCentsShort(def.credit_cents, t) });
 }
 
 /** QA 2026-11-05: the Pro this account already has, before a plan starts
  * (copy only). A web Pro never gets here: Business and Studio are a plan
  * change for it (PlanChangeSheet), credited for the unused Pro. */
-export const PRO_UNKNOWN_KEEPS = "Your current Pro keeps running. Cancel it where you bought it if you like.";
+export const PRO_UNKNOWN_KEEPS = EN("pay.plan.proUnknownKeeps");
 
-export function proNoteFor(pro: ProStatus | null, planName: string): string | null {
+export function proNoteFor(pro: ProStatus | null, planName: string, t: Tr = EN): string | null {
   switch (proSourceKind(pro)) {
     case "app_store":
-      return "Your App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+      return t("pay.plan.proNoteAppStore");
     case "mac_app_store":
-      return "Your Mac App Store Pro keeps running. You can cancel it in your Apple ID settings.";
+      return t("pay.plan.proNoteMacAppStore");
     case "grant":
-      return `Your Pro from Spatial Video Studio keeps running alongside ${planName}.`;
+      return t("pay.plan.proNoteGrant", { app: SITE_NAME, plan: planName });
     case "unknown":
     case "web":
       // QA batch 3: a source the gateway doesn't name, or a web Pro that
       // isn't our own Stripe plan (that one never gets here): never a
       // credit line
-      return PRO_UNKNOWN_KEEPS;
+      return t("pay.plan.proUnknownKeeps");
     default:
       return null;
   }
@@ -67,13 +71,15 @@ export function proNoteFor(pro: ProStatus | null, planName: string): string | nu
 /** "$1,500 of usage every month · cancel any time; it runs to the end of
  * the paid year" (QA 2026-11-05, Terms: a cancelled plan runs to the end
  * of the period you paid for). */
-export function planSubtitle(def: PlanDef): string {
-  const period = planPrice(def).yearly ? "year" : "month";
-  return `${formatCentsShort(def.credit_cents)} of usage every month · cancel any time; it runs to the end of the paid ${period}`;
+export function planSubtitle(def: PlanDef, t: Tr = EN): string {
+  const amount = formatCentsShort(def.credit_cents, t);
+  return planPrice(def).yearly
+    ? t("pay.plan.subtitleYearly", { amount })
+    : t("pay.plan.subtitleMonthly", { amount });
 }
 
 /** The setup welcome's optional link, word for word (BusinessSetup). */
-export const COMPANY_LINK = "Add your company details for invoices";
+export const COMPANY_LINK = EN("pay.plan.companyLink");
 
 export function PlanSheet({
   plan,
@@ -90,8 +96,9 @@ export function PlanSheet({
   companyLink?: boolean;
 }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const pro = useProStatus();
-  const proNote = proNoteFor(pro, def.name);
+  const proNote = proNoteFor(pro, def.name, t);
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const paidEmail = useAppAtomValue(checkoutEmailAtom);
@@ -106,12 +113,12 @@ export function PlanSheet({
         const code = e instanceof GatewayError ? e.code : "";
         setPhase({
           kind: "error",
-          text:
+          key:
             code === "plan_active"
-              ? "You already have a plan. Cancel it in Billing before choosing another."
+              ? "pay.plan.errorPlanActive"
               : code === "under_review"
-                ? "We're checking a payment on your account. Contact support to continue."
-                : "Plans aren't available right now. Try again later.",
+                ? "pay.plan.errorUnderReview"
+                : "pay.plan.errorUnavailable",
         });
       },
     );
@@ -138,17 +145,22 @@ export function PlanSheet({
       return;
     }
     if (r === "redirect") return;
-    setPhase({ kind: "ready", ...s, notice: r === "too_many" ? TOO_MANY : DECLINED });
+    setPhase({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
   // Studio bills yearly (gateway 00089); its usage still comes monthly
-  const price = planPrice(def);
+  const price = planPrice(def, t);
   const renewal = new Date();
   if (price.yearly) renewal.setFullYear(renewal.getFullYear() + 1);
   else renewal.setMonth(renewal.getMonth() + 1);
-  const title = `${def.name} · ${formatCentsShort(price.cents)} ${price.per}`;
-  const subtitle = planSubtitle(def);
-  const renewsLine = `${price.yearly ? "Billed yearly" : "Billed monthly"}. Renews on ${renewal.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })} until you cancel.`;
+  const title = t("pay.plan.title", { plan: def.name, price: formatCentsShort(price.cents, t), per: price.per });
+  const subtitle = planSubtitle(def, t);
+  const renewsDate = renewal.toLocaleDateString(t.locale === "en" ? "en-GB" : t.intl, {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+  const renewsLine = t(price.yearly ? "pay.plan.billedYearly" : "pay.plan.billedMonthly", { date: renewsDate });
 
   if (phase.kind === "ready" || phase.kind === "paying") {
     const s = { secret: phase.secret, publishableKey: phase.publishableKey };
@@ -172,7 +184,7 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[CHARGED_IN_USD, renewsLine]}
+                lines={[t("pay.copy.chargedInUsd"), renewsLine]}
                 button={
                   <Button
                     size="lg"
@@ -185,12 +197,14 @@ export function PlanSheet({
                     }}
                   >
                     {paying ? (
-                      PAYING
+                      t("pay.copy.paying")
                     ) : (
                       <>
                         <LockIcon className="size-4" aria-hidden />
-                        Start {def.name} · {formatCents(price.cents)}
-                        {price.yearly ? " a year" : ""}
+                        {t(price.yearly ? "pay.plan.startYearly" : "pay.plan.start", {
+                          plan: def.name,
+                          amount: formatCents(price.cents, t),
+                        })}
                       </>
                     )}
                   </Button>
@@ -207,7 +221,7 @@ export function PlanSheet({
               {body}
               {phase.kind === "ready" && phase.notice ? (
                 <p data-testid="pay-error" className="text-sm text-red-400">
-                  {form.message ?? phase.notice}
+                  {form.message ?? t(phase.notice)}
                 </p>
               ) : null}
             </div>
@@ -221,7 +235,7 @@ export function PlanSheet({
     <SheetFrame open onClose={() => onClose(phase.kind === "done")} testId="plan-sheet" title={title}>
       {phase.kind === "done" ? (
         <>
-          <Success text={planStarted(def)} />
+          <Success text={planStarted(def, t)} />
           {/* gateway 00152: a Business or Studio plan needs a real main email */}
           {plan === "business" || plan === "studio" ? <PlanEmailPrompt load prefill={paidEmail} /> : null}
           {companyLink ? (
@@ -231,13 +245,13 @@ export function PlanSheet({
                 data-testid="plan-company-link"
                 className="text-primary hover:underline"
               >
-                {COMPANY_LINK}
+                {t("pay.plan.companyLink")}
               </Link>
             </p>
           ) : null}
         </>
       ) : phase.kind === "error" ? (
-        <StateLine testId="plan-error" text={phase.text} />
+        <StateLine testId="plan-error" text={t(phase.key)} />
       ) : (
         <div data-testid="pay-skeleton" className="flex animate-pulse flex-col gap-3">
           <div className="h-12 rounded-lg bg-surface-2" />

@@ -10,7 +10,9 @@
  * must be used within pro_credit.expires_days and is never paid out.
  */
 
+import { formatCentsShort } from "@/components/steps/money";
 import type { ProPlanDef, PublicPricing } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export type PlanKind = "weekly" | "monthly" | "yearly";
 
@@ -63,48 +65,46 @@ export function plansFromPricing(
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
 }
 
-const NAME: Record<PlanKind, string> = {
-  weekly: "Weekly",
-  monthly: "Monthly",
-  yearly: "Yearly",
-};
+/** "Weekly" (pro.plans.name.*) */
+export function planName(p: ProPlan, t: Tr = EN): string {
+  return t(`pro.plans.name.${p.kind}`);
+}
 
-const UNIT: Record<PlanKind, string> = {
-  weekly: "week",
-  monthly: "month",
-  yearly: "year",
-};
-
-export function planName(p: ProPlan): string {
-  return NAME[p.kind];
+/** "Pro Weekly" */
+export function proPlanName(p: ProPlan, t: Tr = EN): string {
+  return t("pro.plans.proName", { name: planName(p, t) });
 }
 
 /** "/ week" */
-export function planCadence(p: ProPlan): string {
-  return `/ ${UNIT[p.kind]}`;
+export function planCadence(p: ProPlan, t: Tr = EN): string {
+  return t(`pro.plans.cadence.${p.kind}`);
+}
+
+/** "a week" */
+export function planPer(p: ProPlan, t: Tr = EN): string {
+  return t(`pro.plans.per.${p.kind}`);
 }
 
 /** "$20" for a credit in cents (whole dollars without cents). */
-export function creditAmount(cents: number): string {
+export function creditAmount(cents: number, t: Tr = EN): string {
+  if (t.locale !== "en") return formatCentsShort(cents, t);
   return cents % 100 === 0 ? `$${cents / 100}` : usd(cents);
 }
 
 /** "$20 of usage credit when you join Pro (or the first time you sign in
  * here with Pro from the app)"; null without a credit (owner 2026-11-07). */
-export function creditLine(cents: number | null | undefined): string | null {
-  return cents
-    ? `${creditAmount(cents)} of usage credit when you join Pro (or the first time you sign in here with Pro from the app)`
-    : null;
+export function creditLine(cents: number | null | undefined, t: Tr = EN): string | null {
+  return cents ? t("pro.plans.creditLine", { amount: creditAmount(cents, t) }) : null;
 }
 
 /** The short form for tight spots: "$20 credit to start". */
-export function creditShort(cents: number | null | undefined): string | null {
-  return cents ? `${creditAmount(cents)} credit to start` : null;
+export function creditShort(cents: number | null | undefined, t: Tr = EN): string | null {
+  return cents ? t("pro.plans.creditShort", { amount: creditAmount(cents, t) }) : null;
 }
 
 /** The credit's rules: "Use it within 30 days. It isn't paid out." */
-export function creditRules(days: number | null | undefined): string {
-  return days ? `Use it within ${days} days. It isn't paid out.` : "It isn't paid out.";
+export function creditRules(days: number | null | undefined, t: Tr = EN): string {
+  return days ? t("pro.plans.creditRules", { days }) : t("pro.plans.creditRulesNoDays");
 }
 
 /** Pro's credit from GET /v1/pricing: pro_credit.cents, else a plan's
@@ -127,9 +127,9 @@ export function proCreditDays(pricing: PublicPricing | null | undefined): number
 }
 
 /** What the plan's footnote says it does. */
-export function planTerms(p: ProPlan): string {
+export function planTerms(p: ProPlan, t: Tr = EN): string {
   void p;
-  return "Renews until you cancel.";
+  return t("pro.plans.terms");
 }
 
 /** Price per month in micros (for "best value"). */
@@ -148,6 +148,6 @@ export function anchorPlan(plans: ProPlan[]): ProPlan | null {
   return recurring[0]?.[0] ?? plans[0] ?? null;
 }
 
-export function anchorLine(p: ProPlan): string {
-  return `${p.price} a ${UNIT[p.kind]}`;
+export function anchorLine(p: ProPlan, t: Tr = EN): string {
+  return t(`pro.plans.perPeriod.${p.kind}`, { price: p.price });
 }

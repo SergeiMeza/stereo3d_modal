@@ -18,9 +18,10 @@ import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import type { HandoffInfo } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { SITE_NAME } from "@/lib/site";
 
 import { Success } from "./PaySheet";
-import { CHARGED_IN_USD, CONFIRMING, REFUNDED_IF_FAILS, WITHDRAWAL_LINE } from "./payCopy";
 import { useSheetFrame } from "./SheetFrame";
 
 /** Injectable for tests (jsdom cannot navigate). */
@@ -42,6 +43,7 @@ type State =
 
 export function HandoffPage({ code }: { code: string }): JSX.Element {
   const gateway = useGateway();
+  const t = useT();
   const back = useSearchParams().get("back") === "1";
   const phone = useSheetFrame() === "phone";
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -98,53 +100,53 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
     >
       <p className="flex items-center gap-2 text-sm font-semibold tracking-tight text-fg">
         <AppIcon className="size-5" />
-        Spatial Video Studio
+        {SITE_NAME}
       </p>
       {state.kind === "loading" ? (
         <div className="h-48 animate-pulse rounded-xl bg-surface-2" />
       ) : state.kind === "paid" ? (
-        <Success text="Paid. You can go back to your headset." />
+        <Success text={t("pay.handoffPage.paid")} />
       ) : state.kind === "already" ? (
-        <p className="text-base text-fg">This is already paid.</p>
+        <p className="text-base text-fg">{t("pay.copy.alreadyPaid")}</p>
       ) : state.kind === "expired" ? (
-        <p className="text-base text-fg">This link expired. Start again from your headset.</p>
+        <p className="text-base text-fg">{t("pay.handoffPage.expired")}</p>
       ) : state.kind === "bad" ? (
-        <p className="text-base text-fg">This link didn&apos;t work. Check it and try again.</p>
+        <p className="text-base text-fg">{t("pay.handoffPage.bad")}</p>
       ) : state.kind === "limited" ? (
-        <p className="text-base text-fg">Too many tries. Wait a minute.</p>
+        <p className="text-base text-fg">{t("pay.handoffPage.limited")}</p>
       ) : state.kind === "confirming" ? (
-        <p className="text-base text-fg">{CONFIRMING}</p>
+        <p className="text-base text-fg">{t("pay.copy.confirming")}</p>
       ) : state.kind === "qr" ? (
         <div className="flex flex-col items-center gap-3 text-center">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img data-testid="wechat-qr" src={state.qr} alt="" className="size-[200px] rounded-lg bg-white p-3" />
           <p className="text-base text-fg tabular-nums">
-            Scan with WeChat to pay {formatCents(state.info.amount_cents)}
+            {t("pay.china.scanWechat", { amount: formatCents(state.info.amount_cents, t) })}
           </p>
-          <p className="text-xs text-fg-muted">{CHARGED_IN_USD}</p>
+          <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
         </div>
       ) : (
         <>
           <div className="flex flex-col gap-1">
             <p className="text-sm text-fg-muted">{state.info.label}</p>
             <p data-testid="handoff-amount" className="text-4xl font-semibold text-fg tabular-nums">
-              {formatCents(state.info.amount_cents)}
+              {formatCents(state.info.amount_cents, t)}
             </p>
-            <p className="text-xs text-fg-muted">{REFUNDED_IF_FAILS}</p>
+            <p className="text-xs text-fg-muted">{t("pay.copy.refundedIfFails")}</p>
           </div>
           <ul className="flex flex-col gap-1 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
-            <li>{CHARGED_IN_USD}</li>
-            <li>{WITHDRAWAL_LINE}</li>
+            <li>{t("pay.copy.chargedInUsd")}</li>
+            <li>{t("pay.copy.withdrawal")}</li>
           </ul>
           {state.info.email_masked ? (
-            <p className="text-xs text-fg-muted">For {state.info.email_masked}</p>
+            <p className="text-xs text-fg-muted">{t("pay.handoffPage.forEmail", { email: state.info.email_masked })}</p>
           ) : null}
-          {state.notFinished ? <p className="text-sm text-fg">Payment not finished.</p> : null}
+          {state.notFinished ? <p className="text-sm text-fg">{t("pay.handoffPage.notFinished")}</p> : null}
           <div className="sticky bottom-4 flex flex-col gap-2">
             {state.info.china ? (
               <>
                 <Button size="lg" className="h-12 w-full" disabled={state.opening} onClick={() => void pay(state.info, "alipay")}>
-                  {state.opening ? "Opening…" : "Alipay"}
+                  {state.opening ? t("pay.handoffPage.opening") : "Alipay"}
                 </Button>
                 {!phone ? (
                   <Button size="lg" variant="outline" className="h-12 w-full" disabled={state.opening} onClick={() => void pay(state.info, "wechat_pay")}>
@@ -160,7 +162,7 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
                 disabled={state.opening}
                 onClick={() => void pay(state.info)}
               >
-                {state.opening ? "Opening…" : "Continue to payment"}
+                {state.opening ? t("pay.handoffPage.opening") : t("pay.handoffPage.continue")}
               </Button>
             )}
           </div>

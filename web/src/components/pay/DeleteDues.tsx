@@ -11,12 +11,14 @@ import type { JSX } from "react";
 
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 
 import { useSettle } from "./SettleSheet";
 
-export const DUES_LINE = "You have a payment to finish before we can delete your account.";
-export const ACTIVE_RUNS_LINE = "Cancel or wait for your running jobs before deleting your account.";
-export const DELETING = "Deleting your account…";
+export const DUES_LINE = EN("pay.deleteDues.dues");
+export const ACTIVE_RUNS_LINE = EN("pay.deleteDues.activeRuns");
+export const DELETING = EN("pay.deleteDues.deleting");
 
 export function DeleteDues({
   amountCents,
@@ -27,14 +29,15 @@ export function DeleteDues({
   onPaid: () => void;
 }): JSX.Element {
   const { openSettle } = useSettle();
+  const t = useT();
   return (
     <div data-testid="delete-dues" className="flex flex-col gap-3 text-sm">
-      <p className="text-fg">{DUES_LINE}</p>
+      <p className="text-fg">{t("pay.deleteDues.dues")}</p>
       <Button
         className="w-fit bg-red-400 text-zinc-950 tabular-nums hover:bg-red-300"
         onClick={() => openSettle(onPaid)}
       >
-        Pay {formatCents(amountCents)}
+        {t("pay.deleteDues.pay", { amount: formatCents(amountCents, t) })}
       </Button>
     </div>
   );

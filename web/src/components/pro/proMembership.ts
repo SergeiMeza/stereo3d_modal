@@ -7,37 +7,44 @@
  */
 
 import type { AccountPlan } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { isStripePro, proSourceKind, type ProStatus } from "@/lib/pro/usePro";
+import { SITE_NAME } from "@/lib/site";
 
 export type ManageAt = "billing" | "apple" | null;
 
 /** "Monthly" from a product or plan id (pro_monthly, pro_subs_1y_v1…). */
-export function periodWord(id: string | null | undefined): string | null {
+export function periodWord(id: string | null | undefined, t: Tr = EN): string | null {
   const s = (id ?? "").toLowerCase();
-  if (/(^|_)(1y|12m|yearly|year|annual)(_|$)/.test(s)) return "Yearly";
-  if (/(^|_)(1m|monthly|month)(_|$)/.test(s)) return "Monthly";
-  if (/(^|_)(1w|weekly|week)(_|$)/.test(s)) return "Weekly";
+  if (/(^|_)(1y|12m|yearly|year|annual)(_|$)/.test(s)) return t("pro.plans.name.yearly");
+  if (/(^|_)(1m|monthly|month)(_|$)/.test(s)) return t("pro.plans.name.monthly");
+  if (/(^|_)(1w|weekly|week)(_|$)/.test(s)) return t("pro.plans.name.weekly");
   return null;
 }
 
-function longDate(iso: string | undefined): string | null {
+function longDate(iso: string | undefined, t: Tr): string | null {
   if (!iso) return null;
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? null
-    : d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+    : d.toLocaleDateString(t.locale === "en" ? "en-GB" : t.intl, { day: "numeric", month: "short", year: "numeric" });
 }
 
 /** " Renews on 5 Dec 2026." / " Ends on …", or "" when unknown. */
-function whenLine(renews: string | null | undefined, ends: string | null | undefined): string {
-  const end = longDate(ends ?? undefined);
-  if (end) return ` Ends on ${end}.`;
-  const renew = longDate(renews ?? undefined);
-  return renew ? ` Renews on ${renew}.` : "";
+function whenLine(renews: string | null | undefined, ends: string | null | undefined, t: Tr): string {
+  const end = longDate(ends ?? undefined, t);
+  if (end) return ` ${t("pro.membership.endsOn", { date: end })}`;
+  const renew = longDate(renews ?? undefined, t);
+  return renew ? ` ${t("pro.membership.renewsOn", { date: renew })}` : "";
+}
+
+/** "Pro Monthly", or "Pro" when the period isn't known. */
+function proWith(period: string | null, t: Tr): string {
+  return period ? t("pro.plans.proName", { name: period }) : "Pro";
 }
 
 /** /pro for a member whose Pro we can't place (QA batch 3). */
-export const PRO_UNKNOWN_LINE = "Pro is active. Manage it where you bought it.";
+export const PRO_UNKNOWN_LINE = EN("pro.membership.unknown");
 
 /** The line, and where it's managed; null when there's nothing to say
  * (not Pro, Pro included with Business or Studio, a simulated Pro). From
@@ -46,6 +53,7 @@ export const PRO_UNKNOWN_LINE = "Pro is active. Manage it where you bought it.";
 export function proMembership(
   status: ProStatus | null | undefined,
   plan: AccountPlan | null | undefined,
+  t: Tr = EN,
 ): { text: string; manage: ManageAt } | null {
   const kind = proSourceKind(status);
   if (kind === null || kind === "team" || kind === "simulated") return null;
@@ -53,22 +61,22 @@ export function proMembership(
   if (kind === "web" || isStripePro(s, plan)) {
     const billingPlan = plan?.plan === "pro" ? plan : null;
     const period =
-      periodWord(billingPlan?.plan_id) ?? periodWord(s.period) ?? periodWord(s.plan_id ?? s.via);
+      periodWord(billingPlan?.plan_id, t) ?? periodWord(s.period, t) ?? periodWord(s.plan_id ?? s.via, t);
     const when = billingPlan?.current_period_end
-      ? whenLine(billingPlan.cancel_at_period_end ? null : billingPlan.current_period_end, billingPlan.cancel_at_period_end ? billingPlan.current_period_end : null)
-      : whenLine(s.renews_at, s.ends_at);
-    return { text: `Pro${period ? ` ${period}` : ""} on the web.${when}`, manage: "billing" };
+      ? whenLine(billingPlan.cancel_at_period_end ? null : billingPlan.current_period_end, billingPlan.cancel_at_period_end ? billingPlan.current_period_end : null, t)
+      : whenLine(s.renews_at, s.ends_at, t);
+    return { text: `${t("pro.membership.web", { plan: proWith(period, t) })}${when}`, manage: "billing" };
   }
   if (kind === "app_store" || kind === "mac_app_store") {
-    const period = periodWord(s.period) ?? periodWord(s.via);
-    const store = kind === "mac_app_store" ? "the Mac App Store" : "the App Store";
-    return { text: `Pro${period ? ` ${period}` : ""} through ${store}.${whenLine(s.renews_at, s.ends_at)}`, manage: "apple" };
+    const period = periodWord(s.period, t) ?? periodWord(s.via, t);
+    const key = kind === "mac_app_store" ? "pro.membership.macAppStore" : "pro.membership.appStore";
+    return { text: `${t(key, { plan: proWith(period, t) })}${whenLine(s.renews_at, s.ends_at, t)}`, manage: "apple" };
   }
   if (kind === "grant") {
     return {
-      text: `Pro given to your account by Spatial Video Studio, at no charge.${whenLine(null, s.ends_at)}`,
+      text: `${t("pro.membership.grant", { app: SITE_NAME })}${whenLine(null, s.ends_at, t)}`,
       manage: null,
     };
   }
-  return { text: PRO_UNKNOWN_LINE, manage: null };
+  return { text: t("pro.membership.unknown"), manage: null };
 }
