@@ -39,6 +39,7 @@ import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { PaymentIssues } from "./PaymentIssues";
+import { useBillingVersion, useFallbackTick } from "@/lib/live/useLive";
 import { formatCents, formatUsdLabeled, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
   AlertDialog,
@@ -800,6 +801,18 @@ export function BillingScreen(): JSX.Element {
   useEffect(() => {
     if (listed) void load();
   }, [load, uid, listed]);
+
+  // QA 2026-11-07 (a row stayed "Payment needed" after the settle went
+  // through): a billing event from the live feed (a settle or the balance
+  // changed), or the slow poll while the feed is down, reads the first
+  // page again. No timer.
+  const billingVersion = useBillingVersion();
+  const fallbackTick = useFallbackTick();
+  const moved = billingVersion + fallbackTick;
+  useEffect(() => {
+    if (listed && moved > 0) void load();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follows the feed only
+  }, [moved]);
 
   return (
     <section className="mx-auto flex w-full max-w-4xl flex-col gap-6 px-4 py-10">

@@ -12,6 +12,10 @@ import projectFixture from "../../../fixtures/project.json";
 
 import { SectionBoundary } from "@/components/SectionBoundary";
 
+import { parseLiveEvent } from "@/lib/live/events";
+import { applyLiveEvent } from "@/lib/live/liveStore";
+import { appStore } from "@/lib/state/stores";
+
 import { BillingScreen } from "./BillingScreen";
 
 vi.mock("next/navigation", () => ({
@@ -115,6 +119,36 @@ describe("Billing history: what the card paid in its own currency (owner 2026-11
     const history = await screen.findByTestId("history");
     const refund = within(history).getByTestId("row-ch_cjpyref00001_refund");
     expect(within(refund).getByTestId("row-amount").textContent).toBe("−¥2,770−US$18.38");
+  });
+});
+
+describe("Billing history follows the live feed (QA 2026-11-07)", () => {
+  it("a settle that went through flips the Payment needed row to Paid on billing.updated, with no reload", async () => {
+    run("cowed0000001", 375, { billing: { status: "charge_failed", charged_cents: 0 } as Conversion["billing"] });
+    mockDb.billing.unpaid = [{ conversion_id: "cowed0000001", amount_cents: 375, currency: "usd", needs_action: false }];
+    let reads = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (new URL(request.url).pathname === "/v1/billing/history") reads += 1;
+    });
+    renderBilling();
+    const history = await screen.findByTestId("history");
+    const owed = await within(history).findByTestId("row-row_outstanding");
+    expect(within(owed).getByTestId("row-status").textContent).toBe("Payment needed");
+    const before = reads;
+    // Stripe took the payment; the gateway's settle doc says paid
+    mockDb.billing.unpaid = [];
+    mockDb.conversions.get("cowed0000001")!.billing = { status: "charged", charged_cents: 375 };
+    const ev = parseLiveEvent(
+      "billing.updated",
+      JSON.stringify({ kind: "settle", settle_id: "s1", version: Date.now() * 1000, state: "paid", amount_cents: 375 }),
+      "9",
+    );
+    applyLiveEvent(appStore, ev!);
+    await waitFor(() => expect(within(screen.getByTestId("history")).queryByTestId("row-row_outstanding")).toBeNull());
+    expect(reads).toBe(before + 1);
+    const paid = within(screen.getByTestId("history")).getAllByRole("listitem").find((li) => li.textContent?.includes("$3.75"));
+    expect(paid && within(paid).getByTestId("row-status").textContent).toBe("Paid");
+    server.events.removeAllListeners();
   });
 });
 
