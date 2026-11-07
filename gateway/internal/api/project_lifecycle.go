@@ -29,10 +29,6 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if p.Sample {
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "sample_not_deletable", "The sample can't be deleted. You can archive it."))
-		return
-	}
 	if !p.Archived {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "project_not_archived", "Archive the project first, then delete it."))
 		return
@@ -48,8 +44,10 @@ func (s *Service) HandleDeleteProject(w http.ResponseWriter, r *http.Request, us
 			pp.Deleted = true
 			pp.DeletedAt = &now
 			// The files stay for disputes, then the file-keeping sweep
-			// purges them (S3D-24); no notices for a deleted project.
-			if pp.FilesDeletedAt == nil {
+			// purges them (S3D-24); no notices for a deleted project. The
+			// sample's files are shared on the CDN: never purged, and the
+			// sample never comes back (owner 2026-11-07).
+			if pp.FilesDeletedAt == nil && !pp.Sample {
 				pp.FilesDeleteAt = &purgeAt
 				pp.FilesNoticeDays, pp.FilesNoticeAt = 0, nil
 			}

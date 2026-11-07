@@ -148,11 +148,6 @@ func (s *Service) backfillSampleOf(ctx context.Context, uid string) {
 	backfilledSamples.Store(uid, true)
 }
 
-// sampleSince: accounts that already existed before onboarding shipped
-// get no sample (they've used the app); they still see the welcome once
-// (welcome_done is false until it's saved, owner 2026-11-05).
-var sampleSince = time.Date(2026, 11, 4, 3, 0, 0, 0, time.UTC)
-
 func errSampleProject() *httpx.APIError {
 	return httpx.Err(http.StatusUnprocessableEntity, "sample_project", "This is a sample project. Add your own video to make 3D.")
 }
@@ -194,26 +189,16 @@ func sampleSizeRunID(uid, preset string) string {
 	return hex.EncodeToString(h[:])[:12]
 }
 
-// existingAccount: the account was in use before onboarding shipped (a
-// customer record or a project from before then).
-func existingAccount(cust *store.Customer, projects []*store.Project) bool {
-	if cust != nil && !cust.CreatedAt.IsZero() && cust.CreatedAt.Before(sampleSince) {
-		return true
-	}
-	for _, p := range projects {
-		if !p.Sample && !p.CreatedAt.IsZero() && p.CreatedAt.Before(sampleSince) {
-			return true
-		}
-	}
-	return false
-}
-
-// ensureSample keeps the account's sample (owner 2026-11-04): a new
-// account's first list adds it; it can be archived and unarchived but not
-// deleted; one that went missing (deleted under the earlier rule, or an
-// old "smp…" id the routes refused) comes back with proper ids, archived
-// if it was archived. It reports the sample when it added or restored one
-// now (projects is the account's listing, archived and deleted included).
+// ensureSample gives the account its "Sunset session" sample (owner
+// 2026-11-07, final rule): every account that hasn't had one gets it
+// exactly once, on its first project list — new, old or prod at launch,
+// whatever its age or onboarding state — and never again
+// (customer.sample_created_at). The user can delete it, and a deleted
+// sample stays deleted. Only accounts pending deletion (or deleted) get
+// none. An old "smp…" sample still visible is replaced once by the
+// fixed-id one, so there's never a second visible sample. It reports the
+// sample when it added one now (projects is the account's listing,
+// archived and deleted included).
 func (s *Service) ensureSample(ctx context.Context, uid string, projects []*store.Project) (*store.Project, bool) {
 	id := sampleProjectID(uid)
 	var current, legacy *store.Project
@@ -228,63 +213,77 @@ func (s *Service) ensureSample(ctx context.Context, uid string, projects []*stor
 		}
 	}
 	classify(projects)
-	if current != nil && !current.Deleted {
-		s.backfillSampleOf(ctx, uid) // a run stored before half_sbs joined
-		return nil, false            // there, archived or not
-	}
-	if current == nil && legacy == nil {
-		if _, none := noSample.Load(uid); none {
-			return nil, false
+	if current != nil { // there (archived, or deleted by the user and staying so)
+		if !current.Deleted {
+			s.backfillSampleOf(ctx, uid) // a run stored before half_sbs joined
 		}
+		s.markSample(ctx, uid) // samples made before the marker
+		return nil, false
+	}
+	if _, done := sampleDone.Load(uid); done {
+		return nil, false // this instance saw the marker: never twice
+	}
+	if legacy == nil {
 		samples, err := s.Store.ListUserSamples(ctx, uid) // past the listing window
 		if err != nil {
 			slog.WarnContext(ctx, "samples unreadable", "err", err)
 			return nil, false
 		}
 		classify(samples)
-		if current != nil && !current.Deleted {
+		if current != nil {
+			s.markSample(ctx, uid)
 			return nil, false
 		}
 	}
-	cust, _ := s.Store.GetCustomer(ctx, uid)
-	if cust != nil && cust.AccountDeleted {
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil && !errors.Is(err, store.ErrNotFound) {
+		slog.WarnContext(ctx, "sample: account unreadable", "err", err)
 		return nil, false
 	}
-	switch {
-	case current != nil: // deleted under the earlier rule
-		restored, err := s.Store.UpdateProject(ctx, id, func(pp *store.Project) error {
-			pp.Deleted, pp.DeletedAt, pp.FilesDeleteAt = false, nil, nil
+	if cust != nil && cust.SampleCreatedAt != nil {
+		sampleDone.Store(uid, true) // had one: never twice
+		return nil, false
+	}
+	if legacy != nil && legacy.Deleted {
+		s.markSample(ctx, uid) // the user deleted it under the old ids: it stays deleted
+		return nil, false
+	}
+	if cust != nil && (cust.AccountDeleted || cust.DeletionPending) {
+		return nil, false
+	}
+	if s.Store.PendingAccountDeletion(ctx, uid) != nil { // the 48-hour wait
+		return nil, false
+	}
+	archived := false
+	if legacy != nil { // a visible old "smp…" sample: replaced once, still one sample
+		archived = legacy.Archived
+		if _, err := s.Store.UpdateProject(ctx, legacy.ID, func(pp *store.Project) error {
+			pp.Deleted = true // replaced below
 			return nil
-		})
-		if err != nil {
-			slog.WarnContext(ctx, "sample not restored", "err", err)
+		}); err != nil {
+			slog.WarnContext(ctx, "legacy sample not retired", "project_id", legacy.ID, "err", err)
 			return nil, false
 		}
-		s.ensureSampleRun(ctx, uid, restored)
-		return restored, true
-	case legacy != nil:
-		archived := legacy.Archived && !legacy.Deleted
-		if !legacy.Deleted {
-			if _, err := s.Store.UpdateProject(ctx, legacy.ID, func(pp *store.Project) error {
-				pp.Deleted = true // replaced below
-				return nil
-			}); err != nil {
-				slog.WarnContext(ctx, "legacy sample not retired", "project_id", legacy.ID, "err", err)
-				return nil, false
-			}
-		}
-		return s.createSample(ctx, uid, archived)
 	}
-	if existingAccount(cust, projects) {
-		noSample.Store(uid, true) // from before onboarding, never had one
-		return nil, false
-	}
-	return s.createSample(ctx, uid, false)
+	return s.createSample(ctx, uid, archived)
 }
 
-// noSample: uids this instance found to predate onboarding without a
-// sample.
-var noSample sync.Map
+// sampleDone: uids this instance saw marked with no sample left (only
+// skips reads; the marker decides). sampleMarked: uids this instance
+// marked (skips a redundant write).
+var sampleDone, sampleMarked sync.Map
+
+// markSample records the account's sample once.
+func (s *Service) markSample(ctx context.Context, uid string) {
+	if _, ok := sampleMarked.Load(uid); ok {
+		return
+	}
+	if err := s.Store.MarkSampleCreated(ctx, uid, time.Now().UTC()); err != nil {
+		slog.WarnContext(ctx, "sample marker not stored", "err", err)
+		return
+	}
+	sampleMarked.Store(uid, true)
+}
 
 func (s *Service) createSample(ctx context.Context, uid string, archived bool) (*store.Project, bool) {
 	thumbs := make([]store.Thumb, 30)
@@ -301,9 +300,15 @@ func (s *Service) createSample(ctx context.Context, uid string, archived bool) (
 		PreviewURL:  sampleCDN + "sunset-session-2d.mp4",
 		StripThumbs: thumbs, SceneThumbs: []store.Thumb{{Frame: 0, URL: samplePoster}}, Poster: &store.Thumb{Frame: 0, URL: samplePoster},
 	}
-	if err := s.Store.CreateProject(ctx, p); err != nil {
-		return nil, false // a racing list made it
+	if err := s.Store.CreateProject(ctx, p); err != nil { // create-if-absent on the fixed id
+		if errors.Is(err, store.ErrAlreadyExists) {
+			s.markSample(ctx, uid) // a racing list made it
+		} else {
+			slog.WarnContext(ctx, "sample not created", "err", err)
+		}
+		return nil, false
 	}
+	s.markSample(ctx, uid)
 	s.ensureSampleRun(ctx, uid, p)
 	return p, true
 }

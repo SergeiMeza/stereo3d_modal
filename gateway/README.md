@@ -1229,27 +1229,28 @@ is ignored without such a plan.
   conversion[{device, people, converted}], generated_at}`. A person
   counts once per device (per day, per plan); `converted` = a priced full
   run that succeeded after their first answer, worked out when asked.
-- **The sample**: a new account's first `GET /v1/projects` adds a
-  finished Lifelike "Sunset session" (`sample: true`, 4K, 15 s at 25 fps)
-  with a succeeded full run (`sample: true`, $0). Its files are the
-  public CDN's `samples/2026-11/sunset-session-*` (preview: the 2D
+- **The sample** (owner 2026-11-07, final rule): every account that
+  hasn't had one gets a finished Lifelike "Sunset session" (`sample: true`,
+  4K, 15 s at 25 fps) with a succeeded full run (`sample: true`, $0)
+  exactly once, on its first `GET /v1/projects` — new, old or prod at
+  launch, whatever its age or onboarding state — recorded on the customer
+  as `sample_created_at`, and never again. Only accounts pending deletion
+  (the 48-hour wait or a closure case) or deleted get none. Its files are
+  the public CDN's `samples/2026-11/sunset-session-*` (preview: the 2D
   original; downloads: the spatial `.mov` and SBS `.mp4` as they are);
-  nothing is copied per account (our bucket ages objects out at 90 days).
-  Thumbnails are the web's own poster path. Quotes, runs, analyze,
-  profile, depth map, scene edits and method switches answer 422
-  `sample_project` ("This is a sample project. Add your own video to make
-  3D."); archive, unarchive, rename and pin work as usual, delete is 409
-  `sample_not_deletable` ("The sample can't be deleted. You can archive
-  it."); file
-  keeping never schedules or purges it; it's left out of `GET
-  /v1/conversions`, the usage CSV, the month's spend, the download log
-  and the onboarding steps. Its project and run ids are fixed per account
-  (12 hex characters from a hash, like every id the routes take), so it's
-  kept as account state: a sample that went missing (deleted under the
-  earlier rule, or an old `smp…` id the routes refused, from before
-  2026-11-04 05:00 UTC) comes back on the next list with proper ids,
-  archived if it was archived; this also covers accounts from before the
-  cutoff that had one. Account deletion takes it for good. For the sample's run, `GET /v1/conversions/{id}`,
+  nothing is copied per account. Thumbnails are the web's own poster path.
+  Quotes, runs, analyze, profile, depth map, scene edits and method
+  switches answer 422 `sample_project` ("This is a sample project. Add your
+  own video to make 3D."); archive, unarchive, rename, pin and delete
+  (archived first, like any project) work as usual, and a deleted sample
+  stays deleted. File keeping never schedules or purges its files (shared
+  on the CDN); it's left out of `GET /v1/conversions`, the usage CSV, the
+  month's spend, the download log and the onboarding steps. Its project
+  and run ids are fixed per account (12 hex characters from a hash), made
+  with a create-if-absent, so racing lists make one. An old `smp…` sample
+  (ids the routes refused, before 2026-11-04 05:00 UTC) still visible is
+  replaced once by the fixed-id one (archived if it was); one the user
+  deleted stays deleted. Account deletion takes it for good. For the sample's run, `GET /v1/conversions/{id}`,
   `/downloads` and `/plays` answer 200 (plays aren't logged), and
   `/handoff` answers 200 `{sample: true, nothing_to_pay: true}`.
 - **`/v1/pricing`** plans add `max_fps: 120`.

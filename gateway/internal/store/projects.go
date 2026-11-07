@@ -344,3 +344,21 @@ func (s *Store) UploadName(ctx context.Context, uploadID, uid string) string {
 	}
 	return d.Name
 }
+
+// MarkSampleCreated records the account's sample once (merged into its
+// customer record, made when there's none yet); the first time stays.
+func (s *Store) MarkSampleCreated(ctx context.Context, uid string, at time.Time) error {
+	doc := s.fs.Collection(customersCol(s.env)).Doc(uid)
+	return s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		snap, err := tx.Get(doc)
+		if err != nil && status.Code(err) != codes.NotFound {
+			return err
+		}
+		if err == nil {
+			if v, verr := snap.DataAt("sample_created_at"); verr == nil && v != nil {
+				return nil
+			}
+		}
+		return tx.Set(doc, map[string]any{"sample_created_at": at}, firestore.MergeAll)
+	})
+}

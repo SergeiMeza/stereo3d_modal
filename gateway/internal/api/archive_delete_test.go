@@ -84,8 +84,9 @@ func TestDeleteNeedsArchive(t *testing.T) {
 	}
 }
 
-// The sample: archivable, never deletable; restored when it went missing,
-// archived if it was; account deletion takes it.
+// The sample: archivable and deletable (owner 2026-11-07), and a deleted
+// one stays deleted; an old smp… sample still visible is replaced once;
+// account deletion takes it.
 func TestSampleLifecycle(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
@@ -94,14 +95,7 @@ func TestSampleLifecycle(t *testing.T) {
 	c := projCaller{t, s, &AuthedUser{UID: uid}}
 	ps := c.list("")
 	id := ps[0]["project_id"].(string)
-	if code, body := c.do(s.HandleDeleteProject, id, ""); code != 409 || !strings.Contains(body, "sample_not_deletable") ||
-		!strings.Contains(body, "The sample can't be deleted. You can archive it.") {
-		t.Fatalf("delete sample %d %s", code, body)
-	}
 	c.do(s.HandleArchiveProject, id, "")
-	if code, body := c.do(s.HandleDeleteProject, id, ""); code != 409 || !strings.Contains(body, "sample_not_deletable") {
-		t.Fatalf("delete archived sample %d %s", code, body)
-	}
 	if len(c.list("")) != 0 || len(c.list("?archived=1")) != 1 {
 		t.Fatal("archived sample stays archived")
 	}
@@ -109,17 +103,20 @@ func TestSampleLifecycle(t *testing.T) {
 	if len(c.list("")) != 1 {
 		t.Fatal("unarchived")
 	}
-	// deleted under the earlier rule: back on the next list, as it was
-	s.Store.UpdateProject(ctx, id, func(p *store.Project) error { p.Deleted, p.Archived = true, true; return nil })
-	if len(c.list("?archived=1")) != 1 {
-		t.Fatal("restored archived")
+	// the user deletes it (archive first, like any project): it stays deleted
+	c.do(s.HandleArchiveProject, id, "")
+	if code, body := c.do(s.HandleDeleteProject, id, ""); code != 200 {
+		t.Fatalf("delete sample %d %s", code, body)
 	}
-	s.Store.UpdateProject(ctx, id, func(p *store.Project) error { p.Archived = false; return nil })
-	if ps := c.list(""); len(ps) != 1 || ps[0]["project_id"] != id {
-		t.Fatalf("restored %v", ps)
+	if len(c.list("")) != 0 || len(c.list("?archived=1")) != 0 || len(c.list("")) != 0 {
+		t.Fatal("a deleted sample came back")
+	}
+	if p, _ := s.Store.GetProject(ctx, id); p == nil || !p.Deleted || p.FilesDeleteAt != nil {
+		t.Fatalf("deleted sample %+v (its CDN files are never purged)", p)
 	}
 
-	// an account from before the cutoff with an old smp… sample, archived
+	// an older account with a visible old smp… sample, archived: replaced
+	// once by the fixed-id one, archived, never two visible
 	old := "u" + store.NewID()
 	s.Store.PutCustomer(ctx, old, &store.Customer{StripeCustomerID: "cus_2", CreatedAt: sampleSince.Add(-time.Hour)})
 	s.Store.CreateProject(ctx, &store.Project{ID: "smp" + store.NewID()[:9], UID: old, Sample: true, Archived: true})
@@ -130,10 +127,20 @@ func TestSampleLifecycle(t *testing.T) {
 	if ps := oc.list("?archived=1"); len(ps) != 1 || ps[0]["project_id"] != sampleProjectID(old) {
 		t.Fatalf("legacy archived %v", ps)
 	}
+	if ps := oc.list("?archived=1"); len(ps) != 1 {
+		t.Fatalf("a second visible sample %v", ps)
+	}
 	rec := httptest.NewRecorder()
 	s.HandleGetConversion(rec, httptest.NewRequest("GET", "/", nil), &AuthedUser{UID: old}, sampleRunID(old))
 	if rec.Code != 200 {
-		t.Fatalf("restored run %d", rec.Code)
+		t.Fatalf("replacement run %d", rec.Code)
+	}
+	// an old smp… sample the user deleted stays deleted: none made
+	gone := "u" + store.NewID()
+	s.Store.CreateProject(ctx, &store.Project{ID: "smp" + store.NewID()[:9], UID: gone, Sample: true, Deleted: true})
+	gc := projCaller{t, s, &AuthedUser{UID: gone}}
+	if len(gc.list("")) != 0 || len(gc.list("?archived=1")) != 0 {
+		t.Fatal("a deleted legacy sample was replaced")
 	}
 
 	// account deletion takes the sample, and it doesn't come back

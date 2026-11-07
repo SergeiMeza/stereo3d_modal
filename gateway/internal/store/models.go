@@ -578,6 +578,9 @@ type Customer struct {
 	// /v1/account/delete. The record stays whole (soft delete); new paid
 	// work is refused.
 	AccountDeleted bool `firestore:"account_deleted,omitempty"`
+	// SampleCreatedAt: when the account got its "Sunset session" sample
+	// (owner 2026-11-07: every account once, never twice).
+	SampleCreatedAt *time.Time `firestore:"sample_created_at,omitempty"`
 	// Pro credit refunds (PRO-07): the refunded purchases' key hashes,
 	// their count, and the repeat-refunder flag (two or more).
 	ProRefundedKeys []string `firestore:"pro_refunded_keys,omitempty"`

@@ -87,9 +87,9 @@ func TestOnboardingSettings(t *testing.T) {
 		t.Fatal("watched not noted")
 	}
 
-	// An account from before onboarding (customer and a project older
-	// than sampleSince): the welcome is still due until it's saved as done
-	// (owner 2026-11-05), and it still gets no sample.
+	// An account from before onboarding (customer older than
+	// sampleSince): the welcome is still due until it's saved as done
+	// (owner 2026-11-05).
 	old := "u" + store.NewID()
 	s.Store.PutCustomer(ctx, old, &store.Customer{StripeCustomerID: "cus_2", CreatedAt: sampleSince.Add(-time.Hour)})
 	oldCtx := func(method, body string) (int, map[string]any) {
@@ -105,9 +105,6 @@ func TestOnboardingSettings(t *testing.T) {
 	_, out = oldCtx("PATCH", `{"onboarding":{"welcome_done":true}}`)
 	if _, out = oldCtx("GET", ""); out["onboarding"].(map[string]any)["welcome_done"] != true {
 		t.Fatalf("saved welcome_done %v", out)
-	}
-	if !existingAccount(&store.Customer{CreatedAt: sampleSince.Add(-time.Hour)}, nil) {
-		t.Fatal("existingAccount still marks older accounts (sample, app Pro)")
 	}
 }
 
@@ -269,10 +266,13 @@ func TestSampleProject(t *testing.T) {
 	if spent := s.monthSpent(ctx, uid, store.NewBalance(uid)); spent != 0 {
 		t.Fatalf("sample runs counted in the month's spend %d", spent)
 	}
-	// an account from before onboarding gets none
+	// an account from before onboarding gets one too, once (owner 2026-11-07)
 	old := "u" + store.NewID()
 	s.Store.PutCustomer(ctx, old, &store.Customer{StripeCustomerID: "cus_3", CreatedAt: sampleSince.Add(-time.Hour)})
+	if _, added := s.ensureSample(ctx, old, nil); !added {
+		t.Fatal("old account got no sample")
+	}
 	if _, added := s.ensureSample(ctx, old, nil); added {
-		t.Fatal("old account got a sample")
+		t.Fatal("a second sample")
 	}
 }
