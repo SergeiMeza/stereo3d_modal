@@ -34,8 +34,12 @@ import { formatCentsShort } from "@/components/steps/money";
 import { track } from "@/lib/analytics";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
-import { FORMAT_NAMES } from "@/lib/glossary";
+import { FORMAT_NAMES, METHOD_NAMES } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { LanguagePicker } from "@/lib/i18n/LanguagePicker";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { SITE_NAME } from "@/lib/site";
 
 interface Point {
   icon: LucideIcon;
@@ -44,19 +48,20 @@ interface Point {
 }
 
 // Names from the glossary (S3D-37); Lifelike makes these two (S3D-08).
-const FORMATS = [
-  {
-    tag: ".mov",
-    title: FORMAT_NAMES.mvhevc,
-    detail: "For Apple Vision Pro. It shows up in Photos as a spatial video.",
-  },
-  {
-    tag: ".mp4",
-    title: FORMAT_NAMES.sbs,
-    detail:
-      "For Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR glasses and 3D TVs.",
-  },
-];
+function formats(t: Tr = EN) {
+  return [
+    {
+      tag: ".mov",
+      title: FORMAT_NAMES.mvhevc,
+      detail: t("landing.formats.mvhevcDetail"),
+    },
+    {
+      tag: ".mp4",
+      title: FORMAT_NAMES.sbs,
+      detail: t("landing.formats.sbsDetail"),
+    },
+  ];
+}
 
 function SectionHead({
   eyebrow,
@@ -81,34 +86,35 @@ function SectionHead({
 }
 
 export function LandingContent() {
+  const t = useT();
   const { user } = useAuth();
   const signedIn = user !== null;
   const pricing = usePricing();
   const perMinute = pricing ? fromPerMinute(pricing) : null;
   // S3D-05: the limits are Lifelike's, from /v1/pricing ("Any length, up to 8K")
-  const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing));
+  const lifelikeLimits = sentenceCase(methodLimitText("lifelike", null, pricing, t));
   const ctaHref = signedIn ? "/projects" : "/signin";
 
   const points: Point[] = [
     {
       icon: Layers,
-      title: "Lifelike depth",
-      detail: "Every moment rebuilt as a real 3D scene.",
+      title: t("landing.points.depthTitle"),
+      detail: t("landing.points.depthDetail"),
     },
     {
       icon: Maximize2,
       title: lifelikeLimits,
-      detail: "From a short clip to a whole film.",
+      detail: t("landing.points.lengthDetail"),
     },
     {
       icon: Eye,
-      title: "Your original in one eye",
-      detail: "At Cinema sizes, 5K to 8K, one eye shows your own frames.",
+      title: t("landing.points.originalTitle"),
+      detail: t("landing.points.originalDetail"),
     },
     {
       icon: Focus,
       title: "Foveated Detail",
-      detail: "Sharper where you look.",
+      detail: t("landing.points.foveatedDetail"),
     },
   ];
 
@@ -122,20 +128,22 @@ export function LandingContent() {
         />
         <div className="relative">
           <p className="flex flex-wrap items-center gap-2.5">
-            <span className="ll-tag-new">New</span>
+            <span className="ll-tag-new">{t("landing.hero.new")}</span>
             <span data-testid="hero-eyebrow" className="ll-eyebrow !text-xs">
-              Spatial Video Studio on the web · Lifelike 3D
+              {t("landing.hero.eyebrow", { site: SITE_NAME, method: METHOD_NAMES.lifelike })}
             </span>
           </p>
           <h1 className="mt-4 text-4xl leading-[1.05] font-semibold tracking-tight text-balance sm:text-5xl lg:text-[56px]">
-            Turn any video into{" "}
-            <span className="bg-gradient-to-r from-fg via-[#b9c8ff] to-[#a7f3ea] bg-clip-text text-transparent">
-              lifelike 3D
-            </span>
+            {rich(t, "landing.hero.title", {
+              accent: (c) => (
+                <span className="bg-gradient-to-r from-fg via-[#b9c8ff] to-[#a7f3ea] bg-clip-text text-transparent">
+                  {c}
+                </span>
+              ),
+            })}
           </h1>
           <p className="mt-5 max-w-md text-base leading-relaxed text-fg-muted sm:text-lg">
-            We understand the shape of every scene, then film it again for
-            each eye.
+            {t("landing.hero.lede")}
           </p>
           <div className="mt-7 flex flex-wrap items-center gap-4">
             <Link
@@ -143,27 +151,36 @@ export function LandingContent() {
               onClick={() => track("lp_cta_hero_click", { signed_in: signedIn })}
               className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
             >
-              Make your first 3D video
+              {t("landing.hero.cta")}
             </Link>
             {perMinute !== null ? (
               <span data-testid="hero-from-price" className="text-fg-muted">
-                from{" "}
-                <b className="text-xl font-semibold text-fg">
-                  {formatCentsShort(perMinute)}
-                </b>{" "}
-                a minute at {pricing?.fps.base ?? 24} fps
+                {rich(
+                  t,
+                  "landing.hero.fromPrice",
+                  { b: (c) => <b className="text-xl font-semibold text-fg">{c}</b> },
+                  { price: formatCentsShort(perMinute, t), fps: pricing?.fps.base ?? 24 },
+                )}
               </span>
             ) : null}
           </div>
           <p data-testid="hero-limits" className="mt-4 text-xs text-fg-muted">
-            {lifelikeLimits}.{" "}
-            <Link
-              href="/pricing"
-              onClick={() => track("lp_pricing_click")}
-              className="text-primary hover:underline"
-            >
-              See prices
-            </Link>
+            {rich(
+              t,
+              "landing.hero.limits",
+              {
+                link: (c) => (
+                  <Link
+                    href="/pricing"
+                    onClick={() => track("lp_pricing_click")}
+                    className="text-primary hover:underline"
+                  >
+                    {c}
+                  </Link>
+                ),
+              },
+              { limits: lifelikeLimits },
+            )}
           </p>
         </div>
         <HeroLoop />
@@ -190,12 +207,15 @@ export function LandingContent() {
       {/* Three steps */}
       <section className="mx-auto mt-14 grid w-full max-w-6xl gap-6 px-4 sm:grid-cols-3">
         {[
-          { t: "Upload a video", s: `${lifelikeLimits}.` },
           {
-            t: "Preview a moment",
-            s: "A few seconds in 3D.",
+            t: t("landing.steps.uploadTitle"),
+            s: t("landing.steps.uploadDetail", { limits: lifelikeLimits }),
           },
-          { t: "Make it 3D", s: "Download for your headset." },
+          {
+            t: t("landing.steps.previewTitle"),
+            s: t("landing.steps.previewDetail"),
+          },
+          { t: t("landing.steps.makeTitle"), s: t("landing.steps.makeDetail") },
         ].map((st, i) => (
           <div key={st.t} className="flex items-start gap-3.5">
             <span className="flex size-7 shrink-0 items-center justify-center rounded-full border border-edge text-xs text-fg-muted">
@@ -218,7 +238,10 @@ export function LandingContent() {
         id="how-it-looks"
         className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-16"
       >
-        <SectionHead eyebrow="How it looks" title="From upload to headset" />
+        <SectionHead
+          eyebrow={t("landing.sections.howItLooksEyebrow")}
+          title={t("landing.sections.howItLooksTitle")}
+        />
         <div className="mt-10">
           <ProductTour />
         </div>
@@ -228,8 +251,8 @@ export function LandingContent() {
       <section className="border-y border-edge bg-card/50">
         <div className="mx-auto w-full max-w-6xl px-4 py-16">
           <SectionHead
-            eyebrow="Step by step"
-            title="What happens to your video"
+            eyebrow={t("landing.sections.stepByStepEyebrow")}
+            title={t("landing.sections.stepByStepTitle")}
           />
           <div className="mt-10">
             <PipelineSteps />
@@ -240,12 +263,12 @@ export function LandingContent() {
       {/* Where to watch */}
       <section id="formats" className="mx-auto w-full max-w-6xl px-4 py-16">
         <SectionHead
-          eyebrow="Watch it"
-          title="On Vision Pro and every headset"
-          lede="Works in Vision Pro and every headset browser: open the site there and watch or download straight to the headset."
+          eyebrow={t("landing.sections.watchEyebrow")}
+          title={t("landing.sections.watchTitle")}
+          lede={t("landing.sections.watchLede")}
         />
         <div className="mt-8 grid gap-4 sm:grid-cols-2">
-          {FORMATS.map((format) => (
+          {formats(t).map((format) => (
             <div
               key={format.title}
               className="rounded-lg border border-edge bg-card p-5"
@@ -265,7 +288,7 @@ export function LandingContent() {
       {/* Final CTA (mock 12) */}
       <section className="mx-auto w-full max-w-6xl px-4 py-20 text-center">
         <h2 className="text-3xl font-semibold tracking-tight text-balance">
-          See your own video in 3D
+          {t("landing.final.title")}
         </h2>
         <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
           <Link
@@ -273,32 +296,42 @@ export function LandingContent() {
             onClick={() => track("lp_cta_bottom_click", { signed_in: signedIn })}
             className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground transition-colors hover:bg-primary/80"
           >
-            Make your 3D video
+            {t("landing.final.cta")}
           </Link>
         </div>
         <p data-testid="teams-line" className="mt-5 text-sm text-fg-muted">
-          For work: Business and Studio plans.{" "}
-          <Link
-            href="/pricing"
-            onClick={() => track("lp_teams_click")}
-            className="text-primary hover:underline"
-          >
-            See plans
-          </Link>
+          {rich(
+            t,
+            "landing.final.teams",
+            {
+              link: (c) => (
+                <Link
+                  href="/pricing"
+                  onClick={() => track("lp_teams_click")}
+                  className="text-primary hover:underline"
+                >
+                  {c}
+                </Link>
+              ),
+            },
+            { business: "Business", studio: "Studio" },
+          )}
         </p>
         <p className="mt-8 text-xs text-fg-muted">
-          Something missing or broken?{" "}
-          <button
-            type="button"
-            onClick={() => {
-              track("lp_feedback_click");
-              openFeedback();
-            }}
-            className="text-primary hover:underline"
-          >
-            Tell us
-          </button>
-          .
+          {rich(t, "landing.final.feedback", {
+            button: (c) => (
+              <button
+                type="button"
+                onClick={() => {
+                  track("lp_feedback_click");
+                  openFeedback();
+                }}
+                className="text-primary hover:underline"
+              >
+                {c}
+              </button>
+            ),
+          })}
         </p>
       </section>
 
@@ -308,23 +341,28 @@ export function LandingContent() {
           <p className="flex items-center gap-2">
             <AppIcon className="size-5" />
             <span>
-              Spatial Video <span className="text-primary">Studio</span> on
-              the web · a Spatial AI Labs Ltd product
+              {rich(t, "landing.footer.byline", {
+                brand: () => (
+                  <>
+                    Spatial Video <span className="text-primary">Studio</span>
+                  </>
+                ),
+              })}
             </span>
           </p>
           <div className="flex items-center gap-4">
             <Link href="/privacy" className="transition-colors hover:text-fg">
-              Privacy Policy
+              {t("landing.footer.privacy")}
             </Link>
             <Link href="/terms" className="transition-colors hover:text-fg">
-              Terms of Use
+              {t("landing.footer.terms")}
             </Link>
             <button type="button" onClick={openFeedback} className="transition-colors hover:text-fg">
-              Feedback
+              {t("landing.footer.feedback")}
             </button>
             <LanguagePicker />
           </div>
-          <p>© {new Date().getFullYear()} Spatial AI Labs Ltd</p>
+          <p>{t("landing.footer.copyright", { year: String(new Date().getFullYear()) })}</p>
         </div>
       </footer>
     </div>

@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * "What happens to your video" — the three conversion passes, each
  * illustrated with a short looping clip made from licensed footage
@@ -12,44 +14,39 @@
  */
 
 import { LoopVideo } from "@/components/landing/LoopVideo";
-
-const STEPS = [
-  {
-    number: "01",
-    tag: "Depth",
-    title: "We understand the shape of every scene",
-    detail:
-      "Every moment becomes a real 3D scene, steady from frame to frame.",
-    clip: "/landing/steps/depth",
-    label:
-      "A glowing line sweeps across the footage and shows near things warm and far things blue, then the picture again",
-  },
-  {
-    number: "02",
-    tag: "3D",
-    title: "Two eyes from one camera",
-    detail:
-      "Then we film that scene again for each eye, with clean edges. Here the viewpoint sways so you can see the depth on any screen.",
-    clip: "/landing/steps/stereo",
-    label:
-      "The same footage seen from a gently swaying viewpoint, then its left-eye and right-eye views side by side",
-  },
-  {
-    number: "03",
-    tag: "Files",
-    title: "Plays like it was shot in 3D",
-    detail:
-      "Vision Pro spatial video and side by side, ready for every headset.",
-    clip: "/landing/steps/delivery",
-    label:
-      "The 3D video as a floating window, on a big screen in a headset, through the headset's lenses and in XR glasses",
-  },
-];
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export function PipelineSteps() {
+  const t = useT();
+  const steps = [
+    {
+      number: "01",
+      tag: t("landing.pipeline.depthTag"),
+      title: t("landing.pipeline.depthTitle"),
+      detail: t("landing.pipeline.depthDetail"),
+      clip: "/landing/steps/depth",
+      label: t("landing.pipeline.depthLabel"),
+    },
+    {
+      number: "02",
+      tag: t("landing.pipeline.stereoTag"),
+      title: t("landing.pipeline.stereoTitle"),
+      detail: t("landing.pipeline.stereoDetail"),
+      clip: "/landing/steps/stereo",
+      label: t("landing.pipeline.stereoLabel"),
+    },
+    {
+      number: "03",
+      tag: t("landing.pipeline.deliveryTag"),
+      title: t("landing.pipeline.deliveryTitle"),
+      detail: t("landing.pipeline.deliveryDetail"),
+      clip: "/landing/steps/delivery",
+      label: t("landing.pipeline.deliveryLabel"),
+    },
+  ];
   return (
     <div className="space-y-12">
-      {STEPS.map((step, index) => (
+      {steps.map((step, index) => (
         <div
           key={step.number}
           className="grid items-center gap-6 lg:grid-cols-2 lg:gap-12"

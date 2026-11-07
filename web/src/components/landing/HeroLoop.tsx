@@ -6,9 +6,15 @@
  * any screen without glasses. Poster only under reduced motion (LoopVideo).
  */
 
+"use client";
+
 import { LoopVideo } from "@/components/landing/LoopVideo";
+import { METHOD_NAMES } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 
 export function HeroLoop() {
+  const t = useT();
   return (
     <figure className="relative">
       <div className="ll-edge overflow-hidden rounded-2xl p-px">
@@ -18,22 +24,25 @@ export function HeroLoop() {
         >
           <LoopVideo
             base="/landing/hero/sunset-session-2d-3d"
-            label="A singer and her band on a rooftop at sunset: on the left the 2D video, on the right the same moment in Lifelike 3D, its viewpoint gently swaying to show the depth"
+            label={t("landing.heroLoop.label", { method: METHOD_NAMES.lifelike })}
             className="absolute inset-0 h-full w-full object-cover"
           />
           <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
-            Your video
+            {t("landing.heroLoop.yourVideo")}
           </span>
           <span className="pointer-events-none absolute top-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
-            Lifelike 3D
+            {METHOD_NAMES.lifelike}
           </span>
         </div>
       </div>
       <figcaption className="mt-3 text-xs text-fg-muted">
-        The right side moves the way it will look in 3D.{" "}
-        <a href="#samples" className="text-primary hover:underline">
-          Watch it in your headset
-        </a>
+        {rich(t, "landing.heroLoop.caption", {
+          link: (c) => (
+            <a href="#samples" className="text-primary hover:underline">
+              {c}
+            </a>
+          ),
+        })}
       </figcaption>
     </figure>
   );

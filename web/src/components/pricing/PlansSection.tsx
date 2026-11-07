@@ -22,6 +22,8 @@ import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
 import { isTeamPlan } from "@/lib/api/types";
 import { isStripePro, useProStatus } from "@/lib/pro/usePro";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { planPrice } from "./planCopy";
 import { qualitySteps } from "@/components/steps/FileQuality";
@@ -32,33 +34,40 @@ type PlanKey = (typeof PLAN_KEYS)[number];
 /** The few lines a plan card shows. */
 /** Owner 2026-11-07: Business and Studio name the File quality steps for
  * client work. */
-export const PLAN_FILE_QUALITY = "High and Master file quality for client reviews and editing";
+export const PLAN_FILE_QUALITY = planFileQuality();
+
+/** PLAN_FILE_QUALITY in a language. */
+export function planFileQuality(t: Tr = EN): string {
+  return t("pricing.plans.lines.fileQuality", { high: "High", master: "Master" });
+}
 
 export function planLines(
   def: PlanDef,
   pct: number | undefined,
   maxFpsWithPlan?: number,
   fileQuality = false,
+  t: Tr = EN,
 ): string[] {
   // the plan's own max_fps, else /v1/pricing fps.max_fps_with_plan (test
   // gateway 00091 sends only the latter)
   const maxFps = def.max_fps ?? maxFpsWithPlan;
   return [
-    `${formatCentsShort(def.credit_cents)} of usage every month`,
-    ...(pct ? [`${Math.round(pct * 100)}% off every run`] : []),
+    t("pricing.plans.lines.usage", { amount: formatCentsShort(def.credit_cents, t) }),
+    ...(pct ? [t("pricing.plans.lines.off", { pct: Math.round(pct * 100) })] : []),
     // owner 2026-11-04: Terms "Using your 3D outputs"
-    "Commercial use of your videos",
-    `${def.free_previews_per_period} free previews a month`,
-    ...(def.express_included ? ["Express included"] : []),
-    ...(fileQuality ? [PLAN_FILE_QUALITY] : []),
+    t("pricing.plans.lines.commercial"),
+    t("pricing.plans.lines.freePreviews", { count: def.free_previews_per_period }),
+    ...(def.express_included ? [t("pricing.plans.lines.express")] : []),
+    ...(fileQuality ? [planFileQuality(t)] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
-    ...(maxFps && maxFps > 30 ? [`Up to ${maxFps} fps`] : []),
+    ...(maxFps && maxFps > 30 ? [t("pricing.plans.lines.fps", { fps: maxFps })] : []),
     // owner 2026-11-04: no seat counts until team accounts exist
-    "Invoices",
+    t("pricing.plans.lines.invoices"),
   ];
 }
 
 export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Element | null {
+  const t = useT();
   const { user } = useAuth();
   const billing = useBilling();
   // the sheet is picked when it opens and kept: a purchase that makes the
@@ -84,10 +93,10 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
     <section data-testid="plans" aria-labelledby="plans-title" className="flex flex-col gap-4">
       <div className="text-center">
         <h2 id="plans-title" className="text-lg font-semibold tracking-tight">
-          Plans for work
+          {t("pricing.plans.title")}
         </h2>
         <p className="mt-1 text-sm text-fg-muted">
-          Usage included every month. Business bills monthly, Studio yearly.
+          {t("pricing.plans.subtitle", { business: "Business", studio: "Studio" })}
         </p>
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
@@ -106,12 +115,12 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
               <div>
                 <h3 className="text-base font-semibold">{def.name}</h3>
                 <p data-testid={`plan-price-${k}`} className="mt-1 text-2xl font-semibold tabular-nums">
-                  {formatCentsShort(planPrice(def).cents)}
-                  <span className="text-sm font-normal text-fg-muted"> {planPrice(def).per}</span>
+                  {formatCentsShort(planPrice(def, t).cents, t)}
+                  <span className="text-sm font-normal text-fg-muted"> {planPrice(def, t).per}</span>
                 </p>
               </div>
               <ul className="flex flex-col gap-2 text-sm">
-                {planLines(def, pct, pricing.fps.max_fps_with_plan, qualitySteps(pricing).length > 2).map((l) => (
+                {planLines(def, pct, pricing.fps.max_fps_with_plan, qualitySteps(pricing).length > 2, t).map((l) => (
                   <li key={l} className="flex items-center gap-2">
                     <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
                     {l}
@@ -120,7 +129,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
               </ul>
               {mine === k ? (
                 <Button variant="outline" disabled className="mt-auto w-full">
-                  Your plan
+                  {t("pricing.plans.yourPlan")}
                 </Button>
               ) : user ? (
                 <Button
@@ -131,11 +140,11 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                     setOpen({ plan: k, from: mineName ?? (webPro ? proName : null), change: mineName !== null || webPro, team: mineName !== null })
                   }
                 >
-                  {mine ? `Change to ${def.name}` : `Choose ${def.name}`}
+                  {mine ? t("pricing.plans.changeTo", { name: def.name }) : t("pricing.plans.choose", { name: def.name })}
                 </Button>
               ) : (
                 <Button asChild variant={k === "studio" ? "default" : "outline"} className="mt-auto w-full">
-                  <Link href="/signin?next=/pricing">Choose {def.name}</Link>
+                  <Link href="/signin?next=/pricing">{t("pricing.plans.choose", { name: def.name })}</Link>
                 </Button>
               )}
             </div>

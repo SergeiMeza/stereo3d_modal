@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button";
 import type { PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useProPlans } from "@/lib/pro/usePro";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { formatCentsShort } from "@/components/steps/money";
 
 import {
   proPct,
@@ -32,6 +34,7 @@ export function PlansHint({
 }: {
   pricing: PublicPricing;
 }): JSX.Element | null {
+  const t = useT();
   const { user } = useAuth();
   const tier = usePlanTier();
   const { dismissed, dismiss } = useDismissal("plans_hint", null);
@@ -44,7 +47,10 @@ export function PlansHint({
     .filter((k) => typeof pct[k] === "number")
     .map(
       (k) =>
-        `${Math.round(pct[k]! * 100)}% with ${k === "pro" ? "Pro" : k === "business" ? "Business" : "Studio"}`,
+        t("plans.intro.share", {
+          pct: Math.round(pct[k]! * 100),
+          plan: k === "pro" ? "Pro" : k === "business" ? "Business" : "Studio",
+        }),
     );
   return (
     <div
@@ -52,13 +58,11 @@ export function PlansHint({
       data-testid="plans-hint"
       className="mb-6 flex flex-col gap-2 rounded-xl border border-primary/40 bg-primary/5 p-4 text-sm"
     >
-      <p className="font-semibold text-fg">You never have to pick a plan</p>
+      <p className="font-semibold text-fg">{t("plans.intro.title")}</p>
       <p className="text-fg-muted">
-        Pay per video is how everyone starts. A plan only lowers the price a
-        minute
         {shares.length > 0
-          ? `: ${shares.slice(0, -1).join(", ")}${shares.length > 1 ? ", " : ""}${shares.at(-1)}.`
-          : "."}
+          ? t("plans.intro.bodyWithShares", { shares: shares.join(t("plans.intro.shareSeparator")) })
+          : t("plans.intro.body")}
       </p>
       <Button
         size="sm"
@@ -69,7 +73,7 @@ export function PlansHint({
           dismiss();
         }}
       >
-        Got it
+        {t("plans.intro.gotIt")}
       </Button>
     </div>
   );
@@ -80,6 +84,7 @@ export function PayPerVideoAndPro({
 }: {
   pricing: PublicPricing;
 }): JSX.Element {
+  const t = useT();
   const tier = usePlanTier();
   const plans = useProPlans();
   const pct = proPct(pricing);
@@ -96,16 +101,16 @@ export function PayPerVideoAndPro({
         data-testid="plan-ppv"
         className="flex flex-col gap-2 rounded-xl border border-edge bg-card p-6"
       >
-        <h3 className="text-base font-semibold">Pay per video</h3>
+        <h3 className="text-base font-semibold">{t("plans.intro.ppvTitle")}</h3>
         <p className="text-2xl font-semibold">
-          $0 <span className="text-sm font-normal text-fg-muted">a month</span>
+          {formatCentsShort(0, t)} <span className="text-sm font-normal text-fg-muted">{t("plans.intro.aMonth")}</span>
         </p>
         <p className="text-sm text-fg-muted">
-          Pay for each video after it&apos;s done. First preview free.
+          {t("plans.intro.ppvBody")}
         </p>
-        <p className="text-sm text-fg-muted">Up to {fps} fps</p>
+        <p className="text-sm text-fg-muted">{t("plans.intro.upToFps", { fps })}</p>
         {tier === "none" ? (
-          <p className="mt-auto pt-2 text-xs text-fg-muted">Your plan</p>
+          <p className="mt-auto pt-2 text-xs text-fg-muted">{t("plans.intro.yourPlan")}</p>
         ) : null}
       </div>
       <div
@@ -115,12 +120,12 @@ export function PayPerVideoAndPro({
         <div className="flex items-center gap-2">
           <h3 className="text-base font-semibold">Pro</h3>
           {pct ? (
-            <span className="text-xs text-primary">{pct}% off</span>
+            <span className="text-xs text-primary">{t("plans.intro.pctOff", { pct })}</span>
           ) : null}
         </div>
         <p className="text-2xl font-semibold">
           {monthly ? monthly.price : "…"}{" "}
-          <span className="text-sm font-normal text-fg-muted">a month</span>
+          <span className="text-sm font-normal text-fg-muted">{t("plans.intro.aMonth")}</span>
         </p>
         {/* owner 2026-11-07: the credit joining Pro gives, like Business's line */}
         {credit ? (
@@ -130,18 +135,18 @@ export function PayPerVideoAndPro({
         ) : null}
         <p className="text-sm text-fg-muted">
           {typeof previews === "number" && previews > 0
-            ? `${previews} free previews a month on Monthly. `
+            ? `${t("plans.intro.proPreviews", { count: previews })} `
             : ""}
-          Up to {fps} fps
+          {t("plans.intro.upToFps", { fps })}
         </p>
         {tier === "business" || tier === "studio" ? (
           // owner 2026-11-05: Business and Studio include Pro, nothing to buy
           <p data-testid="plan-pro-included" className="mt-auto pt-2 text-sm text-fg">
-            Included in {tier === "studio" ? "Studio" : "Business"}
+            {t("plans.intro.includedIn", { plan: tier === "studio" ? "Studio" : "Business" })}
           </p>
         ) : (
           <Button asChild className="mt-auto w-full">
-            <Link href="/pro">{tier === "pro" ? "Your plan" : "Get Pro"}</Link>
+            <Link href="/pro">{tier === "pro" ? t("plans.intro.yourPlan") : t("plans.intro.getPro", { pro: "Pro" })}</Link>
           </Button>
         )}
       </div>

@@ -14,6 +14,7 @@ import Link from "next/link";
 import type { JSX } from "react";
 
 import { usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { PlanNudge } from "./PlanNudge";
 
@@ -29,6 +30,7 @@ import {
 export const BANNER_DAYS = 7;
 
 export function PlansBanner(): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const { dismissed, dismiss } = useDismissal("projects_banner", BANNER_DAYS);
@@ -51,15 +53,15 @@ export function PlansBanner(): JSX.Element | null {
     return (
       <p data-testid="plans-line" className="text-sm text-fg-muted">
         <span className="hidden sm:inline">
-          Save {range} on every video with a plan.
+          {t("plans.banner.lineLong", { range })}
         </span>
-        <span className="sm:hidden">Save {range} with a plan.</span>{" "}
+        <span className="sm:hidden">{t("plans.banner.lineShort", { range })}</span>{" "}
         <Link
           href="/plans"
           onClick={() => send("click", { target: "/plans" })}
           className="text-primary hover:underline"
         >
-          See plans
+          {t("plans.banner.see")}
         </Link>
       </p>
     );
@@ -69,14 +71,15 @@ export function PlansBanner(): JSX.Element | null {
       testId="plans-banner"
       text={
         <>
-          Pro takes {pct}% off every video
-          {credit ? ` and includes ${credit}` : ""}.
+          {credit
+            ? t("plans.banner.proOffCredit", { pro: "Pro", pct, credit })
+            : t("plans.banner.proOff", { pro: "Pro", pct })}
           {typeof previews === "number" && previews > 0 ? (
-            <span className="hidden sm:inline"> Monthly also includes {previews} free previews a month.</span>
+            <span className="hidden sm:inline"> {t("plans.banner.monthlyPreviews", { count: previews })}</span>
           ) : null}
         </>
       }
-      action={{ label: "See plans", href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
+      action={{ label: t("plans.banner.see"), href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
       onDismiss={() => {
         send("dismiss");
         dismiss();

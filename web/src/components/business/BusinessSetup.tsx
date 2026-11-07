@@ -62,6 +62,10 @@ import { useGateway } from "@/lib/api/useGateway";
 import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { SITE_NAME } from "@/lib/site";
 import { isWebPro, notifyProChanged, useProStatus } from "@/lib/pro/usePro";
 import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
@@ -71,17 +75,22 @@ import { PLAN_FILE_QUALITY } from "@/components/pricing/PlansSection";
 type PlanKey = "business" | "studio";
 type Step = "plan" | "questions" | "checkout" | "welcome";
 
-const STEPS: readonly { id: Exclude<Step, "welcome">; label: string }[] = [
-  { id: "plan", label: "Plan" },
-  { id: "questions", label: "About you" },
-  { id: "checkout", label: "Pay" },
-];
+/** Product and plan names stay English in every language (placeholders). */
+export const PRODUCT_NAMES = {
+  site: SITE_NAME,
+  pro: "Pro",
+  business: "Business",
+  studio: "Studio",
+} as const;
 
-export const MAIN_USES: readonly { id: string; label: string }[] = [
-  { id: "client_work", label: "Client work" },
-  { id: "own_channel", label: "My own channel" },
-  { id: "stock_footage", label: "Stock footage" },
-  { id: "other", label: "Something else" },
+const STEPS: readonly Exclude<Step, "welcome">[] = ["plan", "questions", "checkout"];
+
+/** Main use answers: the id is saved on the account; the label is a key. */
+export const MAIN_USES: readonly { id: string; labelKey: string }[] = [
+  { id: "client_work", labelKey: "business.setup.mainUses.clientWork" },
+  { id: "own_channel", labelKey: "business.setup.mainUses.ownChannel" },
+  { id: "stock_footage", labelKey: "business.setup.mainUses.stockFootage" },
+  { id: "other", labelKey: "business.setup.mainUses.other" },
 ];
 
 /** What a plan includes, from /v1/pricing only. */
@@ -89,34 +98,38 @@ export function planIncludes(
   key: PlanKey,
   def: PlanDef,
   pricing: PublicPricing | null,
+  t: Tr = EN,
 ): string[] {
   const pct = pricing?.tiers?.classic_pct?.[key];
   const maxFps = def.max_fps ?? pricing?.fps?.max_fps_with_plan;
   return [
     ...(typeof pct === "number" && pct > 0
-      ? [`${Math.round(pct * 100)}% off every video`]
+      ? [t("business.setup.includes.pctOff", { pct: Math.round(pct * 100) })]
       : []),
-    `${formatCentsShort(def.credit_cents)} of usage every month`,
-    "Commercial use of your videos",
-    ...(maxFps && maxFps > 30 ? [`Frame rates up to ${maxFps} fps`] : []),
-    "Turn the Spatial Video Studio intro on or off",
-    "Invoices with your company details",
-    ...(def.express_included ? ["Express included"] : []),
+    t("business.setup.includes.usage", { amount: formatCentsShort(def.credit_cents, t) }),
+    t("business.setup.includes.commercial"),
+    ...(maxFps && maxFps > 30 ? [t("business.setup.includes.frameRates", { fps: maxFps })] : []),
+    t("business.setup.includes.intro", { site: SITE_NAME }),
+    t("business.setup.includes.invoices"),
+    ...(def.express_included ? [t("business.setup.includes.express")] : []),
     ...(qualitySteps(pricing).length > 2 ? [PLAN_FILE_QUALITY] : []),
   ];
 }
 
 /** "$299 a month" / "$11,988 a year". */
-function priceLine(def: PlanDef): string {
+function priceLine(def: PlanDef, t: Tr = EN): string {
   const p = planPrice(def);
-  return `${formatCentsShort(p.cents)} ${p.per}`;
+  const price = formatCentsShort(p.cents, t);
+  return p.yearly
+    ? t("business.setup.price.year", { price })
+    : t("business.setup.price.month", { price });
 }
 
 /** "Billed monthly, renews every month until you cancel." */
-function termsLine(def: PlanDef): string {
+function termsLine(def: PlanDef, t: Tr = EN): string {
   return planPrice(def).yearly
-    ? `Billed once a year. ${formatCentsShort(def.credit_cents)} of usage arrives every month. Renews every year until you cancel.`
-    : `Billed monthly. Renews every month until you cancel.`;
+    ? t("business.setup.terms.yearly", { amount: formatCentsShort(def.credit_cents, t) })
+    : t("business.setup.terms.monthly");
 }
 
 const APP_STORE_SOURCES = new Set(["app_store", "mac_app_store"]);
@@ -130,12 +143,13 @@ export function proCase(pro: ProStatus | null): "app_store" | "web" | null {
   return null;
 }
 
-export const APP_STORE_PRO_NOTE =
-  "Your Pro is billed by Apple. Business includes everything Pro does, so cancel Pro in your iPhone's Settings → [your name] → Subscriptions to avoid paying for both.";
+/** The App Store Pro note in English (tests read it). */
+export const APP_STORE_PRO_NOTE = EN("business.setup.appStoreProNote", PRODUCT_NAMES);
 
 const SCOPE = "business-setup";
 
 export function BusinessSetup(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const pricing = usePricing();
   const tier = usePlanTier();
@@ -189,17 +203,19 @@ export function BusinessSetup(): JSX.Element {
       return (
         <Page>
           <h1 className="text-xl font-semibold tracking-tight">
-            You have Studio
+            {t("business.setup.studio.title", PRODUCT_NAMES)}
           </h1>
           <p className="text-fg-muted">
-            Your plan is on{" "}
-            <Link
-              href="/account/billing"
-              className="text-primary hover:underline"
-            >
-              Billing
-            </Link>
-            .
+            {rich(t, "business.setup.studio.onBilling", {
+              link: (c) => (
+                <Link
+                  href="/account/billing"
+                  className="text-primary hover:underline"
+                >
+                  {c}
+                </Link>
+              ),
+            })}
           </p>
         </Page>
       );
@@ -241,28 +257,28 @@ export function BusinessSetup(): JSX.Element {
         <>
           <div className="flex flex-col gap-1">
             <p className="text-[13px] font-medium text-primary">
-              Business and Studio
+              {t("business.setup.eyebrow", PRODUCT_NAMES)}
             </p>
             <h1 className="text-2xl font-semibold tracking-tight">
-              Set up Spatial Video Studio for work
+              {t("business.setup.title", PRODUCT_NAMES)}
             </h1>
           </div>
-          <ol aria-label="Steps" className="flex flex-wrap gap-2 text-xs">
+          <ol aria-label={t("business.setup.steps.aria")} className="flex flex-wrap gap-2 text-xs">
             {STEPS.map((s, i) => {
-              const at = STEPS.findIndex((x) => x.id === step);
+              const at = STEPS.findIndex((x) => x === step);
               return (
                 <li
-                  key={s.id}
-                  aria-current={s.id === step ? "step" : undefined}
+                  key={s}
+                  aria-current={s === step ? "step" : undefined}
                   className={`rounded-full border px-3 py-1 ${
-                    s.id === step
+                    s === step
                       ? "border-primary text-fg"
                       : i < at
                         ? "border-edge text-fg"
                         : "border-edge text-fg-muted"
                   }`}
                 >
-                  {i + 1}. {s.label}
+                  {t("business.setup.steps.item", { n: i + 1, label: stepLabel(s, t) })}
                 </li>
               );
             })}
@@ -274,7 +290,7 @@ export function BusinessSetup(): JSX.Element {
         <section className="flex flex-col gap-4" data-testid="setup-plan">
           <div
             role="radiogroup"
-            aria-label="Plan"
+            aria-label={t("business.setup.planAria")}
             className="grid gap-3 sm:grid-cols-2"
           >
             {(["business", "studio"] as const).map((k) => {
@@ -302,17 +318,17 @@ export function BusinessSetup(): JSX.Element {
                       {d.name}
                       {current ? (
                         <span className="ml-2 text-xs font-normal text-fg-muted">
-                          Your plan
+                          {t("business.setup.yourPlan")}
                         </span>
                       ) : null}
                     </span>
-                    <span className="text-sm text-fg">{priceLine(d)}</span>
+                    <span className="text-sm text-fg">{priceLine(d, t)}</span>
                   </span>
                   <span className="text-xs text-fg-muted">
-                    {planPrice(d).yearly ? "Yearly plan" : "Monthly plan"}
+                    {planPrice(d).yearly ? t("business.setup.yearlyPlan") : t("business.setup.monthlyPlan")}
                   </span>
                   <ul className="flex flex-col gap-1.5 text-sm text-fg">
-                    {planIncludes(k, d, pricing).map((line) => (
+                    {planIncludes(k, d, pricing, t).map((line) => (
                       <li key={line} className="flex items-start gap-2">
                         <Check
                           className="mt-0.5 size-4 shrink-0 text-primary"
@@ -328,20 +344,20 @@ export function BusinessSetup(): JSX.Element {
           </div>
           {isCompanyEmail(user?.email) ? (
             <p className="text-sm text-fg-muted">
-              Questions first?{" "}
+              {t("business.setup.questionsFirst")}{" "}
               <button
                 type="button"
                 data-testid="setup-talk"
                 onClick={() => setTalk("form")}
                 className="text-primary hover:underline"
               >
-                Talk to us
+                {t("business.setup.talkToUs")}
               </button>
             </p>
           ) : null}
           <Footer>
             <Button asChild variant="ghost">
-              <Link href="/account">Not now</Link>
+              <Link href="/account">{t("business.setup.notNow")}</Link>
             </Button>
             <Button
               data-testid="setup-next"
@@ -350,34 +366,34 @@ export function BusinessSetup(): JSX.Element {
                 setStep("questions");
               }}
             >
-              Continue with {def.name}
+              {t("business.setup.continueWith", { plan: def.name })}
             </Button>
           </Footer>
         </section>
       ) : step === "questions" ? (
         <section className="flex flex-col gap-4" data-testid="setup-questions">
           <div className="flex flex-col gap-1">
-            <h2 className="text-lg font-semibold text-fg">A few questions</h2>
+            <h2 className="text-lg font-semibold text-fg">{t("business.setup.questions.title")}</h2>
             <p className="text-sm text-fg-muted">
-              All optional. They help us make the product better for work.
+              {t("business.setup.questions.hint")}
             </p>
           </div>
           <label className="flex max-w-xs flex-col gap-1 text-xs text-fg-muted">
-            Team size
+            {t("business.setup.questions.teamSize")}
             <input
               data-testid="setup-team-size"
               value={teamSize}
               maxLength={60}
               onChange={(e) => setTeamSize(e.target.value)}
-              placeholder="e.g. 4"
+              placeholder={t("business.setup.questions.teamSizePlaceholder")}
               className="h-10 rounded-lg border border-edge bg-surface-2 px-3 text-sm text-fg"
             />
           </label>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-xs text-fg-muted">Main use</legend>
+            <legend className="mb-1 text-xs text-fg-muted">{t("business.setup.questions.mainUse")}</legend>
             <div
               role="radiogroup"
-              aria-label="Main use"
+              aria-label={t("business.setup.questions.mainUse")}
               className="flex flex-wrap gap-2"
             >
               {MAIN_USES.map((u) => (
@@ -393,13 +409,13 @@ export function BusinessSetup(): JSX.Element {
                       : "border-edge text-fg-muted hover:text-fg"
                   }`}
                 >
-                  {u.label}
+                  {t(u.labelKey)}
                 </button>
               ))}
             </div>
           </fieldset>
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-xs text-fg-muted">Headsets</legend>
+            <legend className="mb-1 text-xs text-fg-muted">{t("business.setup.questions.headsets")}</legend>
             <div className="flex flex-wrap gap-2">
               {WELCOME_DEVICES.map((d) => {
                 const on = chosenHeadsets.includes(d.id);
@@ -430,7 +446,7 @@ export function BusinessSetup(): JSX.Element {
           </fieldset>
           <Footer>
             <Button variant="ghost" onClick={() => setStep("plan")}>
-              Back
+              {t("business.setup.back")}
             </Button>
             <Button
               variant="outline"
@@ -440,7 +456,7 @@ export function BusinessSetup(): JSX.Element {
                 setStep("checkout");
               }}
             >
-              Skip
+              {t("business.setup.skip")}
             </Button>
             <Button
               data-testid="setup-next"
@@ -463,7 +479,7 @@ export function BusinessSetup(): JSX.Element {
                 setStep("checkout");
               }}
             >
-              Continue
+              {t("business.setup.continue")}
             </Button>
           </Footer>
         </section>
@@ -472,15 +488,13 @@ export function BusinessSetup(): JSX.Element {
           <div className="flex flex-col gap-3 rounded-xl border border-edge bg-surface-1 p-4">
             <div className="flex items-baseline justify-between gap-3">
               <span className="text-lg font-semibold text-fg">{def.name}</span>
-              <span className="text-lg text-fg">{priceLine(def)}</span>
+              <span className="text-lg text-fg">{priceLine(def, t)}</span>
             </div>
             <p className="text-sm text-fg-muted" data-testid="setup-terms">
-              {termsLine(def)} Prices in USD, excl. tax. Nothing is charged
-              until you confirm.
+              {t("business.setup.checkout.termsTail", { terms: termsLine(def, t) })}
             </p>
             <p className="text-xs text-fg-muted">
-              Checkout asks only for your payment method and country. Your
-              company name, address and tax ID can follow after.
+              {t("business.setup.checkout.asksOnly")}
             </p>
           </div>
 
@@ -491,12 +505,12 @@ export function BusinessSetup(): JSX.Element {
             >
               <p className="text-sm font-medium text-fg">
                 {theCase === "business"
-                  ? "What happens to your Business"
-                  : "What happens to your Pro"}
+                  ? t("business.setup.checkout.whatHappensBusiness", PRODUCT_NAMES)
+                  : t("business.setup.checkout.whatHappensPro", PRODUCT_NAMES)}
               </p>
               {theCase === "app_store" ? (
                 <>
-                  <p className="text-sm text-fg-muted">{APP_STORE_PRO_NOTE}</p>
+                  <p className="text-sm text-fg-muted">{t("business.setup.appStoreProNote", PRODUCT_NAMES)}</p>
                   {pro?.management_url ? (
                     <Button
                       asChild
@@ -509,19 +523,18 @@ export function BusinessSetup(): JSX.Element {
                         target="_blank"
                         rel="noreferrer"
                       >
-                        Manage App Store subscription
+                        {t("business.setup.checkout.manageAppStore")}
                       </a>
                     </Button>
                   ) : null}
                 </>
               ) : preview === null ? (
                 <p className="text-sm text-fg-muted">
-                  Working out today&apos;s price…
+                  {t("business.setup.checkout.workingOut")}
                 </p>
               ) : preview === "error" ? (
                 <p className="text-sm text-fg-muted">
-                  Couldn&apos;t work out today&apos;s price. Nothing is charged
-                  until you confirm.
+                  {t("business.setup.checkout.previewFailed")}
                 </p>
               ) : (
                 <StepUpDetails
@@ -549,7 +562,7 @@ export function BusinessSetup(): JSX.Element {
 
           <Footer>
             <Button variant="ghost" onClick={() => setStep("questions")}>
-              Back
+              {t("business.setup.back")}
             </Button>
             {theCase === "web" || theCase === "business" ? (
               <Button
@@ -561,10 +574,10 @@ export function BusinessSetup(): JSX.Element {
                 }}
               >
                 {confirming
-                  ? "Changing…"
+                  ? t("business.setup.checkout.changing")
                   : preview && preview !== "error"
-                    ? `Confirm and pay ${formatCents(preview.today_cents)}`
-                    : "Confirm"}
+                    ? t("business.setup.checkout.confirmAndPay", { amount: formatCents(preview.today_cents, t) })
+                    : t("business.setup.checkout.confirm")}
               </Button>
             ) : (
               <Button
@@ -574,7 +587,7 @@ export function BusinessSetup(): JSX.Element {
                   setPaying(true);
                 }}
               >
-                Continue to payment
+                {t("business.setup.checkout.continueToPayment")}
               </Button>
             )}
           </Footer>
@@ -591,9 +604,9 @@ export function BusinessSetup(): JSX.Element {
         </section>
       ) : (
         <section className="flex flex-col gap-4" data-testid="setup-welcome">
-          <p className="text-[13px] font-medium text-primary">Welcome</p>
+          <p className="text-[13px] font-medium text-primary">{t("business.setup.welcome.eyebrow")}</p>
           <h1 className="text-2xl font-semibold tracking-tight">
-            {def.name} is on
+            {t("business.setup.welcome.title", { plan: def.name })}
           </h1>
           <ul className="flex flex-col gap-2 text-sm text-fg">
             <li className="flex items-start gap-2">
@@ -601,8 +614,7 @@ export function BusinessSetup(): JSX.Element {
                 className="mt-0.5 size-4 shrink-0 text-primary"
                 aria-hidden
               />
-              Commercial use: your 3D videos can go to clients, ads and paid
-              channels.
+              {t("business.setup.welcome.commercial")}
             </li>
             {(def.max_fps ?? pricing?.fps?.max_fps_with_plan ?? 0) > 30 ? (
               <li className="flex items-start gap-2">
@@ -610,9 +622,9 @@ export function BusinessSetup(): JSX.Element {
                   className="mt-0.5 size-4 shrink-0 text-primary"
                   aria-hidden
                 />
-                Higher frame rates: up to{" "}
-                {def.max_fps ?? pricing?.fps?.max_fps_with_plan} fps when your
-                video has them.
+                {t("business.setup.welcome.frameRates", {
+                  fps: def.max_fps ?? pricing?.fps?.max_fps_with_plan,
+                })}
               </li>
             ) : null}
             <li className="flex items-start gap-2">
@@ -620,8 +632,10 @@ export function BusinessSetup(): JSX.Element {
                 className="mt-0.5 size-4 shrink-0 text-primary"
                 aria-hidden
               />
-              {formatCentsShort(def.credit_cents)} of usage every month, then{" "}
-              {def.name} prices.
+              {t("business.setup.welcome.usage", {
+                amount: formatCentsShort(def.credit_cents, t),
+                plan: def.name,
+              })}
             </li>
           </ul>
           <div className="rounded-xl border border-edge bg-surface-1 p-4">
@@ -639,7 +653,7 @@ export function BusinessSetup(): JSX.Element {
           </p>
           <Footer>
             <Button asChild size="lg" data-testid="setup-make">
-              <Link href="/projects">Make your 3D video</Link>
+              <Link href="/projects">{t("business.setup.welcome.make")}</Link>
             </Button>
           </Footer>
         </section>
@@ -651,14 +665,16 @@ export function BusinessSetup(): JSX.Element {
       >
         <DialogContent className="sm:max-w-lg">
           <DialogHeader>
-            <DialogTitle>Talk to us</DialogTitle>
+            <DialogTitle>{t("business.setup.talk.title")}</DialogTitle>
             <DialogDescription>
-              A person replies by email, usually within a working day.
+              {t("business.setup.talk.description")}
             </DialogDescription>
           </DialogHeader>
           {talk === "sent" ? (
             <p className="text-sm text-fg">
-              Thanks. We&apos;ll reply to {user?.email ?? "your account email"}.
+              {t("business.setup.talk.sent", {
+                email: user?.email ?? t("business.setup.talk.accountEmail"),
+              })}
             </p>
           ) : (
             <ContactSalesForm
@@ -670,6 +686,14 @@ export function BusinessSetup(): JSX.Element {
       </Dialog>
     </Page>
   );
+}
+
+function stepLabel(s: Exclude<Step, "welcome">, t: Tr): string {
+  return s === "plan"
+    ? t("business.setup.steps.plan")
+    : s === "questions"
+      ? t("business.setup.steps.questions")
+      : t("business.setup.steps.checkout");
 }
 
 function Page({ children }: { children: React.ReactNode }): JSX.Element {

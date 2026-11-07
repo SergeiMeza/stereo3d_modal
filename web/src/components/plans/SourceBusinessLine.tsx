@@ -16,6 +16,7 @@ import type { JSX } from "react";
 
 import type { Project } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import {
   businessSaveRange,
@@ -32,6 +33,7 @@ export function SourceBusinessLine({
 }: {
   project: Project;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const range = businessSaveRange(usePricing());
   const { dismissed, dismiss } = useProjectDismissal(project.project_id);
@@ -55,19 +57,19 @@ export function SourceBusinessLine({
     >
       <span className="flex-1">
         {reason === "source_fps"
-          ? `High frame rates come with Business and Studio, which also save ${range}.`
-          : `Working in ${sourceSizeWord(probe)}? Business and Studio save ${range} and include commercial use.`}{" "}
+          ? t("plans.sourceLine.fps", { business: "Business", studio: "Studio", range })
+          : t("plans.sourceLine.size", { size: sourceSizeWord(probe), business: "Business", studio: "Studio", range })}{" "}
         <Link
           href="/plans"
           onClick={() => send("click", { target: "/plans" })}
           className="text-primary hover:underline"
         >
-          See Business
+          {t("plans.sourceLine.see", { business: "Business" })}
         </Link>
       </span>
       <button
         type="button"
-        aria-label="Dismiss"
+        aria-label={t("plans.nudge.dismiss")}
         onClick={() => {
           send("dismiss");
           dismiss();

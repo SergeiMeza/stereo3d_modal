@@ -20,6 +20,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Preset } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { qualityName } from "@/lib/glossary";
 import { creditLine, creditRules, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
@@ -86,6 +87,7 @@ export function PlansSheet({
   preset: Preset;
   reason: "preview_done" | "previews_used";
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const plans = useProPlans();
@@ -120,10 +122,14 @@ export function PlansSheet({
       testId="plans-sheet"
       onClose={() => close("x")}
       locked={busy}
-      title={pct ? `Pro · ${pct}% off every video` : "Pro"}
+      title={pct ? t("plans.sheet.titleWithPct", { pro: "Pro", pct }) : "Pro"}
       subtitle={
         listPer !== undefined && proPer !== undefined
-          ? `${qualityName(preset)} is ${formatCents(proPer)} a minute instead of ${formatCents(listPer)}.`
+          ? t("plans.sheet.perMinute", {
+              quality: qualityName(preset, t),
+              pro: formatCents(proPer, t),
+              list: formatCents(listPer, t),
+            })
           : undefined
       }
       footer={
@@ -144,7 +150,7 @@ export function PlansSheet({
               }
             }}
           >
-            Get Pro {plan ? planName(plan) : ""}
+            {t("plans.sheet.getPro", { pro: "Pro", plan: plan ? planName(plan) : "" })}
           </Button>
           <button
             type="button"
@@ -152,10 +158,10 @@ export function PlansSheet({
             onClick={() => close("keep")}
             className="py-2 text-center text-sm text-primary hover:underline"
           >
-            Keep paying per video
+            {t("plans.sheet.keepPaying")}
           </button>
           <p className="text-center text-xs text-fg-muted">
-            USD, excl. tax · cancel any time in Account
+            {t("plans.sheet.terms")}
           </p>
         </div>
       }
@@ -163,12 +169,12 @@ export function PlansSheet({
       <div className="flex flex-col gap-3">
         <div
           role="radiogroup"
-          aria-label="Pro plan"
+          aria-label={t("plans.sheet.planGroup", { pro: "Pro" })}
           className="flex flex-col gap-2"
         >
           {credit ? (
             <p data-testid="plans-sheet-credit" className="text-xs text-fg-muted">
-              <span className="text-fg">Pro includes {credit}.</span> {creditRules(proCreditDays(pricing))}
+              <span className="text-fg">{t("plans.sheet.includes", { pro: "Pro", credit })}</span> {creditRules(proCreditDays(pricing))}
             </p>
           ) : null}
           {plans.state === "loading" ? (
@@ -200,7 +206,7 @@ export function PlansSheet({
                     {`${p.price} ${planCadence(p)}`}
                     {p.kind === "monthly" &&
                     pricing?.free_previews?.allowances?.pro_monthly
-                      ? ` · ${pricing.free_previews.allowances.pro_monthly} free previews a month`
+                      ? ` · ${t("plans.sheet.freePreviewsMonthly", { count: pricing.free_previews.allowances.pro_monthly })}`
                       : ""}
                   </span>
                 </span>
@@ -222,11 +228,20 @@ export function PlansSheet({
             className="flex items-center gap-3 rounded-[10px] border border-edge px-3.5 py-3 text-sm hover:border-fg-muted"
           >
             <span className="flex flex-1 flex-col">
-              <span className="font-medium text-fg">Business for work</span>
+              <span className="font-medium text-fg">
+                {t("plans.sheet.businessTitle", { business: "Business" })}
+              </span>
               <span className="text-xs text-fg-muted">
-                {formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month
-                with {formatCentsShort(biz.credit_cents)} of usage, commercial use
-                {maxFps && maxFps > 30 ? `, ${maxFps} fps` : ""}, invoices
+                {maxFps && maxFps > 30
+                  ? t("plans.sheet.businessLineFps", {
+                      price: formatCentsShort(biz.price_cents ?? biz.monthly_cents, t),
+                      credit: formatCentsShort(biz.credit_cents, t),
+                      fps: maxFps,
+                    })
+                  : t("plans.sheet.businessLine", {
+                      price: formatCentsShort(biz.price_cents ?? biz.monthly_cents, t),
+                      credit: formatCentsShort(biz.credit_cents, t),
+                    })}
               </span>
             </span>
             <ChevronRight className="size-4 text-fg-muted" aria-hidden />

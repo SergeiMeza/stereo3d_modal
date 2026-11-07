@@ -10,7 +10,7 @@
  */
 
 import Link from "next/link";
-import type { JSX } from "react";
+import type { JSX, ReactNode } from "react";
 
 import { formatCentsShort } from "@/components/steps/money";
 import { InfoPopover } from "@/components/ui/info-popover";
@@ -19,26 +19,30 @@ import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { PAY_BEFORE_PUBLIC, ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 
 import { Extras, LifelikePrices } from "./PerMinutePrices";
 import { PayPerVideoLine } from "./planCopy";
 import { PlansSection } from "./PlansSection";
 
 export function PricingScreen(): JSX.Element {
+  const t = useT();
   const pricing = usePricing();
   const { user } = useAuth();
+  const b = (c: ReactNode) => <b>{c}</b>;
   const pct = pricing ? Math.round(pricing.discount.pct * 100) : null;
   return (
     <section className="mx-auto w-full max-w-4xl px-4 py-10">
       <div className="text-center">
-        <h1 className="text-2xl font-semibold tracking-tight">Prices</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("pricing.screen.title")}</h1>
         <p data-testid="pricing-subtitle" className="mt-2 text-fg-muted">
           <PayPerVideoLine pricing={pricing} />
         </p>
       </div>
       <FirstTimeHint id="pricing" className="mx-auto mt-6 max-w-md text-left" />
       {pricing === null ? (
-        <p className="mt-10 text-center text-fg-muted">Loading prices…</p>
+        <p className="mt-10 text-center text-fg-muted">{t("pricing.screen.loading")}</p>
       ) : (
         <>
           <div className="mx-auto mt-8 max-w-md">
@@ -52,40 +56,35 @@ export function PricingScreen(): JSX.Element {
             <p data-testid="pricing-charge-line" className="text-fg-muted">
               {PAY_BEFORE_PUBLIC}
             </p>
-            <InfoPopover label="How pricing works">
+            <InfoPopover label={t("pricing.screen.howItWorks")}>
               <span>
-                <b>Per minute of video at {pricing.fps.base} fps.</b>{" "}
-                {fpsRule(pricing)}. {ROUNDED_UP_LINE} Make only part of a
-                video and pay only for that part.
+                {rich(t, "pricing.screen.perMinute", { b }, {
+                  fps: pricing.fps.base,
+                  fpsRule: fpsRule(pricing),
+                  roundedUp: ROUNDED_UP_LINE,
+                })}
               </span>
               <span>
-                <b>{pct}% off</b> any run over{" "}
-                {formatCentsShort(pricing.discount.threshold_cents)}.{" "}
+                {rich(t, "pricing.screen.discount", { b }, {
+                  pct,
+                  threshold: formatCentsShort(pricing.discount.threshold_cents, t),
+                })}{" "}
                 {(pricing.preview_minimum_cents ?? pricing.minimum_cents) ===
-                pricing.minimum_cents ? (
-                  <>
-                    <b>Minimum charge {formatCentsShort(pricing.minimum_cents)}</b>{" "}
-                    per run.
-                  </>
-                ) : (
-                  <>
-                    <b>Minimum charge</b>{" "}
-                    {formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents)}{" "}
-                    per preview, {formatCentsShort(pricing.minimum_cents)} for
-                    other runs.
-                  </>
-                )}
+                pricing.minimum_cents
+                  ? rich(t, "pricing.screen.minimumPerRun", { b }, {
+                      min: formatCentsShort(pricing.minimum_cents, t),
+                    })
+                  : rich(t, "pricing.screen.minimumPerPreview", { b }, {
+                      previewMin: formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents, t),
+                      min: formatCentsShort(pricing.minimum_cents, t),
+                    })}
               </span>
               {/* TODO(BL-32): when deferred payments return, split this
                   again into "Over {precharge}: charged when it starts…" and
                   "{precharge} or less: charged after it's done. Failed or
                   cancelled runs are not charged." */}
-              <span>
-                <b>Paid before it starts.</b> Cancel while it waits in line, or
-                in its first minute, for a full refund. Refunded in full if it
-                fails.
-              </span>
-              <span>US dollars, excluding tax. Every file type is included.</span>
+              <span>{rich(t, "pricing.screen.paidBefore", { b })}</span>
+              <span>{t("pricing.screen.currency")}</span>
             </InfoPopover>
           </div>
         </>
@@ -100,7 +99,7 @@ export function PricingScreen(): JSX.Element {
           href={user ? "/projects" : "/signin"}
           className="rounded-lg bg-primary px-6 py-3 font-medium text-primary-foreground hover:bg-primary/80"
         >
-          Start a project
+          {t("pricing.screen.startProject")}
         </Link>
       </div>
     </section>

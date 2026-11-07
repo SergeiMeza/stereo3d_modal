@@ -12,6 +12,7 @@ import Link from "next/link";
 import type { JSX, ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export const NUDGE_SURFACE = "rounded-lg border border-edge bg-surface-1 px-4 py-3 text-sm";
 
@@ -29,6 +30,7 @@ export function PlanNudge({
   link?: { label: string; href: string; onClick?: () => void };
   onDismiss: () => void;
 }): JSX.Element {
+  const t = useT();
   return (
     <div role="note" data-testid={testId} className={`flex flex-wrap items-center gap-x-3 gap-y-2 ${NUDGE_SURFACE}`}>
       <p className="min-w-56 flex-1 text-fg">{text}</p>
@@ -50,7 +52,7 @@ export function PlanNudge({
       ) : null}
       <button
         type="button"
-        aria-label="Dismiss"
+        aria-label={t("plans.nudge.dismiss")}
         data-testid={`${testId}-dismiss`}
         onClick={onDismiss}
         className="ml-auto shrink-0 rounded p-0.5 text-fg-muted hover:text-fg"

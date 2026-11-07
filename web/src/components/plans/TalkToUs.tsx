@@ -24,6 +24,8 @@ import { usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { billingUidAtom, useBilling } from "@/lib/billing";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { SITE_NAME } from "@/lib/site";
 
 import {
   isCompanyEmail,
@@ -85,6 +87,7 @@ export function useBusinessNudgeShown(): boolean | null {
 }
 
 export function TalkToUs(): JSX.Element | null {
+  const t = useT();
   const { user } = useAuth();
   const tier = usePlanTier();
   const biz = usePricing()?.plans?.business;
@@ -111,21 +114,20 @@ export function TalkToUs(): JSX.Element | null {
     return (
       <PlanNudge
         testId="talk-to-us"
-        text={
-          <>
-            Using Spatial Video Studio at work? Business gives you {formatCentsShort(biz.credit_cents)} of usage a month,
-            commercial use and invoices.
-          </>
-        }
+        text={t("plans.talkToUs.banner", {
+          site: SITE_NAME,
+          business: "Business",
+          amount: formatCentsShort(biz.credit_cents, t),
+        })}
         action={{
-          label: "Talk to us",
+          label: t("plans.talkToUs.open"),
           testId: "talk-to-us-open",
           onClick: () => {
             send("click", { target: "talk" });
             setStep("form");
           },
         }}
-        link={{ label: "See Business", href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
+        link={{ label: t("plans.talkToUs.see", { business: "Business" }), href: "/plans", onClick: () => send("click", { target: "/plans" }) }}
         onDismiss={onDismiss}
       />
     );
@@ -140,7 +142,7 @@ export function TalkToUs(): JSX.Element | null {
         />
       ) : (
         <p data-testid="talk-to-us-sent" className="text-fg">
-          Thanks. We&apos;ll reply to {user?.email ?? "your account email"}.
+          {t("plans.talkToUs.sent", { email: user?.email ?? t("plans.talkToUs.yourEmail") })}
         </p>
       )}
     </section>

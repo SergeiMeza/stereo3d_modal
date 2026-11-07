@@ -10,14 +10,16 @@ import type { JSX } from "react";
 
 import { methodLimitText } from "@/components/steps/methods";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export function DevicePrice(): JSX.Element | null {
+  const t = useT();
   const pricing = usePricing();
   const from = pricing ? fromPerMinute(pricing) : null;
   if (!pricing || from === null) return null;
   return (
     <span data-testid="device-price" className="text-sm text-fg-muted">
-      {methodLimitText("lifelike", null, pricing)}
+      {methodLimitText("lifelike", null, pricing, t)}
     </span>
   );
 }

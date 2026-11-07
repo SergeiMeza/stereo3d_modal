@@ -1,3 +1,5 @@
+"use client";
+
 /**
  * "Works with" (S3D-51): an animated row of device names with simple
  * outline icons (CSS only, globals.css .works-*). The device links are in
@@ -9,6 +11,7 @@ import Link from "next/link";
 import type { JSX } from "react";
 
 import { DEVICE_PAGES, WORKS_WITH, type DeviceIcon } from "@/lib/devices";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 const ICONS: Record<DeviceIcon, JSX.Element> = {
   visor: (
@@ -77,6 +80,7 @@ function Item({ label, icon, soon }: { label: string; icon: DeviceIcon; soon?: b
 }
 
 export function WorksWith(): JSX.Element {
+  const t = useT();
   return (
     <section
       aria-labelledby="works-with-title"
@@ -87,17 +91,17 @@ export function WorksWith(): JSX.Element {
         id="works-with-title"
         className="mb-4 text-center text-xs tracking-wider text-fg-muted uppercase"
       >
-        Works with
+        {t("landing.worksWith.title")}
       </p>
       <ul className="sr-only" data-testid="works-with-links">
         {DEVICE_PAGES.map((d) => (
           <li key={d.slug}>
             <Link href={`/devices/${d.slug}`}>
-              {d.upcoming ? `Ready for ${d.name}, ${d.upcoming}` : d.name}
+              {d.upcoming ? t("landing.worksWith.upcoming", { name: d.name, upcoming: d.upcoming }) : d.name}
             </Link>
           </li>
         ))}
-        <li>3D TVs</li>
+        <li>{t("landing.worksWith.tvs")}</li>
       </ul>
       <div className="works-marquee" aria-hidden="true" data-testid="works-with-track">
         <div className="works-track">

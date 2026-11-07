@@ -15,11 +15,15 @@ import { useState } from "react";
 
 import { track } from "@/lib/analytics";
 import { formatBytes } from "@/lib/format";
+import { METHOD_NAMES } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { SITE_NAME } from "@/lib/site";
 import { SAMPLES, type Sample } from "@/lib/samples";
 
 type Look = "2d" | "redcyan";
 
 function SampleTile({ sample }: { sample: Sample }) {
+  const t = useT();
   const [playing, setPlaying] = useState(false);
   const [look, setLook] = useState<Look>("2d");
   const loop = look === "2d" ? sample.loop : sample.redCyanLoop;
@@ -50,7 +54,9 @@ function SampleTile({ sample }: { sample: Sample }) {
             playsInline
             preload="auto"
             poster={sample.poster}
-            aria-label={`${sample.title}, ${look === "2d" ? "the 2D video" : "in red-cyan 3D"}`}
+            aria-label={t(look === "2d" ? "landing.samples.video2d" : "landing.samples.videoRedCyan", {
+              title: sample.title,
+            })}
             className="absolute inset-0 h-full w-full object-cover"
           >
             {/* H.264 first: iPhone Safari paints the VP9 WebM black */}
@@ -69,7 +75,7 @@ function SampleTile({ sample }: { sample: Sample }) {
             <button
               type="button"
               onClick={() => play("2d")}
-              aria-label={`Play a short muted preview of ${sample.title}`}
+              aria-label={t("landing.samples.play", { title: sample.title })}
               className="absolute inset-0 flex items-center justify-center bg-black/10 transition-colors hover:bg-black/25"
             >
               <span className="flex size-11 items-center justify-center rounded-full bg-white/90 text-black shadow">
@@ -89,7 +95,7 @@ function SampleTile({ sample }: { sample: Sample }) {
                 playing && look === l ? "bg-white/25" : "hover:bg-white/15"
               }`}
             >
-              {l === "2d" ? "2D" : "Red-cyan"}
+              {l === "2d" ? t("landing.samples.look2d") : t("landing.samples.lookRedCyan")}
             </button>
           ))}
         </div>
@@ -98,7 +104,7 @@ function SampleTile({ sample }: { sample: Sample }) {
         <h3 className="font-medium text-fg">{sample.title}</h3>
         <p className="mt-1 text-sm text-fg-muted">{sample.detail}</p>
         <p className="mt-1 text-xs text-fg-muted">
-          {sample.seconds} s · {sample.size}
+          {t("landing.samples.facts", { seconds: sample.seconds, size: sample.size })}
         </p>
         <ul className="mt-3 space-y-1.5">
           {sample.downloads.map((d) => (
@@ -130,20 +136,20 @@ function SampleTile({ sample }: { sample: Sample }) {
 }
 
 export function Samples() {
+  const t = useT();
   return (
     <section
       id="samples"
       className="mx-auto w-full max-w-6xl scroll-mt-16 px-4 py-16"
     >
       <p className="text-xs font-medium tracking-widest text-primary uppercase">
-        Samples
+        {t("landing.samples.eyebrow")}
       </p>
       <h2 className="mt-3 max-w-2xl text-2xl font-semibold tracking-tight text-balance">
-        Watch the 3D result in your headset
+        {t("landing.samples.title")}
       </h2>
       <p className="mt-3 max-w-2xl text-fg-muted">
-        Made with Lifelike 3D in Spatial Video Studio on the web. Download one
-        to your headset, or the 2D original to compare.
+        {t("landing.samples.lede", { method: METHOD_NAMES.lifelike, site: SITE_NAME })}
       </p>
       <div className="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {SAMPLES.map((s) => (

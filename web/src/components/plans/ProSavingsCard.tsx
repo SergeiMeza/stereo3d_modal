@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import type { Project, StepQuoteResponse } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
 import { useProPlans } from "@/lib/pro/usePro";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import {
   tierPriceFor,
@@ -31,6 +32,7 @@ export function ProSavingsCard({
 }: {
   project: Project;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const plans = useProPlans();
@@ -88,21 +90,28 @@ export function ProSavingsCard({
       className="flex flex-col gap-2 rounded-xl border border-primary/40 bg-primary/5 p-4 text-sm"
     >
       <p className="font-semibold text-fg">
-        You&apos;d have saved {formatCents(saved)} with Pro
+        {t("plans.receipt.title", { amount: formatCents(saved, t), pro: "Pro" })}
       </p>
       <p className="text-fg-muted">
-        This video would have been {formatCents(pro)}.
+        {t("plans.receipt.wouldHaveBeen", { amount: formatCents(pro, t) })}
         {monthly
-          ? ` Pro Monthly is ${monthly.price}${
+          ? ` ${t(
               // owner 2026-11-07: the credit joining Pro gives
-              credit ? ` with ${credit}` : ""
-            }${typeof previews === "number" && previews > 0 ? `${credit ? "," : ""} and includes ${previews} free previews a month` : ""}.`
+              typeof previews === "number" && previews > 0
+                ? credit
+                  ? "plans.receipt.monthlyCreditPreviews"
+                  : "plans.receipt.monthlyPreviews"
+                : credit
+                  ? "plans.receipt.monthlyCredit"
+                  : "plans.receipt.monthly",
+              { plan: "Pro Monthly", price: monthly.price, credit, count: previews },
+            )}`
           : ""}
       </p>
       <div className="flex gap-2">
         <Button asChild size="sm">
           <Link href="/pro" onClick={() => send("click", { target: "/pro" })}>
-            See Pro
+            {t("plans.receipt.see", { pro: "Pro" })}
           </Link>
         </Button>
         <Button
@@ -113,7 +122,7 @@ export function ProSavingsCard({
             dismiss();
           }}
         >
-          Not now
+          {t("plans.receipt.notNow")}
         </Button>
       </div>
     </section>

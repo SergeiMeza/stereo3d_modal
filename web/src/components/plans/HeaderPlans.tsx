@@ -17,6 +17,7 @@ import type { JSX } from "react";
 
 import { useAuth } from "@/lib/auth";
 import { usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import {
   saveRange,
@@ -41,6 +42,7 @@ export function HeaderPlans(): JSX.Element | null {
 }
 
 function HeaderPlansLink({ withChip }: { withChip: boolean }): JSX.Element {
+  const t = useT();
   const tier = usePlanTier();
   const range = saveRange(usePricing());
   const chip = withChip && range !== null;
@@ -53,16 +55,16 @@ function HeaderPlansLink({ withChip }: { withChip: boolean }): JSX.Element {
       onClick={() => chip && send("click", { target: "/plans" })}
       className="flex shrink-0 items-center gap-2 text-fg-muted transition-colors hover:text-fg"
     >
-      <span className="hidden sm:inline">Plans</span>
+      <span className="hidden sm:inline">{t("plans.header.link")}</span>
       {chip ? (
         <span
           data-testid="header-save-chip"
           className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
         >
-          Save {range}
+          {t("plans.header.save", { range })}
         </span>
       ) : (
-        <span className="sm:hidden">Plans</span>
+        <span className="sm:hidden">{t("plans.header.link")}</span>
       )}
     </Link>
   );

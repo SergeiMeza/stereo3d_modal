@@ -31,6 +31,7 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Probe, StepQuoteResponse } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { creditLine, creditRules, creditShort, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
@@ -130,6 +131,7 @@ export function QuoteProChoice({
   mode: PayMode;
   onMode: (m: PayMode) => void;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const choice = useQuoteProChoice(quote);
@@ -154,15 +156,15 @@ export function QuoteProChoice({
     <div
       data-testid="quote-pro-choice"
       role="radiogroup"
-      aria-label="How to pay"
+      aria-label={t("plans.quote.howToPay")}
       className="flex flex-col gap-2"
     >
       <Option
         testId="pay-once"
         on={mode === "once"}
         onPick={() => onMode("once")}
-        title="Pay once"
-        price={formatCents(choice.list)}
+        title={t("plans.quote.payOnce")}
+        price={formatCents(choice.list, t)}
       />
       <Option
         testId="pay-with-pro"
@@ -171,16 +173,16 @@ export function QuoteProChoice({
           send("click", { target: "with_pro" });
           onMode("pro");
         }}
-        title="With Pro"
+        title={t("plans.quote.withPlan", { plan: "Pro" })}
         sub={[
-          pct ? `${pct}% off` : null,
+          pct ? t("plans.quote.pctOff", { pct }) : null,
           // owner 2026-11-07: the credit joining Pro gives
           creditShort(credit),
-          monthly ? `from ${monthly.price} a month` : null,
+          monthly ? t("plans.quote.fromMonthly", { price: monthly.price }) : null,
         ]
           .filter(Boolean)
           .join(" · ")}
-        price={formatCents(choice.pro)}
+        price={formatCents(choice.pro, t)}
       />
       <button
         type="button"
@@ -191,7 +193,7 @@ export function QuoteProChoice({
         }}
         className="flex w-fit items-center gap-1 text-[11px] text-fg-muted hover:text-fg"
       >
-        <X className="size-3" aria-hidden /> Hide this
+        <X className="size-3" aria-hidden /> {t("plans.quote.hide")}
       </button>
     </div>
   );
@@ -211,6 +213,7 @@ export function ProCheckoutSheet({
   onPayOnce: () => void;
   onPurchased: () => void;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const plans = useProPlans();
@@ -251,7 +254,7 @@ export function ProCheckoutSheet({
       if (r === "purchased") onPurchased();
     } catch (e) {
       setError(
-        e instanceof Error ? e.message : "The payment didn't go through.",
+        e instanceof Error ? e.message : t("plans.quote.checkout.paymentFailed"),
       );
     } finally {
       setBusy(false);
@@ -267,12 +270,14 @@ export function ProCheckoutSheet({
         onClose();
       }}
       locked={busy}
-      title="Subscribe and convert"
+      title={t("plans.quote.checkout.title")}
       subtitle={
         pct
-          ? `Pro takes ${pct}% off this video and every one after${credit ? `, and includes ${credit}` : ""}.`
+          ? credit
+            ? t("plans.quote.checkout.takesOffWithCredit", { pro: "Pro", pct, credit })
+            : t("plans.quote.checkout.takesOff", { pro: "Pro", pct })
           : credit
-            ? `Pro includes ${credit}.`
+            ? t("plans.quote.checkout.includes", { pro: "Pro", credit })
             : undefined
       }
       footer={
@@ -284,7 +289,7 @@ export function ProCheckoutSheet({
             disabled={!plan || busy}
             onClick={() => void go()}
           >
-            Continue to payment
+            {t("plans.quote.checkout.continue")}
           </Button>
           <button
             type="button"
@@ -295,7 +300,7 @@ export function ProCheckoutSheet({
             }}
             className="py-2 text-center text-sm text-primary hover:underline"
           >
-            Pay once · {formatCents(listCents)}
+            {t("plans.quote.checkout.payOnce", { price: formatCents(listCents, t) })}
           </button>
         </div>
       }
@@ -306,7 +311,7 @@ export function ProCheckoutSheet({
         ) : (
           <div
             role="radiogroup"
-            aria-label="Pro plan"
+            aria-label={t("plans.quote.checkout.planGroup", { pro: "Pro" })}
             className="flex flex-col gap-2"
           >
             {list.map((p) => (
@@ -325,23 +330,26 @@ export function ProCheckoutSheet({
         {plan ? (
           <dl className="flex flex-col gap-1.5 rounded-lg border border-edge p-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-fg-muted">Pro {planName(plan)}, today</dt>
+              <dt className="text-fg-muted">
+                {t("plans.quote.checkout.today", { pro: "Pro", plan: planName(plan) })}
+              </dt>
               <dd className="font-mono">{today(plan)}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-fg-muted">This video, at Pro prices</dt>
-              <dd className="font-mono">{formatCents(proCents)}</dd>
+              <dt className="text-fg-muted">{t("plans.quote.checkout.thisVideo", { pro: "Pro" })}</dt>
+              <dd className="font-mono">{formatCents(proCents, t)}</dd>
             </div>
             <div className="flex justify-between text-emerald-400">
-              <dt>You save on this video</dt>
+              <dt>{t("plans.quote.checkout.youSave")}</dt>
               <dd className="font-mono">
-                {formatCents(Math.max(0, listCents - proCents))}
+                {formatCents(Math.max(0, listCents - proCents), t)}
               </dd>
             </div>
           </dl>
         ) : null}
         <p className="text-xs text-fg-muted">
-          {credit ? `${creditRules(proCreditDays(pricing))} ` : ""}Cancel any time in Account. Prices in USD, excl. tax.
+          {credit ? `${creditRules(proCreditDays(pricing))} ` : ""}
+          {t("plans.quote.checkout.terms")}
         </p>
         {error ? <p className="text-sm text-red-400">{error}</p> : null}
       </div>
@@ -376,6 +384,7 @@ export function BusinessNote({
   projectId?: string;
   probe?: Probe;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const account = useDismissal("business_note", 30);
@@ -402,6 +411,11 @@ export function BusinessNote({
   const send = usePaywallEvents("business_note", tier, base);
   if (!show || !biz || bizPrice === null) return null;
   const fits = bizPrice <= biz.credit_cents;
+  const usage = {
+    business: "Business",
+    credit: formatCentsShort(biz.credit_cents, t),
+    price: formatCentsShort(biz.price_cents ?? biz.monthly_cents, t),
+  };
   return (
     <div
       data-testid="business-note"
@@ -410,12 +424,12 @@ export function BusinessNote({
       <div className="flex items-start gap-2">
         <p className="flex-1 font-medium text-fg">
           {reason === "source_fps"
-            ? "High frame rates come with Business and Studio, which also include monthly usage."
-            : "Business and Studio include monthly usage."}
+            ? t("plans.quote.note.highFps", { business: "Business", studio: "Studio" })
+            : t("plans.quote.note.monthlyUsage", { business: "Business", studio: "Studio" })}
         </p>
         <button
           type="button"
-          aria-label="Dismiss"
+          aria-label={t("plans.quote.note.dismiss")}
           onClick={() => {
             send("dismiss");
             dismiss();
@@ -426,12 +440,10 @@ export function BusinessNote({
         </button>
       </div>
       <p className="text-fg-muted">
-        At Business prices this video is {formatCents(bizPrice)}.
-        {fits
-          ? ` That fits in the ${formatCentsShort(biz.credit_cents)} of usage Business includes every month, for ${formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month.`
-          : ` Business includes ${formatCentsShort(biz.credit_cents)} of usage every month, for ${formatCentsShort(biz.price_cents ?? biz.monthly_cents)} a month.`}
+        {t("plans.quote.note.atBusiness", { business: "Business", price: formatCents(bizPrice, t) })}
+        {` ${fits ? t("plans.quote.note.fits", usage) : t("plans.quote.note.includes", usage)}`}
         {studio && studioPrice !== null
-          ? ` With Studio it's ${formatCents(studioPrice)}.`
+          ? ` ${t("plans.quote.note.withStudio", { studio: "Studio", price: formatCents(studioPrice, t) })}`
           : ""}
       </p>
       <div className="flex gap-3">
@@ -440,14 +452,14 @@ export function BusinessNote({
           onClick={() => send("click", { target: "/plans" })}
           className="text-primary hover:underline"
         >
-          See Business
+          {t("plans.quote.note.seeBusiness", { business: "Business" })}
         </Link>
         <a
           href={`mailto:${FEEDBACK_EMAIL}?subject=${encodeURIComponent("Spatial Video Studio Business")}`}
           onClick={() => send("click", { target: "talk" })}
           className="text-primary hover:underline"
         >
-          Talk to us
+          {t("plans.quote.note.talk")}
         </a>
       </div>
     </div>
@@ -464,6 +476,7 @@ export function CinemaTierPrices({
   quote: StepQuoteResponse;
   projectId: string;
 }): JSX.Element | null {
+  const t = useT();
   const tier = usePlanTier();
   const pricing = usePricing();
   const { dismissed, dismiss } = useProjectDismissal(projectId);
@@ -491,14 +504,14 @@ export function CinemaTierPrices({
       className="flex min-h-11 items-center gap-3 rounded-[10px] border border-dashed border-edge px-3.5 py-2"
     >
       <span className="flex flex-1 flex-col">
-        <span className="text-sm text-fg">With {name}</span>
+        <span className="text-sm text-fg">{t("plans.quote.withPlan", { plan: name })}</span>
         {share ? (
           <span className="text-[11px] text-fg-muted">
-            {Math.round(share * 100)}% off · commercial use
+            {t("plans.quote.cinema.share", { pct: Math.round(share * 100) })}
           </span>
         ) : null}
       </span>
-      <span className="font-mono text-sm text-fg">{formatCents(cents)}</span>
+      <span className="font-mono text-sm text-fg">{formatCents(cents, t)}</span>
     </div>
   );
   return (
@@ -511,7 +524,9 @@ export function CinemaTierPrices({
           onClick={() => send("click", { target: "/plans" })}
           className="text-primary hover:underline"
         >
-          See Business{range ? ` · save ${range}` : ""}
+          {range
+            ? t("plans.quote.cinema.seeBusinessSave", { business: "Business", range })
+            : t("plans.quote.note.seeBusiness", { business: "Business" })}
         </Link>
         <button
           type="button"
@@ -521,7 +536,7 @@ export function CinemaTierPrices({
           }}
           className="ml-auto flex items-center gap-1 text-fg-muted hover:text-fg"
         >
-          <X className="size-3" aria-hidden /> Hide this
+          <X className="size-3" aria-hidden /> {t("plans.quote.hide")}
         </button>
       </div>
     </div>

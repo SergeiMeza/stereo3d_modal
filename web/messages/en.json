@@ -54,7 +54,8 @@
       "cta": "Make your video 3D",
       "othersLabel": "Other devices",
       "others": "Other devices:"
-    }
+    },
+    "cancel": "Cancel"
   },
   "business": {
     "entry": {
@@ -844,10 +845,28 @@
     "emails": {
       "relayNotMain": "Use a real email for your plan, not a hidden Apple address.",
       "mainNotRemovable": "Make another email main first.",
-      "loadFailed": "Couldn't load your emails."
+      "loadFailed": "Couldn't load your emails.",
+      "enterAddress": "Enter an email address.",
+      "sendCode": "Send code",
+      "codeSentTo": "Enter the code we sent to {email}.",
+      "checking": "Checking…",
+      "add": "Add email",
+      "makeItMain": "Make it my main email",
+      "signInThere": "Sign in to that account",
+      "heading": "Emails · each one signs in with a code",
+      "hiddenApple": "Hidden Apple address",
+      "main": "Main",
+      "makeMain": "Make main",
+      "removeLabel": "Remove {email}",
+      "remove": "Remove",
+      "addAnother": "Add another email",
+      "full": "Your account has {count} emails. Remove one to add another."
     },
     "passkeys": {
       "loadFailed": "Couldn't load your passkeys."
+    },
+    "otherAccount": {
+      "line": "Another account uses this email (it signs in with {how})."
     }
   },
   "account": {
@@ -894,6 +913,24 @@
       "paymentNeededAmount": "Payment needed ({amount}): update your payment method on Billing, then delete your account.",
       "paymentNeeded": "Payment needed: update your payment method on Billing, then delete your account.",
       "failed": "Failed to delete account."
+    },
+    "deletionPrompt": {
+      "keepFailed": "We couldn't keep your account just now. Try again.",
+      "title": "Your account is set to be deleted on {date}.",
+      "description": "Keep it, and everything stays as it was. Or let it go: we delete it then.",
+      "signingOut": "Signing out…",
+      "deleteIt": "Delete it",
+      "keeping": "Keeping…",
+      "keep": "Keep my account"
+    },
+    "deletePlan": {
+      "appStore": "{plan} from the App Store renews through Apple. Cancel it in your Apple ID settings.",
+      "validUntil": "Your {plan} plan stays valid until {date}.",
+      "validToPeriodEnd": "Your {plan} plan stays valid until the end of its period.",
+      "restore": "If you sign up again with this email, you can restore it.",
+      "cancelFirst": "Cancel your plan first.",
+      "cancelFirstUntil": "Cancel your plan first. It stays valid until {date}.",
+      "cancelPlan": "Cancel plan"
     }
   },
   "look": {
@@ -2130,6 +2167,40 @@
       "update": "Payment needed: update your payment method",
       "payToDownload": "Pay {amount} to download",
       "payToPlay": "Pay {amount} to play"
+    },
+    "view": {
+      "tierPrice": "{name} price",
+      "yourPrice": "Your price",
+      "addOn": "add-on",
+      "bulkDiscount": "Bulk discount",
+      "bulkLabel": "{pct}% off over {amount}",
+      "reuse": {
+        "depth": "depth work",
+        "preprocess": "preparation"
+      },
+      "listAnd": "{a} and {b}",
+      "reusing": "Reusing your earlier <stages>{stages}</stages>",
+      "minutes": "{minutes} min",
+      "yourVideo": "Your video: {length}",
+      "atFpsPct": "at {fps} fps ({pct})",
+      "price": "Price",
+      "lengthAtQuality": "{length} at {quality}",
+      "perMinute": "{minutes} min × {rate} a minute",
+      "atFpsLabelPct": "At {fps} ({pct})",
+      "howPriced": "How we priced this",
+      "depthDetail": "Depth detail",
+      "depthDetailPx": "Depth detail ({px} px)",
+      "edgeStyle": "Edge style",
+      "subtotal": "Subtotal",
+      "included": "Included",
+      "namePct": "{name} ({pct})",
+      "masterBitrate": "{master} bitrate ({pct})",
+      "express": "Express",
+      "minimum": "Minimum charge {amount}",
+      "total": "Total <note>USD, excl. tax</note>",
+      "fpsCapped": "Converts at {fps}. Higher frame rates come with {business} and {studio} plans.",
+      "estimatedTime": "Estimated time",
+      "readyIn": "Ready in"
     }
   },
   "make": {
@@ -2699,6 +2770,259 @@
       "files": "Files →",
       "whatYouGet": "What you get",
       "tipsTitle": "Tips"
+    },
+    "screen": {
+      "retry": "Retry",
+      "loading": "Loading project…",
+      "analyzing": "Getting your video ready: finding its scenes and making a preview. This step is free, and the page updates by itself.",
+      "untitled": "Untitled project",
+      "copied": "Copied",
+      "supportInfo": "Support info",
+      "supportInfoHint": "Copies this project's id ({id}) — quote it to support",
+      "analyzeFailed": "Analyze failed",
+      "retrying": "Retrying…",
+      "retryAnalysis": "Retry analysis",
+      "shortcuts": "Keyboard shortcuts",
+      "filesTitle": "Files",
+      "filesDeletedOn": "Files deleted on {date}",
+      "filesKept": "Kept while you use this project; deleted after 90 days without use."
+    }
+  },
+  "devices": {
+    "notes": {
+      "sbs": "A {sbs} file: one picture for each eye.",
+      "spatial": "A {spatial} file: plays in 3D in Photos."
+    },
+    "glasses": {
+      "title": "Watch 3D videos on {name} glasses",
+      "description": "Turn your 2D videos into side-by-side 3D and watch them on {name} glasses."
+    },
+    "pages": {
+      "glasses": {
+        "line1": "Make any video 3D and pick the {sbs} file.",
+        "line2": "Play it on the phone or computer your glasses are connected to.",
+        "line3": "Switch the glasses to 3D (SBS) mode.",
+        "line4": "Play the video full screen."
+      },
+      "visionPro": {
+        "title": "Watch 3D videos on {name}",
+        "description": "Turn your 2D videos into spatial video and watch them in 3D on {name}.",
+        "line1": "Make any video 3D and pick the {spatial} file.",
+        "line2": "Download it on Vision Pro, or AirDrop it from your iPhone or Mac.",
+        "line3": "Open it in Files or Photos. It plays in 3D.",
+        "line4": "Or open this site in Safari on Vision Pro and select View in 3D."
+      },
+      "galaxyXr": {
+        "title": "Watch 3D videos on {name}",
+        "description": "Turn your 2D videos into side-by-side 3D and watch them on {name}.",
+        "line1": "Make any video 3D and pick the {sbs} file.",
+        "line2": "Copy it to the headset, or download it there.",
+        "line3": "Open it in Gallery or Files, then choose 3D side-by-side."
+      },
+      "metaQuest": {
+        "title": "Watch 3D videos on {name}",
+        "description": "Turn your 2D videos into side-by-side 3D and watch them on {name}.",
+        "fileNote": "A {sbs} file: one picture for each eye. At 4K and above, or when a file is too large, pick {half}.",
+        "line1": "Make any video 3D and pick the {sbs} file.",
+        "line2": "For 4K and above, or when the file is too large to copy or stream, pick {half} instead.",
+        "line3": "Open this site in the Meta Quest Browser and select View in 3D, or open the file in a video player.",
+        "line4": "In the player, choose 3D side by side."
+      },
+      "pico": {
+        "title": "Watch 3D videos on {name}",
+        "description": "Turn your 2D videos into side-by-side 3D and watch them on {name}.",
+        "line1": "Make any video 3D and pick the {sbs} file.",
+        "line2": "Open this site in the Pico Browser and select View in 3D, or open the file in a video player.",
+        "line3": "In the player, choose 3D left and right (side by side)."
+      },
+      "steamFrame": {
+        "title": "Watch 3D videos on {name}",
+        "description": "Turn your 2D videos into side-by-side 3D and watch them on {name}.",
+        "line1": "Make any video 3D and pick the {sbs} file.",
+        "line2": "Copy it to the headset and open it in a video player.",
+        "line3": "In the player, choose 3D side by side."
+      },
+      "metaVrGlasses": {
+        "title": "3D videos for Meta VR Glasses",
+        "description": "{site} on the web is ready for Meta VR Glasses, expected in spring 2027.",
+        "upcoming": "spring 2027",
+        "line1": "Meta VR Glasses are expected in spring 2027.",
+        "line2": "{site} on the web makes {sbs} and {spatial} files today.",
+        "line3": "We'll add how to watch here when the glasses are out."
+      }
+    },
+    "worksWith": {
+      "xrGlasses": "XR glasses (XREAL, VITURE, RayNeo)",
+      "tvs": "3D TVs",
+      "metaVrGlasses": "Ready for Meta VR Glasses, spring 2027"
+    },
+    "headsetHint": {
+      "quest": "In the player's view options, choose 3D side by side.",
+      "pico": "In the player's mode menu, choose 3D left and right (side by side).",
+      "galaxyxr": "In the player, choose 3D side by side."
+    },
+    "samples": {
+      "rooftopParty": {
+        "title": "Rooftop party",
+        "detail": "Hands in the air at a sunset party above the forest."
+      },
+      "driftChase": {
+        "title": "Drift chase",
+        "detail": "A drone chases a drifting car through clouds of tyre smoke."
+      },
+      "rooftopSingalong": {
+        "title": "Rooftop singalong",
+        "detail": "Singing, guitar and drinks with friends on a rooftop."
+      },
+      "sunsetSession": {
+        "title": "Sunset session",
+        "detail": "A singer and her band on a rooftop as the sun goes down."
+      },
+      "studioTake": {
+        "title": "Studio take",
+        "detail": "A singer gives it everything at the mic."
+      },
+      "streetDance": {
+        "title": "Street dance",
+        "detail": "Three friends dance in front of a glass tower. Portrait."
+      },
+      "insideTheWave": {
+        "title": "Inside the wave",
+        "detail": "A surfer's view through the barrel of a breaking wave."
+      },
+      "fencingHall": {
+        "title": "Fencing hall",
+        "detail": "Fencers spar in a training hall as others stride past."
+      },
+      "riverStones": {
+        "title": "River stones",
+        "detail": "A girl steps across sunlit stones by a forest stream."
+      },
+      "perEye": "{size} per eye",
+      "downloads": {
+        "spatial": "Vision Pro (spatial video)",
+        "sbs": "Quest, Pico, Galaxy XR, XR glasses (side by side)",
+        "original": "2D original, to compare"
+      }
+    }
+  },
+  "errors": {
+    "filesDeleted": {
+      "uploadAgain": "Upload the video again to make new 3D.",
+      "message": "This project's files have been deleted. Upload the video again to make new 3D."
+    },
+    "requestFailed": "request failed ({status})",
+    "csvDownloadFailed": "Couldn't download the CSV.",
+    "upload": {
+      "failedStatus": "upload failed ({status})",
+      "network": "upload network error"
+    },
+    "eventsUnavailable": "The status stream isn't available.",
+    "cutlist": {
+      "notInteger": "\"{token}\" is not an integer frame index — cut lists carry whole source-frame numbers only.",
+      "outOfRange": "Cut at frame {frame} is out of range — cuts must be inside (0, {frames}) for this video.",
+      "missingStart": "A CSV row is missing its Start Frame value: \"{row}\"",
+      "noScenes": "No scenes found in the CSV — nothing to import.",
+      "noCuts": "No cut frames found in the file — nothing to import."
+    }
+  },
+  "upload": {
+    "pricing": {
+      "fpsRule": "30 fps {sign}{pct}% · 60 fps ×{times} ({business} and {studio})"
+    },
+    "lengthLimits": "{method}: {limits}",
+    "tooLong": "This video is {m}m {s}s long. Videos can be at most {max} minutes.",
+    "stopped": "The upload stopped — check your connection, then resume where it left off.",
+    "failed": "Upload failed — please try again.",
+    "unsupported": "Unsupported file type — choose an .mp4, .mov, .m4v, or .webm video.",
+    "inputLabel": "Upload video",
+    "firstProject": "Drop a video to start your first project",
+    "dragDrop": "Drag & drop a video to start a project",
+    "formats": ".mp4, .mov, .m4v or .webm · {limits}",
+    "choose": "Choose video",
+    "seePrices": "See prices",
+    "uploading": "Uploading {name}…",
+    "videoFallback": "video",
+    "creating": "Creating project…",
+    "bytes": "{done} of {total}",
+    "estimating": "Estimating time left…",
+    "resume": "Resume upload ({pct}% sent)"
+  },
+  "projects": {
+    "card": {
+      "filesDeletedOn": "Files deleted on {date}",
+      "gettingReady": "Getting your video ready",
+      "gettingReadyPct": "Getting your video ready · {pct}%",
+      "readFailed": "Couldn't read this video",
+      "tryAgain": "Try again",
+      "waiting": "Waiting in line",
+      "making": "Making 3D",
+      "makingPct": "Making 3D · {pct}%",
+      "paymentNeeded": "Payment needed",
+      "updatePayment": "Update payment method",
+      "ready": "3D ready",
+      "files": "Files",
+      "failed": "Failed, not charged",
+      "cancelled": "Cancelled · not charged",
+      "readyFor3d": "Ready for 3D",
+      "archiveBlocked": "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.",
+      "pinned": "Pinned",
+      "untitled": "Untitled project",
+      "olderMethod": "Older method",
+      "sample": "Sample",
+      "sampleNoteArchived": "The sample can't be deleted. Unarchive it any time.",
+      "sampleNote": "A finished example to look around. It's not billed and you can archive it.",
+      "keep": "Keep",
+      "unpin": "Unpin project",
+      "pin": "Pin project",
+      "rename": "Rename project",
+      "restore": "Restore project",
+      "delete": "Delete project",
+      "archive": "Archive project",
+      "renameTitle": "Rename project",
+      "nameLabel": "Project name",
+      "save": "Save",
+      "deleteTitle": "Delete this project for good?",
+      "deleteBody": "Its files are removed for good. You won't be able to download them again, and this can't be undone.",
+      "keepProject": "Keep project",
+      "deleteForGood": "Delete for good",
+      "archiveTitle": "Archive project",
+      "archiveBody": "Archive this project? You can restore it later.",
+      "cancel": "Cancel",
+      "archiveAction": "Archive"
+    },
+    "analyze": {
+      "stages": {
+        "analyze": "Analyzing",
+        "proxy": "Building preview",
+        "scene_detect": "Detecting scenes",
+        "thumbnails": "Thumbnails",
+        "profiling": "Measuring scenes"
+      },
+      "progressLabel": "Analyze progress",
+      "failed": "Analyze failed",
+      "failedWith": "Analyze failed — {error}",
+      "done": "Analyzed"
+    },
+    "list": {
+      "loadFailed": "Couldn't load your projects.",
+      "loadFailedWith": "Couldn't load your projects. {detail}",
+      "archivedFailed": "Failed to load archived projects.",
+      "updateFailed": "Failed to update project.",
+      "deleteFailed": "Couldn't delete the project. Please try again.",
+      "title": "Projects",
+      "hideArchived": "Hide archived",
+      "showArchived": "Show archived",
+      "dismiss": "Dismiss",
+      "retry": "Retry",
+      "loading": "Loading projects…",
+      "pinned": "Pinned",
+      "all": "All projects",
+      "archived": "Archived",
+      "loadingArchived": "Loading archived projects…",
+      "noArchived": "No archived projects.",
+      "hideArchivedCount": "Hide archived ({count})",
+      "showArchivedCount": "Show archived ({count})"
     }
   }
 }

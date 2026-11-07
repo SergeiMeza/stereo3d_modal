@@ -14,6 +14,9 @@ import Image from "next/image";
 import { useState } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { SITE_NAME } from "@/lib/site";
 
 interface Shot {
   id: string;
@@ -22,40 +25,43 @@ interface Shot {
   alt: string;
 }
 
-const SHOTS: Shot[] = [
-  {
-    id: "projects",
-    label: "Projects",
-    detail: "Drop a video in. Every project in one place.",
-    alt: "Projects page of Spatial Video Studio on the web with five videos, one marked 3D ready",
-  },
-  {
-    id: "make-3d",
-    label: "Make 3D",
-    detail:
-      "Pick your headsets and the quality, up to 8K. The price shows first.",
-    alt: "Make 3D page with Apple Vision Pro and Meta Quest picked and quality options from 1080p to 8K",
-  },
-  {
-    id: "tracker",
-    label: "Progress",
-    detail: "Follow each step and the time left.",
-    alt: "The price and a run in progress: getting ready done, now making the 3D video",
-  },
-  {
-    id: "files",
-    label: "Files",
-    detail: "Vision Pro spatial video and side by side, ready to download.",
-    alt: "Files page with a Vision Pro spatial video and a side-by-side file ready to download",
-  },
-];
+function shots(t: Tr = EN): Shot[] {
+  return [
+    {
+      id: "projects",
+      label: t("landing.tour.projectsLabel"),
+      detail: t("landing.tour.projectsDetail"),
+      alt: t("landing.tour.projectsAlt", { site: SITE_NAME }),
+    },
+    {
+      id: "make-3d",
+      label: t("landing.tour.make3dLabel"),
+      detail: t("landing.tour.make3dDetail"),
+      alt: t("landing.tour.make3dAlt"),
+    },
+    {
+      id: "tracker",
+      label: t("landing.tour.trackerLabel"),
+      detail: t("landing.tour.trackerDetail"),
+      alt: t("landing.tour.trackerAlt"),
+    },
+    {
+      id: "files",
+      label: t("landing.tour.filesLabel"),
+      detail: t("landing.tour.filesDetail"),
+      alt: t("landing.tour.filesAlt"),
+    },
+  ];
+}
 
 const FRAME =
   "overflow-hidden border border-edge bg-card shadow-2xl shadow-black/50";
 
 export function ProductTour() {
-  const [activeId, setActiveId] = useState(SHOTS[1].id);
-  const active = SHOTS.find((s) => s.id === activeId) ?? SHOTS[0];
+  const t = useT();
+  const list = shots(t);
+  const [activeId, setActiveId] = useState(list[1].id);
+  const active = list.find((s) => s.id === activeId) ?? list[0];
 
   return (
     <div data-testid="product-tour">
@@ -63,10 +69,10 @@ export function ProductTour() {
       <div className="hidden sm:block">
         <Tabs value={active.id} onValueChange={setActiveId} className="gap-0">
           <TabsList
-            aria-label="The app"
+            aria-label={t("landing.tour.ariaLabel")}
             className="flex h-auto flex-wrap gap-2 border-0 bg-transparent p-0"
           >
-            {SHOTS.map((shot) => (
+            {list.map((shot) => (
               <TabsTrigger
                 key={shot.id}
                 value={shot.id}
@@ -95,7 +101,7 @@ export function ProductTour() {
 
       {/* phones: every phone shot in a snap row */}
       <ul className="-mx-4 flex snap-x snap-mandatory gap-4 overflow-x-auto px-4 pb-2 sm:hidden">
-        {SHOTS.map((shot) => (
+        {list.map((shot) => (
           <li
             key={shot.id}
             data-testid={`tour-${shot.id}`}
