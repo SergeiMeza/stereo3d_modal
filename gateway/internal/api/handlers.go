@@ -46,8 +46,27 @@ const (
 // customer (and the uid → customer mapping) on first use.
 func (s *Service) ensureCustomerID(ctx context.Context, user *AuthedUser) (string, error) {
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
-	if err == nil {
+	if err == nil && cust.StripeCustomerID != "" {
 		return cust.StripeCustomerID, nil
+	}
+	if err == nil {
+		// A record without a customer (a restored or moved plan landed
+		// first): the account's own customer is made now; the plan's
+		// subscription stays where it is.
+		id, err := s.Stripe.EnsureCustomer(user.UID, firstNonEmpty(cust.Email, user.Email))
+		if err != nil {
+			return "", err
+		}
+		if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
+			if c.StripeCustomerID == "" {
+				c.StripeCustomerID = id
+			}
+			id = c.StripeCustomerID
+			return nil
+		}); err != nil {
+			return "", err
+		}
+		return id, nil
 	}
 	if !errors.Is(err, store.ErrNotFound) {
 		// A transient read error must NOT mint a new Stripe customer — that
@@ -101,6 +120,20 @@ func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("return_url must be an absolute http(s) URL"))
 		return
 	}
+	// Only a live account opens its own customer's portal: never a deleted
+	// one, and not while a plan moved off this account still runs on this
+	// customer (the portal could resume it on this card for the other
+	// account). Cards are managed in Billing meanwhile.
+	if s.refusedForDeletion(ctx, w, user.UID) {
+		return
+	}
+	if cust, err := s.Store.GetCustomer(ctx, user.UID); err == nil && cust.PlanMovedSub != "" {
+		if sub, err := s.Stripe.GetSubscription(cust.PlanMovedSub); err != nil || sub.Live() {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "portal_unavailable",
+				"Your plan moved to another account, so the billing portal is closed until it ends. Manage your cards in Billing."))
+			return
+		}
+	}
 	id, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -117,7 +150,10 @@ func (s *Service) HandleBillingPortal(w http.ResponseWriter, r *http.Request, us
 
 // ------------------------------------------------------------- uploads
 
-// POST /v1/uploads {filename, content_type[, resumable]} → upload ticket.
+// POST /v1/uploads {filename, content_type[, resumable, method, bytes]} →
+// upload ticket. With bytes, a file over the cap of method (none = classic,
+// S3D-42) is refused before anything is uploaded; project creation checks
+// the stored object again either way.
 //
 // By default the ticket is one signed PUT URL for the whole file. With
 // resumable: true (the web app in China mode, whose relay caps a request
@@ -131,6 +167,8 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 		Filename    string `json:"filename"`
 		ContentType string `json:"content_type"`
 		Resumable   bool   `json:"resumable"`
+		Method      string `json:"method"`
+		Bytes       int64  `json:"bytes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
@@ -141,9 +179,32 @@ func (s *Service) HandleCreateUpload(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("unsupported file type "+ext))
 		return
 	}
+	if req.Bytes > 0 {
+		method, merr := s.resolveMethod(req.Method)
+		if merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		if serr := sourceBytesError(s.Pricing.Rates(ctx), req.Bytes, method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
+			return
+		}
+		if req.Method != "" { // web uploads name their method (B14 is web-only)
+			if lerr := s.checkNewProjectRoom(ctx, user.UID, req.Bytes); lerr != nil {
+				httpx.WriteErr(ctx, w, lerr)
+				return
+			}
+		}
+	}
 	// The upload id doubles as the conversion id the client passes back.
 	id := store.NewID()
 	key := s.GCS.UploadKey(user.UID, id, ext)
+	if name := cleanFilename(req.Filename); name != "" && slices.Contains(videoExts, ext) && s.Store != nil {
+		// the project made from it shows the device's file name
+		if err := s.Store.PutUploadName(ctx, id, user.UID, name); err != nil {
+			httpx.Log(ctx).Warn("upload name not kept", "upload_id", id, "err", err)
+		}
+	}
 	if req.Resumable {
 		session, err := s.GCS.StartResumableUpload(ctx, key, req.ContentType, r.Header.Get("Origin"))
 		if err != nil {
@@ -363,6 +424,10 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			httpx.WriteOK(w, s.conversionResponse(prior, sheet))
 			return
 		}
+		if prior, gerr := s.Store.GetConversion(ctx, s.idempotentConversionID(user.UID, idemKey)); gerr == nil && prior.UID == user.UID {
+			s.replayConversion(ctx, w, user, prior.ID) // P3
+			return
+		}
 	}
 
 	var req createConversionReq
@@ -469,11 +534,18 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 	// the same upload (different preset, etc.) gets a fresh id. The id must be
 	// final BEFORE the Stripe hold is created — PI metadata carries it and the
 	// webhook routes by it.
+	// With an Idempotency-Key the id derives from it instead (P3), so two
+	// racing retries can't make two runs.
 	id := uploadIDFromKey(req.GCSKey)
-	if id == "" {
+	switch {
+	case idemKey != "":
+		id = s.idempotentConversionID(user.UID, idemKey)
+	case id == "":
 		id = store.NewID()
-	} else if _, err := s.Store.GetConversion(ctx, id); err == nil {
-		id = store.NewID()
+	default:
+		if _, err := s.Store.GetConversion(ctx, id); err == nil {
+			id = store.NewID()
+		}
 	}
 
 	conv := &store.Conversion{
@@ -541,6 +613,10 @@ func (s *Service) HandleCreateConversion(w http.ResponseWriter, r *http.Request,
 			}
 			s.refundPhotoCredit(rctx, conv)
 			cancel()
+			if errors.Is(err, store.ErrAlreadyExists) {
+				s.replayConversion(ctx, w, user, conv.ID) // P3: a racing retry won
+				return
+			}
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
@@ -659,13 +735,13 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
 		}
 		hasCard = cust.DefaultPaymentMethod != ""
-		tier = s.tierEntry(ctx, cust)
+		tier = s.tierEntry(ctx, cust, false) // the mobile limits: the app's ladder, unchanged
 		if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
 			pendingCents = open.TotalCents
 		}
 	}
 	if tier == nil {
-		tier = s.tierEntry(ctx, nil)
+		tier = s.tierEntry(ctx, nil, false)
 	}
 	if unpaid, uerr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit); uerr == nil {
 		delinquent = len(unpaid) > 0
@@ -688,6 +764,27 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"auto_decimate_fps": autoDecimateFPS,
 		},
 		"usage": s.usageEntry(ctx, user.UID, active, freeImages),
+		// the 48-hour wait: clients ask "Keep my account" on sign-in
+		"account_deletion": s.deletionState(ctx, user.UID),
+		// Per-method source caps (0 = unlimited) and availability.
+		"methods": map[string]any{
+			store.MethodLifelike: map[string]any{
+				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodLifelike),
+				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodLifelike),
+				"available":             s.assignWorkspace().Lifelike != nil, // where new projects go (S3D-40)
+				"new_projects":          s.assignWorkspace().Lifelike != nil,
+				// the web offers Foveated Detail on this (same flag as
+				// /v1/pricing methods.lifelike.foveation.enabled)
+				"foveation": rates.FoveationEnabled,
+			},
+			store.MethodClassic: map[string]any{
+				"max_source_duration_s": rates.MaxSourceDurationFor(store.MethodClassic),
+				"max_source_bytes":      rates.MaxSourceBytesFor(store.MethodClassic),
+				"available":             true,  // existing classic projects keep running
+				"new_projects":          false, // S3D-44: not offered for new projects
+			},
+		},
+		"default_method": s.defaultMethod(),
 		"billing": map[string]any{
 			"has_payment_method": hasCard,
 			"delinquent":         delinquent,
@@ -710,6 +807,8 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			"migan_production_multiplier":      rates.MiganProductionMultiplier,
 			"production_no_inpaint_multiplier": rates.ProductionNoInpaintMultiplier,
 			"hold_threshold_cents":             tier["hold_threshold_cents"],
+			// pro steps quoted above this are charged before they start
+			"precharge_threshold_cents": rates.PrechargeThreshold(),
 		},
 	})
 }
@@ -729,7 +828,9 @@ func (s *Service) HandleGetConversion(w http.ResponseWriter, r *http.Request, us
 			conv = refreshed
 		}
 	}
-	httpx.WriteOK(w, s.conversionResponse(conv, nil))
+	out := s.conversionResponse(conv, nil)
+	s.addPaymentDocs(ctx, []map[string]any{out}, []*store.Conversion{conv}, true)
+	httpx.WriteOK(w, out)
 }
 
 // GET /v1/conversions
@@ -741,13 +842,19 @@ func (s *Service) HandleListConversions(w http.ResponseWriter, r *http.Request, 
 		return
 	}
 	out := make([]map[string]any, 0, len(convs))
+	gone := map[string]bool{}
 	for _, c := range convs {
+		if c.Sample || s.projectGone(ctx, c, gone) {
+			continue // the onboarding sample isn't a conversion of theirs
+		}
 		out = append(out, s.conversionResponse(c, nil))
 	}
 	httpx.WriteOK(w, map[string]any{"conversions": out})
 }
 
-// GET /v1/conversions/{id}/downloads — signed GET URLs for outputs.
+// GET /v1/conversions/{id}/downloads — signed GET URLs for outputs, signed
+// afresh on every request (24 h each), so a client whose links expired
+// just asks again.
 func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	conv, err := s.ownedConversion(ctx, user, id)
@@ -759,58 +866,128 @@ func (s *Service) HandleDownloads(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("conversion has no outputs yet"))
 		return
 	}
-	if gateErr := downloadPaymentGate(conv); gateErr != nil {
-		httpx.WriteErr(ctx, w, gateErr)
+	if conv.Sample {
+		httpx.WriteOK(w, sampleDownloads(conv)) // the CDN's shared files
 		return
 	}
+	s.noteWatched(ctx, conv) // onboarding: their first download
+	// Never locked for payment reasons (S3D-22, the App Store way): a
+	// failed charge refuses NEW paid runs (payment_method_needed) instead.
+	// files: one entry per output with its download name (S3D-31,
+	// download_names.go), which also rides each signed URL as
+	// Content-Disposition for project runs; a split output is one entry
+	// per part (part: N). filename is exactly the Content-Disposition name,
+	// so a run without one (the mobile one-shot, URL unchanged) has none.
+	// downloads (name → URL) stays for older clients.
+	var names map[string]string
+	var project *store.Project
+	if conv.ProjectID != "" {
+		if p, perr := s.Store.GetProject(ctx, conv.ProjectID); perr == nil {
+			project = p
+			if err := requireFiles(p); err != nil { // S3D-24: erased
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+			if err := s.outstandingLock(ctx, user.UID); err != nil { // C10 (S3D-35)
+				httpx.WriteErr(ctx, w, err)
+				return
+			}
+			if conv.DisputeID != "" { // B11: locked while its charge is disputed
+				httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "disputed", "Unavailable while disputed with your bank"))
+				return
+			}
+			project = s.noteProjectUse(ctx, p, false) // downloading is a use
+		}
+		convs, lerr := s.Store.ListProjectConversions(ctx, conv.ProjectID, 100)
+		if lerr != nil || !slices.ContainsFunc(convs, func(c *store.Conversion) bool { return c.ID == conv.ID }) {
+			convs = append(convs, conv) // older than the listing window
+		}
+		names = projectDownloadNames(project, convs)[conv.ID]
+	}
 	urls := map[string]string{}
+	files := make([]outputFile, 0, len(conv.Outputs))
 	for name, key := range conv.Outputs {
-		u, err := s.GCS.SignedGetURL(key, downloadTTL)
+		filename := names[name]
+		var u string
+		if filename != "" {
+			u, err = s.GCS.SignedGetURLAs(key, downloadTTL, contentDisposition(filename))
+		} else {
+			u, err = s.GCS.SignedGetURL(key, downloadTTL) // mobile one-shot: unchanged
+		}
 		if err != nil {
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
 		urls[name] = u
+		format, part := splitOutputName(name)
+		f := outputFile{Name: name, Format: format, Part: part, URL: u, Filename: filename}
+		if size, serr := s.GCS.Stat(ctx, key); serr == nil {
+			f.SizeBytes = size
+		}
+		files = append(files, f)
 	}
+	sortOutputFiles(files)
+	s.logIssued(r, conv, files) // M8
 	httpx.WriteOK(w, map[string]any{
 		"downloads":  urls,
+		"files":      files,
 		"expires_in": int(downloadTTL.Seconds()),
 	})
 }
 
-// downloadPaymentGate blocks output downloads for a conversion whose
-// automatic charge FAILED (pi_status charge_failed): the work succeeded but
-// the money never arrived, so the deliverables stay locked until
-// POST /v1/billing/settle clears the debt. Deliberately narrow — the
-// normal post-success states (capture_pending while the reconciler captures
-// a hold, charge_pending while a charge is in flight, succeeded) and
-// legacy/free conversions with no payment intent all pass, so downloads
-// never flicker locked during ordinary settlement. Same 402 machine code
-// the create path uses (billing_overdue), so the web client routes to the
-// existing settle flow.
-//
-// capture_failed is not gated: it means our hold was lost or lapsed, which
-// the user can't settle (neither /limits nor settle counts it), so gating it
-// locked the result for good (audit, 2026-10-03).
-func downloadPaymentGate(conv *store.Conversion) *httpx.APIError {
-	if conv.Stripe.PIStatus == store.PIChargeFailed {
-		e := httpx.Err(http.StatusPaymentRequired, "billing_overdue",
-			"the payment for this conversion failed — settle your balance before downloading")
-		e.Details = map[string]any{"unpaid_cents": conv.Quote.AmountCents}
-		return e
-	}
-	return nil
-}
-
-// cancelWindow: a job may only be canceled within this long of its Modal
-// submission. Past it the GPU spend is committed — the run settles (and
+// cancelWindow: a job may only be canceled within this long of its start
+// (cancelable). Past it the GPU spend is committed — the run settles (and
 // bills) normally. Conversions not yet submitted (payment hold pending)
 // stay cancelable indefinitely so users are never trapped with a hold.
 const cancelWindow = time.Minute
 
 var errCancelWindowClosed = errors.New("cancel window closed")
 
-// DELETE /v1/conversions/{id} — cancel job + release hold.
+// runStartedAt is when the cancel window opened: the run's GPU start as
+// polls saw it, else its submission (nil before submission).
+func runStartedAt(c *store.Conversion) *time.Time {
+	if c.Modal.StartedAt != nil {
+		return c.Modal.StartedAt
+	}
+	return c.Modal.SubmittedAt
+}
+
+// cancelable (S3D-19/S3D-23, both methods, pre-charged or batched): before
+// submission; any time while the run waits in line for a GPU with nothing
+// started yet; else for cancelWindow after it started. Every case is
+// refunded in full (pre-charged) or never charged (batched).
+func cancelable(c *store.Conversion, now time.Time) bool {
+	if store.IsTerminal(c.State) {
+		return false
+	}
+	if c.Modal.SubmittedAt == nil {
+		return true
+	}
+	if c.Modal.WaitingForGPU && c.Modal.StartedAt == nil {
+		return true
+	}
+	return now.Sub(*runStartedAt(c)) <= cancelWindow
+}
+
+// noteStart records the run's GPU start from a poll (see Modal.StartedAt):
+// leaving the queue starts it now; a run that never queued counts from its
+// submission once a cancel window has passed. prevWaiting is the record's
+// waiting_for_gpu before this poll.
+func noteStart(c *store.Conversion, prevWaiting, waitingNow bool, now time.Time) {
+	if c.Modal.StartedAt != nil || waitingNow || c.Modal.SubmittedAt == nil {
+		return
+	}
+	switch {
+	case prevWaiting:
+		c.Modal.StartedAt = &now
+	case now.Sub(*c.Modal.SubmittedAt) > cancelWindow:
+		submitted := *c.Modal.SubmittedAt
+		c.Modal.StartedAt = &submitted
+	}
+}
+
+// DELETE /v1/conversions/{id} — cancel job + release hold (or refund a
+// pre-charged run).
 func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
 	conv, err := s.ownedConversion(ctx, user, id)
@@ -822,6 +999,11 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 		httpx.WriteOK(w, s.conversionResponse(conv, nil))
 		return
 	}
+	// Whether it still waits in line decides the window: read it fresh.
+	if conv.State == store.StateProcessing &&
+		(conv.Modal.LastPolledAt == nil || time.Since(*conv.Modal.LastPolledAt) > pollStaleness) {
+		_, _ = s.refreshFromModal(ctx, conv)
+	}
 	// Claim the cancel via the state machine FIRST — if the job just settled
 	// (e.g. reconciler captured the hold a moment ago) this conflicts and we
 	// return the terminal state instead of touching the money. The
@@ -830,7 +1012,7 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 	// The cancel-window check runs INSIDE the transaction so a submit that
 	// lands between our read and the claim can't be canceled past its window.
 	updated, err := s.Store.Transition(ctx, id, store.ActiveStates, func(c *store.Conversion) error {
-		if c.Modal.SubmittedAt != nil && time.Since(*c.Modal.SubmittedAt) > cancelWindow {
+		if !cancelable(c, time.Now()) {
 			return errCancelWindowClosed
 		}
 		c.State = store.StateCanceled
@@ -854,8 +1036,8 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 	}
 	// Use the POST-transition snapshot: the job may have been submitted
 	// between our read and the transition commit.
-	if updated.Modal.JobID != "" {
-		if err := s.Modal.CancelJob(ctx, updated.Modal.JobID); err != nil {
+	if client := s.modalFor(updated); updated.Modal.JobID != "" && client != nil {
+		if err := client.CancelJob(ctx, updated.Modal.JobID); err != nil {
 			httpx.Log(ctx).Warn("modal cancel failed", "conversion_id", id, "err", err)
 		}
 	}
@@ -869,8 +1051,12 @@ func (s *Service) HandleCancelConversion(w http.ResponseWriter, r *http.Request,
 // ---------------------------------------------------------------- helpers
 
 type AuthedUser struct {
-	UID   string
-	Email string
+	UID      string
+	Email    string
+	AuthTime time.Time // the ID token's auth_time (zero when unknown)
+	// Anonymous: signed in anonymously (no sign-in method); its deletion
+	// never waits (owner 2026-11-07).
+	Anonymous bool
 }
 
 func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id string) (*store.Conversion, error) {
@@ -882,10 +1068,11 @@ func (s *Service) ownedConversion(ctx context.Context, user *AuthedUser, id stri
 		return nil, err
 	}
 	// 404 (not 403) for other users' conversions — don't confirm existence.
-	if conv.UID != user.UID {
+	// A deleted project's runs are gone with it.
+	if conv.UID != user.UID || s.projectGone(ctx, conv, nil) {
 		return nil, httpx.ErrNotFound("conversion")
 	}
-	return conv, nil
+	return s.backfillSampleRun(ctx, conv), nil // a sample run stored before half_sbs joined
 }
 
 // conversionResponse is the single client-facing serialization. Firestore
@@ -897,10 +1084,75 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"kind":          c.Kind,
 		"params":        c.Params,
 	}
+	if c.Params.OutputQuality != "" {
+		resp["quality"] = c.Params.OutputQuality // standard | high | master (web Lifelike)
+	}
+	if cents := campaignCentsOf(c); cents > 0 {
+		resp["campaign_cents"] = cents // the launch offer (also in quote.breakdown)
+	}
+	// The Files "Details" panel: when the run left the line (so "Took"
+	// leaves the wait out), the free previews it used, whether it was
+	// ordered as a Quick look, and whether the brand intro was on.
+	resp["started_at"] = nil
+	if c.Modal.StartedAt != nil {
+		resp["started_at"] = c.Modal.StartedAt.UTC().Format(time.RFC3339)
+	}
+	resp["free_preview_units"] = nil
+	if fp := c.FreePreview; fp != nil && !fp.Returned {
+		resp["free_preview_units"] = fp.Units
+	}
+	resp["quick_look"] = c.Params.QuickLook
+	resp["intro"] = (c.Params.IntroS != nil && *c.Params.IntroS > 0) || c.Modal.IntroFrames > 0
+	if len(c.OutputsMedia) > 0 {
+		resp["outputs_media"] = c.OutputsMedia // {name: {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source}}
+	}
+	if c.Modal.OutputBitDepth > 0 {
+		resp["output_bit_depth"] = c.Modal.OutputBitDepth // the spatial file's, from the worker
+	}
+	if c.Modal.OutputBitDepthReason != "" {
+		resp["output_bit_depth_reason"] = c.Modal.OutputBitDepthReason // why 10 didn't apply
+	}
+	if c.ProjectID != "" {
+		req := c.Params.Bitrate // what was asked: auto, match_source, a number of Mbit/s or master
+		if req == "" {
+			req = "auto"
+		}
+		resp["bitrate_requested"] = req
+	}
+	if c.Method == store.MethodLifelike && c.Step != "" {
+		paid := false // a 1080p run quoted before 2026-11-07 paid for it
+		switch v := c.Quote.Breakdown["foveation_cents"].(type) {
+		case int64:
+			paid = v > 0
+		case float64:
+			paid = v > 0
+		}
+		fv := map[string]any{"applied": c.Params.Foveation != "", "included": c.Params.Preset == foveationIncludedPreset && !paid}
+		if fv["included"] == true && c.Params.Foveation == "" {
+			fv["reason"] = "output_not_below_source"
+		}
+		resp["foveation"] = fv
+	}
+	if split := splitBilling(c); split != nil {
+		resp["pay_split"] = split // credit and balance first: the covered part and the card's
+	}
+	// Adaptive Pricing: what the card paid in the customer's currency,
+	// {amount_minor, currency}; null when USD, unknown or not a card.
+	resp["presentment"] = c.Stripe.Presentment
+	resp["method"] = store.MethodOr(c.Method)
+	if c.Sample {
+		resp["sample"] = true
+	}
 	if c.ProjectID != "" {
 		resp["project_id"] = c.ProjectID
 		resp["step"] = c.Step
 		resp["scenes_version"] = c.ScenesVer
+		// When the money moves: "before" = charged up front and refunded
+		// if the run fails (pre-charged), "after" = billed on success.
+		resp["charge_timing"] = "after"
+		if c.Stripe.Mode == store.BillingModeAutoPrecharge {
+			resp["charge_timing"] = "before"
+		}
 	}
 	resp["quote"] = map[string]any{
 		"amount_cents": c.Quote.AmountCents,
@@ -909,12 +1161,45 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	}
 	resp["progress"] = c.Modal.Progress
 	resp["stage"] = c.Modal.Stage
-	resp["eta_seconds"] = c.Modal.ETASeconds
-	// Once submitted, cancel is only allowed for cancelWindow — tell the
-	// client when the button should disappear. Absent before submission
-	// (always cancelable) and on terminal states (nothing to cancel).
-	if !store.IsTerminal(c.State) && c.Modal.SubmittedAt != nil {
-		resp["cancelable_until"] = c.Modal.SubmittedAt.Add(cancelWindow).Format(time.RFC3339)
+	resp["eta_seconds"], resp["eta_source"] = runETA(c, time.Now())
+	resp["waiting_for_gpu"] = c.Modal.WaitingForGPU && !store.IsTerminal(c.State)
+	// 5K-8K Lifelike outputs are experimental (the job says so once done).
+	if c.Modal.Experimental || (store.MethodOr(c.Method) == store.MethodLifelike && presetOutputHeight[c.Params.Preset] > originalEyeAboveShortSide) {
+		resp["experimental"] = true
+	}
+	resp["queued_s"] = c.Modal.QueuedS
+	if store.MethodOr(c.Method) == store.MethodLifelike {
+		// Lifelike scheduling (additive): the priority and GPU count the
+		// job echoed (what was asked until it does); an Express run waiting
+		// for a GPU waits at most queue_wait_max_seconds for a running
+		// standard piece.
+		prio := c.Modal.Priority
+		if prio == "" {
+			prio = "standard"
+			if c.Params.Express {
+				prio = "express"
+			}
+		}
+		resp["priority"] = prio
+		if c.Modal.GPUWorkers > 0 {
+			resp["max_gpu_workers"] = c.Modal.GPUWorkers
+		}
+		if prio == "express" && c.Modal.WaitingForGPU && !store.IsTerminal(c.State) && s.Pricing != nil {
+			resp["queue_wait_max_seconds"] = s.Pricing.Rates(context.Background()).ExpressMaxWaitS()
+		}
+	}
+	if len(c.Parts) > 0 {
+		resp["parts"] = c.Parts
+	}
+	// cancelable says whether the button shows now; cancelable_until when
+	// it goes, once the run has started (absent before submission and while
+	// it waits in line with nothing started — cancelable throughout).
+	if !store.IsTerminal(c.State) {
+		now := time.Now()
+		resp["cancelable"] = cancelable(c, now)
+		if c.Modal.SubmittedAt != nil && !(c.Modal.WaitingForGPU && c.Modal.StartedAt == nil) {
+			resp["cancelable_until"] = runStartedAt(c).Add(cancelWindow).Format(time.RFC3339)
+		}
 	}
 	if isOverdue(c, time.Now()) {
 		resp["overdue"] = true // the client offers "Report it"
@@ -935,12 +1220,42 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if c.Error != nil {
 		resp["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage}
 	}
+	resp["payment"] = paymentStatus(c)
 	// Auto-billed conversions surface how the money went so the client can
 	// react without touching Stripe ids: a pending 3DS challenge on the hold
 	// (auto_hold, state=created) carries the client_secret for the saved-card
 	// confirm; succeeded runs report the charge/capture outcome.
 	switch c.Stripe.Mode {
+	case store.BillingModeFreePreview:
+		b := map[string]any{"status": "free_preview"}
+		if c.FreePreview != nil {
+			b["units"] = c.FreePreview.Units
+			b["returned"] = c.FreePreview.Returned
+		}
+		resp["billing"] = b
+	case store.BillingModeBalance:
+		if b := balanceBilling(c); b != nil {
+			resp["billing"] = b
+		}
+		if c.ProjectID != "" {
+			resp["charge_timing"] = "before"
+			resp["payment_flow"] = store.FlowBalance
+		}
+	case store.BillingModeAutoPrecharge:
+		if b := prechargeBilling(c); b != nil {
+			resp["billing"] = b
+		} else {
+			resp["billing"] = map[string]any{
+				"status":          "requires_action",
+				"client_secret":   c.Stripe.ClientSecret,
+				"publishable_key": s.Stripe.PublishableKey,
+			}
+		}
 	case store.BillingModeAuto, store.BillingModeAutoHold:
+		if c.State == store.StateFailed || c.State == store.StateCanceled || c.State == store.StateExpired {
+			// "Cancelled, not charged" (S3D-33): nothing was taken.
+			resp["billing"] = map[string]any{"status": "not_charged"}
+		}
 		if c.State == store.StateCreated && c.Stripe.ClientSecret != "" {
 			resp["billing"] = map[string]any{
 				"status":          "requires_action",
@@ -964,6 +1279,9 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 				resp["billing"] = map[string]any{"status": "charge_pending"}
 			}
 		}
+	}
+	if b := payNowBilling(c, s.publishableKey()); b != nil {
+		resp["billing"] = b // the sheet's run waiting for its payment (spec v6 F)
 	}
 	if sheet != nil {
 		resp["payment"] = sheet
@@ -996,4 +1314,38 @@ func probeError(err error, unreadable string) *httpx.APIError {
 		return httpx.ErrServiceBusy()
 	}
 	return httpx.ErrSource("source_unsupported", unreadable)
+}
+
+// replayConversion answers a request whose Idempotency-Key already made a
+// run (P3: the id is derived from uid + key, and a racing second request
+// loses the Firestore Create): the existing run, with the mobile hold's
+// sheet material while it still waits for the client.
+func (s *Service) replayConversion(ctx context.Context, w http.ResponseWriter, user *AuthedUser, id string) {
+	prior, err := s.Store.GetConversion(ctx, id)
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if prior.UID != user.UID {
+		httpx.WriteErr(ctx, w, httpx.ErrNotFound("conversion"))
+		return
+	}
+	var sheet any
+	if prior.ProjectID == "" && prior.State == store.StateCreated && prior.Stripe.Mode == "" && prior.Stripe.PaymentIntentID != "" {
+		if ps, perr := s.Stripe.PaymentSheetFor(prior.Stripe.CustomerID, prior.Stripe.PaymentIntentID); perr == nil {
+			sheet = ps
+		}
+	}
+	httpx.WriteOK(w, s.conversionResponse(prior, sheet))
+}
+
+// idempotentConversionID is the run id for a request carrying an
+// Idempotency-Key (P3): derived from the account and the key, so two
+// racing requests aim at ONE document and Firestore's Create lets only one
+// through. Without a key, a fresh id.
+func (s *Service) idempotentConversionID(uid, key string) string {
+	if key == "" {
+		return store.NewID()
+	}
+	return store.IdemConversionID(s.Cfg.Env, uid, key)
 }

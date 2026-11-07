@@ -8,6 +8,8 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/stripe/stripe-go/v78"
+
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
@@ -19,6 +21,10 @@ import (
 //
 //	amount_capturable_updated (hold confirmed) → created→paid → submit.
 //	canceled → created|paid→expired. payment_failed → log only (retryable).
+//
+// Pre-charged pro steps (auto_precharge, charged before the run):
+//
+//	succeeded on a created run (3DS confirmed) → paid → submit.
 //
 // Auto mode (pay-as-you-go pro steps; the PI exists only after success):
 //
@@ -40,11 +46,98 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// P1: route by the event's object type. The account is shared with
+	// other products, so anything we don't own answers 200 untouched.
+	var head struct {
+		Object string `json:"object"`
+	}
+	if err := json.Unmarshal(event.Data.Raw, &head); err != nil {
+		httpx.WriteOK(w, map[string]bool{"received": true})
+		return
+	}
+	switch head.Object {
+	case "payment_intent":
+		s.handlePaymentIntentEvent(ctx, w, event)
+		if event.Type == "payment_intent.succeeded" || event.Type == "payment_intent.amount_capturable_updated" {
+			var pi struct {
+				ID       string            `json:"id"`
+				Metadata map[string]string `json:"metadata"`
+			}
+			if json.Unmarshal(event.Data.Raw, &pi) == nil && pi.Metadata["env"] == s.Cfg.Env && pi.Metadata["product"] == "svs-web" {
+				s.checkBlockedPayment(ctx, pi.ID) // H: refund + flag
+			}
+		}
+	case "checkout.session":
+		if err := s.handleCheckoutEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("checkout event failed", "event", string(event.Type), "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "invoice":
+		var inv stripex.Invoice
+		if json.Unmarshal(event.Data.Raw, &inv) == nil {
+			s.handleInvoiceEvent(ctx, string(event.Type), &inv)
+		}
+		if event.Type == "invoice.paid" {
+			s.handlePlanInvoicePaid(ctx, event.Data.Raw) // a plan period's credit
+		}
+		if event.Type == "invoice.payment_failed" || event.Type == "invoice.payment_action_required" {
+			s.handlePlanInvoiceFailed(ctx, string(event.Type), event.Data.Raw) // D5: dunning
+		}
+		if event.Type == "invoice.created" {
+			s.handlePlanInvoiceCreated(ctx, event.Data.Raw) // the web's statement line
+			s.proIntroCycle(ctx, event.Data.Raw)            // Weekly Pro's intro on its next cycles
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "dispute":
+		if err := s.handleDisputeEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("dispute event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "radar.early_fraud_warning":
+		if err := s.handleEFW(ctx, event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("efw event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "refund":
+		if err := s.handleRefundEvent(ctx, string(event.Type), event.Data.Raw); err != nil {
+			httpx.Log(ctx).Error("refund event failed", "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "subscription":
+		s.handleSubscriptionEvent(ctx, event.Data.Raw)
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	case "payment_method":
+		if event.Type == "payment_method.detached" {
+			s.handleMethodDetached(ctx, event.Data.Raw, event.Data.PreviousAttributes)
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	default:
+		// checkout.session, charge, refund, dispute, early fraud warning,
+		// payment_method, customer and invoice events get their handlers
+		// with the payment layer (spec D5); until then: received.
+		httpx.WriteOK(w, map[string]bool{"received": true})
+	}
+}
+
+// handlePaymentIntentEvent drives the run, group and hold state machines
+// from payment_intent.* events. Every change checks that the event's
+// PaymentIntent is the record's CURRENT one (P1).
+func (s *Service) handlePaymentIntentEvent(ctx context.Context, w http.ResponseWriter, event stripe.Event) {
 	var pi struct {
 		ID             string            `json:"id"`
 		Status         string            `json:"status"`
+		Amount         int64             `json:"amount"`
 		AmountReceived int64             `json:"amount_received"`
 		Metadata       map[string]string `json:"metadata"`
+		PaymentMethod  string            `json:"payment_method"`
 	}
 	if err := json.Unmarshal(event.Data.Raw, &pi); err != nil {
 		httpx.WriteOK(w, map[string]bool{"received": true})
@@ -52,6 +145,19 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 	}
 	if pi.Metadata["env"] != s.Cfg.Env {
 		httpx.WriteOK(w, map[string]bool{"received": true}) // not ours
+		return
+	}
+	if topupID := pi.Metadata["topup_id"]; topupID != "" {
+		if err := s.handleTopupPI(ctx, string(event.Type), topupID, pi.ID, pi.Status, pi.AmountReceived, pi.PaymentMethod); err != nil {
+			httpx.Log(ctx).Error("top-up event failed", "topup_id", topupID, "err", err)
+			httpx.WriteErr(ctx, w, httpx.ErrServer())
+			return
+		}
+		httpx.WriteOK(w, map[string]bool{"received": true})
+		return
+	}
+	if settleID := pi.Metadata["settle_id"]; settleID != "" {
+		s.handleSettlePI(ctx, w, string(event.Type), settleID, pi.ID, pi.Status, pi.AmountReceived)
 		return
 	}
 	if batchID := pi.Metadata["batch_id"]; batchID != "" {
@@ -71,6 +177,9 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		// can't lose the payment: paid-with-no-job is re-driven by the
 		// reconciler.
 		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateCreated}, func(c *store.Conversion) error {
+			if c.Stripe.PaymentIntentID != pi.ID {
+				return store.ErrStateConflict // not the run's current PaymentIntent (P1)
+			}
 			c.State = store.StatePaid
 			c.Stripe.PIStatus = pi.Status
 			return nil
@@ -88,16 +197,46 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case "payment_intent.succeeded":
+		// Pre-charged run whose up-front charge needed 3DS: the client
+		// confirmed it, so the run is paid — mark it, then submit.
+		now := time.Now().UTC()
+		_, perr := s.Store.Transition(ctx, conversionID, []string{store.StateCreated}, func(c *store.Conversion) error {
+			if c.Stripe.Mode != store.BillingModeAutoPrecharge || !currentPI(c, pi.ID) {
+				return store.ErrStateConflict
+			}
+			c.State = store.StatePaid
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PISucceeded
+			c.Stripe.CapturedCents = pi.AmountReceived
+			c.Stripe.CapturedAt = &now
+			c.Stripe.ClientSecret = ""
+			return nil
+		})
+		if perr == nil {
+			log.Info("precharge confirmed; submitting", "amount_cents", pi.AmountReceived)
+			if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
+				s.paidAtStart(ctx, c)
+			}
+			if err := s.submitToModal(ctx, conversionID); err != nil {
+				log.Warn("submit failed; reconciler will retry", "err", err)
+			}
+			break
+		} else if !errors.Is(perr, store.ErrStateConflict) && !errors.Is(perr, store.ErrNotFound) {
+			log.Error("webhook precharge transition failed", "err", perr)
+			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
+			return
+		}
 		// Auto mode: the charge landed — possibly via the web 3DS fallback
 		// (confirmCardPayment), which settles outside chargeConversion. Fold
 		// the money in and clear the settle error; hold-mode captures already
 		// record this in captureHold (their transition conflicts here on
 		// pi_status and no-ops).
-		now := time.Now().UTC()
+		var fromProcessing bool
 		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
-			if c.Stripe.Mode != store.BillingModeAuto || c.Stripe.PIStatus == store.PISucceeded {
-				return store.ErrStateConflict // legacy capture or already folded
+			if c.Stripe.Mode != store.BillingModeAuto || c.Stripe.PIStatus == store.PISucceeded || !currentPI(c, pi.ID) {
+				return store.ErrStateConflict // legacy capture, already folded, or not current
 			}
+			fromProcessing = c.Stripe.PIStatus == store.PIProcessing
 			c.Stripe.PaymentIntentID = pi.ID
 			c.Stripe.PIStatus = store.PISucceeded
 			c.Stripe.CapturedCents = pi.AmountReceived
@@ -107,10 +246,27 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		})
 		if err == nil {
 			log.Info("charge settled via webhook", "amount_cents", pi.AmountReceived)
+			if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
+				s.recordRunCharge(ctx, c)
+			}
+			if fromProcessing {
+				if c, gerr := s.Store.GetConversion(ctx, conversionID); gerr == nil {
+					s.creditLifetime(ctx, c.UID, pi.AmountReceived) // P2: credited only now
+				}
+			}
 		} else if !errors.Is(err, store.ErrStateConflict) && !errors.Is(err, store.ErrNotFound) {
 			log.Error("webhook charge settle failed", "err", err)
 			httpx.WriteErr(ctx, w, httpx.ErrServer()) // 5xx → Stripe retries
 			return
+		} else if errors.Is(err, store.ErrStateConflict) {
+			// Neither the current pre-charge nor an after-done charge: a
+			// payment-layer run's session PaymentIntent, or money on an
+			// object that isn't current (E0-2: adopt or refund).
+			if aerr := s.applyPaymentEvent(ctx, conversionID, pi.ID, pi.AmountReceived); aerr != nil {
+				log.Error("webhook payment apply failed", "err", aerr)
+				httpx.WriteErr(ctx, w, httpx.ErrServer())
+				return
+			}
 		}
 
 	case "payment_intent.payment_failed":
@@ -121,8 +277,9 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		// Auto mode: the off-session (or 3DS-fallback) charge attempt died —
 		// commit charge_failed so the account reads delinquent.
 		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
-			if c.Stripe.Mode != store.BillingModeAuto ||
-				(c.Stripe.PIStatus != store.PIChargePending && c.Stripe.PIStatus != store.PIChargeFailed) {
+			if c.Stripe.Mode != store.BillingModeAuto || !currentPI(c, pi.ID) ||
+				(c.Stripe.PIStatus != store.PIChargePending && c.Stripe.PIStatus != store.PIChargeFailed &&
+					c.Stripe.PIStatus != store.PIProcessing) {
 				return store.ErrStateConflict
 			}
 			c.Stripe.PaymentIntentID = pi.ID
@@ -134,8 +291,48 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		})
 		if err == nil {
 			log.Info("charge attempt failed (webhook); account delinquent", "pi_status", pi.Status)
-		} else {
-			log.Info("payment attempt failed (retryable)", "pi_status", pi.Status)
+			break
+		}
+		// A pre-charge whose async payment failed (P2): never paid, the run
+		// ends not charged. A failed bank check stays retryable.
+		now := time.Now().UTC()
+		expired, perr := s.Store.Transition(ctx, conversionID, []string{store.StateCreated}, func(c *store.Conversion) error {
+			if c.Stripe.Mode != store.BillingModeAutoPrecharge || c.Stripe.PIStatus != store.PIProcessing || c.Stripe.PaymentIntentID != pi.ID {
+				return store.ErrStateConflict
+			}
+			c.State = store.StateExpired
+			c.Stripe.PIStatus = store.PICanceled
+			c.Stripe.CanceledAt = &now
+			c.Stripe.SettleError = "async payment failed"
+			return nil
+		})
+		if perr == nil {
+			log.Info("async pre-charge failed; run not charged")
+			s.restoreCredit(ctx, expired)
+			break
+		}
+		log.Info("payment attempt failed (retryable)", "pi_status", pi.Status)
+
+	case "payment_intent.processing":
+		// P2: accepted, not settled. Waiting for payment — no submit,
+		// credit or tier change until payment_intent.succeeded.
+		_, err := s.Store.Transition(ctx, conversionID, []string{store.StateCreated, store.StateSucceeded}, func(c *store.Conversion) error {
+			if !currentPI(c, pi.ID) {
+				return store.ErrStateConflict
+			}
+			switch {
+			case c.State == store.StateCreated && c.Stripe.Mode == store.BillingModeAutoPrecharge &&
+				(c.Stripe.PIStatus == store.PICharging || c.Stripe.PIStatus == store.PIRequiresAction):
+			case c.State == store.StateSucceeded && c.Stripe.Mode == store.BillingModeAuto && c.Stripe.PIStatus == store.PIChargePending:
+			default:
+				return store.ErrStateConflict
+			}
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIProcessing
+			return nil
+		})
+		if err == nil {
+			log.Info("payment processing; waiting for it to settle")
 		}
 
 	case "payment_intent.canceled":
@@ -144,6 +341,12 @@ func (s *Service) HandleStripeWebhook(w http.ResponseWriter, r *http.Request) {
 		// started. Both end expired; the PI needs no further action.
 		now := time.Now().UTC()
 		expired, err := s.Store.Transition(ctx, conversionID, []string{store.StateCreated, store.StatePaid}, func(c *store.Conversion) error {
+			// P1: only the run's CURRENT PaymentIntent, and not one the
+			// gateway canceled itself (its own flow already moved the run).
+			if c.Stripe.PaymentIntentID != pi.ID || c.Stripe.PIStatus == store.PICancelPending ||
+				c.Stripe.PIStatus == store.PICanceled {
+				return store.ErrStateConflict
+			}
 			c.State = store.StateExpired
 			c.Stripe.PIStatus = store.PICanceled
 			c.Stripe.CanceledAt = &now
@@ -175,14 +378,30 @@ func (s *Service) handleBatchWebhook(ctx context.Context, w http.ResponseWriter,
 		if b.State == store.BatchPaid {
 			break
 		}
+		if b.PaymentIntentID != "" && b.PaymentIntentID != piID {
+			log.Error("succeeded on a PaymentIntent that isn't the group's current one", "payment_intent", piID)
+			s.Slack.SettleFailed(ctx, b.ID, b.UID, "late_payment", errors.New("extra PaymentIntent "+piID+" succeeded"))
+			break
+		}
 		if _, err := s.finalizeBatchPaid(ctx, b, piID, amountReceived); err != nil {
 			log.Error("webhook batch settle failed", "err", err)
 			httpx.WriteErr(ctx, w, httpx.ErrServer())
 			return
 		}
 		log.Info("batch charge settled via webhook", "amount_cents", amountReceived)
+	case "payment_intent.processing":
+		if b.State == store.BatchCharging && (b.PaymentIntentID == "" || b.PaymentIntentID == piID) {
+			if _, err := s.markBatchProcessing(ctx, b, piID); err != nil {
+				httpx.WriteErr(ctx, w, httpx.ErrServer())
+				return
+			}
+		}
 	case "payment_intent.payment_failed":
-		if b.State != store.BatchCharging {
+		// The gateway writes a group's failure itself from its own charge
+		// call (E0-4); the webhook only ends an ASYNC payment that failed
+		// after processing (P2), on the group's current PaymentIntent.
+		if b.State != store.BatchCharging || b.PIStatus != store.PIProcessing || b.PaymentIntentID != piID {
+			log.Info("batch payment_failed noted (gateway records failures)")
 			break
 		}
 		if _, err := s.recordBatchFailure(ctx, b, stripex.ChargeFailure{
@@ -196,4 +415,94 @@ func (s *Service) handleBatchWebhook(ctx context.Context, w http.ResponseWriter,
 		log.Info("batch charge failed (webhook); account delinquent")
 	}
 	httpx.WriteOK(w, map[string]bool{"received": true})
+}
+
+// currentPI: the event's PaymentIntent is the record's current one — or
+// the record has none yet because its own request died between Stripe and
+// the write (a pre-charge still "charging", P8a), which the deterministic
+// key makes the same one.
+func currentPI(c *store.Conversion, piID string) bool {
+	return c.Stripe.PaymentIntentID == piID ||
+		(c.Stripe.PaymentIntentID == "" && (c.Stripe.PIStatus == store.PICharging || c.Stripe.PIStatus == store.PIChargePending))
+}
+
+// applyPaymentEvent applies a succeeded PaymentIntent to a payment-layer
+// run (one with a payment flow): through its current Checkout Session when
+// the PaymentIntent is that session's, else as a payment on an object that
+// isn't current (E0-2). Runs without a payment flow, or whose recorded
+// PaymentIntent this is, are left alone.
+func (s *Service) applyPaymentEvent(ctx context.Context, convID, piID string, amount int64) error {
+	c, err := s.Store.GetConversion(ctx, convID)
+	if errors.Is(err, store.ErrNotFound) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	if c.PaymentFlow == "" || c.Stripe.PaymentIntentID == piID {
+		return nil
+	}
+	if cp := c.CurrentPayment; cp != nil && cp.Kind == store.PaymentCheckoutSession {
+		out, _, serr := s.Stripe.SessionOutcome(cp.ID)
+		if serr != nil {
+			return serr
+		}
+		if out.PaymentIntentID == piID {
+			_, aerr := s.applyRunPayment(ctx, convID, *cp, out)
+			return aerr
+		}
+	}
+	_, aerr := s.applyRunPayment(ctx, convID, store.Payment{Kind: store.PaymentIntentKind, ID: piID, CreatedAt: time.Now().UTC()},
+		stripex.Outcome{Paid: true, PaymentIntentID: piID, AmountReceived: amount})
+	return aerr
+}
+
+// handleSettlePI applies a settle's PaymentIntent events (C11): succeeded
+// → the settle is paid (the iOS bank check lands here); processing →
+// in_progress. Failure is the gateway's to write (E0-4).
+func (s *Service) handleSettlePI(ctx context.Context, w http.ResponseWriter, eventType, settleID, piID, status string, amount int64) {
+	var out stripex.Outcome
+	switch eventType {
+	case "payment_intent.succeeded":
+		out = stripex.Outcome{Paid: true, PaymentIntentID: piID, AmountReceived: amount}
+		if pi, err := s.Stripe.GetPaymentIntent(piID); err == nil && pi.PaymentMethod != nil {
+			out.PaymentMethod = pi.PaymentMethod.ID
+		}
+	case "payment_intent.processing":
+		out = stripex.Outcome{Processing: true, PaymentIntentID: piID}
+	default:
+		httpx.WriteOK(w, map[string]bool{"received": true})
+		return
+	}
+	if _, err := s.applySettlePayment(ctx, settleID, store.Payment{Kind: store.PaymentIntentKind, ID: piID}, out); err != nil &&
+		!errors.Is(err, store.ErrNotFound) {
+		httpx.Log(ctx).Error("settle webhook failed", "settle_id", settleID, "err", err)
+		httpx.WriteErr(ctx, w, httpx.ErrServer())
+		return
+	}
+	httpx.WriteOK(w, map[string]bool{"received": true})
+}
+
+// handleMethodDetached: a method removed outside our Billing API (the
+// Dashboard, a bank's network token being retired) leaves the account
+// facts and the backup order, and the cached default is re-read. Best
+// effort; customers of other products or environments are ignored.
+func (s *Service) handleMethodDetached(ctx context.Context, raw json.RawMessage, prev map[string]any) {
+	var pm struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(raw, &pm); err != nil || pm.ID == "" {
+		return
+	}
+	customerID, _ := prev["customer"].(string)
+	if customerID == "" {
+		return
+	}
+	uid, env, err := s.Stripe.CustomerUID(customerID)
+	if err != nil || uid == "" || env != s.Cfg.Env {
+		return
+	}
+	s.forgetMethod(ctx, uid, pm.ID)
+	cardRefreshedAt.Delete(uid)
+	s.refreshCardCache(ctx, uid, customerID)
 }

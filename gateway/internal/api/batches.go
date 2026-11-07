@@ -12,6 +12,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -66,17 +67,49 @@ func (s *Service) creditLifetime(ctx context.Context, uid string, cents int64) {
 	}); err != nil {
 		slog.WarnContext(ctx, "lifetime credit failed", "uid", uid, "cents", cents, "err", err)
 	}
+	s.rcAttrsTouch(ctx, uid, "spend") // web_lifetime_spend_usd
+}
+
+// batchTier is the batch window and cap the account accumulates under
+// (S3D-19): by collected spend, back to the first tier after a declined
+// charge within the lookback.
+// web: a web group (D15 tiers); false — the app's, and anything not
+// clearly web — keeps the shipped ladder.
+func (s *Service) batchTier(ctx context.Context, cust *store.Customer, web bool) pricing.BatchTier {
+	rates := s.Pricing.Rates(ctx)
+	if cust == nil {
+		return rates.TierFor(web, 0, false)
+	}
+	failed := cust.LastChargeFailedAt != nil && time.Since(*cust.LastChargeFailedAt) < rates.FailureLookback()
+	return rates.TierFor(web, cust.LifetimePaidCents, failed)
+}
+
+// markChargeFailed stamps the account's last declined charge. Best effort:
+// it only shortens the next batch window.
+func (s *Service) markChargeFailed(ctx context.Context, uid string) {
+	now := time.Now().UTC()
+	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		c.LastChargeFailedAt = &now
+		return nil
+	}); err != nil {
+		slog.WarnContext(ctx, "charge failure stamp failed", "uid", uid, "err", err)
+	}
 }
 
 // holdThreshold is the quote at or above which a run gets an up-front hold
 // instead of joining the batch: the base threshold, lifted to the user's
 // batch cap so a higher tier batches the runs it is trusted for.
-func (s *Service) holdThreshold(ctx context.Context, cust *store.Customer) int64 {
+func (s *Service) holdThreshold(ctx context.Context, cust *store.Customer, web bool) int64 {
 	th := int64(holdThresholdCents)
 	if cust == nil {
 		return th
 	}
-	if cap := s.Pricing.Rates(ctx).BatchCap(cust.LifetimePaidCents); cap > th {
+	rates := s.Pricing.Rates(ctx)
+	cap := rates.BatchCap(cust.LifetimePaidCents)
+	if web {
+		cap = rates.WebBatchCap(cust.LifetimePaidCents)
+	}
+	if cap > th {
 		th = cap
 	}
 	return th
@@ -107,15 +140,15 @@ func (s *Service) batchConversion(ctx context.Context, conv *store.Conversion) (
 		return conv, err
 	}
 	cust = s.ensureLifetimeSeeded(ctx, conv.UID, cust)
-	rates := s.Pricing.Rates(ctx)
+	tier := s.batchTier(ctx, cust, conv.ProjectID != "")
 	batch, err := s.Store.BatchConversion(ctx, conv.ID, store.BatchItem{
 		ConversionID: conv.ID,
 		ProjectID:    conv.ProjectID,
 		Step:         conv.Step,
 		Kind:         conv.Kind,
-		Description:  jobDescription(conv),
-		AmountCents:  conv.Quote.AmountCents,
-	}, rates.BatchWindow(), rates.BatchCap(cust.LifetimePaidCents))
+		Description:  piDescription(conv),
+		AmountCents:  runCardCents(conv), // the card's part; a partial hold settled the rest
+	}, tier.Window(), tier.CapCents)
 	if errors.Is(err, store.ErrNotBatchable) || errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID) // settled concurrently
 	}
@@ -211,6 +244,14 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 		// Nothing to collect (free items only): settle as paid, no Stripe.
 		return s.finalizeBatchPaid(ctx, b, "", 0)
 	}
+	// E0-4: one writer. Another holder's live lease means it is charging
+	// this group right now; it alone writes the outcome.
+	leased, ok := s.acquireBatchLease(ctx, b)
+	if !ok {
+		return b, nil
+	}
+	b = leased
+	defer s.releaseBatchLease(ctx, b.ID)
 	cust, err := s.Store.GetCustomer(ctx, b.UID)
 	if err != nil {
 		return b, err
@@ -222,15 +263,30 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	var pi *stripe.PaymentIntent
 	var chErr error
 	switch {
+	case b.PIStatus == store.PIProcessing && b.PaymentIntentID != "":
+		// CHARGING_ASYNC (P2): only read; Stripe settles it (webhook or a
+		// later sweep). Never re-confirm a payment in flight.
+		pi, chErr = s.Stripe.GetPaymentIntent(b.PaymentIntentID)
+		if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+			return b, nil
+		}
+		if chErr != nil {
+			return b, chErr
+		}
 	case b.PaymentIntentID != "":
 		pi, chErr = s.Stripe.ConfirmSavedCharge(b.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
+	case cust.DefaultPaymentMethod == "" && webBatch(b):
+		return s.failWebBatchNoMethod(ctx, b)
 	case cust.DefaultPaymentMethod == "":
 		return s.recordBatchFailure(ctx, b, stripex.ChargeFailure{
 			Code: "no_payment_method", Message: "no default payment method on file",
 		})
+	case webBatch(b):
+		return s.chargeWebBatch(ctx, b, cust)
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			b.TotalCents, b.Currency, stripex.Job{
+				Web:          true,
 				BatchID:      b.ID,
 				UID:          b.UID,
 				Description:  batchDescription(b),
@@ -239,13 +295,18 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 			})
 	}
 
-	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||
-		pi.Status == stripe.PaymentIntentStatusProcessing) {
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
 		charged := pi.AmountReceived
 		if charged == 0 {
 			charged = pi.Amount
 		}
+		if pi.PaymentMethod != nil {
+			s.noteMethodPaid(ctx, b.UID, pi.PaymentMethod.ID) // C1 account facts
+		}
 		return s.finalizeBatchPaid(ctx, b, pi.ID, charged)
+	}
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+		return s.markBatchProcessing(ctx, b, pi.ID)
 	}
 
 	var fail stripex.ChargeFailure
@@ -262,7 +323,113 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 	slog.ErrorContext(ctx, "stripe batch charge failed",
 		"batch_id", b.ID, "uid", b.UID, "code", fail.Code,
 		"transient", fail.Transient, "needs_action", fail.NeedsAction, "err", fail.Message)
-	return s.recordBatchFailure(ctx, b, fail)
+	if fail.Transient {
+		return s.recordBatchFailure(ctx, b, fail) // stays charging; re-driven under the lease
+	}
+	return s.backupsThenFail(ctx, b, cust, fail)
+}
+
+// hardDeclines are declines a retry tomorrow won't fix (no 24 h retry).
+var hardDeclines = map[string]bool{
+	"expired_card": true, "incorrect_number": true, "invalid_account": true, "card_not_supported": true,
+	"currency_not_supported": true, "invalid_cvc": true, "incorrect_cvc": true, "new_account_information_available": true,
+	"restricted_card": true, "revocation_of_authorization": true, "revocation_of_all_authorizations": true,
+	"security_violation": true, "service_not_allowed": true, "transaction_not_allowed": true,
+}
+
+// backupsThenFail is C5 after the default declined: re-confirm the same
+// PaymentIntent with each other saved method in the customer's backup
+// order, once each (confirm_{pi}_{pm}_1). No backups after a stop code or
+// a bank check. A method that pays settles the group and becomes the last
+// good method. Final failure, in this order: cancel the PaymentIntent (a
+// cancel that finds it paid means paid), write FAILED, set
+// all_methods_failed when every saved method declined (sheet_only on a
+// stop code), then mail E2, Slack, first tier.
+func (s *Service) backupsThenFail(ctx context.Context, b *store.Batch, cust *store.Customer, fail stripex.ChargeFailure) (*store.Batch, error) {
+	piID := fail.PaymentIntentID
+	if piID == "" {
+		piID = b.PaymentIntentID
+	}
+	allDeclined := false
+	if !fail.Stop && !fail.NeedsAction && piID != "" && cust.StripeCustomerID != "" {
+		methods, lerr := s.Stripe.ListMethods(cust.StripeCustomerID)
+		if lerr != nil {
+			return b, lerr // can't know the backups: the lease lapses and the sweep re-drives
+		}
+		allDeclined = len(methods) > 0
+		for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
+			if m.PaymentMethodID == cust.DefaultPaymentMethod {
+				continue
+			}
+			pi, err := s.Stripe.ConfirmWithMethod(piID, m.PaymentMethodID, 1, false)
+			if err == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
+				s.noteMethodPaid(ctx, b.UID, m.PaymentMethodID)
+				slog.InfoContext(ctx, "group paid by a backup", "batch_id", b.ID, "uid", b.UID)
+				return s.finalizeBatchPaid(ctx, b, pi.ID, pi.AmountReceived)
+			}
+			if err == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+				return s.markBatchProcessing(ctx, b, pi.ID)
+			}
+			f := stripex.ChargeFailure{Code: "requires_action", NeedsAction: true}
+			if err != nil {
+				f = stripex.ClassifyChargeError(err)
+			}
+			if f.Transient {
+				return b, err
+			}
+			if f.Stop {
+				fail, allDeclined = f, false
+				break
+			}
+		}
+	}
+	if piID != "" {
+		out, cerr := s.Stripe.ClosePaymentIntent(piID)
+		if cerr != nil {
+			return b, cerr // a failed group keeps no live PaymentIntent (E0-4): retry the cancel first
+		}
+		if out.Paid {
+			return s.finalizeBatchPaid(ctx, b, out.PaymentIntentID, out.AmountReceived)
+		}
+		if out.Processing {
+			return s.markBatchProcessing(ctx, b, out.PaymentIntentID)
+		}
+	}
+	fail.PaymentIntentID = piID
+	failed, err := s.recordBatchFailure(ctx, b, fail)
+	if err != nil {
+		return failed, err
+	}
+	if allDeclined {
+		if _, uerr := s.Store.UpdateCustomer(ctx, b.UID, func(c *store.Customer) error {
+			c.AllMethodsFailed = true
+			return nil
+		}); uerr != nil {
+			slog.WarnContext(ctx, "all_methods_failed not set", "uid", b.UID, "err", uerr)
+		}
+	}
+	if fail.Stop {
+		s.setSheetOnly(ctx, b.UID, "stop code "+fail.DeclineCode)
+	}
+	if s.payDebtsFromBalance(ctx, b.UID) { // v7 N9/T20: the balance pays it at once
+		return s.Store.GetBatch(ctx, b.ID)
+	}
+	s.mailOwed(ctx, "E2", "E2_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+	return failed, nil
+}
+
+// markBatchProcessing records an async payment in flight (P2): the batch
+// stays charging, nothing is paid, credited or tiered until it succeeds.
+func (s *Service) markBatchProcessing(ctx context.Context, b *store.Batch, piID string) (*store.Batch, error) {
+	updated, err := s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchCharging}, func(bb *store.Batch) error {
+		bb.PaymentIntentID, bb.PIStatus = piID, store.PIProcessing
+		return nil
+	}, nil, nil)
+	if errors.Is(err, store.ErrStateConflict) {
+		return s.Store.GetBatch(ctx, b.ID)
+	}
+	slog.InfoContext(ctx, "batch payment processing", "batch_id", b.ID, "payment_intent", piID)
+	return updated, err
 }
 
 // finalizeBatchPaid commits a collected batch: paid, its conversions
@@ -278,7 +445,9 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 			}
 			bb.ChargedCents = charged
 			bb.ChargedAt = &now
+			bb.PIStatus = store.PISucceeded
 			bb.SettleError = ""
+			bb.Retry.ClosePaid(now) // a web group's schedule ends (nil on app groups)
 			return nil
 		},
 		func(c *store.Conversion) error {
@@ -289,7 +458,7 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 				c.Stripe.PaymentIntentID = piID
 			}
 			c.Stripe.PIStatus = store.PISucceeded
-			c.Stripe.CapturedCents = c.Quote.AmountCents
+			c.Stripe.CapturedCents = runCardCents(c)
 			c.Stripe.CapturedAt = &now
 			c.Stripe.SettleError = ""
 			return nil
@@ -306,6 +475,8 @@ func (s *Service) finalizeBatchPaid(ctx context.Context, b *store.Batch, piID st
 	}
 	slog.InfoContext(ctx, "batch charged", "batch_id", b.ID, "uid", b.UID,
 		"payment_intent", piID, "amount_cents", charged, "items", len(b.Items))
+	s.recordGroupCharge(ctx, updated) // C6
+	s.mailGroupReceipt(ctx, updated)  // E20, web groups only
 	return updated, nil
 }
 
@@ -330,13 +501,23 @@ func (s *Service) recordBatchFailure(ctx context.Context, b *store.Batch, fail s
 			}
 			bb.SettleError = "charge: " + fail.Message
 			if !fail.Transient {
+				now := time.Now().UTC()
 				bb.State = store.BatchFailed
+				bb.FailedAt = &now
+				bb.SoftDecline = !fail.Stop && !fail.NeedsAction && !hardDeclines[fail.DeclineCode] && fail.Code != "no_payment_method"
+				if fail.Config && webBatch(b) {
+					bb.SoftDecline = false // B2 (web): Stripe refused the request; no retry, the owner was alerted
+				}
+				bb.PIStatus = ""
 			}
 			return nil
 		}, convMutate, nil)
 	if !fail.Transient && firstFailure {
 		s.Slack.BatchChargeFailed(ctx, b.ID, b.UID, len(b.Items), b.TotalCents,
 			fmt.Errorf("%s (%s)", fail.Message, fail.Code))
+	}
+	if !fail.Transient && err == nil {
+		s.markChargeFailed(ctx, b.UID)
 	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetBatch(ctx, b.ID)
@@ -408,6 +589,9 @@ func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[stri
 		"needs_action": false,
 		"items":        batchItemsJSON(b),
 	}
+	if b.Retry != nil { // a web group's D2 schedule and pay link (never on app groups)
+		entry["retry"] = s.retryJSON(b.Retry)
+	}
 	if b.PaymentIntentID != "" {
 		if pi, err := s.Stripe.GetPaymentIntent(b.PaymentIntentID); err == nil {
 			switch pi.Status {
@@ -423,19 +607,26 @@ func (s *Service) failedBatchEntry(ctx context.Context, b *store.Batch) map[stri
 }
 
 // tierEntry describes the user's batch tier for the billing UI.
-func (s *Service) tierEntry(ctx context.Context, cust *store.Customer) map[string]any {
+// web: the web groups' tiers (Billing's web_tier); the app's tier
+// otherwise (Billing's tier, unchanged).
+func (s *Service) tierEntry(ctx context.Context, cust *store.Customer, web bool) map[string]any {
 	rates := s.Pricing.Rates(ctx)
 	var paid int64
 	if cust != nil {
 		paid = cust.LifetimePaidCents
 	}
+	tier := s.batchTier(ctx, cust, web)
 	entry := map[string]any{
-		"cap_cents":            rates.BatchCap(paid),
-		"window_hours":         rates.BatchWindow().Hours(),
+		"cap_cents":            tier.CapCents,
+		"window_hours":         tier.WindowHours,
 		"lifetime_paid_cents":  paid,
-		"hold_threshold_cents": s.holdThreshold(ctx, cust),
+		"hold_threshold_cents": s.holdThreshold(ctx, cust, web),
 	}
-	if next := rates.NextBatchTier(paid); next != nil {
+	next := rates.NextBatchTier(paid)
+	if web {
+		next = rates.NextWebBatchTier(paid)
+	}
+	if next != nil {
 		entry["next_tier"] = map[string]any{
 			"min_paid_cents": next.MinPaidCents,
 			"cap_cents":      next.CapCents,
@@ -467,7 +658,7 @@ func (s *Service) HandlePayNow(w http.ResponseWriter, r *http.Request, user *Aut
 	}
 	if s.belowChargeMinimum(ctx, open) {
 		e := httpx.Err(http.StatusBadRequest, "below_minimum_charge",
-			"this balance is below the minimum card charge; it will be collected with your next conversions")
+			"this balance is below the minimum charge; it will be collected with your next conversions")
 		e.Details = map[string]any{"amount_cents": open.TotalCents, "minimum_cents": s.Pricing.Rates(ctx).MinimumCents}
 		httpx.WriteErr(ctx, w, e)
 		return
@@ -492,7 +683,7 @@ func (s *Service) writeBatchOutcome(ctx context.Context, w http.ResponseWriter, 
 			resp["requires_action"] = true
 			resp["client_secret"] = entry["client_secret"]
 		} else {
-			resp["message"] = "The charge was declined. Update your card in the billing portal, then retry."
+			resp["message"] = "The charge was declined. Update your payment method in the billing portal, then retry."
 		}
 	default: // charging: transient trouble, the sweep retries
 		resp["settled"] = false

@@ -11,6 +11,8 @@
 //   - nothing is held up front; on job success the quoted amount is charged
 //     off-session against the saved card (one PaymentIntent per conversion,
 //     deterministic idempotency key so a crash-retry can never double-charge)
+//   - runs above the precharge threshold are charged BEFORE they start
+//     (PrechargeSaved) and refunded in full if they fail (RefundOrCancel)
 //
 // Every PaymentIntent carries {conversion_id, user_id, env, description}
 // metadata so the Stripe dashboard links straight back to the job record for
@@ -20,9 +22,16 @@
 package stripex
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"slices"
+	"sort"
+	"strings"
+	"sync"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -30,7 +39,7 @@ import (
 	"github.com/stripe/stripe-go/v78/customer"
 	"github.com/stripe/stripe-go/v78/ephemeralkey"
 	"github.com/stripe/stripe-go/v78/paymentintent"
-	"github.com/stripe/stripe-go/v78/paymentmethod"
+	"github.com/stripe/stripe-go/v78/refund"
 	"github.com/stripe/stripe-go/v78/setupintent"
 	"github.com/stripe/stripe-go/v78/webhook"
 )
@@ -60,6 +69,9 @@ func New(secretKey, webhookSecret, publishableKey, env string) *Client {
 	}
 }
 
+// EnsureCustomer creates the uid's Stripe customer. The idempotency key
+// makes concurrent first requests share ONE customer (P5); the caller's
+// Firestore Create keeps the mapping single.
 func (c *Client) EnsureCustomer(uid, email string) (string, error) {
 	params := &stripe.CustomerParams{}
 	if email != "" {
@@ -67,6 +79,7 @@ func (c *Client) EnsureCustomer(uid, email string) (string, error) {
 	}
 	params.AddMetadata("firebase_uid", uid)
 	params.AddMetadata("env", c.env)
+	params.SetIdempotencyKey("customer_" + c.env + "_" + uid)
 	cust, err := customer.New(params)
 	if err != nil {
 		return "", err
@@ -107,6 +120,80 @@ type Job struct {
 	// reused stages — api.jobMetadata). Reserved keys (conversion_id,
 	// user_id, env, description) are stamped separately and skipped here.
 	Metadata map[string]string
+	// Web: a Spatial Video Studio web charge (pro steps, groups) rather than
+	// the SVS app's cloud conversion: picks the statement suffix and
+	// stamps product=svs-web.
+	Web bool
+	// PMC names the payment-method configuration an off-session charge is
+	// made under (B1): the web's pmc_web, which offers every type its
+	// sheet saves (card, Link, PayPal). Without it Stripe uses the
+	// account's Default configuration (card, Apple Pay, BLIK) and refuses
+	// a saved Link or PayPal. "" leaves it out (the app's charges, as
+	// shipped).
+	PMC string
+}
+
+// Statement descriptor suffixes (P4): the account's prefix + "* " +
+// suffix stays within the 22 a statement shows. Web: "SPATIALVID* SV
+// STUDIO" (21; the prefix was "SPATIAL AI" until the owner renamed the
+// account 2026-11-04). Set per payment; the account's own name and
+// descriptor are never changed here (the account is shared).
+const (
+	DescriptorSuffixWeb = "SV STUDIO"
+	DescriptorSuffixApp = "SVS CLOUD"
+)
+
+// defaultDescriptorPrefix stands in when the account can't be read.
+const defaultDescriptorPrefix = "SPATIALVID"
+
+var prefixCache struct {
+	sync.Mutex
+	value string
+	at    time.Time
+}
+
+// DescriptorPrefix is the account's card statement prefix, read from the
+// account (cached for an hour), so a dashboard change needs no deploy.
+func (c *Client) DescriptorPrefix() string {
+	prefixCache.Lock()
+	defer prefixCache.Unlock()
+	if prefixCache.value != "" && time.Since(prefixCache.at) < time.Hour {
+		return prefixCache.value
+	}
+	var acct struct {
+		Settings struct {
+			CardPayments struct {
+				Prefix string `json:"statement_descriptor_prefix"`
+			} `json:"card_payments"`
+		} `json:"settings"`
+	}
+	if err := webCall(http.MethodGet, "/v1/account", nil, "", &acct); err != nil || acct.Settings.CardPayments.Prefix == "" {
+		if prefixCache.value != "" {
+			return prefixCache.value
+		}
+		return defaultDescriptorPrefix
+	}
+	prefixCache.value, prefixCache.at = acct.Settings.CardPayments.Prefix, time.Now()
+	return prefixCache.value
+}
+
+// WebStatementDescriptor is the full line a web charge shows ("SPATIALVID*
+// SV STUDIO"), set as the statement_descriptor of plan invoices, which
+// take a whole descriptor rather than a suffix. Cut to 22.
+func WebStatementDescriptor(prefix string) string {
+	d := prefix + "* " + DescriptorSuffixWeb
+	if len(d) > 22 {
+		d = strings.TrimSpace(d[:22])
+	}
+	return d
+}
+
+// DescriptorSuffix is the suffix for a web or app charge.
+func DescriptorSuffix(web bool) string {
+	if web {
+		return DescriptorSuffixWeb
+	}
+	return DescriptorSuffixApp
 }
 
 // stamp applies the job's metadata, description, and receipt email to
@@ -120,6 +207,10 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	params.AddMetadata("user_id", job.UID)
 	params.AddMetadata("env", c.env)
+	params.StatementDescriptorSuffix = stripe.String(DescriptorSuffix(job.Web))
+	if job.Web {
+		params.AddMetadata("product", "svs-web")
+	}
 	if job.Description != "" {
 		params.Description = stripe.String(job.Description)
 		params.AddMetadata("description", job.Description)
@@ -127,9 +218,12 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	if job.ReceiptEmail != "" {
 		params.ReceiptEmail = stripe.String(job.ReceiptEmail)
 	}
+	if job.PMC != "" {
+		params.PaymentMethodConfiguration = stripe.String(job.PMC)
+	}
 	for k, v := range job.Metadata {
 		switch k {
-		case "conversion_id", "batch_id", "user_id", "env", "description":
+		case "conversion_id", "batch_id", "user_id", "env", "description", "product":
 			continue // reserved — never let extras clobber the support keys
 		}
 		if v != "" {
@@ -151,7 +245,7 @@ type PaymentSheet struct {
 func (c *Client) CreateHold(customerID string, amountCents int64, currency string, job Job) (*PaymentSheet, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		CaptureMethod: stripe.String(string(stripe.PaymentIntentCaptureMethodManual)),
 		AutomaticPaymentMethods: &stripe.PaymentIntentAutomaticPaymentMethodsParams{
@@ -272,55 +366,104 @@ func (c *Client) CreateSetupIntent(customerID, uid string) (*SetupSheet, error) 
 	}, nil
 }
 
-// CardInfo describes the customer's default (chargeable) payment method.
+// CardInfo describes the customer's default (chargeable) payment method:
+// any reusable type (P7). Brand/Last4/Exp* are set for cards (wallets
+// tokenise as cards; Wallet names apple_pay, google_pay…); Email for Link
+// and PayPal.
 type CardInfo struct {
 	PaymentMethodID string
+	Type            string // card | link | paypal
+	Wallet          string
 	Brand           string
 	Last4           string
 	ExpMonth        int64
 	ExpYear         int64
+	Email           string
+	Created         int64
+	Fingerprint     string // cards only: the block list (H)
 }
 
-// DefaultCard resolves the customer's default payment method, promoting the
-// newest saved card to default when none is set (a SetupIntent attaches the
-// card but does not make it the default — this read-through heals that, and
-// also picks up cards added or removed in the billing portal). nil, nil when
-// the customer has no saved card.
-func (c *Client) DefaultCard(customerID string) (*CardInfo, error) {
+// IsCard reports a card-shaped default (the iOS app's card field).
+func (ci *CardInfo) IsCard() bool { return ci != nil && (ci.Type == "" || ci.Type == "card") }
+
+// ReusableTypes are the payment-method types we charge off-session.
+var ReusableTypes = map[string]bool{"card": true, "link": true, "paypal": true}
+
+// DefaultMethod resolves the customer's default payment method (P7): any
+// reusable type is accepted as it is, and an existing default is never
+// replaced. Only when none is set (a SetupIntent attaches but doesn't make
+// default) is one picked: the OLDEST saved reusable method, which becomes
+// the default. nil, nil when nothing reusable is saved.
+func (c *Client) DefaultMethod(customerID string, backupOrder ...string) (*CardInfo, error) {
 	cust, err := customer.Get(customerID, &stripe.CustomerParams{
 		Params: stripe.Params{Expand: []*string{stripe.String("invoice_settings.default_payment_method")}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("get customer: %w", err)
 	}
-	if pm := cust.InvoiceSettings.DefaultPaymentMethod; pm != nil && pm.Card != nil {
-		return cardInfo(pm), nil
+	if pm := cust.InvoiceSettings.DefaultPaymentMethod; pm != nil && ReusableTypes[string(pm.Type)] {
+		return MethodInfo(pm), nil
 	}
-	iter := paymentmethod.List(&stripe.PaymentMethodListParams{
-		Customer: stripe.String(customerID),
-		Type:     stripe.String(string(stripe.PaymentMethodTypeCard)),
-	})
-	if !iter.Next() { // newest first — the card just saved by onboarding
-		return nil, iter.Err()
+	methods, err := c.ListMethods(customerID)
+	if err != nil || len(methods) == 0 {
+		return nil, err
 	}
-	pm := iter.PaymentMethod()
+	pick := methods[0] // oldest — unless the customer ordered them (D4)
+	for _, id := range backupOrder {
+		if i := slices.IndexFunc(methods, func(m *CardInfo) bool { return m.PaymentMethodID == id }); i >= 0 {
+			pick = methods[i]
+			break
+		}
+	}
 	if _, err := customer.Update(customerID, &stripe.CustomerParams{
 		InvoiceSettings: &stripe.CustomerInvoiceSettingsParams{
-			DefaultPaymentMethod: stripe.String(pm.ID),
+			DefaultPaymentMethod: stripe.String(pick.PaymentMethodID),
 		},
 	}); err != nil {
-		return nil, fmt.Errorf("promote default payment method: %w", err)
+		return nil, fmt.Errorf("set default payment method: %w", err)
 	}
-	return cardInfo(pm), nil
+	return pick, nil
 }
 
-func cardInfo(pm *stripe.PaymentMethod) *CardInfo {
-	info := &CardInfo{PaymentMethodID: pm.ID}
+// DefaultCard is DefaultMethod (kept for callers that predate P7).
+func (c *Client) DefaultCard(customerID string, backupOrder ...string) (*CardInfo, error) {
+	return c.DefaultMethod(customerID, backupOrder...)
+}
+
+// ListMethods lists the customer's saved reusable methods, oldest first.
+func (c *Client) ListMethods(customerID string) ([]*CardInfo, error) {
+	iter := customer.ListPaymentMethods(&stripe.CustomerListPaymentMethodsParams{Customer: stripe.String(customerID)})
+	var out []*CardInfo
+	for iter.Next() {
+		if pm := iter.PaymentMethod(); ReusableTypes[string(pm.Type)] {
+			out = append(out, MethodInfo(pm))
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return nil, err
+	}
+	sort.SliceStable(out, func(i, j int) bool { return out[i].Created < out[j].Created })
+	return out, nil
+}
+
+// MethodInfo summarises a PaymentMethod.
+func MethodInfo(pm *stripe.PaymentMethod) *CardInfo {
+	info := &CardInfo{PaymentMethodID: pm.ID, Type: string(pm.Type), Created: pm.Created}
 	if pm.Card != nil {
 		info.Brand = string(pm.Card.Brand)
 		info.Last4 = pm.Card.Last4
 		info.ExpMonth = pm.Card.ExpMonth
 		info.ExpYear = pm.Card.ExpYear
+		info.Fingerprint = pm.Card.Fingerprint
+		if pm.Card.Wallet != nil {
+			info.Wallet = string(pm.Card.Wallet.Type)
+		}
+	}
+	if pm.Link != nil {
+		info.Email = pm.Link.Email
+	}
+	if pm.Paypal != nil {
+		info.Email = pm.Paypal.PayerEmail
 	}
 	return info
 }
@@ -335,7 +478,7 @@ func cardInfo(pm *stripe.PaymentMethod) *CardInfo {
 func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -354,7 +497,7 @@ func (c *Client) CreateOffSessionHold(customerID, paymentMethodID string, amount
 func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentParams{
 		Amount:        stripe.Int64(amountCents),
-		Currency:      stripe.String(currency),
+		Currency:      stripe.String(USD(currency)),
 		Customer:      stripe.String(customerID),
 		PaymentMethod: stripe.String(paymentMethodID),
 		Confirm:       stripe.Bool(true),
@@ -368,6 +511,77 @@ func (c *Client) ChargeSaved(customerID, paymentMethodID string, amountCents int
 		params.SetIdempotencyKey("charge_" + c.env + "_" + job.ConversionID)
 	}
 	return paymentintent.New(params)
+}
+
+// PrechargeSaved charges the saved payment method off-session (automatic
+// capture) BEFORE an expensive run is submitted. Same shape as ChargeSaved
+// with its own idempotency key: one up-front charge per conversion, ever,
+// and never confused with a post-success charge.
+func (c *Client) PrechargeSaved(customerID, paymentMethodID string, amountCents int64, currency string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(USD(currency)),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	return c.newKeyedPI(params, "precharge_"+c.env+"_"+job.ConversionID)
+}
+
+// RefundOrCancel gives a pre-charged run's money back: a settled
+// PaymentIntent is refunded in full (refunded = the amount), one never
+// confirmed (3DS abandoned) is canceled (refunded = 0). Idempotent: the
+// refund carries a key per PaymentIntent, and an already-refunded or
+// canceled intent is success. refused reports a Stripe decision a retry
+// can't change (a disputed charge, say) — the caller flags it for a manual
+// refund instead of retrying forever.
+func (c *Client) RefundOrCancel(paymentIntentID string) (refunded int64, refused bool, err error) {
+	gp := &stripe.PaymentIntentParams{}
+	gp.AddExpand("latest_charge")
+	pi, err := paymentintent.Get(paymentIntentID, gp)
+	if err != nil {
+		return 0, false, fmt.Errorf("get payment intent: %w", err)
+	}
+	switch pi.Status {
+	case stripe.PaymentIntentStatusCanceled:
+		return 0, false, nil
+	case stripe.PaymentIntentStatusSucceeded:
+		if pi.LatestCharge != nil && pi.LatestCharge.Refunded {
+			return pi.AmountReceived, false, nil
+		}
+		remaining := pi.AmountReceived
+		if pi.LatestCharge != nil {
+			remaining -= pi.LatestCharge.AmountRefunded
+		}
+		if remaining <= 0 {
+			return pi.AmountReceived, false, nil
+		}
+		// P8c: an explicit amount, and the key names it, so a later
+		// partial refund on the same PaymentIntent can't collide.
+		params := &stripe.RefundParams{PaymentIntent: stripe.String(paymentIntentID), Amount: stripe.Int64(remaining)}
+		params.AddMetadata("env", c.env)
+		params.AddMetadata("source", "gateway")
+		params.SetIdempotencyKey(fmt.Sprintf("refund_%s_%s_full_%d", c.env, paymentIntentID, remaining))
+		r, rerr := refund.New(params)
+		if rerr != nil {
+			if stripeErrCode(rerr) == "charge_already_refunded" {
+				return pi.AmountReceived, false, nil
+			}
+			var serr *stripe.Error
+			refused = errors.As(rerr, &serr) && serr.Type == stripe.ErrorTypeInvalidRequest
+			return 0, refused, fmt.Errorf("refund: %w", rerr)
+		}
+		return r.Amount, false, nil
+	case stripe.PaymentIntentStatusProcessing:
+		// Can't be refunded until it settles; the sweep retries.
+		return 0, false, errors.New("payment intent still processing")
+	}
+	if cerr := c.CancelHold(paymentIntentID); cerr != nil {
+		return 0, false, cerr
+	}
+	return 0, false, nil
 }
 
 // ConfirmSavedCharge retries an existing charge PaymentIntent (decline or
@@ -392,6 +606,80 @@ func (c *Client) ConfirmSavedCharge(paymentIntentID, paymentMethodID, receiptEma
 	return pi, err
 }
 
+// noRetryPI is a PaymentIntent client without network retries: the
+// pre-charge's second try must fit what is left of the request (C1, V6).
+func noRetryPI() *paymentintent.Client {
+	return &paymentintent.Client{
+		B: stripe.GetBackendWithConfig(stripe.APIBackend, &stripe.BackendConfig{
+			HTTPClient:        &http.Client{Timeout: 15 * time.Second},
+			MaxNetworkRetries: stripe.Int64(0),
+		}),
+		Key: stripe.Key,
+	}
+}
+
+// ConfirmWithMethod re-confirms an existing off-session PaymentIntent with
+// another saved method (the pre-charge's second try, C5 backups) under
+// key confirm_{pi}_{pm}_{attempt}. noRetry drops network retries.
+func (c *Client) ConfirmWithMethod(paymentIntentID, paymentMethodID string, attempt int, noRetry bool) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentConfirmParams{
+		PaymentMethod: stripe.String(paymentMethodID),
+		OffSession:    stripe.Bool(true),
+	}
+	params.SetIdempotencyKey(fmt.Sprintf("confirm_%s_%s_%d", paymentIntentID, paymentMethodID, attempt))
+	if noRetry {
+		return noRetryPI().Confirm(paymentIntentID, params)
+	}
+	return paymentintent.Confirm(paymentIntentID, params)
+}
+
+// ChargeInfo is what a statement line shows for a PaymentIntent's charge
+// (the billing history, S3D-57).
+type ChargeInfo struct {
+	ReceiptURL     string
+	CardBrand      string
+	CardLast4      string
+	AmountRefunded int64
+	// Method is what the charge went on, for a history label.
+	Method CardInfo
+}
+
+// ChargeDetails reads the PaymentIntent's latest charge: receipt link and
+// the card it went on. Empty info (no error) when the PI has no charge.
+func (c *Client) ChargeDetails(paymentIntentID string) (*ChargeInfo, error) {
+	if !IsPaymentIntentID(paymentIntentID) {
+		return &ChargeInfo{}, nil // paid from the balance: no Stripe charge
+	}
+	params := &stripe.PaymentIntentParams{}
+	params.AddExpand("latest_charge")
+	pi, err := paymentintent.Get(paymentIntentID, params)
+	if err != nil {
+		return nil, err
+	}
+	info := &ChargeInfo{}
+	ch := pi.LatestCharge
+	if ch == nil {
+		return info, nil
+	}
+	info.ReceiptURL = ch.ReceiptURL
+	info.AmountRefunded = ch.AmountRefunded
+	if d := ch.PaymentMethodDetails; d != nil {
+		info.Method.Type = string(d.Type)
+		if d.Card != nil {
+			info.CardBrand = string(d.Card.Brand)
+			info.CardLast4 = d.Card.Last4
+			info.Method.Brand, info.Method.Last4 = info.CardBrand, info.CardLast4
+			if d.Card.Wallet != nil {
+				info.Method.Wallet = string(d.Card.Wallet.Type)
+			}
+		}
+		if d.Paypal != nil {
+			info.Method.Email = d.Paypal.PayerEmail
+		}
+	}
+	return info, nil
+}
+
 // GetPaymentIntent fetches a PI (client_secret for the web 3DS fallback,
 // status probes).
 func (c *Client) GetPaymentIntent(id string) (*stripe.PaymentIntent, error) {
@@ -412,6 +700,22 @@ type ChargeFailure struct {
 	// reconciler to retry automatically without involving the user.
 	Transient bool
 	Message   string
+	// DeclineCode is the issuer's reason; Stop marks the codes after which
+	// nothing else may be tried (C1/C5: fraudulent, stolen, lost, pick up,
+	// do not try again) — the account then pays in the sheet.
+	DeclineCode string
+	Stop        bool
+	// Config: Stripe refused the request itself (invalid_request: a
+	// method type the configuration doesn't allow, a detached method, a
+	// bad parameter), not the bank (B2). The web never retries it on a
+	// schedule or mails "didn't go through" for it; it alerts. The app's
+	// paths don't read it (unchanged).
+	Config bool
+}
+
+// stopDeclines end every retry and backup at once (C5).
+var stopDeclines = map[string]bool{
+	"fraudulent": true, "stolen_card": true, "lost_card": true, "pickup_card": true, "do_not_try_again": true,
 }
 
 // ClassifyChargeError maps a Stripe error from ChargeSaved/ConfirmSavedCharge
@@ -422,15 +726,24 @@ func ClassifyChargeError(err error) ChargeFailure {
 	if !errors.As(err, &serr) {
 		return ChargeFailure{Transient: true, Message: err.Error()}
 	}
-	f := ChargeFailure{Code: string(serr.Code), Message: serr.Msg}
+	f := ChargeFailure{Code: string(serr.Code), Message: serr.Msg, DeclineCode: string(serr.DeclineCode)}
+	f.Stop = stopDeclines[f.DeclineCode]
 	if serr.PaymentIntent != nil {
 		f.PaymentIntentID = serr.PaymentIntent.ID
 	}
 	switch {
+	case serr.Type == stripe.ErrorTypeIdempotency:
+		// the same key in flight elsewhere, or reused with other params:
+		// never a card decision
+		f.Transient = true
 	case serr.Code == stripe.ErrorCodeAuthenticationRequired:
 		f.NeedsAction = true
-	case serr.Type == stripe.ErrorTypeCard, serr.Type == stripe.ErrorTypeInvalidRequest:
-		// decline / unusable payment method — needs the user
+	case serr.Type == stripe.ErrorTypeInvalidRequest:
+		// unusable payment method or a request Stripe refuses — needs the
+		// user on the app's paths; a configuration error on the web's (B2)
+		f.Config = true
+	case serr.Type == stripe.ErrorTypeCard:
+		// decline — needs the user
 	default:
 		f.Transient = true
 	}
@@ -448,4 +761,301 @@ func stripeErrCode(err error) string {
 		return string(serr.Code)
 	}
 	return ""
+}
+
+// ChargeSettle charges a settle's frozen total off-session on the
+// default, under settle_{env}_{settle_id} (C11): one PaymentIntent per
+// settle across retries.
+func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents int64, currency, settleID string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(USD(currency)),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	return c.newKeyedPI(params, c.SettleChargeKey(settleID))
+}
+
+// SettleChargeKey is the idempotency key of a settle's off-session charge.
+func (c *Client) SettleChargeKey(settleID string) string { return "settle_" + c.env + "_" + settleID }
+
+// FindSettleCharge looks for the PaymentIntent a settle's charge made
+// (metadata settle_id) among the customer's PaymentIntents created since
+// `since` (B5: an answer lost to a timeout). nil when there is none. A
+// list read, never a create: re-driving a settle never charges again.
+func (c *Client) FindSettleCharge(customerID, settleID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "settle_id", settleID, since)
+}
+
+// FindBatchCharge is FindSettleCharge for a group (metadata batch_id): a
+// web group re-driven after its answer was lost (B6). A succeeded one wins.
+func (c *Client) FindBatchCharge(customerID, batchID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "batch_id", batchID, since)
+}
+
+func (c *Client) findCharge(customerID, key, value string, since time.Time) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
+	if !since.IsZero() {
+		params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Add(-5 * time.Minute).Unix()}
+	}
+	params.AddExpand("data.payment_method")
+	it := paymentintent.List(params)
+	var found *stripe.PaymentIntent
+	for it.Next() {
+		if pi := it.PaymentIntent(); pi.Metadata[key] == value && pi.Metadata["env"] == c.env {
+			if pi.Status == stripe.PaymentIntentStatusSucceeded {
+				return pi, nil
+			}
+			if found == nil {
+				found = pi
+			}
+		}
+	}
+	return found, it.Err()
+}
+
+// ChargeBatchWith charges a web group on another saved method when the
+// default's charge made no PaymentIntent (B3): key batch_{env}_{id}{suffix}.
+func (c *Client) ChargeBatchWith(customerID, paymentMethodID string, amountCents int64, currency, batchID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
+	job.BatchID = batchID
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, currency, "batch_"+c.env+"_"+batchID+keySuffix, job)
+}
+
+// ChargeSettleWith charges a settle on another saved method when the
+// default's charge made no PaymentIntent to re-confirm (B3): its own key
+// settle_{env}_{settle_id}_{pm}.
+func (c *Client) ChargeSettleWith(customerID, paymentMethodID string, amountCents int64, currency, settleID string, job Job) (*stripe.PaymentIntent, error) {
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, currency, c.SettleChargeKey(settleID)+"_"+paymentMethodID, job)
+}
+
+func (c *Client) chargeKeyed(customerID, paymentMethodID string, amountCents int64, currency, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(USD(currency)),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	return c.newKeyedPI(params, key)
+}
+
+// CreateOnSession makes an on-session PaymentIntent for the saved default
+// (one-tap, BUX-20): USD under job.PMC, not confirmed — the caller records
+// it first, then ConfirmOnSession moves the money. Key: one per tap.
+func (c *Client) CreateOnSession(customerID, paymentMethodID string, amountCents int64, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey(key)
+	return paymentintent.New(params)
+}
+
+// ConfirmOnSession confirms it with the customer present (off_session
+// false: the bank may ask for its check, answered by the web's
+// handleNextAction); returnURL serves redirect methods (PayPal).
+func (c *Client) ConfirmOnSession(paymentIntentID, returnURL string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentConfirmParams{ReturnURL: stripe.String(returnURL)}
+	params.SetIdempotencyKey("onetap_confirm_" + paymentIntentID)
+	return paymentintent.Confirm(paymentIntentID, params)
+}
+
+// ChargeOnSession creates and confirms in one call (a settle's one-tap,
+// recorded before by the caller, B5).
+func (c *Client) ChargeOnSession(customerID, paymentMethodID string, amountCents int64, returnURL, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		ReturnURL:     stripe.String(returnURL),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey(key)
+	return paymentintent.New(params)
+}
+
+// CreateAlipayPayment creates and confirms an Alipay PaymentIntent
+// server-side for China mode (B7): no Stripe.js. The browser follows
+// next_action.alipay_handle_redirect.url and comes back to returnURL. Key
+// china_{env}_{conversion_id}_{attempt}. Never saved (Alipay can't be
+// charged off-session).
+func (c *Client) CreateAlipayPayment(customerID string, amountCents int64, currency, returnURL string, attempt int, job Job) (*stripe.PaymentIntent, string, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:             stripe.Int64(amountCents),
+		Currency:           stripe.String(USD(currency)),
+		Customer:           stripe.String(customerID),
+		PaymentMethodTypes: stripe.StringSlice([]string{"alipay"}),
+		PaymentMethodData:  &stripe.PaymentIntentPaymentMethodDataParams{Type: stripe.String("alipay")},
+		Confirm:            stripe.Bool(true),
+		ReturnURL:          stripe.String(returnURL),
+	}
+	c.stamp(params, job)
+	params.AddMetadata("payment_flow", "china")
+	params.SetIdempotencyKey(fmt.Sprintf("china_%s_%s_%d", c.env, job.ConversionID, attempt))
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		return nil, "", err
+	}
+	redirect := ""
+	if pi.NextAction != nil && pi.NextAction.AlipayHandleRedirect != nil {
+		redirect = pi.NextAction.AlipayHandleRedirect.URL
+	}
+	return pi, redirect, nil
+}
+
+// ChargeTopup charges an auto-reload off-session (v7 N4): one
+// PaymentIntent under topup_{env}_{topup_id}, metadata topup_id (R8).
+func (c *Client) ChargeTopup(customerID, paymentMethodID string, amountCents int64, topupID string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	job.Web = true
+	c.stamp(params, job)
+	params.AddMetadata("topup_id", topupID)
+	params.AddMetadata("payment_flow", "topup")
+	return c.newKeyedPI(params, "topup_"+c.env+"_"+topupID)
+}
+
+// ChargeTopupWith charges an auto-reload under key
+// topup_{env}_{topup_id}{keySuffix}, metadata as ChargeTopup: a backup
+// when the default's charge made no PaymentIntent (B3, suffix _{pm}), a
+// retry (D2, _r{n}, its backups _r{n}_{pm}).
+func (c *Client) ChargeTopupWith(customerID, paymentMethodID string, amountCents int64, topupID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
+	job.Web = true
+	job.Metadata = withMetadata(job.Metadata, map[string]string{"topup_id": topupID, "payment_flow": "topup"})
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, "usd", "topup_"+c.env+"_"+topupID+keySuffix, job)
+}
+
+func withMetadata(base, add map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range add {
+		out[k] = v
+	}
+	return out
+}
+
+// CreateAlipayTopup is China mode's top-up (N3: the P6 server path), key
+// china_topup_{env}_{topup_id}_{attempt}.
+func (c *Client) CreateAlipayTopup(customerID string, amountCents int64, returnURL, topupID string, attempt int, job Job) (*stripe.PaymentIntent, string, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:             stripe.Int64(amountCents),
+		Currency:           stripe.String("usd"),
+		Customer:           stripe.String(customerID),
+		PaymentMethodTypes: stripe.StringSlice([]string{"alipay"}),
+		PaymentMethodData:  &stripe.PaymentIntentPaymentMethodDataParams{Type: stripe.String("alipay")},
+		Confirm:            stripe.Bool(true),
+		ReturnURL:          stripe.String(returnURL),
+	}
+	job.Web = true
+	c.stamp(params, job)
+	params.AddMetadata("topup_id", topupID)
+	params.AddMetadata("payment_flow", "china")
+	params.SetIdempotencyKey(fmt.Sprintf("china_topup_%s_%s_%d", c.env, topupID, attempt))
+	pi, err := paymentintent.New(params)
+	if err != nil {
+		return nil, "", err
+	}
+	redirect := ""
+	if pi.NextAction != nil && pi.NextAction.AlipayHandleRedirect != nil {
+		redirect = pi.NextAction.AlipayHandleRedirect.URL
+	}
+	return pi, redirect, nil
+}
+
+// USD is the currency every charge and invoice goes out in: ours are all
+// USD prices, and the live account's default currency is GBP, so an empty
+// currency must never reach Stripe (it would be refused, or default).
+func USD(currency string) string {
+	if c := strings.ToLower(strings.TrimSpace(currency)); c != "" {
+		return c
+	}
+	return "usd"
+}
+
+// newKeyedPI creates an off-session PaymentIntent under key (REV-09). An
+// idempotency_error means the key was first sent with other parameters —
+// a deploy or a config change (PMC, metadata) between a lost answer and
+// its replay — and would repeat on every replay. It is answered from what
+// the key made: this job's PaymentIntent (same settle, group, top-up or
+// run, amount and method, created within the key's 24 h) when it took or
+// is taking the money; otherwise the first send took nothing, and the
+// request goes again under key_p{hash of these parameters}, itself stable
+// for replays.
+func (c *Client) newKeyedPI(params *stripe.PaymentIntentParams, key string) (*stripe.PaymentIntent, error) {
+	params.SetIdempotencyKey(key)
+	pi, err := paymentintent.New(params)
+	if err == nil || !IsIdempotencyError(err) || params.Customer == nil || params.Amount == nil {
+		return pi, err
+	}
+	field, value := "", ""
+	for _, f := range []string{"settle_id", "batch_id", "topup_id", "conversion_id"} {
+		if v := params.Metadata[f]; v != "" {
+			field, value = f, v
+			break
+		}
+	}
+	if field == "" {
+		return pi, err
+	}
+	prev, ferr := c.findMadeCharge(*params.Customer, field, value, time.Now().Add(-25*time.Hour), *params.Amount, stripe.StringValue(params.PaymentMethod))
+	if ferr != nil {
+		return pi, err // still the idempotency_error: a later replay looks again
+	}
+	if prev != nil {
+		return prev, nil
+	}
+	raw, _ := json.Marshal(params)
+	sum := sha256.Sum256(raw)
+	params.SetIdempotencyKey(key + "_p" + hex.EncodeToString(sum[:6]))
+	return paymentintent.New(params)
+}
+
+// findMadeCharge: the customer's PaymentIntent for field=value of this
+// amount on this method that took or is taking money (succeeded,
+// processing, the bank's check, held), nil when none.
+func (c *Client) findMadeCharge(customerID, field, value string, since time.Time, amount int64, pm string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
+	params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Unix()}
+	params.AddExpand("data.payment_method")
+	it := paymentintent.List(params)
+	for it.Next() {
+		pi := it.PaymentIntent()
+		if pi.Metadata[field] != value || pi.Metadata["env"] != c.env || pi.Amount != amount {
+			continue
+		}
+		if pm != "" && (pi.PaymentMethod == nil || pi.PaymentMethod.ID != pm) {
+			continue
+		}
+		switch pi.Status {
+		case stripe.PaymentIntentStatusSucceeded, stripe.PaymentIntentStatusProcessing,
+			stripe.PaymentIntentStatusRequiresAction, stripe.PaymentIntentStatusRequiresCapture:
+			return pi, nil
+		}
+	}
+	return nil, it.Err()
+}
+
+// IsIdempotencyError: Stripe refused a key sent again with other
+// parameters.
+func IsIdempotencyError(err error) bool {
+	var se *stripe.Error
+	return errors.As(err, &se) && se.Type == stripe.ErrorTypeIdempotency
 }

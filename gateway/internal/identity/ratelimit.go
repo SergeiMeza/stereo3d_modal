@@ -2,7 +2,9 @@ package identity
 
 import (
 	"net"
+
 	"net/http"
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"strings"
 	"sync"
 	"time"
@@ -98,6 +100,10 @@ func NewIPPolicy(lbIPs, relayIPs string) IPPolicy {
 // ClientIP is the address to key the rate limit on, and whether the request
 // came through the relay.
 func (p IPPolicy) ClientIP(r *http.Request) (ip string, viaRelay bool) {
+	// svs-backend's vouched-for caller (httpx.WithTrustedProxy) first.
+	if ip, relay, ok := httpx.TrustedClientIP(r.Context()); ok {
+		return ip, relay
+	}
 	var chain []string
 	for _, h := range strings.Split(r.Header.Get("X-Forwarded-For"), ",") {
 		if h = strings.TrimSpace(h); net.ParseIP(h) != nil {

@@ -2,6 +2,7 @@
 package config
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -19,12 +20,47 @@ type Config struct {
 	ModalTokenID     string // Modal proxy-auth token (Modal-Key header)
 	ModalTokenSecret string // Modal proxy-auth token (Modal-Secret header)
 
+	// LifelikeBaseURL is the shared lifelike3d Modal service
+	// (https://<workspace>--lifelike3d-api-<env>.modal.run; ml-sharp-modal
+	// docs/LIFELIKE_API.md). Empty turns the Lifelike method off: new
+	// projects default to classic and Lifelike steps answer
+	// method_unavailable. Test defaults to the test service; prod must be
+	// set explicitly (the prod service is not deployed).
+	LifelikeBaseURL string
+	// Lifelike proxy auth (prod requires it; test is open). Defaults to the
+	// Modal token above: both services live in the same workspace.
+	LifelikeTokenID     string
+	LifelikeTokenSecret string
+	// Modal workspaces (S3D-40). The settings above are the DEFAULT
+	// workspace, DefaultWorkspaceID (env MODAL_WORKSPACE_ID, else the
+	// workspace in MODAL_BASE_URL's host, "<ws>--stereo3d-api-…"). Every
+	// project records its workspace at creation; ids must stay stable.
+	// ExtraWorkspaces (env MODAL_WORKSPACES, JSON, none today) are further
+	// production workspaces, see ParseWorkspaces.
+	DefaultWorkspaceID string
+	ExtraWorkspaces    []Workspace
+
 	StripeSecretKey      string
 	StripeWebhookSecret  string
 	StripePublishableKey string
 
 	SlackWebhookURL string // optional; failure notifications
 	ReconcileToken  string // shared secret for /internal/reconcile
+	// AdminSessionKey signs admin passkey sessions (ADR 0135; Secret
+	// Manager admin-session-key-{env}); "" = passkey sessions off.
+	AdminSessionKey string
+	// RevenueCatWebhookAuth: the Authorization header RevenueCat sends to
+	// POST /webhooks/revenuecat (Secret Manager
+	// revenuecat-webhook-auth-{env}); "" = the route is off.
+	RevenueCatWebhookAuth string
+	// SVSProxyKey: the shared secret svs-backend sends in X-SVS-Proxy-Key
+	// so its X-SVS-Client-IP is trusted (svs-gateway-proxy-key-{env});
+	// "" trusts nobody.
+	SVSProxyKey string
+	// OrphanSweep: count customers with a renewing web subscription whose
+	// Firebase user is gone (deleted by the app's old flow): off | report
+	// (report only; it never cancels). Default report on test, off on prod.
+	OrphanSweep string
 
 	// FirebaseWebAPIKey is the project's public web API key, for the
 	// /v1/auth/* routes that sign browsers in on their behalf (identity
@@ -45,6 +81,43 @@ type Config struct {
 	ResendAPIKey  string
 	ResetMailFrom string
 	ResetPageURL  string
+	// OwnerAlertEmail receives the owner's operational mails (the GPU-line
+	// alert) and, on test, every customer notice instead of the customer.
+	// Empty = those mails are logged only.
+	OwnerAlertEmail string
+	// SiteURL is the web app's origin, for links in customer mails.
+	SiteURL string
+
+	// The app-path deletion hand-off (agreed with svs-app 2026-11-07):
+	// SVSBackendURL receives POST /internal/v1/account/deletion-completed
+	// with a Google ID token from the gateway's service account (audience
+	// = this URL; "" = callbacks wait in the outbox). The backstop read
+	// accepts Google ID tokens for InternalOIDCAudiences from
+	// SVSBackendServiceAccounts only.
+	SVSBackendURL             string
+	SVSBackendServiceAccounts []string
+	InternalOIDCAudiences     []string
+	// KPIServiceAccounts: the service accounts whose Google ID tokens may
+	// read GET /v1/admin/revenue/daily (KPI_OIDC_SERVICE_ACCOUNTS; empty =
+	// nobody).
+	KPIServiceAccounts []string
+	// AdminOrigins: the admin console's origins (M1), the only ones
+	// /v1/admin/* answers in a browser (ADMIN_ORIGINS; test also allows
+	// a local console).
+	AdminOrigins []string
+	// RevenueCatKey is SVS's RevenueCat secret v1 key (Secret Manager
+	// RC_API_KEY_V1, shared with the SVS backend): the Pro check (S3D-67).
+	// Empty = nobody gets the Pro discount.
+	RevenueCatKey string
+	// StripePMCWeb is the dedicated payment-method configuration of the web
+	// ("Stereo3D web", spec v6 D2) every web Checkout Session uses — never
+	// the account's Default (shared). Empty = the sheet is unavailable.
+	StripePMCWeb string
+	// FileKeepingTestAccounts: on test, the accounts (emails) whose
+	// projects' files the file-keeping purge really erases; every other
+	// test project is a dry run (logged only). The owner's alert address
+	// always counts. Prod ignores it and erases for real.
+	FileKeepingTestAccounts []string
 
 	// CORSOrigins are browser origins allowed to call the API (the web
 	// client). Comma-separated; "*" allows all (bearer auth, no cookies).
@@ -69,12 +142,19 @@ func Load() (*Config, error) {
 		ModalTokenID:     getenv("MODAL_TOKEN_ID", ""),
 		ModalTokenSecret: getenv("MODAL_TOKEN_SECRET", ""),
 
+		LifelikeTokenID:     getenv("LIFELIKE_TOKEN_ID", getenv("MODAL_TOKEN_ID", "")),
+		LifelikeTokenSecret: getenv("LIFELIKE_TOKEN_SECRET", getenv("MODAL_TOKEN_SECRET", "")),
+
 		StripeSecretKey:      getenv("STRIPE_SECRET_KEY", ""),
 		StripeWebhookSecret:  getenv("STRIPE_WEBHOOK_SECRET", ""),
 		StripePublishableKey: getenv("STRIPE_PUBLISHABLE_KEY", ""),
 
-		SlackWebhookURL: getenv("SLACK_WEBHOOK_URL", ""),
-		ReconcileToken:  getenv("RECONCILE_TOKEN", ""),
+		SlackWebhookURL:       getenv("SLACK_WEBHOOK_URL", ""),
+		ReconcileToken:        getenv("RECONCILE_TOKEN", ""),
+		AdminSessionKey:       getenv("ADMIN_SESSION_KEY", ""),
+		RevenueCatWebhookAuth: getenv("REVENUECAT_WEBHOOK_AUTH", ""),
+		SVSProxyKey:           getenv("SVS_PROXY_KEY", ""),
+		OrphanSweep:           getenv("ORPHAN_SWEEP", map[string]string{"test": "report", "prod": "off"}[env]),
 
 		FirebaseWebAPIKey: getenv("FIREBASE_WEB_API_KEY", ""),
 		LBIPs:             getenv("LB_IPS", ""),
@@ -84,15 +164,59 @@ func Load() (*Config, error) {
 		ResendAPIKey:     getenv("RESEND_API_KEY", ""),
 		ResetMailFrom:    getenv("RESET_MAIL_FROM", ""),
 		ResetPageURL:     getenv("RESET_PAGE_URL", "https://www.stereo3d.studio/reset-password"),
+		OwnerAlertEmail:  getenv("OWNER_ALERT_EMAIL", ""),
+		RevenueCatKey:    strings.TrimSpace(getenv("RC_API_KEY_V1", "")),
+		StripePMCWeb:     getenv("STRIPE_PMC_WEB", ""),
+		SiteURL:          strings.TrimRight(getenv("SITE_URL", "https://www.stereo3d.studio"), "/"),
+	}
+	c.SVSBackendURL = strings.TrimRight(getenv("SVS_BACKEND_URL", map[string]string{
+		"test": "https://svs-backend-test-151335782809.us-central1.run.app"}[env]), "/")
+	c.SVSBackendServiceAccounts = splitList(getenv("SVS_BACKEND_SERVICE_ACCOUNTS", "svs-backend@spatial-video-studio.iam.gserviceaccount.com"))
+	c.KPIServiceAccounts = splitList(getenv("KPI_OIDC_SERVICE_ACCOUNTS", ""))
+	c.InternalOIDCAudiences = splitList(getenv("INTERNAL_OIDC_AUDIENCES", map[string]string{
+		"test": "https://stereo3d-gateway-test-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-test-151335782809.us-central1.run.app",
+		"prod": "https://stereo3d-gateway-prod-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-prod-151335782809.us-central1.run.app"}[env]))
+	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {
+		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
+			c.FileKeepingTestAccounts = append(c.FileKeepingTestAccounts, e)
+		}
+	}
+	lifelike := ""
+	if env == "test" {
+		lifelike = defaultLifelikeTestURL
+	}
+	c.LifelikeBaseURL = strings.TrimRight(getenv("LIFELIKE_BASE_URL", lifelike), "/")
+	if c.LifelikeBaseURL == "off" {
+		c.LifelikeBaseURL = ""
 	}
 	if c.MediaRelayOrigin == "off" {
 		c.MediaRelayOrigin = ""
+	}
+	adminDefault := "https://admin.stereo3d.studio"
+	if env == "test" {
+		adminDefault += ",https://admin-test.stereo3d.studio,http://localhost:5174"
+	}
+	for _, o := range strings.Split(getenv("ADMIN_ORIGINS", adminDefault), ",") {
+		if o = strings.TrimSpace(o); o != "" {
+			c.AdminOrigins = append(c.AdminOrigins, strings.TrimRight(o, "/"))
+		}
 	}
 	for _, o := range strings.Split(getenv("CORS_ORIGINS", "*"), ",") {
 		if o = strings.TrimSpace(o); o != "" {
 			c.CORSOrigins = append(c.CORSOrigins, strings.TrimRight(o, "/"))
 		}
 	}
+	c.DefaultWorkspaceID = getenv("MODAL_WORKSPACE_ID", workspaceFromURL(c.ModalBaseURL))
+	extra, err := ParseWorkspaces(getenv("MODAL_WORKSPACES", ""), os.Getenv)
+	if err != nil {
+		return nil, err
+	}
+	for _, w := range extra {
+		if w.ID == c.DefaultWorkspaceID {
+			return nil, fmt.Errorf("MODAL_WORKSPACES: %q is the default workspace", w.ID)
+		}
+	}
+	c.ExtraWorkspaces = extra
 	for key, val := range map[string]string{
 		"GCP_PROJECT_ID":    c.GCPProjectID,
 		"MODAL_BASE_URL":    c.ModalBaseURL,
@@ -105,9 +229,99 @@ func Load() (*Config, error) {
 	return c, nil
 }
 
+const defaultLifelikeTestURL = "https://stereo-crafter-test--lifelike3d-api-test.modal.run"
+
 func getenv(key, fallback string) string {
 	if v := strings.TrimSpace(os.Getenv(key)); v != "" {
 		return v
 	}
 	return fallback
+}
+
+// Workspace is one Modal workspace's pipeline endpoints and tokens
+// (S3D-40). An empty LifelikeBaseURL = Lifelike off there.
+type Workspace struct {
+	ID                  string
+	ModalBaseURL        string
+	ModalTokenID        string
+	ModalTokenSecret    string
+	LifelikeBaseURL     string
+	LifelikeTokenID     string
+	LifelikeTokenSecret string
+}
+
+// workspaceFromURL reads the workspace out of a Modal web endpoint host
+// ("https://<ws>--stereo3d-api-test.modal.run"); "default" when it can't.
+func workspaceFromURL(raw string) string {
+	host := raw
+	if i := strings.Index(host, "://"); i >= 0 {
+		host = host[i+3:]
+	}
+	if ws, _, ok := strings.Cut(host, "--"); ok && ws != "" && !strings.ContainsAny(ws, "/.:") {
+		return ws
+	}
+	return "default"
+}
+
+// ParseWorkspaces reads MODAL_WORKSPACES: a JSON list of
+// {"id", "modal_base_url", "lifelike_base_url", "token_id_env",
+// "token_secret_env"}. Tokens are named by env var (mounted secrets), never
+// inline; absent token envs fall back to MODAL_TOKEN_ID/SECRET.
+func ParseWorkspaces(raw string, env func(string) string) ([]Workspace, error) {
+	if strings.TrimSpace(raw) == "" {
+		return nil, nil
+	}
+	var in []struct {
+		ID              string `json:"id"`
+		ModalBaseURL    string `json:"modal_base_url"`
+		LifelikeBaseURL string `json:"lifelike_base_url"`
+		TokenIDEnv      string `json:"token_id_env"`
+		TokenSecretEnv  string `json:"token_secret_env"`
+	}
+	if err := json.Unmarshal([]byte(raw), &in); err != nil {
+		return nil, fmt.Errorf("MODAL_WORKSPACES: %w", err)
+	}
+	seen := map[string]bool{}
+	var out []Workspace
+	for _, w := range in {
+		if w.ID == "" || w.ModalBaseURL == "" || seen[w.ID] {
+			return nil, fmt.Errorf("MODAL_WORKSPACES: each entry needs a unique id and modal_base_url")
+		}
+		seen[w.ID] = true
+		tokenEnv := func(name, fallback string) string {
+			if name != "" {
+				if v := env(name); v != "" {
+					return v
+				}
+			}
+			return env(fallback)
+		}
+		id, secret := tokenEnv(w.TokenIDEnv, "MODAL_TOKEN_ID"), tokenEnv(w.TokenSecretEnv, "MODAL_TOKEN_SECRET")
+		out = append(out, Workspace{
+			ID: w.ID, ModalBaseURL: strings.TrimRight(w.ModalBaseURL, "/"),
+			ModalTokenID: id, ModalTokenSecret: secret,
+			LifelikeBaseURL: strings.TrimRight(w.LifelikeBaseURL, "/"),
+			LifelikeTokenID: id, LifelikeTokenSecret: secret,
+		})
+	}
+	return out, nil
+}
+
+// AdminOrigin is the console's main origin (links in owner notices).
+func (c *Config) AdminOrigin() string {
+	if len(c.AdminOrigins) > 0 {
+		return c.AdminOrigins[0]
+	}
+	return "https://admin.stereo3d.studio"
+}
+
+// splitList is a comma list, trimmed, empties dropped.
+func splitList(v string) []string {
+	var out []string
+	for _, e := range strings.Split(v, ",") {
+		if e = strings.TrimSpace(e); e != "" {
+			out = append(out, e)
+		}
+	}
+	return out
 }

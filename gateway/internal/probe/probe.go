@@ -24,6 +24,9 @@ type Result struct {
 
 const timeout = 30 * time.Second
 
+// command runs a tool (a variable so tests can stand in for ffprobe).
+var command = exec.CommandContext
+
 // slots caps the ffprobe processes one instance runs at once. Each request
 // started its own, so a burst of 80 photo creates on one instance was 80
 // processes and ran it out of memory, failing every request it held

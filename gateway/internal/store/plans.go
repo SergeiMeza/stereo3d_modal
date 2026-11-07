@@ -1,0 +1,297 @@
+package store
+
+import (
+	"context"
+	"time"
+
+	"cloud.google.com/go/firestore"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+)
+
+// Web plans (Business, Studio — pricing 2026-11): a Stripe Billing
+// subscription on the web's own product. Customer.Plan mirrors it from
+// customer.subscription.* events.
+type Plan struct {
+	Tier               string     `firestore:"tier" json:"tier"` // business | studio
+	SubscriptionID     string     `firestore:"subscription_id" json:"-"`
+	Status             string     `firestore:"status" json:"status"` // Stripe's: active, past_due, canceled, …
+	CurrentPeriodStart *time.Time `firestore:"current_period_start,omitempty" json:"current_period_start,omitempty"`
+	CurrentPeriodEnd   *time.Time `firestore:"current_period_end,omitempty" json:"current_period_end,omitempty"`
+	CancelAtPeriodEnd  bool       `firestore:"cancel_at_period_end" json:"cancel_at_period_end"`
+	UpdatedAt          time.Time  `firestore:"updated_at" json:"-"`
+	// RevenueCat promotional entitlements for the app (business|studio
+	// and pro): the invoice whose payment granted them (one grant per
+	// invoice), until when, the last failure, and an early revoke.
+	RCGrantInvoice string     `firestore:"rc_grant_invoice,omitempty" json:"-"`
+	RCGrantedUntil *time.Time `firestore:"rc_granted_until,omitempty" json:"-"`
+	RCGrantError   string     `firestore:"rc_grant_error,omitempty" json:"-"`
+	RCRevokedAt    *time.Time `firestore:"rc_revoked_at,omitempty" json:"-"`
+	RCRevokeReason string     `firestore:"rc_revoke_reason,omitempty" json:"-"`
+	// LastInvoiceID / LastCreditCents: the latest paid plan invoice and
+	// the credit it granted (a refund we grant is paid × unspent/credit).
+	LastInvoiceID   string `firestore:"last_invoice_id,omitempty" json:"-"`
+	LastCreditCents int64  `firestore:"last_credit_cents,omitempty" json:"-"`
+	// Interval: month | year (Studio bills yearly, its credit monthly).
+	// GrantsPaused: a yearly plan's monthly credit is held back (a dispute
+	// or fraud warning on its invoice, a block); "" = granted.
+	Interval     string `firestore:"interval,omitempty" json:"interval,omitempty"`
+	GrantsPaused string `firestore:"grants_paused,omitempty" json:"-"`
+	// StartedAt: the subscription's first paid invoice; AppProChecked: the
+	// subscription whose App Store Pro reminder was decided (sent or not
+	// needed), once (owner 2026-11-04).
+	StartedAt     *time.Time `firestore:"started_at,omitempty" json:"-"`
+	AppProChecked string     `firestore:"app_pro_checked,omitempty" json:"-"`
+	// PlanID: pro_weekly | pro_monthly | pro_yearly for web Pro on our own
+	// Stripe ("" = Tier, Business/Studio). Intro: started with Pro's intro
+	// coupon; IntroInvoices: the later cycles' invoices it was put on.
+	PlanID        string   `firestore:"plan_id,omitempty" json:"-"`
+	Intro         bool     `firestore:"intro,omitempty" json:"-"`
+	IntroInvoices []string `firestore:"intro_invoices,omitempty" json:"-"`
+	// PeriodPaidCents: what the current period's plan line cost after
+	// discounts (an intro), for the old-plan credit on a step-up.
+	PeriodPaidCents int64 `firestore:"period_paid_cents,omitempty" json:"-"`
+	// A step-down waiting for the period's end: the schedule, the plan it
+	// switches to (none = pay per video, via cancel_at_period_end) and when.
+	ScheduleID  string     `firestore:"schedule_id,omitempty" json:"-"`
+	ScheduledTo string     `firestore:"scheduled_to,omitempty" json:"-"`
+	ScheduledAt *time.Time `firestore:"scheduled_at,omitempty" json:"-"`
+	// RestoredFrom: the deleted account this plan was restored from
+	// (Restore Purchases): credit it was granted there isn't granted again.
+	RestoredFrom string `firestore:"restored_from,omitempty" json:"-"`
+	// Dunning: a renewal that didn't go through (D5), cleared when an
+	// invoice of the plan is paid.
+	Dunning *PlanDunning `firestore:"dunning,omitempty" json:"-"`
+}
+
+// Key is the plan's id: PlanID, else Tier.
+func (p *Plan) Key() string {
+	if p == nil {
+		return ""
+	}
+	if p.PlanID != "" {
+		return p.PlanID
+	}
+	return p.Tier
+}
+
+// AddMonths is t plus n calendar months, the day clamped to the month's
+// last (Jan 31 + 1 = Feb 28/29), as Stripe's monthly anniversaries are.
+func AddMonths(t time.Time, n int) time.Time {
+	y, m, d := t.Date()
+	first := time.Date(y, m+time.Month(n), 1, t.Hour(), t.Minute(), t.Second(), t.Nanosecond(), t.Location())
+	last := first.AddDate(0, 1, -1).Day()
+	return first.AddDate(0, 0, min(d, last)-1)
+}
+
+// Yearly: billed once a year, credited every month.
+func (p *Plan) Yearly() bool { return p != nil && p.Interval == "year" }
+
+// Month is the current month of a yearly plan's period: its index (0 to
+// 11) and window [from, to), the last month ending with the period.
+func (p *Plan) Month(now time.Time) (k int, from, to time.Time, ok bool) {
+	if p == nil || p.CurrentPeriodStart == nil || p.CurrentPeriodEnd == nil {
+		return 0, time.Time{}, time.Time{}, false
+	}
+	start, end := *p.CurrentPeriodStart, *p.CurrentPeriodEnd
+	for k < 11 && !AddMonths(start, k+1).After(now) {
+		k++
+	}
+	from, to = AddMonths(start, k), AddMonths(start, k+1)
+	if k == 11 || to.After(end) {
+		to = end
+	}
+	return k, from, to, true
+}
+
+// Active: the plan's prices and allowances apply.
+func (p *Plan) Active(now time.Time) bool {
+	if p == nil || p.Tier == "" {
+		return false
+	}
+	switch p.Status {
+	case "active", "trialing", "past_due":
+		return p.CurrentPeriodEnd == nil || p.CurrentPeriodEnd.After(now.Add(-24*time.Hour))
+	}
+	return false
+}
+
+// FreePreview is a run paid with free previews.
+type FreePreview struct {
+	Units     int    `firestore:"units"`
+	PeriodKey string `firestore:"period_key"`
+	DayKey    string `firestore:"day_key"`
+	Returned  bool   `firestore:"returned,omitempty"`
+}
+
+// PreviewUsage is previews_{env}/{uid}: free previews used this period
+// and today (no rollover: a new period key starts at zero).
+type PreviewUsage struct {
+	PeriodKey string    `firestore:"period_key"`
+	Used      int       `firestore:"used"`
+	DayKey    string    `firestore:"day_key"`
+	DayUsed   int       `firestore:"day_used"`
+	IntroUsed bool      `firestore:"intro_used"`
+	UpdatedAt time.Time `firestore:"updated_at"`
+}
+
+func previewsCol(env string) string { return "previews_" + env }
+
+func (s *Store) previewDoc(uid string) *firestore.DocumentRef {
+	return s.fs.Collection(previewsCol(s.env)).Doc(uid)
+}
+
+func snapToUsage(snap *firestore.DocumentSnapshot) (*PreviewUsage, error) {
+	var u PreviewUsage
+	if snap == nil || !snap.Exists() {
+		return &u, nil
+	}
+	if err := snap.DataTo(&u); err != nil {
+		return nil, err
+	}
+	return &u, nil
+}
+
+// GetPreviewUsage reads the usage as of periodKey/dayKey (a new period or
+// day reads zero).
+func (s *Store) GetPreviewUsage(ctx context.Context, uid, periodKey, dayKey string) (*PreviewUsage, error) {
+	snap, err := s.previewDoc(uid).Get(ctx)
+	if err != nil && status.Code(err) != codes.NotFound {
+		return nil, err
+	}
+	u, err := snapToUsage(snap)
+	if err != nil {
+		return nil, err
+	}
+	if u.PeriodKey != periodKey {
+		u.Used = 0
+	}
+	if u.DayKey != dayKey {
+		u.DayUsed = 0
+	}
+	return u, nil
+}
+
+// ConsumeFreePreviews takes units free previews if the period allowance
+// and the day cap both have room; intro=true takes the one-time intro
+// preview instead. false when there is no room.
+func (s *Store) ConsumeFreePreviews(ctx context.Context, uid, periodKey, dayKey string, units, allowance, dayCap int, intro bool) (bool, error) {
+	ok := false
+	err := s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		ok = false
+		snap, err := tx.Get(s.previewDoc(uid))
+		if err != nil && status.Code(err) != codes.NotFound {
+			return err
+		}
+		u, err := snapToUsage(snap)
+		if err != nil {
+			return err
+		}
+		if u.PeriodKey != periodKey {
+			u.PeriodKey, u.Used = periodKey, 0
+		}
+		if u.DayKey != dayKey {
+			u.DayKey, u.DayUsed = dayKey, 0
+		}
+		if intro {
+			if u.IntroUsed {
+				return nil
+			}
+			u.IntroUsed = true
+		} else {
+			if u.Used+units > allowance || u.DayUsed+units > dayCap {
+				return nil
+			}
+			u.Used += units
+		}
+		u.DayUsed += units
+		u.UpdatedAt = time.Now().UTC()
+		ok = true
+		return tx.Set(s.previewDoc(uid), u)
+	})
+	return ok, err
+}
+
+// returnFreePreview gives a run's free previews back inside its terminal
+// transition when it delivered nothing.
+func (s *Store) returnFreePreview(tx *firestore.Transaction, c *Conversion) (func() error, error) {
+	fp := c.FreePreview
+	if fp == nil || fp.Returned || !IsTerminal(c.State) || c.State == StateSucceeded {
+		return nil, nil
+	}
+	snap, err := tx.Get(s.previewDoc(c.UID))
+	if err != nil && status.Code(err) != codes.NotFound {
+		return nil, err
+	}
+	u, err := snapToUsage(snap)
+	if err != nil {
+		return nil, err
+	}
+	switch {
+	case fp.PeriodKey == "intro":
+		u.IntroUsed = false
+	case u.PeriodKey == fp.PeriodKey:
+		u.Used = max(u.Used-fp.Units, 0)
+	}
+	if u.DayKey == fp.DayKey {
+		u.DayUsed = max(u.DayUsed-fp.Units, 0)
+	}
+	u.UpdatedAt = time.Now().UTC()
+	fp.Returned = true
+	return func() error { return tx.Set(s.previewDoc(c.UID), u) }, nil
+}
+
+// Free previews (pricing 2026-11): a run paid with them.
+const (
+	FlowFreePreview        = "free_preview"
+	BillingModeFreePreview = "free_preview"
+)
+
+// GiveBackFreePreview returns a preview's units when its run was never
+// written.
+func (s *Store) GiveBackFreePreview(ctx context.Context, uid string, fp *FreePreview) {
+	if fp == nil {
+		return
+	}
+	_ = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		c := &Conversion{UID: uid, State: StateFailed, FreePreview: &FreePreview{Units: fp.Units, PeriodKey: fp.PeriodKey, DayKey: fp.DayKey}}
+		commit, err := s.returnFreePreview(tx, c)
+		if err != nil || commit == nil {
+			return err
+		}
+		return commit()
+	})
+}
+
+// ListPlanCustomers lists customers with a web plan on record (any
+// status; callers check Active).
+func (s *Store) ListPlanCustomers(ctx context.Context, limit int) (map[string]*Customer, error) {
+	snaps, err := s.fs.Collection(customersCol(s.env)).Where("plan.tier", "in", []string{"business", "studio", "pro"}).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	out := map[string]*Customer{}
+	for _, sn := range snaps {
+		var c Customer
+		if sn.DataTo(&c) == nil {
+			out[sn.Ref.ID] = &c
+		}
+	}
+	return out, nil
+}
+
+// PlanDunning is a failed renewal while Stripe's Smart Retries run (D5):
+// the plan's benefits stay on until the subscription is canceled; its
+// period credit waits for the invoice to be paid.
+type PlanDunning struct {
+	InvoiceID      string     `firestore:"invoice_id"`
+	AmountDueCents int64      `firestore:"amount_due_cents"`
+	Currency       string     `firestore:"currency,omitempty"`
+	FirstFailedAt  time.Time  `firestore:"first_failed_at"`
+	LastFailedAt   time.Time  `firestore:"last_failed_at"`
+	AttemptCount   int        `firestore:"attempt_count"`
+	NextAttemptAt  *time.Time `firestore:"next_attempt_at,omitempty"`
+	ActionRequired bool       `firestore:"action_required,omitempty"`
+	PayRequestID   string     `firestore:"pay_request_id,omitempty"`
+	RevokedAt      *time.Time `firestore:"revoked_at,omitempty"` // the app's entitlement ended at the cancel
+}

@@ -1,6 +1,9 @@
 package gcsx
 
-import "testing"
+import (
+	"context"
+	"testing"
+)
 
 func testClient() *Client {
 	return &Client{bucket: "spatial-video-studio-app", prefix: "stereo3d/test/"}
@@ -48,5 +51,34 @@ func TestUploadKey(t *testing.T) {
 	want := "stereo3d/test/users/uid1/abc123def456/source.mp4"
 	if got != want {
 		t.Errorf("got %q want %q", got, want)
+	}
+}
+
+// File keeping (S3D-24) may only list folders and delete keys inside
+// this env's prefix.
+func TestListDeleteStayInPrefix(t *testing.T) {
+	var listed, deleted []string
+	c := NewWithSigner("bucket", "stereo3d/test/", nil, nil).WithObjects(
+		func(_ context.Context, p string) ([]string, error) { listed = append(listed, p); return nil, nil },
+		func(_ context.Context, k string) error { deleted = append(deleted, k); return nil })
+	ctx := context.Background()
+	for _, bad := range []string{"stereo3d/test/", "stereo3d/prod/outputs/x/", "stereo3d/test/outputs/x", "stereo3d/test/../prod/"} {
+		if _, err := c.List(ctx, bad); err == nil {
+			t.Errorf("List(%q) allowed", bad)
+		}
+	}
+	if _, err := c.List(ctx, "stereo3d/test/outputs/job1/"); err != nil {
+		t.Error(err)
+	}
+	for _, bad := range []string{"stereo3d/prod/users/u/a/source.mp4", "stereo3d/test/../prod/x"} {
+		if err := c.Delete(ctx, bad); err == nil {
+			t.Errorf("Delete(%q) allowed", bad)
+		}
+	}
+	if err := c.Delete(ctx, "stereo3d/test/outputs/job1/a.mov"); err != nil {
+		t.Error(err)
+	}
+	if len(listed) != 1 || len(deleted) != 1 {
+		t.Errorf("listed %v deleted %v", listed, deleted)
 	}
 }

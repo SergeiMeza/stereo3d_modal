@@ -9,12 +9,17 @@
 package api
 
 import (
+	"cmp"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
 	"math"
+	"net/http"
+	"slices"
+	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -23,9 +28,12 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/probe"
+	"spatial-ai-labs/stereo3d-gateway/internal/revenuecat"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -36,7 +44,12 @@ const (
 	paidTTL       = 2 * time.Hour    // paid but unsubmittable → fail + release hold
 	processingTTL = 24 * time.Hour   // hard ceiling (Modal orchestrator cap is 8h)
 	analyzeTTL    = 3 * time.Hour    // analyze polls failing this long → fail (Modal's cap is 2h)
-	uploadURLTTL  = 15 * time.Minute
+	// analyzeHardCap: an analyze job still "running" this long after it
+	// started has ended without telling (Modal stops the function at 2 h;
+	// a call whose history expired never updates its record).
+	analyzeHardCap = 2*time.Hour + 15*time.Minute
+	analyzeRetries = 1 // automatic re-runs before an ended analyze fails
+	uploadURLTTL   = 15 * time.Minute
 	// resumableSessionTTL is how long storage keeps a resumable upload
 	// session open.
 	resumableSessionTTL = 7 * 24 * time.Hour
@@ -49,12 +62,77 @@ type Service struct {
 	Store   *store.Store
 	Pricing *pricing.Service
 	Stripe  *stripex.Client
-	Modal   *modalapi.Client
-	GCS     *gcsx.Client
-	Slack   *notify.Slack
+	// Modal and Lifelike are the DEFAULT workspace's pipelines (S3D-40,
+	// workspace.go); Lifelike nil = the method is off there.
+	Modal    *modalapi.Client
+	Lifelike *modalapi.Client
+	// DefaultWorkspaceID names that workspace ("" reads as it too);
+	// ExtraWorkspaces are further ones by id (none today).
+	DefaultWorkspaceID string
+	ExtraWorkspaces    map[string]*Workspace
+	GCS                *gcsx.Client
+	// Mail sends the owner alerts and customer notices (Resend; nil or
+	// unconfigured = logged only).
+	Mail  *mail.Resend
+	Slack *notify.Slack
+	// RevenueCat answers whether a uid holds SVS Pro (S3D-67); nil or
+	// unconfigured = nobody gets the Pro discount.
+	RevenueCat *revenuecat.Client
+	// Downloads queues the M8 download and play log (nil = not logged).
+	Downloads *store.DownloadLog
 
 	// reconciling is set while this instance runs a reconcile sweep.
 	reconciling atomic.Bool
+	// liveJobs: this instance's watchers on running project jobs that a
+	// live stream shows (live_jobs.go).
+	liveJobsOnce sync.Once
+	liveJobs     *liveJobs
+	// drain is closed on SIGTERM: streams say bye (drain.go).
+	drainInit, drainClose sync.Once
+	drain                 chan struct{}
+
+	// EventsAuth answers the viewer of GET /v1/events from its request
+	// (tests); nil = the Firebase ID token. EventsTiming shortens the
+	// stream's clock (tests); nil = 20 s heartbeat, 55 min max age.
+	EventsAuth      func(r *http.Request) (string, bool)
+	AdminEventsAuth func(r *http.Request) *store.StreamTicket
+	EventsTiming    *eventsTiming
+
+	// DeletionCallbackPost sends a deletion completion to svs-backend
+	// (status code); nil = a Google ID token from the gateway's own
+	// service account, audience = the URL's origin.
+	DeletionCallbackPost func(ctx context.Context, url string, body []byte) (int, []byte, error)
+	// InternalCaller checks a Google ID token on an internal route and
+	// answers its service account; nil = idtoken.Validate against
+	// Cfg.InternalOIDCAudiences.
+	InternalCaller func(ctx context.Context, token string) (string, error)
+
+	// SignInLookup reads how an account signs in (admin account view,
+	// BL-29); nil = Auth.SignInOf.
+	SignInLookup func(ctx context.Context, uid string) (*auth.SignInInfo, error)
+
+	// MintToken mints a Firebase custom token (customer passkey sign-in,
+	// ADR 0136); nil = Auth.CustomToken.
+	MintToken func(ctx context.Context, uid string) (string, error)
+
+	// Identities reads and changes sign-in methods (nil = Auth);
+	// Sessions makes sessions without the SDK (identity.Client: passkey
+	// session:true, Apple/Google links); EmailCodes checks an email code
+	// for an email link (emailcode.Service).
+	// UserExists: is the Firebase user still there (orphan sweep); nil =
+	// Auth.UserExists.
+	UserExists func(ctx context.Context, uid string) (bool, error)
+
+	Identities IdentityAdmin
+	Sessions   SessionIssuer
+	EmailCodes EmailCodeChecker
+
+	// pkRPs: the admin passkey relying parties by origin (ADR 0135), and
+	// cpkRPs the customers' (ADR 0136), each built once.
+	pkOnce  sync.Once
+	pkRPs   map[string]*passkeyRP
+	cpkOnce sync.Once
+	cpkRPs  map[string]*passkeyRP
 }
 
 // ---------------------------------------------------------------- submission
@@ -84,20 +162,43 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 		return nil // already submitted (or terminal) — idempotent no-op
 	}
 
-	body := s.modalBody(conv, s.Pricing.Rates(ctx).MaxGPUWorkers)
+	client := s.modalFor(conv)
+	if client == nil {
+		// Lifelike was configured when this run was created and isn't now:
+		// leave it paid; paidTTL fails it and returns the money.
+		return fmt.Errorf("pipeline not configured (workspace %q, method %q)", s.workspaceID(conv.Workspace), store.MethodOr(conv.Method))
+	}
+	rates := s.Pricing.Rates(ctx)
+	var body map[string]any
+	if conv.Method == store.MethodLifelike {
+		gpus := rates.GPUWorkersFor(store.MethodLifelike)
+		if conv.Params.Express {
+			gpus = rates.ExpressGPUWorkers() // Express: 8 GPUs, first in the slot scheduler
+		}
+		body = lifelikeBody(conv, gpus)
+	} else {
+		body = s.modalBody(conv, rates.GPUWorkersFor(store.MethodClassic))
+	}
 	// Modal returns the job it already started for this ref, so a submit
 	// retried after a timeout (the reconciler's, after an inline one gave
 	// up while Modal was still answering) never runs the GPUs twice.
 	body["client_ref"] = conv.ID
 	var resp *modalapi.SubmitResponse
 	if conv.Kind == "image" {
-		resp, err = s.Modal.SubmitImage(ctx, body)
+		resp, err = client.SubmitImage(ctx, body)
 	} else {
-		resp, err = s.Modal.SubmitVideo(ctx, body)
+		resp, err = client.SubmitVideo(ctx, body)
 	}
 	if err != nil {
 		slog.ErrorContext(ctx, "modal submit failed",
 			"conversion_id", id, "uid", conv.UID, "err", err)
+		var up *modalapi.UpstreamError
+		if conv.Method == store.MethodLifelike && errors.As(err, &up) && up.StatusCode == http.StatusBadRequest {
+			// Lifelike refused a field (a preset it doesn't render yet,
+			// say): no retry can change that, so fail now and return the
+			// money rather than retrying until paidTTL.
+			return s.rejectSubmit(ctx, conv, up)
+		}
 		// Leave state=paid: the reconciler retries until paidTTL, then fails
 		// the conversion and releases the hold.
 		return err
@@ -108,14 +209,18 @@ func (s *Service) submitToModal(ctx context.Context, id string) error {
 		c.State = store.StateProcessing
 		c.Modal.JobID = resp.JobID
 		c.Modal.SubmittedAt = &now
+		if c.Method == store.MethodLifelike && c.Params.Express && c.Step != store.StepLifelikePreview {
+			c.Modal.ExpressCostFactor = rates.ExpressCostFactor() // cost reporting: 8 vs 4 GPUs
+		}
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {
 		// Lost the race with another submitter; cancel the duplicate job.
-		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		_ = client.CancelJob(ctx, resp.JobID)
 		return nil
 	}
-	slog.InfoContext(ctx, "submitted to modal", "conversion_id", id, "modal_job_id", resp.JobID)
+	slog.InfoContext(ctx, "submitted to modal", "conversion_id", id, "modal_job_id", resp.JobID,
+		"method", store.MethodOr(conv.Method))
 	return err
 }
 
@@ -228,15 +333,20 @@ func (s *Service) modalBody(c *store.Conversion, maxGPUWorkers int) map[string]a
 	// (depth_scale = displacement / standard), and the app's placement as
 	// the fallback plane pair. Images have no profiler.
 	body["adaptive"] = true
+	if c.Step != "" && c.Params.OutputBitrateBps > 0 {
+		// pro steps' bitrate choice (S3D-56); absent = auto. The mobile
+		// one-shot never sets it.
+		body["output_bitrate_bps"] = c.Params.OutputBitrateBps
+	}
 	if c.Params.SkipReuse { // from-scratch: nothing stale picked up silently
 		body["skip_reuse_preprocess"] = true
 		body["skip_reuse_depth"] = true
 		body["skip_reuse_scenes"] = true
 	}
 	if maxGPUWorkers > 0 {
-		// clamp to the workspace's 10-GPU ceiling so a fat-fingered
-		// Firestore value can't queue-storm the fleet
-		body["max_gpu_workers"] = min(maxGPUWorkers, 10)
+		// clamp to the app's 8-GPU ceiling so a fat-fingered Firestore
+		// value can't queue-storm the fleet
+		body["max_gpu_workers"] = min(maxGPUWorkers, pricing.MaxGPUWorkersPerJob)
 	}
 	return body
 }
@@ -274,7 +384,15 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 	if conv.State != store.StateProcessing || conv.Modal.JobID == "" {
 		return conv, nil
 	}
-	job, err := s.Modal.GetJob(ctx, conv.Modal.JobID)
+	ttl := processingDeadline(conv)
+	client := s.modalFor(conv)
+	var job *modalapi.Job
+	var err error
+	if client == nil {
+		err = fmt.Errorf("pipeline not configured (workspace %q, method %q)", s.workspaceID(conv.Workspace), store.MethodOr(conv.Method))
+	} else {
+		job, err = client.GetJob(ctx, conv.Modal.JobID)
+	}
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
@@ -282,29 +400,50 @@ func (s *Service) refreshFromModal(ctx context.Context, conv *store.Conversion) 
 			// is gone and will never come back — fail and release the hold.
 			return s.settleFailure(ctx, conv, "job record lost upstream (404): "+conv.Modal.JobID)
 		}
-		if conv.Modal.SubmittedAt != nil && time.Since(*conv.Modal.SubmittedAt) > processingTTL {
-			return s.settleFailure(ctx, conv, fmt.Sprintf("processing exceeded %s; last poll error: %v", processingTTL, err))
+		if conv.Modal.SubmittedAt != nil && time.Since(*conv.Modal.SubmittedAt) > ttl {
+			return s.settleFailure(ctx, conv, fmt.Sprintf("processing exceeded %s; last poll error: %v", ttl, err))
 		}
 		slog.WarnContext(ctx, "modal poll failed", "conversion_id", conv.ID, "err", err)
 		return conv, nil // transient; next poll retries
 	}
 
+	s.foldSourceVFR(ctx, conv, job)
 	now := time.Now().UTC()
 	switch job.Status {
 	case "completed":
 		return s.settleSuccess(ctx, conv, job)
 	case "failed":
+		if job.ErrorCode != "" {
+			return s.settleFailure(ctx, conv, job.Error+" (error_code "+job.ErrorCode+")")
+		}
 		return s.settleFailure(ctx, conv, job.Error)
+	case "canceled":
+		// Lifelike: canceled upstream without our DELETE (ours claims the
+		// conversion first, so it never reaches a poll).
+		return s.settleFailure(ctx, conv, "job canceled upstream: "+job.Error)
 	default: // pending | in_progress
-		if conv.Modal.SubmittedAt != nil && time.Since(*conv.Modal.SubmittedAt) > processingTTL {
-			return s.settleFailure(ctx, conv, fmt.Sprintf("processing exceeded %s (job still %s)", processingTTL, job.Status))
+		if conv.Modal.SubmittedAt != nil && time.Since(*conv.Modal.SubmittedAt) > ttl {
+			return s.settleFailure(ctx, conv, fmt.Sprintf("processing exceeded %s (job still %s)", ttl, job.Status))
 		}
 		s.alertIfOverdue(ctx, conv)
 		updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateProcessing}, func(c *store.Conversion) error {
 			c.Modal.Progress = job.Progress
 			c.Modal.Stage = job.Stage
 			c.Modal.ETASeconds = job.ProgressDetail.ETASeconds
+			noteStart(c, c.Modal.WaitingForGPU, job.WaitingForGPU, now)
+			switch {
+			case job.WaitingForGPU && c.Modal.WaitingSince == nil:
+				c.Modal.WaitingSince = &now
+			case !job.WaitingForGPU:
+				c.Modal.WaitingSince = nil
+			}
+			c.Modal.WaitingForGPU = job.WaitingForGPU
+			c.Modal.QueuedS = job.QueuedS
 			c.Modal.LastPolledAt = &now
+			noteScheduling(c, job)
+			if parts := splitParts(job); parts != nil {
+				c.Parts = parts
+			}
 			return nil
 		})
 		if errors.Is(err, store.ErrStateConflict) {
@@ -329,10 +468,18 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateProcessing}, func(c *store.Conversion) error {
 		c.State = store.StateSucceeded
 		c.Outputs = outputs
+		c.OutputsMedia = workerOutputsMedia(job, outputs) // measured by the worker, when it reports it
 		c.Modal.Progress = 1
 		c.Modal.Stage = ""
 		c.Modal.CostUSD = job.CostSummary.TotalUSD
+		c.Modal.CostUSDRaw = job.CostSummary.TotalUSDRaw
+		c.Modal.Experimental = job.Experimental()
+		c.Modal.OutputBitDepth, c.Modal.OutputBitDepthReason = job.BitDepth()
+		c.Modal.WaitingForGPU = false
+		c.Modal.QueuedS = max(c.Modal.QueuedS, job.QueuedS)
 		c.Modal.LastPolledAt = &now
+		noteScheduling(c, job)
+		c.Parts = splitParts(job)
 		c.Stripe.PIStatus = settlementAfterSuccess(c)
 		return nil
 	})
@@ -344,13 +491,49 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	}
 	slog.InfoContext(ctx, "conversion succeeded",
 		"conversion_id", conv.ID, "uid", conv.UID, "modal_cost_usd", job.CostSummary.TotalUSD)
+	defer s.fillOutputsMedia(context.WithoutCancel(ctx), updated.ID) // after the money: ffprobe what the worker didn't report
 	if updated.ProjectID != "" && updated.Kind == "video" {
 		s.foldSceneProfile(ctx, updated, job)
 	}
-	if updated.Stripe.Mode == store.BillingModeAuto {
+	s.checkFramesOverQuote(ctx, updated)
+	switch updated.Stripe.Mode {
+	case store.BillingModeAuto:
 		return s.settleAutoCharge(ctx, updated)
+	case store.BillingModeAutoPrecharge:
+		// Charged before the run; it delivered, so the money is now earned.
+		s.creditLifetime(ctx, updated.UID, updated.Stripe.CapturedCents)
+		s.recordRunCharge(ctx, updated) // C6: a paid-at-start run succeeded
+		return updated, nil
 	}
 	return s.captureHold(ctx, updated)
+}
+
+// splitParts is the job's split layout for the conversion record: nil
+// unless the output really is several files.
+func splitParts(job *modalapi.Job) []store.Part {
+	parts := job.Parts()
+	if len(parts) < 2 {
+		return nil
+	}
+	out := make([]store.Part, 0, len(parts))
+	for _, p := range parts {
+		out = append(out, store.Part{
+			Index: p.Index, FromFrame: p.FromFrame, ToFrame: p.ToFrame,
+			StartS: p.StartS, DurationS: p.DurationS,
+		})
+	}
+	return out
+}
+
+// processingDeadline is how long a run may process before it is failed:
+// processingTTL, or three times its own estimate (plus the time it waited
+// for a GPU) when that is longer — Lifelike has no length limit, and an
+// hours-long source must not be cut off by a ceiling sized for 10-minute
+// ones.
+func processingDeadline(c *store.Conversion) time.Duration {
+	own := 3*time.Duration(c.Support.ExpectedSeconds)*time.Second +
+		time.Duration(overdueQueueAllowance(c))*time.Second
+	return max(processingTTL, own)
 }
 
 // foldSceneProfile persists the adaptive profiler's per-shot depth script
@@ -424,11 +607,8 @@ func (s *Service) settleFailure(ctx context.Context, conv *store.Conversion, int
 		c.State = store.StateFailed
 		c.Modal.LastPolledAt = &now
 		c.Stripe.PIStatus = store.PICancelPending
-		c.Error = &store.Error{
-			Code:            "pipeline_failed",
-			UserMessage:     "The conversion failed and you were not charged. Quote this ID to support: " + c.ID,
-			InternalMessage: internalErr,
-		}
+		code, msg := failureCopy(c, internalErr)
+		c.Error = &store.Error{Code: code, UserMessage: msg, InternalMessage: internalErr}
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) {
@@ -450,6 +630,8 @@ func (s *Service) settleFailure(ctx context.Context, conv *store.Conversion, int
 // Stripe calls an hour).
 func settlementAfterSuccess(c *store.Conversion) string {
 	switch {
+	case c.Stripe.Mode == store.BillingModeAutoPrecharge:
+		return c.Stripe.PIStatus // charged before the run
 	case c.Stripe.Mode == store.BillingModeAuto:
 		return store.PIChargePending
 	case c.Stripe.PaymentIntentID != "":
@@ -540,6 +722,7 @@ func (s *Service) captureHold(ctx context.Context, conv *store.Conversion) (*sto
 			"conversion_id", conv.ID, "payment_intent", conv.Stripe.PaymentIntentID, "err", capErr)
 	} else if err == nil {
 		s.creditLifetime(ctx, conv.UID, captured)
+		s.recordRunCharge(ctx, updated)
 	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)
@@ -570,30 +753,46 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 	case conv.Stripe.PaymentIntentID != "":
 		pi, chErr = s.Stripe.ConfirmSavedCharge(conv.Stripe.PaymentIntentID, cust.DefaultPaymentMethod, cust.Email)
 	case cust.DefaultPaymentMethod == "":
-		// Card removed between the gate and success — needs the user.
+		// Method removed between the gate and success — needs the user.
 		return s.recordChargeFailure(ctx, conv, stripex.ChargeFailure{
 			Code: "no_payment_method", Message: "no default payment method on file",
 		})
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          conv.UID,
-				Description:  jobDescription(conv),
+				Description:  piDescription(conv),
 				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: cust.Email,
 			})
 	}
 
-	if chErr == nil && (pi.Status == stripe.PaymentIntentStatusSucceeded ||
-		pi.Status == stripe.PaymentIntentStatusProcessing) {
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusProcessing {
+		// P2: accepted, not settled — waiting for payment; the webhook or
+		// the processing sweep settles it.
+		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
+			if err := stillPI(c, store.PIChargePending); err != nil {
+				return err
+			}
+			c.Stripe.PaymentIntentID = pi.ID
+			c.Stripe.PIStatus = store.PIProcessing
+			return nil
+		})
+		if errors.Is(terr, store.ErrStateConflict) {
+			return s.Store.GetConversion(ctx, conv.ID)
+		}
+		return updated, terr
+	}
+	if chErr == nil && pi.Status == stripe.PaymentIntentStatusSucceeded {
 		now := time.Now().UTC()
 		charged := pi.AmountReceived
 		if charged == 0 {
-			charged = pi.Amount // processing: nothing received yet
+			charged = pi.Amount
 		}
 		updated, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateSucceeded}, func(c *store.Conversion) error {
-			if err := stillPI(c, store.PIChargePending); err != nil {
+			if err := stillPI(c, store.PIChargePending, store.PIProcessing); err != nil {
 				return err
 			}
 			c.Stripe.PaymentIntentID = pi.ID
@@ -610,6 +809,10 @@ func (s *Service) chargeConversion(ctx context.Context, conv *store.Conversion) 
 			"conversion_id", conv.ID, "uid", conv.UID, "payment_intent", pi.ID, "amount_cents", charged)
 		if terr == nil {
 			s.creditLifetime(ctx, conv.UID, charged)
+			s.recordRunCharge(ctx, updated)
+			if pi.PaymentMethod != nil {
+				s.noteMethodPaid(ctx, conv.UID, pi.PaymentMethod.ID) // C1 account facts
+			}
 		}
 		return updated, terr
 	}
@@ -656,6 +859,10 @@ func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversio
 		s.Slack.SettleFailed(ctx, conv.ID, conv.UID, "charge",
 			fmt.Errorf("%s (%s)", fail.Message, fail.Code))
 	}
+	if !fail.Transient && err == nil {
+		s.markChargeFailed(ctx, conv.UID)
+		s.payDebtsFromBalance(ctx, conv.UID) // v7.1 R10: app debts too, from the web balance
+	}
 	if errors.Is(err, store.ErrStateConflict) {
 		return s.Store.GetConversion(ctx, conv.ID)
 	}
@@ -674,6 +881,9 @@ func (s *Service) recordChargeFailure(ctx context.Context, conv *store.Conversio
 func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*store.Conversion, error) {
 	if conv.Stripe.PIStatus != store.PICancelPending {
 		return conv, nil
+	}
+	if conv.Stripe.Mode == store.BillingModeAutoPrecharge && conv.Stripe.PaymentIntentID != "" {
+		return s.refundPrecharge(ctx, conv)
 	}
 	if conv.Stripe.PaymentIntentID == "" {
 		now := time.Now().UTC()
@@ -733,8 +943,8 @@ func (s *Service) releaseHold(ctx context.Context, conv *store.Conversion) (*sto
 // pending one it acts on: two sweeps on two instances can both reach the
 // same conversion, and only the first may record the outcome (and credit the
 // lifetime spend, or refund a photo credit) (audit, 2026-10-03).
-func stillPI(c *store.Conversion, want string) error {
-	if c.Stripe.PIStatus != want {
+func stillPI(c *store.Conversion, want ...string) error {
+	if !slices.Contains(want, c.Stripe.PIStatus) {
 		return fmt.Errorf("%w: pi_status is %q, not %q", store.ErrStateConflict, c.Stripe.PIStatus, want)
 	}
 	return nil
@@ -756,14 +966,20 @@ func (s *Service) restoreCredit(ctx context.Context, conv *store.Conversion) {
 // result (probe, scenes, thumbnails, crop) into the project doc. Shared by
 // GET read-through and the reconciler sweep.
 func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.Project, error) {
-	if p.Analyze.State != store.AnalyzeRunning || p.Analyze.JobID == "" {
+	if p.Analyze.State != store.AnalyzeRunning {
 		return p, nil
 	}
-	job, err := s.Modal.GetJob(ctx, p.Analyze.JobID)
+	if p.Analyze.JobID == "" { // running without a job: never submitted
+		if !p.CreatedAt.IsZero() && time.Since(p.CreatedAt) > analyzeHardCap {
+			return s.analyzeEnded(ctx, p, "running without an analyze job past "+analyzeHardCap.String())
+		}
+		return p, nil
+	}
+	job, err := s.projectJob(ctx, p, p.Analyze.JobID)
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
-			return s.failAnalyze(ctx, p, "job record lost upstream (404)")
+			return s.analyzeEnded(ctx, p, "job record lost upstream (404)")
 		}
 		if time.Since(p.UpdatedAt) > analyzeTTL {
 			// Modal's analyze function stops at 2 h; a job that could not be
@@ -785,16 +1001,35 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		// leaves the project without a probe, which blocks every paid
 		// step. The web client pre-checks the same limits before upload;
 		// this is the authoritative gate.
-		if maxS := rates.MaxSourceDurationS; maxS > 0 && meta.Probe.Duration > maxS {
+		if maxS := rates.MaxSourceDurationFor(projectMethod(p)); maxS > 0 && meta.Probe.Duration > maxS {
 			return s.rejectSource(ctx, p, fmt.Sprintf(
 				"this video is %s long — during the beta, videos can be at most %s",
 				formatMinSec(meta.Probe.Duration), formatMinSec(maxS)))
 		}
-		if maxPx := rates.MaxSourcePixels; maxPx > 0 && meta.Probe.Width*meta.Probe.Height > maxPx {
+		// The pixel cap is Classic's: Lifelike scales bigger sources down
+		// to 4K (S3D-04).
+		if maxPx := rates.MaxSourcePixels; maxPx > 0 && projectMethod(p) == store.MethodClassic &&
+			meta.Probe.Width*meta.Probe.Height > maxPx {
 			return s.rejectSource(ctx, p, fmt.Sprintf(
 				"this video is %d×%d — during the beta, resolution can be at most 4K (3840×2160)",
 				meta.Probe.Width, meta.Probe.Height))
 		}
+		// The frames the file really holds, not the header's claim: a
+		// variable-frame-rate source is priced at the higher rate, and
+		// one above 120 fps is refused (the job can't take it).
+		counted := s.countedFrames(ctx, p)
+		if r := max(meta.Probe.FPS, countedRate(counted, meta.Probe.Duration)); r > fpsPlanMax*1.001 {
+			return s.rejectSource(ctx, p, fmt.Sprintf(
+				"this video runs at %.0f fps; videos can be at most 120 fps", r))
+		}
+		// Dynamic range (owner 2026-11-05): Dolby Vision without a
+		// displayable base layer can't be converted, refused before any
+		// charge (worded without HDR, which may be hidden).
+		dr := s.dynamicRangeOf(ctx, p)
+		if dr != nil && dr.Range == probe.RangeDV5 {
+			return s.rejectSource(ctx, p, errDolbyVision5Text)
+		}
+		details := s.sourceDetailsOf(ctx, p) // the source details panel (owner 2026-11-07)
 		credit := rates.AnalyzeCreditCents
 		now := time.Now().UTC()
 		updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
@@ -808,7 +1043,16 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 				Width: meta.Probe.Width, Height: meta.Probe.Height,
 				FPS: meta.Probe.FPS, FPSRational: meta.Probe.FPSRational,
 				DurationS: meta.Probe.Duration, NumFrames: meta.Probe.NumFrames,
+				BitRate: max(meta.Probe.VideoBitRate, meta.Probe.BitRate),
 			}
+			if counted > 0 {
+				pp.Probe.CountedFrames = counted
+				pp.Probe.VFR = pp.Probe.CountedFPS() > pp.Probe.FPS*1.01
+			}
+			if dr != nil {
+				pp.Probe.DynamicRange, pp.Probe.DynamicRangeBase = dr.Range, dr.Base
+			}
+			pp.Probe.Details = details
 			pp.Crop = meta.Crop
 			pp.PreviewURL = meta.Preview.URL
 			cuts := meta.SceneCuts
@@ -824,6 +1068,10 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 			for _, t := range meta.Thumbnails.Scenes {
 				pp.SceneThumbs = append(pp.SceneThumbs, store.Thumb{Frame: t.Frame, URL: t.URL})
 			}
+			pp.Poster = nil
+			if t := meta.Thumbnails.Poster; t != nil && t.URL != "" {
+				pp.Poster = &store.Thumb{Frame: t.Frame, URL: t.URL}
+			}
 			return nil
 		})
 		if uerr != nil {
@@ -832,15 +1080,20 @@ func (s *Service) refreshAnalyze(ctx context.Context, p *store.Project) (*store.
 		slog.InfoContext(ctx, "analyze succeeded",
 			"project_id", p.ID, "scenes", len(meta.SceneCuts)+1, "cost_usd", job.CostSummary.TotalUSD)
 		return updated, nil
-	case "failed":
-		return s.failAnalyze(ctx, p, job.Error)
+	case "failed", "canceled":
+		return s.analyzeEnded(ctx, p, cmp.Or(job.Error, "analyze job "+job.Status))
 	default:
-		// Still running — surface live progress to the caller (transient;
-		// see store.Analyze).
+		if reason := analyzeStuck(job, time.Now()); reason != "" {
+			return s.analyzeEnded(ctx, p, reason)
+		}
+		// Still running: live progress for the caller, and onto the project
+		// (throttled) so the live stream carries it.
 		pp := *p
 		pp.Analyze.Progress = job.Progress
 		pp.Analyze.Stage = job.Stage
 		pp.Analyze.ETASeconds = job.ProgressDetail.ETASeconds
+		s.saveJobProgress(ctx, p.ID, store.JobAnalyze, p.Analyze.JobID,
+			store.JobProgress{Progress: job.Progress, Stage: job.Stage, ETASeconds: job.ProgressDetail.ETASeconds})
 		return &pp, nil
 	}
 }
@@ -852,7 +1105,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 	if p.Profile == nil || p.Profile.State != "running" || p.Profile.JobID == "" {
 		return p, nil
 	}
-	job, err := s.Modal.GetJob(ctx, p.Profile.JobID)
+	job, err := s.projectJob(ctx, p, p.Profile.JobID)
 	if err != nil {
 		var upstream *modalapi.UpstreamError
 		if errors.As(err, &upstream) && upstream.StatusCode == 404 {
@@ -874,6 +1127,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 			}
 			pp.Profile.State = "succeeded"
 			pp.Profile.UpdatedAt = now
+			pp.Profile.Progress, pp.Profile.Stage, pp.Profile.ProgressAt = 0, "", nil
 			pp.SceneProfile = &store.SceneProfile{
 				ConversionID:  "profile:" + pp.Profile.JobID,
 				ScenesVersion: pp.Profile.ScenesVersion,
@@ -895,6 +1149,7 @@ func (s *Service) refreshProfile(ctx context.Context, p *store.Project) (*store.
 		prof.Progress = job.Progress
 		prof.Stage = job.Stage
 		pp.Profile = &prof
+		s.saveJobProgress(ctx, p.ID, store.JobProfile, p.Profile.JobID, store.JobProgress{Progress: job.Progress, Stage: job.Stage})
 		return &pp, nil
 	}
 }
@@ -906,6 +1161,7 @@ func (s *Service) failProfile(ctx context.Context, p *store.Project, internalErr
 			return nil
 		}
 		pp.Profile.State = "failed"
+		pp.Profile.Progress, pp.Profile.Stage, pp.Profile.ProgressAt = 0, "", nil
 		pp.Profile.Error = "shot profiling failed — retry, or contact support with project ID " + p.ID
 		pp.Profile.UpdatedAt = time.Now().UTC()
 		return nil
@@ -935,6 +1191,58 @@ func formatMinSec(seconds float64) string {
 		return fmt.Sprintf("%dm", m)
 	}
 	return fmt.Sprintf("%dm %ds", m, sec)
+}
+
+// analyzeStuck says why a job that reads running has in fact ended: past
+// the hard cap since it started, or its Modal call's history expired
+// before it recorded an end ("" while it may still be running).
+func analyzeStuck(job *modalapi.Job, now time.Time) string {
+	if job.CreatedAt > 0 {
+		started := time.Unix(int64(job.CreatedAt), 0)
+		if now.Sub(started) > analyzeHardCap {
+			return "analyze job still " + cmp.Or(job.Status, "running") + " past " + analyzeHardCap.String()
+		}
+	}
+	if strings.Contains(job.Error, "call history expired") {
+		return job.Error
+	}
+	return ""
+}
+
+// analyzeEnded: the analyze call ended without a result. The first time
+// it runs again under the same project (a new job on the same source);
+// after analyzeRetries it fails, so a project never stays analyzing.
+func (s *Service) analyzeEnded(ctx context.Context, p *store.Project, reason string) (*store.Project, error) {
+	if p.Analyze.Retries >= analyzeRetries || p.Source.GCSKey == "" {
+		return s.failAnalyze(ctx, p, reason)
+	}
+	ws, err := s.projectWorkspace(p)
+	if err != nil {
+		return s.failAnalyze(ctx, p, reason+"; no workspace to re-run: "+err.Error())
+	}
+	resp, err := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
+	if err != nil {
+		slog.WarnContext(ctx, "analyze re-run not submitted", "project_id", p.ID, "reason", reason, "err", err)
+		return p, nil // the next sweep tries again
+	}
+	old := p.Analyze.JobID
+	updated, uerr := s.Store.UpdateProject(ctx, p.ID, func(pp *store.Project) error {
+		if pp.Analyze.State != store.AnalyzeRunning || pp.Analyze.JobID != old {
+			return store.ErrStateConflict // another poll got there first
+		}
+		pp.Analyze.JobID, pp.Analyze.Retries, pp.Analyze.Error = resp.JobID, pp.Analyze.Retries+1, ""
+		pp.Analyze.Progress, pp.Analyze.Stage, pp.Analyze.ETASeconds, pp.Analyze.ProgressAt = 0, "", 0, nil
+		return nil
+	})
+	if uerr != nil {
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
+		if errors.Is(uerr, store.ErrStateConflict) {
+			return s.Store.GetProject(ctx, p.ID)
+		}
+		return nil, uerr
+	}
+	slog.WarnContext(ctx, "analyze re-run", "project_id", p.ID, "reason", reason, "old_job", old, "job", resp.JobID)
+	return updated, nil
 }
 
 func (s *Service) failAnalyze(ctx context.Context, p *store.Project, internalErr string) (*store.Project, error) {
@@ -973,14 +1281,53 @@ func (s *Service) collectOutputs(ctx context.Context, conversionID string, job *
 			}
 			continue
 		}
-		var nested map[string]string
+		// an object of URLs; other values (the worker's measured
+		// video_kbps and the like, 2026-11) are skipped, never a reason to
+		// drop the output
+		var nested map[string]json.RawMessage
 		if json.Unmarshal(raw, &nested) == nil {
-			for sub, u := range nested {
-				if u != "" {
+			for sub, v := range nested {
+				var u string
+				if json.Unmarshal(v, &u) == nil && u != "" && strings.HasPrefix(u, "http") {
 					add(name+"/"+sub, u)
 				}
 			}
 		}
 	}
 	return outputs
+}
+
+// noteScheduling records what a Lifelike job echoed of its scheduling
+// (priority, max_gpu_workers).
+func noteScheduling(c *store.Conversion, job *modalapi.Job) {
+	// The brand intro's facts (BL-25): recorded, never billed.
+	if f := job.Intro(); f.IntroS > 0 || f.VideoFrames > 0 {
+		c.Modal.IntroS, c.Modal.IntroFrames, c.Modal.VideoFrames = f.IntroS, f.IntroFrames, f.VideoFrames
+	}
+	if usd := job.StageUSD("brand_intro"); usd > 0 {
+		c.Modal.BrandIntroUSD = usd
+	}
+	if vfr, n := job.SourceVFR(); vfr != nil {
+		c.Modal.SourceVFR, c.Modal.SourceCountedFrames = vfr, n
+	}
+	if f := job.SourceCrop(); f.Requested != nil || f.Applied != nil || len(f.DisplaySize) == 2 {
+		box := func(b *modalapi.CropBox) *store.Crop {
+			if b == nil {
+				return nil
+			}
+			return &store.Crop{X: b.X, Y: b.Y, W: b.W, H: b.H}
+		}
+		c.Modal.SourceCrop, c.Modal.SourceCropRequested = box(f.Applied), box(f.Requested)
+		if len(f.DisplaySize) == 2 {
+			c.Modal.SourceDisplaySize = f.DisplaySize
+		}
+	}
+	if p, n := job.Scheduling(); p != "" || n > 0 {
+		if p != "" {
+			c.Modal.Priority = p
+		}
+		if n > 0 {
+			c.Modal.GPUWorkers = n
+		}
+	}
 }

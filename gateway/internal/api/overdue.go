@@ -47,12 +47,16 @@ func runStart(c *store.Conversion) time.Time {
 }
 
 // isOverdue: a paid or processing run past overdueAfter. A run waiting for
-// the user's bank (created) is not ours to be late on.
+// the user's bank (created) is not ours to be late on, nor is the time a
+// run sat waiting for a GPU (queued_s: the app-wide GPU cap held it back).
+// ExpectedSeconds is the run's own estimate, which scales with its method,
+// length and preset (Classic's additive model, Lifelike's GPU model).
 func isOverdue(c *store.Conversion, now time.Time) bool {
 	if c.State != store.StatePaid && c.State != store.StateProcessing {
 		return false
 	}
-	return now.Sub(runStart(c)) > overdueAfter(c.Support.ExpectedSeconds)
+	queued := time.Duration(overdueQueueAllowance(c) * float64(time.Second))
+	return now.Sub(runStart(c)) > overdueAfter(c.Support.ExpectedSeconds)+queued
 }
 
 // alertIfOverdue posts the Slack alert once per run. Called from the
@@ -133,4 +137,30 @@ func (s *Service) HandleReportConversion(w http.ResponseWriter, r *http.Request,
 		"stage", conv.Modal.Stage, "note", note)
 	s.Slack.ConversionReported(ctx, id, user.UID, user.Email, conv.Modal.Stage, now.Sub(runStart(conv)), note)
 	httpx.WriteOK(w, s.conversionResponse(updated, nil))
+}
+
+// etaFloorSeconds: the least an estimated time left shows while running.
+const etaFloorSeconds = 60
+
+// runETA is a running run's time left: Lifelike's own live eta_seconds
+// once the job reports one; until then the run's estimate (the quote's,
+// Support.ExpectedSeconds) less the time it has run, without the time it
+// waited for a GPU ("estimate"); 0 and "" when there's neither or the run
+// has ended.
+func runETA(c *store.Conversion, now time.Time) (int64, string) {
+	if store.IsTerminal(c.State) {
+		return c.Modal.ETASeconds, ""
+	}
+	if c.Modal.ETASeconds > 0 {
+		return c.Modal.ETASeconds, "live"
+	}
+	if c.Support.ExpectedSeconds <= 0 || (c.State != store.StatePaid && c.State != store.StateProcessing) {
+		return 0, ""
+	}
+	ran := now.Sub(runStart(c)) - time.Duration(c.Modal.QueuedS*float64(time.Second))
+	if c.Modal.WaitingForGPU {
+		ran = 0 // not started yet: the whole estimate is ahead
+	}
+	// past the estimate and still no live figure: about a minute, not 0
+	return max(c.Support.ExpectedSeconds-int64(max(ran, 0).Seconds()), etaFloorSeconds), "estimate"
 }

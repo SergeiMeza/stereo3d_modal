@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"math"
 	"slices"
+	"sort"
 	"sync"
 	"time"
 
@@ -39,16 +40,34 @@ type Rates struct {
 	// applies. 0 disables the free tier.
 	FreeImagesPerDay int   `firestore:"free_images_per_day"`
 	MinimumCents     int64 `firestore:"minimum_cents"`
+	// ProMinimumCents floors every paid pro-step run of both methods
+	// (S3D-17: $1.00); PreviewMinimumCents can set previews apart (both
+	// 100 by default). MinimumCents (50) stays the mobile one-shot's floor
+	// and the smallest grouped charge, so shipped apps don't change.
+	ProMinimumCents     int64 `firestore:"pro_minimum_cents"`
+	PreviewMinimumCents int64 `firestore:"preview_minimum_cents"`
 	// Batched billing (charge-on-success steps accumulate into one charge
 	// per account — a burst of small same-merchant charges is what issuer
-	// fraud rules block). BatchWindowHours bounds how long a batch stays
-	// open; BatchTiers picks the per-batch cap from the user's lifetime
-	// collected spend (a proven card earns a longer tab). Fractional hours
-	// are fine (test envs). BatchOneShot extends batching to the mobile
-	// one-shot flow (off until the mobile contract catches up).
+	// fraud rules block). BatchTiers pick the per-batch cap AND window
+	// from the user's lifetime collected spend (S3D-19: a proven card
+	// earns a longer, larger tab); a charge that failed within
+	// BatchFailureLookbackDays drops the account to the first tier.
+	// BatchWindowHours, when set, overrides every tier's window with one
+	// flat window (the test env runs 0.25 h); unset, each tier has its own
+	// window_hours (tiers without one keep their default). Fractional hours are fine. BatchOneShot extends
+	// batching to the mobile one-shot flow (off until the mobile contract
+	// catches up).
 	BatchWindowHours float64     `firestore:"batch_window_hours"`
 	BatchTiers       []BatchTier `firestore:"batch_tiers"`
-	BatchOneShot     bool        `firestore:"batch_one_shot"`
+	// WebBatchTiers are the web groups' tiers (D15, owner 2026-11-07:
+	// smaller first caps, longer windows for a proven record); config
+	// web_batch_tiers overrides them for web groups only. BatchTiers
+	// (config batch_tiers) stay the app groups' and keep their shipped
+	// default, so mobile paths are unchanged. BatchWindowHours and
+	// BatchFailureLookbackDays apply to both.
+	WebBatchTiers            []BatchTier `firestore:"web_batch_tiers"`
+	BatchFailureLookbackDays int         `firestore:"batch_failure_lookback_days"`
+	BatchOneShot             bool        `firestore:"batch_one_shot"`
 	// MinBillableSeconds floors the one-shot (mobile) video quote: a clip
 	// shorter than this is priced as this long (product decision
 	// 2026-09-02 — short clips were pricing at the 50¢ floor, and a
@@ -150,6 +169,296 @@ type Rates struct {
 	EtaRawWarpScale float64            `firestore:"eta_raw_warp_scale"`
 	EtaBaseSeconds  map[string]float64 `firestore:"eta_base_seconds"`
 	EtaFactor       map[string]float64 `firestore:"eta_factor"`
+
+	// Lifelike 3D (2026-11-03, the shared lifelike3d service). Every key
+	// may be absent: the accessors below fall back to the code defaults, so
+	// nothing changes before the config doc is written.
+	//
+	// LifelikeMaxSourceDurationS caps Lifelike sources; 0 = unlimited
+	// (LL-D6). max_source_duration_s stays the Classic cap.
+	LifelikeMaxSourceDurationS float64 `firestore:"lifelike_max_source_duration_s"`
+	// LifelikeMaxGPUWorkers: GPU containers one Lifelike job may use at
+	// once (default 4; clamped to MaxGPUWorkersPerJob like Classic's).
+	LifelikeMaxGPUWorkers int `firestore:"lifelike_max_gpu_workers"`
+	// Lifelike Express (2026-11-03, Lifelike team): Express runs ask for
+	// LifelikeExpressGPUWorkers (default 8, clamped) and go first in the
+	// slot scheduler. LifelikeExpressCostFactor (default 1.12) is the
+	// measured GPU cost of 8 vs 4 GPUs, for cost reporting.
+	// LifelikeExpressMaxWaitS (default 420): the longest an Express job may
+	// wait for a running standard piece to finish (4K, 3-min piece).
+	// LifelikeIntroEnabled sends the brand intro (BL-25: intro_s 3 on
+	// previews, 4 otherwise, intro_language) on Lifelike runs. Code
+	// default false until the pipeline's API is live on test.
+	LifelikeIntroEnabled      bool    `firestore:"lifelike_intro_enabled"`
+	LifelikeExpressGPUWorkers int     `firestore:"lifelike_express_gpu_workers"`
+	LifelikeExpressCostFactor float64 `firestore:"lifelike_express_cost_factor"`
+	LifelikeExpressMaxWaitS   int     `firestore:"lifelike_express_max_wait_s"`
+	// PrechargeThresholdCents: pro-step quotes ABOVE this are charged
+	// before the run starts and refunded in full if it fails (LL-D8, both
+	// methods); at or below it they join the batch and are billed after.
+	PrechargeThresholdCents int64 `firestore:"precharge_threshold_cents"`
+	// LifelikePriceCentsPerMinute: Lifelike's own PRICE per output minute
+	// at 24 fps, per preset (no margin applied; see QuoteLifelike).
+	LifelikePriceCentsPerMinute map[string]int64 `firestore:"lifelike_price_cents_per_minute"`
+	// LifelikePreview: the preview's length rules in source seconds (S3D-13:
+	// 2-10 s, 5 by default). Zero values use those defaults.
+	LifelikePreview PreviewSeconds `firestore:"lifelike_preview"`
+	// LifelikeMaxSourceBytes caps a Lifelike source file (S3D-42);
+	// max_source_bytes stays Classic's. 0/absent = 25 GiB.
+	LifelikeMaxSourceBytes int64 `firestore:"lifelike_max_source_bytes"`
+	// FoveationEnabled switches the Lifelike "foveation: static" option on
+	// (S3D-50; off by default while its delivery format is worked out);
+	// FoveationPriceMultiplier scales a foveated run's price (1.3).
+	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// LifelikeSourceCropEnabled: Lifelike runs take black bars off
+	// (source_crop on /convert, BL-03) and are sized and priced on the
+	// picture inside. Code default off; on for test, where Lifelike
+	// ignores the key until it ships it.
+	LifelikeSourceCropEnabled bool `firestore:"lifelike_source_crop_enabled"`
+	// LifelikeHDROutputEnabled: Lifelike runs from HDR sources get HDR
+	// output (hdr_output on /convert), automatic and free for everyone
+	// (owner 2026-11-05). Code default off on test and prod; while off
+	// projects don't show the source's dynamic range.
+	LifelikeHDROutputEnabled bool `firestore:"lifelike_hdr_output_enabled"`
+	// GPUCapPerApp: GPUs each pipeline app may hold at once (the Modal
+	// coordinators enforce it; the GPU-line alert reports usage against
+	// it). 0/absent = 8.
+	GPUCapPerApp int `firestore:"gpu_cap_per_app"`
+	// KlarnaMarkets: countries where the sheet offers Klarna (spec v6.2
+	// BL-10; empty at launch = never offered). A GB account can take
+	// Klarna only from EEA/CH/UK buyers in their own currency.
+	KlarnaMarkets []string `firestore:"klarna_markets"`
+	// TaxMode (C7, BL-07): "off" (default, launch) | "inclusive" —
+	// invoices get automatic tax, prices unchanged.
+	TaxMode string `firestore:"tax_mode"`
+	// Pro discount (S3D-67): Spatial Video Studio Pro customers get
+	// pro_discount_pct off every paid web run (production, both methods;
+	// not previews), before the bulk discount; the per-run minimum stays.
+	// Off unless pro_discount_enabled (test defaults it on).
+	ProDiscountEnabled bool `firestore:"pro_discount_enabled"`
+	// Campaign: the launch offer (campaign.go); nil = none.
+	Campaign *CampaignDef `firestore:"campaign"`
+	// AdminCreditGrantCapCents: one "Grant credit" above this needs
+	// confirm_over_cap (0 = 50000, $500). CreditGrantMailAllowUIDs: off
+	// prod, the only accounts a grant's notify mail really reaches (empty:
+	// a dry run, logged).
+	AdminCreditGrantCapCents int64    `firestore:"admin_credit_grant_cap_cents"`
+	CreditGrantMailAllowUIDs []string `firestore:"credit_grant_mail_allow_uids"`
+	// RCAttrSync: the gateway's RevenueCat attributes (rc_attributes.go):
+	// off | dry_run | allowlist | on; "" = allowlist off prod, off on prod
+	// (on at the release, with the owner's yes). RCAttrAllowUIDs: the
+	// accounts allowlist mode writes; every other is a dry run, logged.
+	RCAttrSync      string   `firestore:"rc_attr_sync"`
+	RCAttrAllowUIDs []string `firestore:"rc_attr_allow_uids"`
+	ProDiscountPct  float64  `firestore:"pro_discount_pct"`
+	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
+	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
+	// File keeping (S3D-24), see the accessors: days without use before a
+	// project's files go (90), the notice mails' days before (14, 3), days
+	// a deleted project's files are kept for disputes (30).
+	FileKeepDays            int   `firestore:"file_keep_days"`
+	FileNoticeDays          []int `firestore:"file_notice_days"`
+	DeletedProjectPurgeDays int   `firestore:"deleted_project_purge_days"`
+	// LifelikeEnabledPresets: the Lifelike sizes the service renders
+	// today (see EnabledLifelikePresets).
+	LifelikeEnabledPresets   []string `firestore:"lifelike_enabled_presets"`
+	FoveationPriceMultiplier float64  `firestore:"foveation_price_multiplier"`
+	// LifelikeETA is the Lifelike wall-clock model — see
+	// EstimateLifelikeETA.
+	LifelikeETA LifelikeETA `firestore:"lifelike_eta"`
+
+	// 2026-11 pricing (tiers.go; test only until the owner's go for prod).
+	// TierPricing: subscriber tiers, add-ons and the never-stacked bulk.
+	TierPricing        bool                        `firestore:"tier_pricing"`
+	LifelikeTierPrices map[string]map[string]int64 `firestore:"lifelike_tier_prices"`
+	TierPctOverride    map[string]float64          `firestore:"tier_pct"`
+	AddOnPctOverride   map[string]float64          `firestore:"addon_pct"`
+	PlansEnabled       bool                        `firestore:"plans_enabled"`
+	Plans              map[string]PlanDef          `firestore:"plans"`
+	// ProPlans: web Pro on our own Stripe (owner 2026-11-04), by plan id
+	// (pro_weekly | pro_monthly | pro_yearly); behind PlansEnabled.
+	ProPlans map[string]ProPlanDef `firestore:"pro_plans"`
+	// ProCreditCents: Pro's monthly usage credit by allowance key
+	// (pro_weekly … pro_lifetime; tiers.go testProCredit); empty = off.
+	ProCreditCents map[string]int64 `firestore:"pro_credit_cents"`
+	// AccountDeleteDelayHours: a delete request waits this long before the
+	// deletion runs (owner 2026-11-07; test 48). 0 = at once, as before
+	// (prod until its release).
+	AccountDeleteDelayHours int `firestore:"account_delete_delay_hours"`
+	// DeferredPaymentsEnabled: card runs may be charged after they finish
+	// (batched, "after") or pre-charged off-session. false in every env
+	// (owner 2026-11-07, until BL-32 after the release): the card pays in
+	// the sheet before the run starts. Only an explicit true turns it on.
+	DeferredPaymentsEnabled bool `firestore:"deferred_payments_enabled"`
+	// AdaptivePricingEnabled: every web Checkout Session (run, settle,
+	// top-up, hand-off, plans) lets Stripe show and charge the customer's
+	// local currency (owner 2026-11-07, Option B). Our amounts stay USD.
+	// Test on; prod off until the owner says.
+	AdaptivePricingEnabled bool `firestore:"adaptive_pricing_enabled"`
+	// OneTapEnabled: a pay-first run or a settle can be paid with one tap
+	// on the saved default that has paid before (BUX-20, owner
+	// 2026-11-07): an on-session PaymentIntent, no sheet. Test on; absent
+	// = off (prod until the owner says).
+	OneTapEnabled bool `firestore:"one_tap_enabled"`
+	// ChinaPaymentsEnabled: China mode's own payments (Alipay run pay-now,
+	// hand-off Alipay, Alipay top-up) and plan checkout in China mode
+	// (owner 2026-11-07: off at launch; "Payments in mainland China are
+	// coming soon"). Absent = false in every env. Browsing, sign-up, the
+	// sample, free previews and balance or credit runs work either way.
+	ChinaPaymentsEnabled bool `firestore:"china_payments_enabled"`
+	// WebProWeeklyHidden (BUX-24): the web stops offering Pro Weekly — new
+	// web checkouts of it and changes to it are refused; weekly plans that
+	// exist renew as before. Absent = false in every env.
+	WebProWeeklyHidden bool `firestore:"web_pro_weekly_hidden"`
+	// TopupBonus (BUX-23): usage credit added to a top-up the customer
+	// makes (sheet or China; never an auto-reload or a pay link's), by the
+	// highest tier its amount reaches. Absent or empty = no bonus.
+	TopupBonus []BonusTier `firestore:"topup_bonus"`
+	// BusinessYearly (BUX-25): Business billed yearly is offered (POST
+	// /v1/billing/plan {plan: business_yearly}, plan changes to it, its
+	// row in /v1/pricing plans). Absent = off in every env; yearly plans
+	// that exist run their year either way.
+	BusinessYearly bool `firestore:"business_yearly"`
+	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
+	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
+	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
+	// anchors per size ("1080p", "4k"; others scaled by pixels per eye),
+	// ×QualityHFRFactor above 30 fps for standard and high. Standard is a
+	// CRF target capped at its value; high and master are target rates;
+	// master is QualityMasterBitDepth-bit. Defaults in QualityMbps.
+	QualityStandardCapMbps map[string]float64 `firestore:"quality_standard_cap_mbps"`
+	QualityHighMbps        map[string]float64 `firestore:"quality_high_mbps"`
+	QualityMasterMbps      map[string]float64 `firestore:"quality_master_mbps"`
+	QualityHFRFactor       float64            `firestore:"quality_hfr_factor"`
+	QualityMasterBitDepth  int                `firestore:"quality_master_bit_depth"`
+	// QualityStandardTypical: a standard file's usual share of its cap,
+	// for the quote's size estimate (0.5).
+	QualityStandardTypical float64        `firestore:"quality_standard_typical"`
+	FreePreviewsEnabled    bool           `firestore:"free_previews_enabled"`
+	FreePreviewsOverride   map[string]int `firestore:"free_previews"`
+	FreePreviewsPerDay     int            `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds float64        `firestore:"free_preview_unit_s"`
+}
+
+// MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
+// to 8 GPUs at once (the Modal coordinators enforce the app-wide cap), so a
+// fat-fingered config value can't ask for more than the whole app has.
+const MaxGPUWorkersPerJob = 8
+
+// LifelikeETA: eta = overhead + render_gpu_s_per_minute × output minutes
+// (at 24 fps; frames scale it) / GPUs + an encode tail. The Spatial 3D
+// Studio team's numbers on test (ml-sharp-modal ADR-0019 § Estimates):
+// planning and start-up ~70 s (overhead_s); the encode runs in parallel
+// chunks, so production's tail after rendering doesn't grow with the
+// length, but it does with the picture and the rate: encode_tail_s is the
+// tail at 1080p with the pipeline's own rate (150 s), times the preset's
+// short side over 1080 and 1 + the run's bitrate over that preset's Master
+// rate (3DS 2026-11-05: ~300 s at 1080p Master; 4K Master 150 ~600 s). A
+// preview encodes inline in its one container (~27 s measured;
+// preview_tail_s). Zero or missing values use the defaults.
+type LifelikeETA struct {
+	RenderGPUSecondsPerMinute float64 `firestore:"render_gpu_s_per_minute"`
+	OverheadSeconds           float64 `firestore:"overhead_s"`
+	EncodeTailSeconds         float64 `firestore:"encode_tail_s"`
+	PreviewTailSeconds        float64 `firestore:"preview_tail_s"`
+}
+
+func defaultLifelikeETA() LifelikeETA {
+	return LifelikeETA{
+		RenderGPUSecondsPerMinute: 530,
+		OverheadSeconds:           70, // 3DS 2026-11-05 (was 45)
+		EncodeTailSeconds:         150,
+		PreviewTailSeconds:        30,
+	}
+}
+
+// MaxSourceDurationFor is the source-length cap of a method (0 = none).
+func (r *Rates) MaxSourceDurationFor(method string) float64 {
+	if method == "lifelike" {
+		return max(r.LifelikeMaxSourceDurationS, 0)
+	}
+	return r.MaxSourceDurationS
+}
+
+// GPUWorkersFor is the max_gpu_workers a job of the method is submitted
+// with, clamped to MaxGPUWorkersPerJob. 0 for classic means "omit the
+// field" (the pipeline's own default), as before.
+func (r *Rates) GPUWorkersFor(method string) int {
+	n := r.MaxGPUWorkers
+	if method == "lifelike" {
+		n = r.LifelikeMaxGPUWorkers
+		if n <= 0 {
+			n = 4
+		}
+	}
+	return min(n, MaxGPUWorkersPerJob)
+}
+
+// ExpressGPUWorkers is max_gpu_workers for an Express Lifelike run.
+func (r *Rates) ExpressGPUWorkers() int {
+	n := r.LifelikeExpressGPUWorkers
+	if n <= 0 {
+		n = 8
+	}
+	return min(n, MaxGPUWorkersPerJob)
+}
+
+// ExpressCostFactor is Express's GPU cost relative to a standard run.
+func (r *Rates) ExpressCostFactor() float64 {
+	if r.LifelikeExpressCostFactor > 0 {
+		return r.LifelikeExpressCostFactor
+	}
+	return 1.12
+}
+
+// ExpressMaxWaitS is the longest an Express job may wait for a GPU slot.
+func (r *Rates) ExpressMaxWaitS() int {
+	if r.LifelikeExpressMaxWaitS > 0 {
+		return r.LifelikeExpressMaxWaitS
+	}
+	return 420
+}
+
+// PreviewSeconds bounds a Lifelike preview's span.
+type PreviewSeconds struct {
+	MinS     float64 `firestore:"min_s" json:"min_s"`
+	MaxS     float64 `firestore:"max_s" json:"max_s"`
+	DefaultS float64 `firestore:"default_s" json:"default_s"`
+}
+
+// LifelikePreviewSeconds is the preview length rule with defaults filled in.
+func (r *Rates) LifelikePreviewSeconds() PreviewSeconds {
+	p := r.LifelikePreview
+	if p.MinS <= 0 {
+		p.MinS = 2
+	}
+	if p.MaxS <= 0 {
+		p.MaxS = 10
+	}
+	if p.DefaultS <= 0 {
+		p.DefaultS = 5
+	}
+	return p
+}
+
+// MaxSourceBytesFor is the source-file cap of a method.
+func (r *Rates) MaxSourceBytesFor(method string) int64 {
+	if method == "lifelike" {
+		if r.LifelikeMaxSourceBytes > 0 {
+			return r.LifelikeMaxSourceBytes
+		}
+		return 25 << 30
+	}
+	return r.MaxSourceBytes
+}
+
+// PrechargeThreshold is the quote above which a pro step is charged up
+// front.
+func (r *Rates) PrechargeThreshold() int64 {
+	if r.PrechargeThresholdCents > 0 {
+		return r.PrechargeThresholdCents
+	}
+	return 2500
 }
 
 // Defaults: the per-minute tables are ≈1× BILLED Modal cost (billed runs
@@ -167,33 +476,120 @@ type Rates struct {
 // accumulate up to CapCents per batch before an automatic charge. The
 // highest qualifying tier wins.
 type BatchTier struct {
-	MinPaidCents int64 `firestore:"min_paid_cents" json:"min_paid_cents"`
-	CapCents     int64 `firestore:"cap_cents" json:"cap_cents"`
+	MinPaidCents int64   `firestore:"min_paid_cents" json:"min_paid_cents"`
+	CapCents     int64   `firestore:"cap_cents" json:"cap_cents"`
+	WindowHours  float64 `firestore:"window_hours" json:"window_hours"`
+}
+
+// BatchTierFor is the tier a user batches under: the highest one their
+// collected spend reaches, or the first when a charge of theirs failed
+// recently (S3D-19: the longer, larger tab is for a good paid record; a
+// failure drops both window and cap back to a new account's). WindowHours
+// is always filled in (see Rates.BatchWindowHours).
+func (r *Rates) BatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier {
+	return r.tierFor(r.BatchTiers, defaults().BatchTiers, lifetimePaid, failedRecently)
+}
+
+// WebBatchTierFor is BatchTierFor for a web group (D15): web_batch_tiers,
+// or their code default.
+func (r *Rates) WebBatchTierFor(lifetimePaid int64, failedRecently bool) BatchTier {
+	return r.tierFor(r.WebBatchTiers, defaults().WebBatchTiers, lifetimePaid, failedRecently)
+}
+
+// TierFor picks the app's or the web's tier.
+func (r *Rates) TierFor(web bool, lifetimePaid int64, failedRecently bool) BatchTier {
+	if web {
+		return r.WebBatchTierFor(lifetimePaid, failedRecently)
+	}
+	return r.BatchTierFor(lifetimePaid, failedRecently)
+}
+
+func (r *Rates) tierFor(tiers, fallback []BatchTier, lifetimePaid int64, failedRecently bool) BatchTier {
+	if len(tiers) == 0 {
+		tiers = fallback[:1] // no tiers configured: the base one
+	}
+	best, base := BatchTier{}, BatchTier{MinPaidCents: -1}
+	for _, t := range tiers {
+		if base.MinPaidCents < 0 || t.MinPaidCents < base.MinPaidCents {
+			base = t
+		}
+		if lifetimePaid >= t.MinPaidCents && t.CapCents > best.CapCents {
+			best = t
+		}
+	}
+	if failedRecently || best.CapCents <= 0 {
+		best = base
+	}
+	if best.CapCents <= 0 {
+		best = fallback[0]
+	}
+	if r.BatchWindowHours > 0 {
+		best.WindowHours = r.BatchWindowHours // flat override (test env)
+	}
+	if best.WindowHours <= 0 {
+		best.WindowHours = defaultTierWindow(fallback, best.MinPaidCents)
+	}
+	return best
+}
+
+// defaultTierWindow is the default window of the default tier a spend
+// threshold falls in (config tiers written before window_hours existed).
+func defaultTierWindow(fallback []BatchTier, minPaid int64) float64 {
+	h := 1.0
+	for _, t := range fallback {
+		if minPaid >= t.MinPaidCents {
+			h = t.WindowHours
+		}
+	}
+	return h
+}
+
+// Window is the tier's batch window.
+func (t BatchTier) Window() time.Duration {
+	return time.Duration(t.WindowHours * float64(time.Hour))
+}
+
+// FailureLookback is how far back a failed charge drops an account to
+// the first tier (default 90 days).
+func (r *Rates) FailureLookback() time.Duration {
+	d := r.BatchFailureLookbackDays
+	if d <= 0 {
+		d = 90
+	}
+	return time.Duration(d) * 24 * time.Hour
 }
 
 // BatchCap returns the batch cap for a user with lifetimePaid cents
 // collected so far: the highest tier whose threshold is met. Never below
-// the base tier.
+// the base tier. (The mobile hold threshold; batching itself goes through
+// BatchTierFor.)
 func (r *Rates) BatchCap(lifetimePaid int64) int64 {
-	cap := int64(0)
-	for _, t := range r.BatchTiers {
-		if lifetimePaid >= t.MinPaidCents && t.CapCents > cap {
-			cap = t.CapCents
-		}
-	}
-	if cap <= 0 {
-		cap = defaults().BatchTiers[0].CapCents
-	}
-	return cap
+	return r.BatchTierFor(lifetimePaid, false).CapCents
 }
 
 // NextBatchTier returns the next tier above the user's current cap, or
 // nil at the top tier — for the "spend $X more to unlock" hint.
 func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
-	current := r.BatchCap(lifetimePaid)
+	return nextTier(r.BatchTiers, r.BatchCap(lifetimePaid), lifetimePaid)
+}
+
+// WebBatchCap / NextWebBatchTier: the web groups' (D15).
+func (r *Rates) WebBatchCap(lifetimePaid int64) int64 {
+	return r.WebBatchTierFor(lifetimePaid, false).CapCents
+}
+
+func (r *Rates) NextWebBatchTier(lifetimePaid int64) *BatchTier {
+	tiers := r.WebBatchTiers
+	if len(tiers) == 0 {
+		tiers = defaults().WebBatchTiers[:1]
+	}
+	return nextTier(tiers, r.WebBatchCap(lifetimePaid), lifetimePaid)
+}
+
+func nextTier(tiers []BatchTier, current, lifetimePaid int64) *BatchTier {
 	var next *BatchTier
-	for i := range r.BatchTiers {
-		t := &r.BatchTiers[i]
+	for i := range tiers {
+		t := &tiers[i]
 		if t.CapCents > current && lifetimePaid < t.MinPaidCents && (next == nil || t.MinPaidCents < next.MinPaidCents) {
 			next = t
 		}
@@ -201,13 +597,9 @@ func (r *Rates) NextBatchTier(lifetimePaid int64) *BatchTier {
 	return next
 }
 
-// BatchWindow is the batch's maximum open time.
+// BatchWindow is a new account's batch window (the first tier's).
 func (r *Rates) BatchWindow() time.Duration {
-	h := r.BatchWindowHours
-	if h <= 0 {
-		h = defaults().BatchWindowHours
-	}
-	return time.Duration(h * float64(time.Hour))
+	return r.BatchTierFor(0, false).Window()
 }
 
 func defaults() *Rates {
@@ -220,15 +612,23 @@ func defaults() *Rates {
 		},
 		ImageCents:         5,
 		FreeImagesPerDay:   100,
-		BatchWindowHours:   4,
 		MinBillableSeconds: 60,
 		// Exposure per batch ≈ cap + one step (the closing step lands in
 		// the same charge); the tiers grow it with collected revenue.
 		BatchTiers: []BatchTier{
-			{MinPaidCents: 0, CapCents: 5000},        // new accounts: $50
-			{MinPaidCents: 20000, CapCents: 15000},   // $200 collected: $150
-			{MinPaidCents: 100000, CapCents: 40000},  // $1,000 collected: $400
-			{MinPaidCents: 500000, CapCents: 100000}, // $5,000 collected: $1,000
+			{MinPaidCents: 0, CapCents: 5000, WindowHours: 1},         // new accounts: $50, 1 h
+			{MinPaidCents: 20000, CapCents: 15000, WindowHours: 4},    // $200 collected: $150, 4 h
+			{MinPaidCents: 100000, CapCents: 40000, WindowHours: 12},  // $1,000 collected: $400, 12 h
+			{MinPaidCents: 500000, CapCents: 100000, WindowHours: 24}, // $5,000 collected: $1,000, 24 h
+		},
+		// Web groups (D15, owner 2026-11-07): web runs are larger, so a
+		// new card's tab is halved and the windows grow with the record.
+		WebBatchTiers: []BatchTier{
+			{MinPaidCents: 0, CapCents: 2500, WindowHours: 1},         // under $50 collected: $25, 1 h
+			{MinPaidCents: 5000, CapCents: 5000, WindowHours: 2},      // $50: $50, 2 h
+			{MinPaidCents: 20000, CapCents: 15000, WindowHours: 6},    // $200: $150, 6 h
+			{MinPaidCents: 100000, CapCents: 40000, WindowHours: 12},  // $1,000: $400, 12 h
+			{MinPaidCents: 500000, CapCents: 100000, WindowHours: 24}, // $5,000: $1,000, 24 h
 		},
 		MinimumCents:               50, // Stripe practical minimum
 		DiscountThresholdCents:     1000,
@@ -279,6 +679,12 @@ func defaults() *Rates {
 			"production_qhd": 8.0, "production_3k": 9.5, "production_4k": 12.0,
 			"production": 6.0,
 		},
+		LifelikeMaxSourceDurationS:  0, // unlimited
+		LifelikeMaxGPUWorkers:       4,
+		PrechargeThresholdCents:     2500,
+		LifelikePriceCentsPerMinute: defaultLifelikePrices(),
+		LifelikeMaxSourceBytes:      25 << 30,
+		LifelikeETA:                 defaultLifelikeETA(),
 	}
 }
 
@@ -346,6 +752,12 @@ func (r *Rates) inpaintMultiplier(step, inpaint string) float64 {
 // per minute of footage.
 const fpsBase = 24.0
 
+// The fps factor's clamp.
+const (
+	fpsMinFactor = 0.5
+	fpsMaxFactor = 2.5
+)
+
 // baseElongation anchors the depth factor's base working MP at 16:9 — the
 // aspect the DepthResBase quadratic was originally calibrated on.
 const baseElongation = 16.0 / 9.0
@@ -354,7 +766,7 @@ func fpsFactor(effectiveFPS float64) float64 {
 	if effectiveFPS <= 0 {
 		return 1.0
 	}
-	return math.Min(2.5, math.Max(0.5, effectiveFPS/fpsBase))
+	return math.Min(fpsMaxFactor, math.Max(fpsMinFactor, effectiveFPS/fpsBase))
 }
 
 // depthFactor prices the depth work: LINEAR in working megapixels
@@ -401,9 +813,34 @@ type StepInputs struct {
 	ContentWidth, ContentHeight int
 	// Frames per second the job renders; 0 = unknown → no fps scaling.
 	EffectiveFPS float64
-	Inpaint      string
-	ReuseStages  []string
-	CreditCents  int64
+	// SourceFPS: the source's rate, which BillableS was counted at
+	// (frames ÷ fps); started units (minutes, free previews) count in its
+	// frames, so 29.97 fps's 5.005 s is one 5 s unit. 0 = unknown.
+	SourceFPS   float64
+	Inpaint     string
+	ReuseStages []string
+	CreditCents int64
+	// Foveated (Lifelike only): priced × FoveationMultiplier.
+	Foveated bool
+	// Pro: the customer holds SVS Pro (S3D-67): production runs get
+	// ProDiscount off before the bulk discount.
+	Pro bool
+	// Tier pricing (tiers.go): the account's tier, the add-ons, and a
+	// free preview (quoted $0, Units free previews used).
+	Tier   string
+	Master bool
+	// Quality (web Lifelike, owner 2026-11-07): "high" (+30%) or "master"
+	// (+50%) is its own add-on, one per run; "" or "standard" is free.
+	Quality     string
+	Express     bool
+	FreePreview bool
+	Units       int
+	// Web: the run comes from the web app (the launch campaign is web
+	// only); OutputPreset the run's output preset when the price row
+	// differs; Now the quote's time (zero = now).
+	Web          bool
+	OutputPreset string
+	Now          time.Time
 }
 
 // EstimateStepETA predicts a step's wall-clock seconds for the quote screen.
@@ -475,6 +912,92 @@ func New(fs *firestore.Client, env string) *Service {
 	return &Service{fs: fs, env: env}
 }
 
+// NewStatic serves fixed rates without Firestore (tests); nil = the code
+// defaults.
+func NewStatic(r *Rates) *Service {
+	if r == nil {
+		r = defaults()
+	}
+	return &Service{cached: r, fetchedAt: time.Now().Add(100 * 365 * 24 * time.Hour)}
+}
+
+// Defaults returns a fresh copy of the code defaults.
+func Defaults() *Rates { return defaults() }
+
+// DefaultsFor is the code defaults of an environment: test switches on
+// what is being tried there before prod — every Lifelike size including
+// 5K-8K, foveation (S3D-50), the Pro discount (S3D-67) and the brand
+// intro (BL-25). A key in
+// config/pricing_{env} still overrides each.
+// BonusTier: from MinCents paid, Pct of it as usage credit.
+type BonusTier struct {
+	MinCents int64   `firestore:"min_cents" json:"min_cents"`
+	Pct      float64 `firestore:"pct" json:"pct"`
+}
+
+// TopupBonusFor is the bonus a top-up of cents earns (0: none). Tiers
+// outside 0 < pct <= 0.5 are ignored.
+func (r *Rates) TopupBonusFor(cents int64) int64 {
+	var pct float64
+	var at int64 = -1
+	for _, t := range r.TopupBonus {
+		if t.Pct <= 0 || t.Pct > 0.5 || cents < t.MinCents || t.MinCents < at {
+			continue
+		}
+		pct, at = t.Pct, t.MinCents
+	}
+	return int64(float64(cents) * pct) // whole cents, rounded down
+}
+
+// publicBonusTiers: the valid tiers, lowest first ([] when off).
+func (r *Rates) publicBonusTiers() []BonusTier {
+	out := []BonusTier{}
+	for _, t := range r.TopupBonus {
+		if t.Pct > 0 && t.Pct <= 0.5 && t.MinCents > 0 {
+			out = append(out, t)
+		}
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].MinCents < out[j].MinCents })
+	return out
+}
+
+func DefaultsFor(env string) *Rates {
+	r := defaults()
+	if env == "test" {
+		r.LifelikeEnabledPresets = slices.Clone(LifelikePresets)
+		r.FoveationEnabled = true
+		r.ProDiscountEnabled = true
+		r.Campaign = testCampaign()
+		r.LifelikeSourceCropEnabled = true // BL-03
+		r.LifelikeIntroEnabled = true      // BL-25, live on lifelike3d-test
+		applyTestTierDefaults(r)           // 2026-11 pricing, test only
+		r.AccountDeleteDelayHours = 48     // the 48-hour wait (owner 2026-11-07), test first
+		r.AdaptivePricingEnabled = true    // Option B (owner 2026-11-07), test first
+		r.OneTapEnabled = true             // BUX-20, test first
+	}
+	return r
+}
+
+// ProDiscount is the Pro share off a production run; 0 when switched off.
+// pro_discount_pct absent/0 = 0.20, held to [0, 0.9].
+func (r *Rates) ProDiscount() float64 {
+	if !r.ProDiscountEnabled {
+		return 0
+	}
+	if r.ProDiscountPct > 0 {
+		return min(r.ProDiscountPct, 0.9)
+	}
+	return 0.20
+}
+
+// proDiscountCents is the Pro line of a run: production only.
+func (r *Rates) proDiscountCents(in StepInputs, subtotal int64) int64 {
+	if !in.Pro || in.Step != "production" {
+		return 0
+	}
+	return int64(math.Round(float64(subtotal) * r.ProDiscount()))
+}
+
 // Rates returns the current pricing config (60s cache; falls back to code
 // defaults if the Firestore doc is missing or malformed).
 func (s *Service) Rates(ctx context.Context) *Rates {
@@ -483,13 +1006,16 @@ func (s *Service) Rates(ctx context.Context) *Rates {
 	if s.cached != nil && time.Since(s.fetchedAt) < cacheTTL {
 		return s.cached
 	}
-	rates := defaults()
+	rates := DefaultsFor(s.env)
 	snap, err := s.fs.Collection("config").Doc("pricing_" + s.env).Get(ctx)
 	if err == nil {
 		loaded := *rates // start from defaults so partial docs stay sane
 		if err := snap.DataTo(&loaded); err == nil {
 			rates = &loaded
 		}
+	}
+	if rates.Currency == "" {
+		rates.Currency = "usd" // every price is USD; a quote never has an empty currency
 	}
 	s.cached = rates
 	s.fetchedAt = time.Now()
@@ -591,6 +1117,10 @@ func (s *Service) QuoteVideo(ctx context.Context, in VideoInputs) (*Quote, error
 // credit if this is its first paid conversion. Every adjustment is an
 // explicit breakdown line so support can reconstruct any charge.
 func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) {
+	return withBillableMinutes(s.quoteStep(ctx, in))(in)
+}
+
+func (s *Service) quoteStep(ctx context.Context, in StepInputs) (*Quote, error) {
 	rates := s.Rates(ctx)
 	var perMin int64
 	switch in.Step {
@@ -612,7 +1142,7 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	// price = cost rate × margin (see CostMarginMultiplier)
 	rateCents := float64(perMin) * rates.margin()
 	fpsF := fpsFactor(in.EffectiveFPS)
-	baseCents := int64(math.Ceil(in.BillableS / 60 * rateCents * fpsF))
+	baseCents := int64(math.Ceil(billedMinutes(in.Step, in.BillableS, in.SourceFPS) * rateCents * fpsF))
 	subtotal := baseCents
 
 	// depth factor on the DEPTH share of the step. depth_preview is 100%
@@ -646,15 +1176,26 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 	}
 
 	afterReuse := subtotal - reuseDiscount
+	if rates.TierPricing {
+		return rates.quoteClassicTiers(in, afterReuse, map[string]any{
+			"step": in.Step, "preset": in.Preset, "billable_seconds": math.Round(in.BillableS*100) / 100,
+			"cents_per_minute": int64(math.Round(rateCents)), "cost_margin_multiplier": rates.margin(),
+			"fps_factor": round4(fpsF), "base_cents": baseCents, "depth_res": in.DepthRes,
+			"depth_res_factor": round4(depthResFactor), "inpaint_multiplier": inpaintMultiplier,
+			"reuse_stages": in.ReuseStages, "reuse_discount_cents": reuseDiscount,
+		}), nil
+	}
+	proDiscount := rates.proDiscountCents(in, afterReuse)
+	afterPro := afterReuse - proDiscount
 	bulkDiscount := int64(0)
-	if afterReuse > rates.DiscountThresholdCents {
-		bulkDiscount = int64(math.Round(float64(afterReuse) * rates.DiscountPct))
+	if afterPro > rates.DiscountThresholdCents {
+		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
 	}
-	total := afterReuse - bulkDiscount - in.CreditCents
-	if total < rates.MinimumCents {
-		total = rates.MinimumCents
+	total := afterPro - bulkDiscount - in.CreditCents // no launch offer on Classic (owner 2026-11-07)
+	if floor := rates.MinimumFor(in.Step); total < floor {
+		total = floor
 	}
-	return &Quote{
+	q := &Quote{
 		AmountCents: total,
 		Currency:    rates.Currency,
 		RateVersion: rates.RateVersion,
@@ -673,10 +1214,311 @@ func (s *Service) QuoteStep(ctx context.Context, in StepInputs) (*Quote, error) 
 			"subtotal_cents":         subtotal, // after multipliers; discounts apply to this
 			"reuse_stages":           in.ReuseStages,
 			"reuse_discount_cents":   reuseDiscount,
+			"pro":                    in.Pro,
+			"pro_discount_pct":       proPct(rates, in, proDiscount),
+			"pro_discount_cents":     proDiscount,
 			"discount_cents":         bulkDiscount,
 			"analyze_credit_cents":   in.CreditCents,
 		},
+	}
+	return q, nil
+}
+
+// Lifelike is its own product with its own PRICE table (owner change
+// 2026-11-03): lifelike_price_cents_per_minute[preset] per output minute at
+// 24 fps — a price, not a cost the margin multiplies — times the fps
+// factor, for production. None of Classic's mechanics apply (no depth-res
+// factor, no inpaint multiplier, no reuse discount); the bulk discount, the
+// analyze credit and the per-run minimum do. A lifelike_preview costs its
+// frames at the same price per frame, floored at the minimum (S3D-13/17).
+const (
+	StepLifelikePreview = "lifelike_preview"
+	MethodLifelike      = "lifelike"
+)
+
+// LifelikePresets are the presets Lifelike renders (no draft).
+// 5k (2880 short side per eye), 6k (3240) and 8k (4320) since S3D-48.
+var LifelikePresets = []string{"1080p", "qhd", "3k", "4k", "5k", "6k", "8k"}
+
+func defaultLifelikePrices() map[string]int64 {
+	return map[string]int64{
+		// S3D-11 (final owner prices v2, 2026-11-03)
+		"1080p": 300, "qhd": 450, "3k": 700, "4k": 850,
+		"5k": 1300, "6k": 1600, "8k": 2200,
+	}
+}
+
+// DefaultLifelikeEnabled: the presets the Lifelike service renders today
+// (5k/6k/8k wait for Spatial 3D Studio — S3D-48).
+var DefaultLifelikeEnabled = []string{"1080p", "qhd", "3k", "4k"}
+
+// EnabledLifelikePresets is lifelike_enabled_presets in LifelikePresets
+// order (unknown names dropped); absent or empty = DefaultLifelikeEnabled.
+// Only these are offered, quoted or run: a run for another is refused
+// before any charge, so nothing is charged for a size the service would
+// refuse.
+func (r *Rates) EnabledLifelikePresets() []string {
+	var out []string
+	for _, p := range LifelikePresets {
+		if slices.Contains(r.LifelikeEnabledPresets, p) {
+			out = append(out, p)
+		}
+	}
+	if len(out) == 0 {
+		return DefaultLifelikeEnabled
+	}
+	return out
+}
+
+// GPUCap is the per-app GPU cap the alerts report against.
+// FileKeep is how long a project's files stay without use (S3D-24,
+// file_keep_days; 0/absent = 90 days).
+func (r *Rates) FileKeep() time.Duration {
+	if r.FileKeepDays > 0 {
+		return time.Duration(r.FileKeepDays) * 24 * time.Hour
+	}
+	return 90 * 24 * time.Hour
+}
+
+// FileNotices are the notice mails' lead times before the files go,
+// longest first (file_notice_days; absent/none positive = 14 and 3 days).
+func (r *Rates) FileNotices() []time.Duration {
+	var out []time.Duration
+	for _, d := range r.FileNoticeDays {
+		if d > 0 {
+			out = append(out, time.Duration(d)*24*time.Hour)
+		}
+	}
+	if len(out) == 0 {
+		return []time.Duration{14 * 24 * time.Hour, 3 * 24 * time.Hour}
+	}
+	slices.Sort(out)
+	slices.Reverse(out)
+	return slices.Compact(out)
+}
+
+// DeletedProjectPurge is how long a deleted project's files are kept
+// before the purge (deleted_project_purge_days; 0/absent = 30 days).
+func (r *Rates) DeletedProjectPurge() time.Duration {
+	if r.DeletedProjectPurgeDays > 0 {
+		return time.Duration(r.DeletedProjectPurgeDays) * 24 * time.Hour
+	}
+	return 30 * 24 * time.Hour
+}
+
+// GPUCapFor is a workspace's per-app GPU cap (gpu_cap_per_workspace,
+// else GPUCap).
+func (r *Rates) GPUCapFor(workspace string) int {
+	if n := r.GPUCapPerWorkspace[workspace]; n > 0 {
+		return n
+	}
+	return r.GPUCap()
+}
+
+func (r *Rates) GPUCap() int {
+	if r.GPUCapPerApp > 0 {
+		return r.GPUCapPerApp
+	}
+	return MaxGPUWorkersPerJob
+}
+
+// PreviewMinimum is the per-run floor of a preview (S3D-13/17,
+// preview_minimum_cents; 0/absent = 100).
+func (r *Rates) PreviewMinimum() int64 {
+	if r.PreviewMinimumCents > 0 {
+		return r.PreviewMinimumCents
+	}
+	return 100
+}
+
+// ProMinimum is the per-run floor of a paid pro step (pro_minimum_cents;
+// 0/absent = 100).
+func (r *Rates) ProMinimum() int64 {
+	if r.ProMinimumCents > 0 {
+		return r.ProMinimumCents
+	}
+	return 100
+}
+
+// MinimumFor is a pro step's per-run floor: previews (lifelike_preview,
+// depth_preview, stereo_preview) PreviewMinimum, production ProMinimum.
+func (r *Rates) MinimumFor(step string) int64 {
+	switch step {
+	case StepLifelikePreview, "depth_preview", "stereo_preview":
+		return r.PreviewMinimum()
+	}
+	return r.ProMinimum()
+}
+
+// FoveationMultiplier scales a foveated Lifelike run's price (S3D-50,
+// foveation_price_multiplier; 0/absent = 1.3).
+func (r *Rates) FoveationMultiplier() float64 {
+	if r.FoveationPriceMultiplier > 0 {
+		return r.FoveationPriceMultiplier
+	}
+	return 1.3
+}
+
+// lifelikePrice is the per-minute price of a preset; a preset missing from
+// the config doc keeps its default.
+func (r *Rates) lifelikePrice(preset string) (int64, bool) {
+	if v := r.LifelikePriceCentsPerMinute[preset]; v > 0 {
+		return v, true
+	}
+	v, ok := defaultLifelikePrices()[preset]
+	return v, ok
+}
+
+// QuoteLifelike prices a Lifelike step. in.Step is lifelike_preview or
+// production; DepthRes, Inpaint and ReuseStages are ignored.
+func (s *Service) QuoteLifelike(ctx context.Context, in StepInputs) (*Quote, error) {
+	return withBillableMinutes(s.quoteLifelike(ctx, in))(in)
+}
+
+func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, error) {
+	if in.Step != StepLifelikePreview && in.Step != "production" {
+		return nil, fmt.Errorf("unknown lifelike step %q", in.Step)
+	}
+	rates := s.Rates(ctx)
+	perMin, ok := rates.lifelikePrice(in.Preset)
+	if !ok {
+		return nil, fmt.Errorf("no lifelike price for preset %q", in.Preset)
+	}
+	if rates.TierPricing {
+		return rates.quoteLifelikeTiers(in, perMin)
+	}
+	mult := 1.0
+	if in.Foveated {
+		mult = rates.FoveationMultiplier()
+	}
+	if in.Step == StepLifelikePreview {
+		// S3D-13: what the same frames cost in the final at this quality —
+		// the per-minute price / 1,440 per frame, times the frames the
+		// preview renders (its seconds × its frame rate, so the half-rate
+		// quick look costs half) — floored at the per-run minimum (S3D-17).
+		// No bulk discount.
+		fps := in.EffectiveFPS
+		if fps <= 0 {
+			fps = fpsBase
+		}
+		frames := math.Round(in.BillableS * fps)
+		perFrame := float64(perMin) / (60 * fpsBase)
+		base := int64(math.Round(frames * perFrame))
+		fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
+		cents := max(base+fov, rates.MinimumFor(in.Step))
+		return &Quote{
+			AmountCents: cents,
+			Currency:    rates.Currency,
+			RateVersion: rates.RateVersion,
+			Breakdown: map[string]any{
+				"step":                 in.Step,
+				"method":               MethodLifelike,
+				"preset":               in.Preset,
+				"billable_seconds":     math.Round(in.BillableS*100) / 100,
+				"cents_per_minute":     perMin,
+				"frames":               int64(frames),
+				"cents_per_frame":      round4(perFrame),
+				"foveation_multiplier": mult,
+				"foveation_cents":      fov,
+				"pro":                  in.Pro, // previews get no Pro discount
+			},
+		}, nil
+	}
+	fpsF := fpsFactor(in.EffectiveFPS)
+	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS, in.SourceFPS) * float64(perMin) * fpsF))
+	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
+	subtotal := base + fov
+	proDiscount := rates.proDiscountCents(in, subtotal)
+	afterPro := subtotal - proDiscount
+	bulkDiscount := int64(0)
+	if afterPro > rates.DiscountThresholdCents {
+		bulkDiscount = int64(math.Round(float64(afterPro) * rates.DiscountPct))
+	}
+	total := afterPro - bulkDiscount - in.CreditCents
+	if floor := rates.MinimumFor(in.Step); total < floor {
+		total = floor
+	}
+	return &Quote{
+		AmountCents: total,
+		Currency:    rates.Currency,
+		RateVersion: rates.RateVersion,
+		Breakdown: map[string]any{
+			"step":                 in.Step,
+			"method":               MethodLifelike,
+			"foveation_multiplier": mult,
+			"foveation_cents":      fov,
+			"preset":               in.Preset,
+			"billable_seconds":     math.Round(in.BillableS*100) / 100,
+			"cents_per_minute":     perMin, // the PRICE rate
+			"fps_factor":           round4(fpsF),
+			"subtotal_cents":       subtotal,
+			"pro":                  in.Pro,
+			"pro_discount_pct":     proPct(rates, in, proDiscount),
+			"pro_discount_cents":   proDiscount,
+			"discount_cents":       bulkDiscount,
+			"analyze_credit_cents": in.CreditCents,
+		},
 	}, nil
+}
+
+// LifelikeInputs shapes a Lifelike wall-clock estimate.
+type LifelikeInputs struct {
+	Step          string
+	Preset        string
+	OutputSeconds float64
+	// EffectiveFPS: the rate the job renders at; 0 = 24.
+	EffectiveFPS float64
+	// GPUs working at once: max_gpu_workers for production, 1 for a
+	// preview (it runs in one container).
+	GPUs int
+	// OutputBitrateBps / MasterBitrateBps: the run's chosen rate (0 =
+	// the pipeline's own) and its preset's Master rate, for the tail.
+	OutputBitrateBps, MasterBitrateBps int64
+}
+
+// lifelikePresetShort: each preset's output short side (the encode
+// tail's picture term; 1080 when unknown).
+var lifelikePresetShort = map[string]float64{"draft": 1080, "1080p": 1080, "qhd": 1440, "3k": 1620, "4k": 2160,
+	"5k": 2880, "6k": 3240, "8k": 4320}
+
+// encodeTailFactor scales the production tail by the picture and the rate.
+func encodeTailFactor(in LifelikeInputs) float64 {
+	short := lifelikePresetShort[in.Preset]
+	if short == 0 {
+		short = 1080
+	}
+	f := short / 1080
+	if in.OutputBitrateBps > 0 && in.MasterBitrateBps > 0 {
+		f *= 1 + float64(in.OutputBitrateBps)/float64(in.MasterBitrateBps)
+	}
+	return f
+}
+
+// EstimateLifelikeETA predicts a Lifelike run's wall-clock seconds (see
+// LifelikeETA). 1 minute of 1080p on 4 GPUs: 70 + 530/4 + 150 ≈ 353 s;
+// at 1080p Master the tail is 300 s; a 5 s preview on its one GPU:
+// 70 + 44 + 30 ≈ 144 s.
+func (s *Service) EstimateLifelikeETA(ctx context.Context, in LifelikeInputs) int64 {
+	e := s.Rates(ctx).LifelikeETA
+	d := defaultLifelikeETA()
+	pick := func(v, fallback float64) float64 {
+		if v > 0 {
+			return v
+		}
+		return fallback
+	}
+	fps := in.EffectiveFPS
+	if fps <= 0 {
+		fps = fpsBase
+	}
+	frames := in.OutputSeconds * fps
+	gpus := float64(max(in.GPUs, 1))
+	render := pick(e.RenderGPUSecondsPerMinute, d.RenderGPUSecondsPerMinute) * frames / (60 * fpsBase) / gpus
+	tail := pick(e.EncodeTailSeconds, d.EncodeTailSeconds) * encodeTailFactor(in)
+	if in.Step == StepLifelikePreview {
+		tail = pick(e.PreviewTailSeconds, d.PreviewTailSeconds)
+	}
+	return int64(math.Round(pick(e.OverheadSeconds, d.OverheadSeconds) + render + tail))
 }
 
 // QuoteImage prices one paid still at exactly ImageCents. No MinimumCents
@@ -691,4 +1533,216 @@ func (s *Service) QuoteImage(ctx context.Context) (*Quote, error) {
 		RateVersion: rates.RateVersion,
 		Breakdown:   map[string]any{"image_cents": rates.ImageCents, "free_image": false},
 	}, nil
+}
+
+// ClassicPresets are the presets Classic pro steps offer: 4k left them
+// with S3D-12 (the mobile one-shot keeps it for shipped apps).
+var ClassicPresets = []string{"draft", "1080p", "qhd", "3k"}
+
+// Public is the customer-facing price list behind the public GET
+// /v1/pricing (S3D-18): every number derived from the live config, already
+// in customer prices (margin applied), so the Pricing page never restates a
+// price by hand. Classic production prices are a default quote's per-minute
+// subtotal (16:9 source, 24 fps, the preset's own depth size, the default
+// "Stretched" edges — S3D-29); Classic previews are base rates before the
+// Depth page's resolution factor and the inpaint choice.
+func (s *Service) Public(ctx context.Context) map[string]any {
+	rates := s.Rates(ctx)
+	perMinute := func(in StepInputs) int64 {
+		in.BillableS, in.ContentWidth, in.ContentHeight, in.EffectiveFPS = 60, 1920, 1080, fpsBase
+		q, err := s.QuoteStep(ctx, in)
+		if err != nil {
+			return 0
+		}
+		v, _ := q.Breakdown["subtotal_cents"].(int64)
+		return v
+	}
+	classicProduction := map[string]int64{}
+	classicStereoPreview := map[string]int64{}
+	for _, p := range ClassicPresets {
+		// the default edge style since S3D-29: backward warp, inpaint none
+		if v := perMinute(StepInputs{Step: "production", Preset: p, DepthRes: PresetInputSize[p], Inpaint: "none"}); v > 0 {
+			classicProduction[p] = v
+		}
+		if v, ok := rates.StereoPreviewCentsPerMinute[p]; ok {
+			classicStereoPreview[p] = int64(math.Round(float64(v) * rates.margin()))
+		}
+	}
+	lifelike := map[string]int64{}
+	lifelikePerFrame := map[string]float64{}
+	from := int64(0) // the cheapest enabled size: the "from $X a minute" line
+	enabled := rates.EnabledLifelikePresets()
+	for _, p := range enabled {
+		if v, ok := rates.lifelikePrice(p); ok {
+			lifelike[p] = v
+			lifelikePerFrame[p] = round4(float64(v) / (60 * fpsBase))
+			if from == 0 || v < from {
+				from = v
+			}
+		}
+	}
+	out := map[string]any{
+		"rate_version": rates.RateVersion,
+		"currency":     rates.Currency,
+		// Adaptive Pricing at checkout (config adaptive_pricing_enabled):
+		// the web says "You'll see your local price at checkout" when true,
+		// "Charged in US dollars" when false.
+		"adaptive_pricing": rates.AdaptivePricingEnabled,
+		// China mode's payments: false → the web says "Payments in
+		// mainland China are coming soon".
+		"china_payments": rates.ChinaPaymentsEnabled,
+		// BUX-24: true → the web leaves Pro Weekly out of its plan picker.
+		"web_pro_weekly_hidden": rates.WebProWeeklyHidden,
+		// BUX-23: top-up bonus tiers [{min_cents, pct}] ([] = none).
+		"topup_bonus": rates.publicBonusTiers(),
+		// BUX-25: Business billed yearly on offer.
+		"business_yearly": rates.BusinessYearly,
+		// Classic 3D is retired for new projects (2026-11-04): the web
+		// hides it; its prices stay for projects that already ran it.
+		"classic_new_projects": false,
+		"methods": map[string]any{
+			"lifelike": map[string]any{
+				"presets":                     enabled,
+				"production_cents_per_minute": lifelike,
+				"from_cents_per_minute":       from,
+				// a preview costs its frames at the production price per
+				// frame (cents_per_minute / 1,440), at least minimum_cents,
+				// no bulk discount
+				"preview_cents_per_frame": lifelikePerFrame,
+				"preview_seconds":         rates.LifelikePreviewSeconds(),
+				// "foveation: static" option (S3D-50), when switched on
+				"foveation": map[string]any{
+					"enabled":          rates.FoveationEnabled,
+					"price_multiplier": rates.FoveationMultiplier(),
+					"included_presets": []string{"1080p"}, // free, always on (owner 2026-11-07)
+				},
+				"max_source_duration_s": rates.MaxSourceDurationFor("lifelike"),
+				"max_source_bytes":      rates.MaxSourceBytesFor("lifelike"),
+			},
+			"classic": map[string]any{
+				"presets":                         ClassicPresets,
+				"production_cents_per_minute":     classicProduction,
+				"stereo_preview_cents_per_minute": classicStereoPreview,
+				"depth_preview_cents_per_minute":  int64(math.Round(float64(rates.DepthPreviewCentsPerMinute) * rates.margin())),
+				"max_source_duration_s":           rates.MaxSourceDurationFor("classic"),
+				"max_source_bytes":                rates.MaxSourceBytesFor("classic"),
+			},
+		},
+		// Prices are per minute of output at 24 fps; the frame rate scales
+		// them by fps/24, clamped. Output rates above 30 fps need a
+		// Business or Studio plan (2026-11-04); without one a faster
+		// source is divided down.
+		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor,
+			"max_fps_without_plan": 30, "max_fps_with_plan": PlanMaxFPS},
+		"discount": map[string]any{
+			"threshold_cents": rates.DiscountThresholdCents,
+			"pct":             rates.DiscountPct,
+		},
+		// every paid run of either method, previews included (S3D-17)
+		"minimum_cents":             rates.ProMinimum(),
+		"preview_minimum_cents":     rates.PreviewMinimum(),
+		"precharge_threshold_cents": rates.PrechargeThreshold(),
+		// S3D-67: SVS Pro customers' share off full runs (not previews),
+		// before the bulk discount; pct 0 = off.
+		"pro_discount": map[string]any{"pct": rates.ProDiscount(), "applies_to": "production"},
+	}
+	if rates.TierPricing {
+		rates.publicTiers(out, enabled)
+		out["campaign"] = rates.PublicCampaign(time.Now())
+	}
+	return out
+}
+
+// proPct is the Pro share a quote applied (0 when none applied).
+func proPct(r *Rates, in StepInputs, cents int64) float64 {
+	if cents == 0 && (!in.Pro || in.Step != "production") {
+		return 0
+	}
+	return r.ProDiscount()
+}
+
+// TaxInclusive: invoices compute VAT inside the sticker price (C7).
+func (r *Rates) TaxInclusive() bool { return r != nil && r.TaxMode == "inclusive" }
+
+// BillableMinutes rounds a run's length up to whole minutes (owner
+// 2026-11-04): ceil(the customer's video in the converted range ÷ 60), on
+// the run's total, so a split run sums its parts first (one range); the
+// brand intro never counts. 2:10 → 3, 3:00 → 3, 0:20 → 1.
+func BillableMinutes(seconds float64) int64 { return BillableMinutesAt(seconds, 0) }
+
+// BillableMinutesAt counts started minutes in source frames (StartedUnits):
+// 3:00 of 23.976 fps (4,316 frames, 180.01 s) is 3; a frame more at 24
+// fps (4,321) is 4.
+func BillableMinutesAt(seconds, srcFPS float64) int64 {
+	if seconds <= 0 {
+		return 0
+	}
+	return StartedUnits(seconds, srcFPS, 60)
+}
+
+// StartedUnits is how many units of unitSeconds a length starts, counted in
+// the source's frames: n units hold round(n × unitSeconds × fps) frames, so
+// an NTSC rate's frame-rounded length (120 frames at 23.976 = 5.005 s; 3:00
+// at 29.97 = 5,395 frames) stays n units while a frame past it (121 at 24)
+// starts the next. Without a rate, seconds with a small tolerance.
+func StartedUnits(seconds, srcFPS, unitSeconds float64) int64 {
+	if seconds <= 0 || unitSeconds <= 0 {
+		return 0
+	}
+	if srcFPS <= 0 {
+		return int64(math.Ceil(seconds/unitSeconds - 1e-6))
+	}
+	frames := int64(math.Round(seconds * srcFPS))
+	held := func(n int64) int64 { return int64(math.Round(float64(n) * unitSeconds * srcFPS)) }
+	n := max(int64(float64(frames)/(unitSeconds*srcFPS)), 1)
+	for n > 1 && held(n-1) >= frames {
+		n--
+	}
+	for held(n) < frames {
+		n++
+	}
+	return n
+}
+
+// billedMinutes is what a step is priced on: production rounds up to
+// whole minutes; previews keep their exact length (not changed yet).
+func billedMinutes(step string, seconds, srcFPS float64) float64 {
+	if step == "production" {
+		return float64(BillableMinutesAt(seconds, srcFPS))
+	}
+	return seconds / 60
+}
+
+// withBillableMinutes adds billable_minutes to a production quote's
+// breakdown (receipts show just the minutes: "3 min").
+func withBillableMinutes(q *Quote, err error) func(StepInputs) (*Quote, error) {
+	return func(in StepInputs) (*Quote, error) {
+		if err == nil && q != nil && in.Step == "production" {
+			if q.Breakdown == nil {
+				q.Breakdown = map[string]any{}
+			}
+			q.Breakdown["billable_minutes"] = BillableMinutesAt(in.BillableS, in.SourceFPS)
+		}
+		return q, err
+	}
+}
+
+// AdminCreditGrantCap is one grant's cap before confirm_over_cap.
+func (r *Rates) AdminCreditGrantCap() int64 {
+	if r.AdminCreditGrantCapCents > 0 {
+		return r.AdminCreditGrantCapCents
+	}
+	return 50000
+}
+
+// RCAttrMode is rc_attr_sync with its env default.
+func (r *Rates) RCAttrMode(env string) string {
+	switch r.RCAttrSync {
+	case "off", "dry_run", "allowlist", "on":
+		return r.RCAttrSync
+	}
+	if env == "prod" {
+		return "off"
+	}
+	return "allowlist"
 }

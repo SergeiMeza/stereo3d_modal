@@ -12,6 +12,7 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 )
 
 type ctxKey int
@@ -133,8 +134,8 @@ func WithCORS(allowedOrigins []string, next http.Handler) http.Handler {
 			h.Set("Access-Control-Allow-Origin", origin)
 			h.Add("Vary", "Origin")
 			if r.Method == http.MethodOptions {
-				h.Set("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
-				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key")
+				h.Set("Access-Control-Allow-Methods", "GET, POST, PUT, PATCH, DELETE, OPTIONS")
+				h.Set("Access-Control-Allow-Headers", "Authorization, Content-Type, Idempotency-Key, X-Admin-Session, Last-Event-ID")
 				h.Set("Access-Control-Max-Age", "3600")
 				w.WriteHeader(http.StatusNoContent)
 				return
@@ -153,4 +154,18 @@ func RequestID(ctx context.Context) string {
 // Log returns a logger pre-tagged with the request id.
 func Log(ctx context.Context) *slog.Logger {
 	return slog.Default().With("request_id", RequestID(ctx))
+}
+
+// WithSplitCORS answers CORS for paths under adminPrefix from admin
+// origins only (M1), and every other path from the customer origins.
+func WithSplitCORS(customer, admin []string, adminPrefix string, next http.Handler) http.Handler {
+	c := WithCORS(customer, next)
+	a := WithCORS(admin, next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, adminPrefix) {
+			a.ServeHTTP(w, r)
+			return
+		}
+		c.ServeHTTP(w, r)
+	})
 }

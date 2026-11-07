@@ -15,6 +15,7 @@ import (
 	"github.com/stripe/stripe-go/v78"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/probe"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -45,15 +46,38 @@ func halfSourceFPS(p *store.Project) float64 {
 
 // ------------------------------------------------------------- create/list
 
-// POST /v1/projects {gcs_key, name?}
+// POST /v1/projects {gcs_key, name?, method?} — no method means classic
+// (older clients); the web app always names one.
 func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
 		GCSKey string `json:"gcs_key"`
 		Name   string `json:"name"`
+		Method string `json:"method"`
+		// SourceFilename: the file's name on the device (optional; else
+		// the name the upload was created with).
+		SourceFilename string `json:"source_filename"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	if req.Method == store.MethodClassic {
+		// Classic 3D is retired for new projects (owner 2026-11-04).
+		httpx.WriteErr(ctx, w, errClassicRetired())
+		return
+	}
+	ws := s.assignWorkspace() // S3D-40: the project's workspace for life
+	if req.Method == "" {
+		if ws.Lifelike == nil {
+			httpx.WriteErr(ctx, w, errClassicRetired()) // a missing method no longer means Classic
+			return
+		}
+		req.Method = store.MethodLifelike
+	}
+	method, merr := s.resolveMethodFor(req.Method, ws.Lifelike != nil)
+	if merr != nil {
+		httpx.WriteErr(ctx, w, merr)
 		return
 	}
 	ext := strings.ToLower(path.Ext(req.GCSKey))
@@ -71,8 +95,12 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 		httpx.WriteErr(ctx, w, uploadStatError(err))
 		return
 	}
-	if size > rates.MaxSourceBytes {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("source file too large"))
+	if serr := sourceBytesError(rates, size, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
+		return
+	}
+	if lerr := s.checkNewProjectRoom(ctx, user.UID, size); lerr != nil { // B14
+		httpx.WriteErr(ctx, w, lerr)
 		return
 	}
 
@@ -88,7 +116,7 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 
 	// Free analyze job — submitted before the record so a Modal outage
 	// fails the request instead of stranding a never-analyzed project.
-	resp, err := s.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": req.GCSKey, "notify": false})
+	resp, err := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": req.GCSKey, "notify": false})
 	if err != nil {
 		httpx.Log(ctx).Error("analyze submit failed", "project_id", id, "err", err)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
@@ -98,17 +126,23 @@ func (s *Service) HandleCreateProject(w http.ResponseWriter, r *http.Request, us
 
 	p := &store.Project{
 		ID: id, UID: user.UID, Env: s.Cfg.Env,
-		Name:    strings.TrimSpace(req.Name),
-		Source:  store.Source{GCSKey: req.GCSKey, Bytes: size},
-		Analyze: store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
+		Name:      strings.TrimSpace(req.Name),
+		Method:    method,
+		Workspace: ws.ID,
+		Source:    store.Source{GCSKey: req.GCSKey, Bytes: size, Filename: cleanFilename(req.SourceFilename)},
+		Analyze:   store.Analyze{JobID: resp.JobID, State: store.AnalyzeRunning},
 	}
+	if p.Source.Filename == "" {
+		p.Source.Filename = s.Store.UploadName(ctx, uploadIDFromKey(req.GCSKey), user.UID)
+	}
+	noteUse(p, time.Now().UTC(), s.rates(ctx).FileKeep()) // S3D-24 clock
 	if err := s.Store.CreateProject(ctx, p); err != nil {
-		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	httpx.Log(ctx).Info("project created",
-		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID)
+		"project_id", id, "uid", user.UID, "analyze_job_id", resp.JobID, "method", method, "workspace", ws.ID)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -124,11 +158,25 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
 	if p.Analyze.State != store.AnalyzeFailed {
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("analysis can only be retried after it failed"))
 		return
 	}
-	resp, merr := s.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil {
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
+	ws, werr := s.projectWorkspace(p)
+	if werr != nil {
+		httpx.Log(ctx).Error("project workspace", "project_id", id, "err", werr)
+		httpx.WriteErr(ctx, w, errWorkspaceUnavailable())
+		return
+	}
+	resp, merr := ws.Modal.SubmitAnalyze(ctx, map[string]any{"input_path": p.Source.GCSKey, "notify": false})
 	if merr != nil {
 		httpx.Log(ctx).Error("analyze retry submit failed", "project_id", id, "err", merr)
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "upstream_error",
@@ -142,10 +190,11 @@ func (s *Service) HandleRetryAnalyze(w http.ResponseWriter, r *http.Request, use
 		pp.Analyze.JobID = resp.JobID
 		pp.Analyze.State = store.AnalyzeRunning
 		pp.Analyze.Error = ""
+		pp.Analyze.Progress, pp.Analyze.Stage, pp.Analyze.ETASeconds, pp.Analyze.ProgressAt = 0, "", 0, nil
 		return nil
 	})
 	if uerr != nil {
-		_ = s.Modal.CancelJob(ctx, resp.JobID)
+		_ = ws.Modal.CancelJob(ctx, resp.JobID)
 		if errors.Is(uerr, store.ErrStateConflict) {
 			uerr = httpx.ErrConflict("analysis can only be retried after it failed")
 		}
@@ -167,11 +216,22 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	out := make([]map[string]any, 0, len(projects))
+	// Onboarding: a new account's first list brings the finished sample.
+	if sample, added := s.ensureSample(ctx, user.UID, projects); added {
+		projects = append([]*store.Project{sample}, projects...)
+	}
+	listed := make([]*store.Project, 0, len(projects))
 	for _, p := range projects {
-		if p.Archived != wantArchived {
-			continue
+		if p.Sample && !ValidResourceID(p.ID) {
+			continue // an old "smp…" sample, retired by ensureSample
 		}
+		if p.Archived == wantArchived && !p.Deleted {
+			listed = append(listed, p)
+		}
+	}
+	summaries := s.projectSummaries(ctx, listed)
+	out := make([]map[string]any, 0, len(listed))
+	for i, p := range listed {
 		// Read-through poll for running analyzes so list polling (the
 		// Projects screen) sees live progress, not just the reconciler's
 		// 60s-stale state.
@@ -180,17 +240,24 @@ func (s *Service) HandleListProjects(w http.ResponseWriter, r *http.Request, use
 				p = refreshed
 			}
 		}
-		out = append(out, s.projectResponse(p, nil))
+		resp := s.projectResponse(p, nil)
+		resp["summary"] = summaries[i]
+		out = append(out, resp)
 	}
 	httpx.WriteOK(w, map[string]any{"projects": out})
 }
 
-// PATCH /v1/projects/{id} {name?, pinned?, archived?} — project management
-// metadata. archived:true runs the full archive flow (cancels active
-// conversions, same as DELETE); archived:false restores.
+// PATCH /v1/projects/{id} {name?, pinned?, archived?, method?} — project
+// management metadata. archived:true runs the full archive flow (cancels
+// active conversions, same as DELETE); archived:false restores. method
+// switches the project's conversion method for its NEXT runs (LL-D1; runs
+// in flight keep theirs, earlier files stay). Classic → lifelike any time;
+// lifelike → classic never, runs or not: 400 method_switch_not_allowed
+// (S3D-01/30/44: Classic is being retired).
 func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, user *AuthedUser, id string) {
 	ctx := r.Context()
-	if _, err := s.ownedProject(ctx, user, id); err != nil {
+	current, err := s.ownedProject(ctx, user, id)
+	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -198,14 +265,39 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		Name     *string `json:"name"`
 		Pinned   *bool   `json:"pinned"`
 		Archived *bool   `json:"archived"`
+		Method   *string `json:"method"`
+		// RemoveBars (BL-03): false keeps the black bars on Lifelike runs.
+		RemoveBars *bool `json:"remove_bars"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	if req.Name == nil && req.Pinned == nil && req.Archived == nil {
-		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived"))
+	if req.Name == nil && req.Pinned == nil && req.Archived == nil && req.Method == nil && req.RemoveBars == nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("body needs at least one of name, pinned, archived, method, remove_bars"))
 		return
+	}
+	if (req.Method != nil || req.RemoveBars != nil) && current.Sample {
+		httpx.WriteErr(ctx, w, errSampleProject())
+		return
+	}
+	if req.Method != nil {
+		if *req.Method == "" {
+			httpx.WriteErr(ctx, w, httpx.ErrInvalid("method must be lifelike|classic"))
+			return
+		}
+		if _, merr := s.resolveMethodFor(*req.Method, s.lifelikeIn(current)); merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		if serr := methodSwitchError(projectMethod(current), *req.Method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
+			return
+		}
+		if serr := methodSourceError(s.Pricing.Rates(ctx), current, *req.Method); serr != nil {
+			httpx.WriteErr(ctx, w, serr)
+			return
+		}
 	}
 	if req.Name != nil && len(strings.TrimSpace(*req.Name)) > maxProjectNameLen {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid(fmt.Sprintf("name must be at most %d characters", maxProjectNameLen)))
@@ -213,7 +305,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 	}
 	if req.Archived != nil && *req.Archived {
 		// Archiving is blocked while work is in flight, exactly like DELETE.
-		if err := s.requireNoActiveConversions(ctx, id); err != nil {
+		if err := s.requireNoActiveConversions(ctx, id, "archiving"); err != nil {
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
@@ -228,6 +320,12 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		if req.Archived != nil {
 			pp.Archived = *req.Archived
 		}
+		if req.Method != nil {
+			pp.Method = *req.Method
+		}
+		if req.RemoveBars != nil {
+			pp.RemoveBars = req.RemoveBars
+		}
 		return nil
 	})
 	if err != nil {
@@ -235,7 +333,7 @@ func (s *Service) HandleUpdateProject(w http.ResponseWriter, r *http.Request, us
 		return
 	}
 	httpx.Log(ctx).Info("project updated", "project_id", id, "uid", user.UID,
-		"pinned", p.Pinned, "archived", p.Archived)
+		"pinned", p.Pinned, "archived", p.Archived, "method", projectMethod(p), "remove_bars", req.RemoveBars != nil && *req.RemoveBars)
 	httpx.WriteOK(w, s.projectResponse(p, nil))
 }
 
@@ -249,6 +347,7 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	p = s.noteProjectUse(ctx, p, false) // opening is a use (S3D-24)
 	if refreshed, rerr := s.refreshAnalyze(ctx, p); rerr == nil && refreshed != nil {
 		p = refreshed
 	}
@@ -261,23 +360,28 @@ func (s *Service) HandleGetProject(w http.ResponseWriter, r *http.Request, user 
 		return
 	}
 	convOut := make([]map[string]any, 0, len(convs))
-	for _, c := range convs {
-		convOut = append(convOut, s.conversionResponse(c, nil))
+	for i, c := range convs {
+		convs[i] = s.backfillSampleRun(ctx, c)
+		convOut = append(convOut, s.conversionResponse(convs[i], nil))
 	}
+	s.addPaymentDocs(ctx, convOut, convs, false) // the Details panel's receipt or invoice
 	httpx.WriteOK(w, s.projectResponse(p, convOut))
 }
 
 // requireNoActiveConversions blocks archiving while any of the project's
 // conversions is still in flight. Archiving never cancels work or touches
 // money — the user must wait for (or cancel) the running conversion first.
-func (s *Service) requireNoActiveConversions(ctx context.Context, projectID string) error {
+func (s *Service) requireNoActiveConversions(ctx context.Context, projectID, action string) error {
 	convs, err := s.Store.ListProjectConversions(ctx, projectID, 100)
 	if err != nil {
 		return err
 	}
 	for _, c := range convs {
 		if !store.IsTerminal(c.State) {
-			return httpx.ErrConflict("this project has an active conversion — wait for it to finish (or cancel it) before archiving")
+			// created (waiting for payment or approval, a card hold
+			// included), paid, processing (in line for a GPU or rendering)
+			return httpx.Err(http.StatusConflict, "project_has_active_run",
+				"This project has a run in progress. Wait for it to finish, or cancel it, before "+action+".")
 		}
 	}
 	return nil
@@ -290,7 +394,7 @@ func (s *Service) HandleArchiveProject(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	if err := s.requireNoActiveConversions(ctx, id); err != nil {
+	if err := s.requireNoActiveConversions(ctx, id, "archiving"); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -317,6 +421,14 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
 	if p.Analyze.State != store.AnalyzeSucceeded || p.Scenes == nil {
 		httpx.WriteErr(ctx, w, httpx.ErrConflict("profiling needs a completed analysis"))
 		return
@@ -338,7 +450,13 @@ func (s *Service) HandleProfileProject(w http.ResponseWriter, r *http.Request, u
 	if cuts == nil {
 		cuts = []int{}
 	}
-	resp, merr := s.Modal.SubmitProfile(ctx, map[string]any{
+	ws, werr := s.projectWorkspace(p)
+	if werr != nil {
+		httpx.Log(ctx).Error("project workspace", "project_id", id, "err", werr)
+		httpx.WriteErr(ctx, w, errWorkspaceUnavailable())
+		return
+	}
+	resp, merr := ws.Modal.SubmitProfile(ctx, map[string]any{
 		"input_path": proxyKey,
 		"scene_cuts": cuts,
 		"notify":     false,
@@ -375,6 +493,10 @@ func (s *Service) HandleUpdateScenes(w http.ResponseWriter, r *http.Request, use
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if p.Sample {
+		httpx.WriteErr(ctx, w, errSampleProject())
 		return
 	}
 	var req struct {
@@ -433,6 +555,14 @@ func (s *Service) HandleSetProjectDepthMap(w http.ResponseWriter, r *http.Reques
 	p, err := s.ownedProject(ctx, user, id)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
 		return
 	}
 	if p.Probe == nil {
@@ -532,6 +662,7 @@ type stepConvReq struct {
 	Formats        []string           `json:"formats"`
 	Displacement   float64            `json:"displacement"` // legacy knob — rejected on pro steps (use scene_overrides / depth_scale)
 	TargetFPS      float64            `json:"target_fps"`
+	QuickLook      bool               `json:"quick_look"` // ordered as a Quick look (shown with the run)
 	FromFrame      int                `json:"from_frame"`
 	ToFrame        int                `json:"to_frame"`
 	DepthRes       int                `json:"depth_res"`   // depth inference resolution: multiple of 14 in [140, 2520]
@@ -543,9 +674,32 @@ type stepConvReq struct {
 	// UseUploadedDepth runs against the project's registered depth-map
 	// upload (POST .../depth-map) instead of computing depth. Mutually
 	// exclusive with depth_res; stereo_preview + production only.
-	UseUploadedDepth bool   `json:"use_uploaded_depth"`
-	AppVersion       string `json:"app_version"`
-	Platform         string `json:"platform"`
+	UseUploadedDepth bool `json:"use_uploaded_depth"`
+	// SplitMaxSeconds (production): output files of at most this long,
+	// 60-3600 (the web sends 900 when "Split into parts" stays on).
+	// Lifelike only until the classic pipeline implements splitting.
+	SplitMaxSeconds int `json:"split_max_seconds"`
+	// Lifelike only (S3D-49/50): original_eye "left" | "right" | null;
+	// foveation "static" | null (behind foveation_enabled; absent = on
+	// whenever the size is below the source, explicit null = off).
+	OriginalEye *string   `json:"original_eye"`
+	Foveation   optString `json:"foveation"`
+	// Bitrate (S3D-56, both methods, every step): "auto" (default) |
+	// "match_source" | 20 | 40 | 60 | 100 (Mbit/s).
+	Bitrate bitrateReq `json:"bitrate"`
+	// Express (add-on, pricing 2026-11, Lifelike): first in the GPU line.
+	Express bool `json:"express"`
+	// Quality (web Lifelike, owner 2026-11-07): "standard" (free, the
+	// default for web requests) | "high" (+30%) | "master" (+50%).
+	Quality string `json:"quality"`
+	// web: the request came from our web app (set by the handler).
+	web bool
+	// Method (quotes only, S3D-14): price the step as if the project used
+	// this method, without changing the project — the chooser shows both
+	// methods' price and ETA. On conversions it must match the project's.
+	Method     string `json:"method"`
+	AppVersion string `json:"app_version"`
+	Platform   string `json:"platform"`
 }
 
 // sceneOverrideReq is a per-scene stereo tweak; `first` is the scene's first
@@ -609,7 +763,7 @@ func depthContentDims(p *store.Project) (width, height int, cropped bool) {
 	if p.Crop != "" {
 		var w, h, x, y int
 		if n, err := fmt.Sscanf(p.Crop, "%d:%d:%d:%d", &w, &h, &x, &y); n == 4 && err == nil && w > 0 && h > 0 {
-			return w, h, w != p.Probe.Width || h != p.Probe.Height
+			return w, h, hasBars(p) // a rotated full-frame crop isn't bars
 		}
 	}
 	return p.Probe.Width, p.Probe.Height, false
@@ -620,7 +774,19 @@ func depthContentDims(p *store.Project) (width, height int, cropped bool) {
 // per-shot profiler upstream (modalBody sets adaptive=true); scene_overrides
 // and depth_scale are the user's handles on it.
 func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
+	if projectMethod(p) == store.MethodLifelike {
+		return resolveLifelikeParams(req, p, pricing.DefaultLifelikeEnabled)
+	}
 	var params store.Params
+	if (req.OriginalEye != nil && *req.OriginalEye != "") || req.Foveation.value() != "" {
+		return params, httpx.ErrInvalid("original_eye and foveation apply to lifelike projects only")
+	}
+	if req.SplitMaxSeconds != 0 {
+		// The classic pipeline has no split contract yet: refuse rather
+		// than deliver one file the user asked to have in parts.
+		return params, httpx.Err(http.StatusBadRequest, "split_unsupported",
+			"split_max_seconds is not available for classic projects yet")
+	}
 	switch req.Step {
 	case store.StepDepthPreview:
 		// The Depth page: pick the FINAL depth resolution here — production
@@ -642,11 +808,20 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		params.Formats = []string{"mvhevc", "half_sbs"}
 		params.Inpaint = "propainter"
 	default:
+		if req.Step == store.StepLifelikePreview {
+			return params, errStepForMethod(req.Step, store.MethodClassic)
+		}
 		return params, httpx.ErrInvalid("step must be depth_preview|stereo_preview|production")
 	}
+	if req.Preset == "4k" {
+		// S3D-12: Classic pro steps stop at 3K (the mobile one-shot keeps
+		// 4k for shipped apps).
+		return params, httpx.Err(http.StatusBadRequest, "preset_unavailable",
+			"4K isn't available for Classic; choose 3K or lower, or switch the project to Lifelike")
+	}
 	if req.Preset != "" && req.Step != store.StepDepthPreview {
-		if !slices.Contains(allowedPresets, req.Preset) {
-			return params, httpx.ErrInvalid("preset must be one of " + strings.Join(allowedPresets, "|"))
+		if !slices.Contains(pricing.ClassicPresets, req.Preset) {
+			return params, httpx.ErrInvalid("preset must be one of " + strings.Join(pricing.ClassicPresets, "|"))
 		}
 		params.Preset = req.Preset
 	}
@@ -727,6 +902,13 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 		}
 		params.Warp = req.Warp
 	}
+	if req.Warp == "" && req.Inpaint == "" &&
+		(req.Step == store.StepStereoPreview || req.Step == store.StepProduction) {
+		// S3D-29: Classic's default edge style is the backward warp
+		// ("Stretched"); an explicit inpaint (propainter, migan, none)
+		// keeps the forward warp it implies, as before.
+		params.Warp, params.Inpaint = "backward", "none"
+	}
 	if req.DepthScale != 0 {
 		if req.Step == store.StepDepthPreview {
 			return params, httpx.ErrInvalid("depth_scale applies to stereo_preview and production only")
@@ -778,6 +960,9 @@ func resolveStepParams(req *stepConvReq, p *store.Project) (store.Params, *httpx
 	params.SkipReuse = req.FromScratch
 	if p.Scenes != nil {
 		params.SceneCuts = p.Scenes.Cuts
+	}
+	if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
+		return params, berr
 	}
 	if req.UseUploadedDepth {
 		if req.Step == store.StepDepthPreview {
@@ -879,6 +1064,34 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	if berr != nil {
 		return nil, nil, berr
 	}
+	if projectMethod(p) == store.MethodLifelike {
+		// Lifelike's own table at the quality's price row, no Classic
+		// knobs, nothing reused (pricing.QuoteLifelike).
+		in := s.stepQuoteInputs(p, params, step, billable)
+		in.Preset = pricePreset(params)
+		in.Foveated = params.Foveation != "" && params.Preset != foveationIncludedPreset // included at 1080p
+		in.CreditCents = creditCents
+		at, alt := quoteTierOverride(ctx)
+		if !alt {
+			at = s.accountTier(ctx, p.UID)
+		}
+		in.Pro, in.Tier = at.Tier != "", at.Tier
+		in.Master, in.Express = params.Bitrate == bitrateMaster && params.OutputQuality == "", params.Express
+		in.Quality = params.OutputQuality                   // high +30% / master +50%, one per run
+		in.Web, in.OutputPreset = params.Web, params.Preset // the launch offer: web only, by output preset
+		if step == store.StepLifelikePreview {
+			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
+			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
+		}
+		q, err := s.Pricing.QuoteLifelike(ctx, in)
+		if err != nil {
+			return nil, nil, httpx.ErrInvalid(err.Error())
+		}
+		return &store.Quote{
+			AmountCents: q.AmountCents, Currency: q.Currency,
+			RateVersion: q.RateVersion, Breakdown: q.Breakdown,
+		}, []string{}, nil
+	}
 	// Reuse discount (production + stereo_preview, unless from-scratch): ask
 	// Modal's content-addressed cache whether prior artifacts match these
 	// params. Stereo previews reuse the Depth page's artifact exactly like
@@ -892,7 +1105,11 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		if params.DepthSource != "" {
 			reuseStages = append(reuseStages, "depth")
 		}
-		lookup, err := s.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
+		var lookup *modalapi.ReuseLookup
+		ws, err := s.projectWorkspace(p)
+		if err == nil {
+			lookup, err = ws.Modal.LookupReuse(ctx, s.reuseLookupBody(p, params))
+		}
 		if err != nil {
 			httpx.Log(ctx).Warn("reuse lookup failed (quoting full price)", "project_id", p.ID, "err", err)
 		} else {
@@ -907,10 +1124,13 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 	in := s.stepQuoteInputs(p, params, step, billable)
 	in.ReuseStages = reuseStages
 	in.CreditCents = creditCents
+	at := s.accountTier(ctx, p.UID)
+	in.Pro, in.Tier, in.Master = at.Tier != "", at.Tier, params.Bitrate == bitrateMaster
 	q, err := s.Pricing.QuoteStep(ctx, in)
 	if err != nil {
 		return nil, nil, httpx.ErrInvalid(err.Error())
 	}
+	q.Breakdown["method"] = store.MethodClassic
 	return &store.Quote{
 		AmountCents: q.AmountCents, Currency: q.Currency,
 		RateVersion: q.RateVersion, Breakdown: q.Breakdown,
@@ -940,9 +1160,12 @@ func (s *Service) stepQuoteInputs(p *store.Project, params store.Params, step st
 	if w, h, _ := depthContentDims(p); w > 0 && h > 0 {
 		in.ContentWidth, in.ContentHeight = w, h
 	}
+	if p.Probe != nil {
+		in.SourceFPS = p.Probe.FPS // the rate billableSeconds counted at
+	}
 	in.EffectiveFPS = params.TargetFPS
 	if in.EffectiveFPS <= 0 && p.Probe != nil {
-		in.EffectiveFPS = p.Probe.FPS
+		in.EffectiveFPS = p.Probe.PricingFPS() // VFR: the counted rate when higher
 	}
 	return in
 }
@@ -991,14 +1214,40 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
 	var req stepConvReq
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	params, perr := resolveStepParams(&req, p)
+	req.web = s.webClient(r)
+	if req.Method != "" && req.Method != projectMethod(p) {
+		// What-if quote under the other method: validated and priced by
+		// that method's rules on a copy; the project is not touched.
+		if _, merr := s.resolveMethodFor(req.Method, s.lifelikeIn(p)); merr != nil {
+			httpx.WriteErr(ctx, w, merr)
+			return
+		}
+		whatIf := *p
+		whatIf.Method = req.Method
+		p = &whatIf
+	}
+	params, perr := s.resolveParams(ctx, &req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
+		return
+	}
+	method := projectMethod(p)
+	rates := s.Pricing.Rates(ctx)
+	if serr := methodSourceError(rates, p, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
 		return
 	}
 	// Preview the credit without consuming it.
@@ -1012,16 +1261,122 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		return
 	}
 	resp := map[string]any{
-		"step":         req.Step,
-		"params":       params,
-		"quote":        quote,
-		"reuse_stages": reuseStages,
+		"step":          req.Step,
+		"method":        method,
+		"params":        params,
+		"quote":         quote,
+		"reuse_stages":  reuseStages,
+		"charge_timing": chargeTiming(rates, quote.AmountCents),
+		"fps":           s.fpsInfo(ctx, p, params),
 	}
-	// Pre-run wall-clock estimate for the same knobs the quote priced.
+	if qv := s.qualityView(ctx, params, billableOr0(p, params)); qv != nil {
+		resp["quality"] = qv // {tier, mbps, max_mbps?, approx, bit_depth?, estimated_size_bytes, price_pct, label}
+	}
+	if fv := foveationView(p, params, method); fv != nil {
+		resp["foveation"] = fv // {applied, included, reason?}: "Foveated Detail · included" at 1080p
+	}
+	if alt := s.altPrices(ctx, p, params, req.Step, credit); alt != nil {
+		resp["alt_prices"] = alt // the same run at Pro, Business and Studio
+	}
+	// C1 for this account and amount (spec v6 F): after | precharge |
+	// paynow | china, with why the sheet is needed; charge_timing follows.
+	cust, _ := s.Store.GetCustomer(ctx, user.UID)
+	flow, reason := decideFlow(cust, quote.AmountCents, rates.PrechargeThreshold(), chinaMode(r), rates.DeferredPaymentsEnabled)
+	// v7 N5: the balance comes first when it covers the quote (or a
+	// reload will); the block tells the UI whether to offer Add funds.
+	if plan := s.planBalance(ctx, user.UID, cust, quote.AmountCents); plan.Exists {
+		resp["balance"] = plan.quoteJSON()
+		if plan.Use && (cust == nil || !cust.UnderReview) {
+			flow, reason = store.FlowBalance, ""
+		}
+	}
+	// Credit and balance first: the part they cover and the card's rest.
+	if split := s.paySplit(ctx, user.UID, cust, quote.AmountCents, flow); split != nil {
+		resp["pay_split"] = split
+	}
+	resp["payment_flow"] = flow
+	if reason != "" {
+		resp["pay_now_reason"] = reason
+	}
+	if flow == store.FlowPayNow { // BUX-20: the card's part, paid with one tap when allowed (null otherwise)
+		card := quote.AmountCents
+		if split, _ := resp["pay_split"].(map[string]any); split != nil {
+			if c, ok := split["card_cents"].(int64); ok {
+				card = c
+			}
+		}
+		resp["one_tap"] = s.oneTapOffer(ctx, user.UID, cust, card, chinaMode(r))
+	}
+	if l := s.limitsFor(ctx, user.UID); l.Limited {
+		resp["limits"] = l.JSON() // B14
+	}
+	// Pricing 2026-11: the tier the price is at, and free previews left.
+	if rates.TierPricing {
+		at := s.accountTier(ctx, user.UID)
+		resp["tier"] = at.Tier
+		if at.Tier != "" {
+			resp["tier_label"] = tierLabel(at.Tier)
+		}
+		units := 0
+		if req.Step == store.StepLifelikePreview {
+			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), probeFPS(p), effectiveFPS(p, params))
+		}
+		if rates.FreePreviewsEnabled {
+			resp["free_previews"] = s.freePreviewStatus(ctx, user.UID, at, units).JSON()
+		}
+		if d, ok := quote.Breakdown["discount"].(map[string]any); ok && d != nil {
+			resp["discount"] = d // one line: {kind: tier|bulk, tier?, cents, pct}
+		}
+		if quote.AmountCents == 0 && quote.Breakdown["free_preview"] == true {
+			resp["payment_flow"], resp["charge_timing"] = store.FlowFreePreview, "before"
+			delete(resp, "pay_now_reason")
+		}
+	}
+	if flow != store.FlowAfter {
+		resp["charge_timing"] = "before"
+	} else {
+		resp["charge_timing"] = "after"
+	}
+	// S3D-67: whether the account holds SVS Pro, and the Pro line when
+	// this step gets it (full runs, not previews).
+	resp["pro"] = quote.Breakdown["pro"] == true
+	if cents, _ := quote.Breakdown["pro_discount_cents"].(int64); cents > 0 {
+		resp["pro_discount"] = map[string]any{"pct": quote.Breakdown["pro_discount_pct"], "cents": cents}
+	}
+	// Pre-run wall-clock estimate for the same knobs the quote priced, and
+	// the output's length (Deliver offers "Split into parts" past 15 min).
 	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
-		in := s.stepQuoteInputs(p, params, req.Step, billable)
-		in.ReuseStages = reuseStages
-		resp["eta_seconds"] = s.Pricing.EstimateStepETA(ctx, in)
+		resp["eta_seconds"] = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
+		if method == store.MethodLifelike && req.Step != store.StepLifelikePreview {
+			// Express on Lifelike: 8 GPUs and first in line. Planning (~40-70 s)
+			// and the encode (~100 s) don't shrink, so it saves about a minute
+			// on a 60 s clip and halves only clips of 3 min and more; an
+			// Express job may still wait up to max_wait_seconds for a running
+			// standard piece to finish.
+			std, exp := params, params
+			std.Express, exp.Express = false, true
+			resp["express_eta"] = map[string]any{
+				"eta_seconds":          s.stepETA(ctx, p, exp, req.Step, method, reuseStages),
+				"standard_eta_seconds": s.stepETA(ctx, p, std, req.Step, method, reuseStages),
+				"max_wait_seconds":     rates.ExpressMaxWaitS(),
+			}
+		}
+		resp["output_seconds"] = math.Round(billable*100) / 100
+		resp["split_suggested"] = req.Step == store.StepProduction && billable > splitSuggestSeconds
+		if size := estimatedSizeBytes(params, billable); size > 0 {
+			resp["estimated_size_bytes"] = size // per file, at the chosen bitrate
+		}
+	}
+	if method == store.MethodLifelike {
+		resp["output_short_side"] = outputShortSide(p, params)
+		if w, h := outputDims(p, params); w > 0 {
+			// per eye, displayed pixels: the picture inside the bars when
+			// the run takes them off (BL-03)
+			resp["output_width"], resp["output_height"] = w, h
+			resp["remove_bars"] = params.RemoveBars
+		}
+		resp["original_eye_required"] = presetOutputHeight[params.Preset] > originalEyeAboveShortSide
+		resp["qualities"] = lifelikeQualities(p, rates.EnabledLifelikePresets())
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -1038,6 +1393,15 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	if err := requireFiles(p); err != nil { // S3D-24
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	if cerr := s.requireProjectRunnable(ctx, p); cerr != nil { // the sample, and Classic retired for new projects
+		httpx.WriteErr(ctx, w, cerr)
+		return
+	}
+	p = s.noteProjectUse(ctx, p, false) // starting a run is a use (S3D-24)
 	idemKey := r.Header.Get("Idempotency-Key")
 	if idemKey != "" {
 		prior, ferr := s.Store.FindByIdemKey(ctx, user.UID, idemKey)
@@ -1046,9 +1410,19 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 			return
 		}
 		if ferr == nil {
+			if s.replayPayFirst(ctx, w, user, prior, payContextOf(r)) {
+				return
+			}
 			// Replays of a hold still awaiting 3DS re-serve the same billing
 			// material (client_secret is stored on the record).
 			httpx.WriteOK(w, s.conversionResponse(prior, nil))
+			return
+		}
+		if prior, gerr := s.Store.GetConversion(ctx, s.idempotentConversionID(user.UID, idemKey)); gerr == nil && prior.UID == user.UID {
+			if s.replayPayFirst(ctx, w, user, prior, payContextOf(r)) {
+				return
+			}
+			httpx.WriteOK(w, s.conversionResponse(prior, nil)) // P3
 			return
 		}
 	}
@@ -1058,14 +1432,36 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
-	params, perr := resolveStepParams(&req, p)
+	req.web = s.webClient(r)
+	if req.Method != "" && req.Method != projectMethod(p) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "method_mismatch",
+			"this project uses "+projectMethod(p)+"; switch the project's method first"))
+		return
+	}
+	if ferr := s.requireFPSChoice(ctx, r, p, req.TargetFPS); ferr != nil {
+		httpx.WriteErr(ctx, w, ferr)
+		return
+	}
+	params, perr := s.resolveParams(ctx, &req, p)
 	if perr != nil {
 		httpx.WriteErr(ctx, w, perr)
 		return
 	}
+	method := projectMethod(p)
+	if method == store.MethodLifelike {
+		s.applyIntro(ctx, r, user.UID, req.Step, &params) // BL-25, after pricing inputs are fixed
+	}
+	if method == store.MethodLifelike && !s.lifelikeIn(p) {
+		httpx.WriteErr(ctx, w, errMethodUnavailable())
+		return
+	}
+	if serr := methodSourceError(s.Pricing.Rates(ctx), p, method); serr != nil {
+		httpx.WriteErr(ctx, w, serr)
+		return
+	}
 	// Billing gate BEFORE any commitment: a saved card and no outstanding
 	// failed charge, or the step never starts.
-	cust, berr := s.requireBillable(ctx, user)
+	cust, berr := s.requireRunnable(ctx, user)
 	if berr != nil {
 		httpx.WriteErr(ctx, w, berr)
 		return
@@ -1074,12 +1470,12 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	if n, cerr := s.Store.CountActiveForUser(ctx, user.UID); cerr != nil {
 		httpx.WriteErr(ctx, w, cerr)
 		return
-	} else if n >= rates.MaxActivePerUser {
-		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(rates.MaxActivePerUser))
+	} else if limit := s.maxActiveFor(ctx, user.UID, rates.MaxActivePerUser); n >= limit {
+		httpx.WriteErr(ctx, w, httpx.ErrTooManyActive(limit))
 		return
 	}
 
-	convID := store.NewID()
+	convID := s.idempotentConversionID(user.UID, idemKey) // P3: one run per key, even racing
 	// Consume the analyze credit atomically for THIS conversion; every
 	// failure path from here restores it.
 	credit, cerr := s.Store.ConsumeAnalyzeCredit(ctx, p.ID, convID)
@@ -1089,12 +1485,14 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	conv := &store.Conversion{
 		ID: convID, UID: user.UID, Env: s.Cfg.Env, Kind: "video",
-		ProjectID: p.ID, Step: req.Step,
-		Client: store.Client{AppVersion: req.AppVersion, Platform: req.Platform},
+		ProjectID: p.ID, Step: req.Step, Method: method,
+		Workspace: s.workspaceID(p.Workspace), // S3D-40: runs where the project lives
+		Client:    store.Client{AppVersion: req.AppVersion, Platform: req.Platform},
 		Source: store.Source{
 			GCSKey: p.Source.GCSKey, Bytes: p.Source.Bytes,
 			DurationS: probeDuration(p), Frames: probeFrames(p),
 			FPS: probeFPS(p), Width: probeWidth(p), Height: probeHeight(p),
+			PricingFPS: p.Probe.PricingFPS(),
 		},
 		Params:  params,
 		IdemKey: idemKey,
@@ -1109,34 +1507,52 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	conv.Quote = *quote
 	// The same pre-run estimate the quote showed; overdue runs are judged
 	// against it.
-	if billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame); berr == nil {
-		in := s.stepQuoteInputs(p, params, req.Step, billable)
-		in.ReuseStages = reuseStages
-		conv.Support.ExpectedSeconds = s.Pricing.EstimateStepETA(ctx, in)
+	conv.Support.ExpectedSeconds = s.stepETA(ctx, p, params, req.Step, method, reuseStages)
+
+	// Pricing 2026-11: a preview quoted free takes its free previews now;
+	// if they ran out meanwhile, it is priced like any run.
+	if conv.Quote.Breakdown["free_preview"] == true {
+		if s.consumeFreePreview(ctx, conv) {
+			conv.State, conv.PaymentFlow = store.StatePaid, store.FlowFreePreview
+			conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeFreePreview}
+			s.createAndSubmit(ctx, w, user, conv, func() {
+				s.Store.GiveBackFreePreview(ctx, conv.UID, conv.FreePreview)
+				s.restoreCredit(ctx, conv)
+			})
+			return
+		}
+		requote, _, qerr := s.quoteStep(withoutFree(ctx), p, params, req.Step, credit)
+		if qerr != nil {
+			s.restoreCredit(ctx, conv)
+			httpx.WriteErr(ctx, w, qerr)
+			return
+		}
+		conv.Quote = *requote
 	}
 
-	s.finalizeAutoBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) })
+	s.finalizeStepBilled(ctx, w, user, cust, conv, func() { s.restoreCredit(ctx, conv) }, payContextOf(r))
 }
 
-// finalizeAutoBilled runs the SHARED tail of every auto-billed conversion
-// create (pro steps AND the mobile one-shot flow): the threshold hybrid —
-// an off-session hold (with its 3DS/decline branches) for quotes at or
-// above holdThresholdCents, plain charge-on-success mode below — then the
-// record write and the inline Modal submit. Writes the HTTP response on
-// every path. “restore“ undoes any resource consumed before billing
-// (the pro flow's analyze credit; a no-op for the one-shot flow).
+// finalizeAutoBilled bills the MOBILE one-shot flow's paid conversions
+// (pro steps use finalizeStepBilled's pre-charge since 2026-11-03): the
+// threshold hybrid — an off-session hold (with its 3DS/decline branches)
+// for quotes at or above holdThreshold (lifted by the account's tier),
+// plain charge-on-success mode below — then the record write and the
+// inline Modal submit. Writes the HTTP response on every path. “restore“
+// undoes any resource consumed before billing (a no-op for this flow).
 func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 	user *AuthedUser, cust *store.Customer, conv *store.Conversion, restore func()) {
 	// Threshold hybrid: expensive runs get an off-session hold up front (the
 	// bank re-approves the money BEFORE GPU spend; capture on success), cheap
 	// runs skip the hold and charge the saved card on success.
-	if conv.Quote.AmountCents >= s.holdThreshold(ctx, cust) {
+	if conv.Quote.AmountCents >= s.holdThreshold(ctx, cust, conv.ProjectID != "") {
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAutoHold}
 		pi, herr := s.Stripe.CreateOffSessionHold(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			conv.Quote.AmountCents, conv.Quote.Currency, stripex.Job{
+				Web:          conv.ProjectID != "",
 				ConversionID: conv.ID,
 				UID:          user.UID,
-				Description:  jobDescription(conv),
+				Description:  piDescription(conv),
 				Metadata:     s.jobMetadata(ctx, conv),
 				ReceiptEmail: user.Email,
 			})
@@ -1152,6 +1568,11 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 					conv.Stripe.ClientSecret = got.ClientSecret
 				}
 				if err := s.Store.CreateConversion(ctx, conv); err != nil {
+					if errors.Is(err, store.ErrAlreadyExists) {
+						// P3: the racing twin owns this keyed hold — keep it.
+						s.replayConversion(ctx, w, user, conv.ID)
+						return
+					}
 					_ = s.Stripe.CancelHold(fail.PaymentIntentID)
 					restore()
 					httpx.WriteErr(ctx, w, err)
@@ -1172,7 +1593,7 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 			httpx.Log(ctx).Info("hold declined",
 				"conversion_id", conv.ID, "uid", user.UID, "code", fail.Code)
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusPaymentRequired, "card_declined",
-				"your card declined the payment hold — update your payment method and retry"))
+				"your payment method declined the payment hold — update your payment method and retry"))
 			return
 		}
 		if pi.Status == stripe.PaymentIntentStatusRequiresAction ||
@@ -1193,28 +1614,58 @@ func (s *Service) finalizeAutoBilled(ctx context.Context, w http.ResponseWriter,
 		conv.State = store.StatePaid
 		conv.Stripe = store.Stripe{CustomerID: cust.StripeCustomerID, Mode: store.BillingModeAuto}
 	}
-	if err := s.Store.CreateConversion(ctx, conv); err != nil {
+	s.createAndSubmit(ctx, w, user, conv, func() {
 		if conv.Stripe.PaymentIntentID != "" {
 			_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
 		}
 		restore()
+	})
+}
+
+// createAndSubmit writes the billed conversion record and submits it
+// inline, answering the HTTP request. undo releases whatever billing
+// placed before a failed write.
+func (s *Service) createAndSubmit(ctx context.Context, w http.ResponseWriter,
+	user *AuthedUser, conv *store.Conversion, undo func()) {
+	if err := s.createRunRecord(ctx, conv); err != nil {
+		if errors.Is(err, store.ErrAlreadyExists) {
+			// A racing request with the same Idempotency-Key won (P3). Its
+			// record holds the analyze credit and any shared, keyed
+			// PaymentIntent, so undo() must not run; only a hold of our
+			// own (an unkeyed create) is released.
+			if winner, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil &&
+				conv.Stripe.PaymentIntentID != "" && conv.Stripe.PaymentIntentID != winner.Stripe.PaymentIntentID {
+				_ = s.Stripe.CancelHold(conv.Stripe.PaymentIntentID)
+			}
+			s.replayConversion(ctx, w, user, conv.ID)
+			return
+		}
+		undo()
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
 	httpx.Log(ctx).Info("conversion created",
 		"conversion_id", conv.ID, "uid", user.UID, "kind", conv.Kind,
-		"step", conv.Step, "project_id", conv.ProjectID, "billing_mode", conv.Stripe.Mode,
+		"step", conv.Step, "method", conv.Method, "project_id", conv.ProjectID, "billing_mode", conv.Stripe.Mode,
 		"amount_cents", conv.Quote.AmountCents, "payment_intent", conv.Stripe.PaymentIntentID)
 	// Submit inline for latency; on failure the reconciler re-drives paid
 	// conversions until paidTTL.
 	if serr := s.submitInline(ctx, conv.ID); serr != nil {
+		var rej *submitRejected
+		if errors.As(serr, &rej) {
+			// Refused outright (failed, money on its way back): a 400 the
+			// client can act on, with the run for reference.
+			e := httpx.Err(http.StatusBadRequest, rej.Code, rej.Message)
+			e.Details = map[string]any{"conversion_id": conv.ID}
+			httpx.WriteErr(ctx, w, e)
+			return
+		}
 		httpx.Log(ctx).Warn("inline submit failed; reconciler will retry",
 			"conversion_id", conv.ID, "err", serr)
 	} else if fresh, gerr := s.Store.GetConversion(ctx, conv.ID); gerr == nil {
 		conv = fresh // reflect processing state in the response
 	}
 	httpx.WriteOK(w, s.conversionResponse(conv, nil))
-
 }
 
 // ---------------------------------------------------------------- helpers
@@ -1236,9 +1687,10 @@ func (s *Service) ownedProject(ctx context.Context, user *AuthedUser, id string)
 	if err != nil {
 		return nil, err
 	}
-	if p.UID != user.UID {
+	if p.UID != user.UID || p.Deleted {
 		return nil, httpx.ErrNotFound("project") // 404, don't confirm existence
 	}
+	s.markBarsRemoval(ctx, p)
 	return p, nil
 }
 
@@ -1263,6 +1715,7 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	resp := map[string]any{
 		"project_id":   p.ID,
 		"name":         p.Name,
+		"method":       projectMethod(p),
 		"source_bytes": p.Source.Bytes,
 		"analyze":      analyzeResponse(&p.Analyze),
 		"archived":     p.Archived,
@@ -1270,8 +1723,15 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 		"created_at":   p.CreatedAt.Format(time.RFC3339),
 		"updated_at":   p.UpdatedAt.Format(time.RFC3339),
 	}
+	if p.Sample {
+		resp["sample"] = true // onboarding: read-only, never billed
+	}
 	if p.Probe != nil {
 		resp["probe"] = p.Probe
+	}
+	resp["source_details"] = sourceDetailsJSON(p, s.hdrOn(context.Background()))
+	if projectMethod(p) == store.MethodLifelike {
+		resp["qualities"] = lifelikeQualities(p, s.enabledLifelikePresets()) // S3D-04: what this source offers
 	}
 	if p.Scenes != nil {
 		resp["scenes"] = p.Scenes
@@ -1288,12 +1748,39 @@ func (s *Service) projectResponse(p *store.Project, conversions []map[string]any
 	if p.Crop != "" {
 		resp["crop"] = p.Crop
 	}
+	// BL-03: bars found, whether runs take them off (the user's choice,
+	// on by default), and whether the gateway can yet.
+	resp["has_bars"] = hasBars(p)
+	resp["remove_bars"] = hasBars(p) && (p.RemoveBars == nil || *p.RemoveBars)
+	// HDR output (owner 2026-11-05): the source's range and whether a run
+	// may ask for HDR, only while the switch is on.
+	if hdrOn := s.hdrOn(context.Background()); hdrOn && p.Probe != nil && p.Probe.DynamicRange != "" {
+		resp["dynamic_range"], resp["hdr_source"] = p.Probe.DynamicRange, hdrSource(p)
+		resp["hdr_available"] = projectMethod(p) == store.MethodLifelike && hdrSource(p)
+	} else {
+		resp["hdr_available"] = false
+	}
+	// hdr_output: this project's Lifelike runs come out in HDR (automatic,
+	// owner 2026-11-05), so the web can say "Your 3D will be in HDR".
+	resp["hdr_output"] = resp["hdr_available"]
+	resp["bars_removal_available"] = projectMethod(p) == store.MethodLifelike && s.sourceCropOn(context.Background())
 	if p.PreviewURL != "" {
 		resp["preview_url"] = p.PreviewURL
 	}
 	if len(p.StripThumbs) > 0 {
 		resp["strip_thumbs"] = p.StripThumbs
 		resp["scene_thumbs"] = p.SceneThumbs
+	}
+	if poster := projectPoster(p); poster != nil {
+		resp["poster"] = poster
+	}
+	// S3D-24: files_delete_at only once a deletion is scheduled;
+	// files_deleted_at once they're gone.
+	if at := s.filesDeleteAtFor(p); at != nil {
+		resp["files_delete_at"] = at.Format(time.RFC3339)
+	}
+	if p.FilesDeletedAt != nil {
+		resp["files_deleted_at"] = p.FilesDeletedAt.Format(time.RFC3339)
 	}
 	if conversions != nil {
 		resp["conversions"] = conversions
@@ -1330,4 +1817,19 @@ func probeHeight(p *store.Project) int {
 		return 0
 	}
 	return p.Probe.Height
+}
+
+// projectPoster is the project's picture {frame, url}: analyze's
+// non-black frame, else (projects analyzed before 2026-11-05) the first
+// scene's keyframe as before; nil without thumbnails.
+func projectPoster(p *store.Project) *store.Thumb {
+	switch {
+	case p.Poster != nil && p.Poster.URL != "":
+		return p.Poster
+	case len(p.SceneThumbs) > 0:
+		return &p.SceneThumbs[0]
+	case len(p.StripThumbs) > 0:
+		return &p.StripThumbs[0]
+	}
+	return nil
 }

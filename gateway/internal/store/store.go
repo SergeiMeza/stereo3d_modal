@@ -3,6 +3,7 @@ package store
 import (
 	"context"
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
@@ -134,11 +135,37 @@ func (s *Store) convDoc(id string) *firestore.DocumentRef {
 	return s.fs.Collection(conversionsCol(s.env)).Doc(id)
 }
 
+// CreateConversion writes a new run; ErrAlreadyExists when the id is taken
+// (an idempotent replay raced it, P3).
 func (s *Store) CreateConversion(ctx context.Context, c *Conversion) error {
 	c.CreatedAt = time.Now().UTC()
 	c.UpdatedAt = c.CreatedAt
 	_, err := s.convDoc(c.ID).Create(ctx, c)
+	if status.Code(err) == codes.AlreadyExists {
+		return ErrAlreadyExists
+	}
 	return err
+}
+
+// CreateConversionAt writes a run with the times it carries (the
+// onboarding sample's extra runs, ordered behind its 4K one).
+func (s *Store) CreateConversionAt(ctx context.Context, c *Conversion) error {
+	if c.CreatedAt.IsZero() {
+		c.CreatedAt = time.Now().UTC()
+	}
+	c.UpdatedAt = c.CreatedAt
+	_, err := s.convDoc(c.ID).Create(ctx, c)
+	if status.Code(err) == codes.AlreadyExists {
+		return ErrAlreadyExists
+	}
+	return err
+}
+
+// IdemConversionID derives a run id from the account and its
+// Idempotency-Key (P3): "k" + 15 hex characters of their SHA-256.
+func IdemConversionID(env, uid, key string) string {
+	sum := sha256.Sum256([]byte(env + "\x00" + uid + "\x00" + key))
+	return "k" + hex.EncodeToString(sum[:])[:15]
 }
 
 func (s *Store) GetConversion(ctx context.Context, id string) (*Conversion, error) {
@@ -374,8 +401,28 @@ func (s *Store) Transition(ctx context.Context, id string, fromStates []string, 
 		if err := mutate(c); err != nil {
 			return err
 		}
+		// v7.1 R3: a balance run's terminal state and its settle or
+		// release commit together.
+		commitHold, err := s.closeRunHold(tx, c)
+		if err != nil {
+			return err
+		}
+		commitPreview, err := s.returnFreePreview(tx, c)
+		if err != nil {
+			return err
+		}
 		c.UpdatedAt = time.Now().UTC()
 		result = c
+		if commitHold != nil {
+			if err := commitHold(); err != nil {
+				return err
+			}
+		}
+		if commitPreview != nil {
+			if err := commitPreview(); err != nil {
+				return err
+			}
+		}
 		return tx.Set(s.convDoc(id), c)
 	})
 	if err != nil {
@@ -398,4 +445,25 @@ func snapToConversion(snap *firestore.DocumentSnapshot) (*Conversion, error) {
 	}
 	c.ID = snap.Ref.ID
 	return &c, nil
+}
+
+// ListRepackPending: runs with a repack still running (ADR 0137).
+func (s *Store) ListRepackPending(ctx context.Context, limit int) ([]*Conversion, error) {
+	return s.collect(s.fs.Collection(conversionsCol(s.env)).Where("repack_pending", "==", true).Limit(limit).Documents(ctx))
+}
+
+// HasImageQuota: the account has a free-image quota record (it used the
+// free stills).
+func (s *Store) HasImageQuota(ctx context.Context, uid string) (bool, error) {
+	_, err := s.fs.Collection(imageQuotaCol(s.env)).Doc(uid).Get(ctx)
+	if status.Code(err) == codes.NotFound {
+		return false, nil
+	}
+	return err == nil, err
+}
+
+// ListCampaignRuns lists the runs whose quote carried the launch offer
+// (quote.breakdown.campaign_cents > 0), at most limit.
+func (s *Store) ListCampaignRuns(ctx context.Context, limit int) ([]*Conversion, error) {
+	return s.collect(s.fs.Collection(conversionsCol(s.env)).Where("quote.breakdown.campaign_cents", ">", 0).Limit(limit).Documents(ctx))
 }

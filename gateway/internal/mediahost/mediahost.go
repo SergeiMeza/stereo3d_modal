@@ -67,6 +67,11 @@ func (rw *Rewriter) Middleware(next http.Handler) http.Handler {
 			next.ServeHTTP(w, r)
 			return
 		}
+		if r.URL.Path == "/v1/events" || strings.HasPrefix(r.URL.Path, "/v1/events/") {
+			// SSE: never buffered; each event is one write, rewritten as it goes
+			next.ServeHTTP(&streamWriter{ResponseWriter: w, rw: rw}, r)
+			return
+		}
 		buf := &bufferedWriter{ResponseWriter: w, status: http.StatusOK}
 		next.ServeHTTP(buf, r)
 		body := buf.body.Bytes()
@@ -100,3 +105,19 @@ func (b *bufferedWriter) Write(p []byte) (int, error) {
 	b.wroteHeader = true
 	return b.body.Write(p)
 }
+
+// streamWriter rewrites a streamed answer write by write (an SSE event is
+// one write, so a storage link is never split) and keeps flushing.
+type streamWriter struct {
+	http.ResponseWriter
+	rw *Rewriter
+}
+
+func (s *streamWriter) Write(p []byte) (int, error) {
+	if _, err := s.ResponseWriter.Write(s.rw.rewrite(p)); err != nil {
+		return 0, err
+	}
+	return len(p), nil
+}
+
+func (s *streamWriter) Unwrap() http.ResponseWriter { return s.ResponseWriter }

@@ -53,6 +53,34 @@ def _strip_indices(num_frames: int, count: int) -> list[int]:
     return sorted({round(i * (num_frames - 1) / (count - 1)) for i in range(count)})
 
 
+POSTER_MIN_LUMA = 0.08    # mean luma (0–1) a poster frame must pass …
+POSTER_MIN_SPREAD = 0.03  # … and its luma spread (std): not a near-uniform frame
+
+
+def _luma_stats(path: Path) -> tuple[float, float] | None:
+    """Mean and std of a JPEG's luma, 0–1 (None when unreadable)."""
+    import cv2
+
+    img = cv2.imread(str(path), cv2.IMREAD_GRAYSCALE)
+    if img is None or img.size == 0:
+        return None
+    return float(img.mean()) / 255.0, float(img.std()) / 255.0
+
+
+def _pick_poster_frame(samples: list[tuple[int, Path]], num_frames: int,
+                       stats=_luma_stats) -> int:
+    """The project's poster frame (thumbnail, black-bars before/after):
+    the first sampled frame, in time order, that isn't black or flat
+    (mean luma > POSTER_MIN_LUMA and spread > POSTER_MIN_SPREAD), else the
+    middle of the video. A video that opens on black (an end roll, a fade
+    in) otherwise shows an all-black card (3DS QA 2026-11-05)."""
+    for frame, path in samples:
+        st = stats(path)
+        if st is not None and st[0] > POSTER_MIN_LUMA and st[1] > POSTER_MIN_SPREAD:
+            return frame
+    return max(0, num_frames // 2)
+
+
 def _make_proxy(src: Path, dest: Path, short_side: int) -> None:
     """Frame-exact 1:1 proxy transcode (scale only — no fps/trim filters, so
     proxy frame n IS source frame n). Audio rides along (AAC) when the source
@@ -101,14 +129,33 @@ def _detect_scenes_inline(path: Path) -> list[dict]:
     return scenes
 
 
+COPY_WORKERS = 16         # parallel thumbnail copies to the bucket mount
+
+
+def _publish(files: list[Path], dest_dir: Path) -> None:
+    """Copy local files into the bucket mount, in parallel. Each new object
+    on the mount costs a round trip (observed 2026-11-05: ~3.5 s apiece on
+    a 6 s clip, 100 strip tiles = 5.7 min when ffmpeg wrote them there one
+    by one)."""
+    import shutil
+    from concurrent.futures import ThreadPoolExecutor
+
+    dest_dir.mkdir(parents=True, exist_ok=True)
+    with ThreadPoolExecutor(max_workers=COPY_WORKERS) as pool:
+        list(pool.map(lambda f: shutil.copyfile(f, dest_dir / f.name), files))
+
+
 def _extract_frames(src: Path, indices: list[int], height: int,
-                    out_dir: Path, prefix: str) -> list[dict]:
+                    out_dir: Path, prefix: str, with_paths: bool = False,
+                    publish_dir: Path | None = None) -> list[dict]:
     """ffmpeg passes over the proxy: keep exactly the frames in
     ``indices``, scale to ``height``. Batched (SELECT_BATCH eq() terms per
     pass) — one giant select expression overflows ffmpeg's expression
     parser. Output files number 1..k in ascending frame order (select
-    preserves order), so file n maps to indices[n-1].
-    Returns [{"frame", "url"}, …]."""
+    preserves order), so file n maps to indices[n-1]. With ``publish_dir``
+    the frames are written to ``out_dir`` (local) and copied there in
+    parallel; the urls are the published ones.
+    Returns [{"frame", "url"}, …] (with the local "path" when ``with_paths``)."""
     from app.common.storage import public_url
 
     if not indices:
@@ -127,11 +174,16 @@ def _extract_frames(src: Path, indices: list[int], height: int,
             ],
             check=True,
         )
+    made = [(frame, out_dir / f"{prefix}_{n:05d}.jpg") for n, frame in enumerate(indices, start=1)]
+    made = [(frame, f) for frame, f in made if f.exists()]  # tail indices past a short container count may miss
+    if publish_dir is not None:
+        _publish([f for _, f in made], publish_dir)
     thumbs = []
-    for n, frame in enumerate(indices, start=1):
-        f = out_dir / f"{prefix}_{n:05d}.jpg"
-        if f.exists():  # tail indices past a short container count may miss
-            thumbs.append({"frame": frame, "url": public_url(f)})
+    for frame, f in made:
+        t = {"frame": frame, "url": public_url(publish_dir / f.name if publish_dir is not None else f)}
+        if with_paths:
+            t["path"] = f
+        thumbs.append(t)
     return thumbs
 
 
@@ -201,15 +253,24 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             jobs.update_job(job_id, progress=0.7, stage="thumbnails")
             strip_count = int(request.get("strip_count", DEFAULT_STRIP_COUNT))
             strip_count = max(10, min(strip_count, MAX_STRIP_COUNT))
+            # written locally, then copied to the bucket in parallel
             thumbs_dir = job_output_dir(job_id) / "thumbs"
+            import tempfile
+
+            local_thumbs = Path(tempfile.mkdtemp(prefix=f"thumbs_{job_id}_"))  # container disk
             strip = _extract_frames(
                 proxy, _strip_indices(probe["num_frames"], strip_count),
-                STRIP_HEIGHT, thumbs_dir, "strip",
+                STRIP_HEIGHT, local_thumbs, "strip", with_paths=True, publish_dir=thumbs_dir,
             )
+            poster_frame = _pick_poster_frame(
+                [(t["frame"], t.pop("path")) for t in strip], probe["num_frames"])
+            poster = _extract_frames(proxy, [poster_frame], PROXY_SHORT_SIDE, local_thumbs, "poster",
+                                     publish_dir=thumbs_dir)
             # per-scene keyframe: the middle frame is more representative
             # than the first (cuts often land on transitions/black frames)
             mids = [(s["start"] + max(s["start"], s["end"] - 1)) // 2 for s in scenes]
-            keyframes = _extract_frames(proxy, mids, PROXY_SHORT_SIDE, thumbs_dir, "scene")
+            keyframes = _extract_frames(proxy, mids, PROXY_SHORT_SIDE, local_thumbs, "scene",
+                                        publish_dir=thumbs_dir)
 
             # Publish the proxy as a browser-playable preview: h264/mp4 plays
             # everywhere (the SOURCE may be AV1/HEVC and unplayable in the
@@ -220,6 +281,7 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             preview_path = job_output_dir(job_id) / "preview.mp4"
             shutil.copyfile(proxy, preview_path)
             proxy.unlink(missing_ok=True)
+            shutil.rmtree(local_thumbs, ignore_errors=True)
 
         jobs.update_job(
             job_id,
@@ -239,6 +301,8 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
                 "scene_cuts": cuts,        # source-frame indices, /v1/videos-ready
                 "thumbnails": {
                     "strip": strip,
+                    # the project's picture: a non-black frame (h=480)
+                    "poster": poster[0] if poster else None,
                     "scenes": [
                         {"scene": i, **t} for i, t in enumerate(keyframes)
                     ],
@@ -246,7 +310,7 @@ def process_analyze_job(job_id: str, request: dict) -> dict:
             },
         )
         jlog.info(f"🏁 analyze completed: {len(scenes)} scene(s), "
-                  f"{len(strip)} strip + {len(keyframes)} scene thumb(s)")
+                  f"{len(strip)} strip + {len(keyframes)} scene thumb(s), poster frame {poster_frame}")
         return {"job_id": job_id, "status": jobs.COMPLETED, "scenes": len(scenes)}
 
     except Exception as exc:

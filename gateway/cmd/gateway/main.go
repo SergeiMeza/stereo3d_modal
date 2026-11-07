@@ -3,27 +3,23 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
-	"strings"
+	"os/signal"
+	"slices"
+	"syscall"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/api"
-	"spatial-ai-labs/stereo3d-gateway/internal/auth"
+	"spatial-ai-labs/stereo3d-gateway/internal/app"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
-	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
+	"spatial-ai-labs/stereo3d-gateway/internal/emailcode"
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/mediahost"
-	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
-	"spatial-ai-labs/stereo3d-gateway/internal/notify"
-	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
-	"spatial-ai-labs/stereo3d-gateway/internal/store"
-	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
-
-	"cloud.google.com/go/firestore"
 )
 
 // appRequestBudget bounds every app-facing request, Modal calls included,
@@ -49,48 +45,44 @@ func main() {
 		os.Exit(1)
 	}
 
-	verifier, err := auth.New(ctx, cfg.FirebaseProjectID)
+	built, err := app.Build(ctx, cfg)
 	if err != nil {
-		slog.Error("firebase auth init", "err", err)
+		slog.Error("init", "err", err)
 		os.Exit(1)
 	}
-	st, err := store.New(ctx, cfg.GCPProjectID, cfg.Env)
-	if err != nil {
-		slog.Error("firestore init", "err", err)
-		os.Exit(1)
-	}
-	defer st.Close()
-	// pricing shares a Firestore client but reads only config/pricing_{env}.
-	fsClient, err := firestore.NewClient(ctx, cfg.GCPProjectID)
-	if err != nil {
-		slog.Error("firestore init (pricing)", "err", err)
-		os.Exit(1)
-	}
-	defer fsClient.Close()
-	gcs, err := gcsx.New(ctx, cfg.BucketName, cfg.BucketPrefix)
-	if err != nil {
-		slog.Error("gcs init", "err", err)
-		os.Exit(1)
-	}
-	defer gcs.Close()
-
-	svc := &api.Service{
-		Cfg:     cfg,
-		Auth:    verifier,
-		Store:   st,
-		Pricing: pricing.New(fsClient, cfg.Env),
-		Stripe:  stripex.New(cfg.StripeSecretKey, cfg.StripeWebhookSecret, cfg.StripePublishableKey, cfg.Env),
-		Modal:   modalapi.New(cfg.ModalBaseURL, cfg.ModalTokenID, cfg.ModalTokenSecret),
-		GCS:     gcs,
-		Slack:   notify.NewSlack(cfg.SlackWebhookURL, cfg.Env),
-	}
+	defer built.Close()
+	svc, verifier, fsClient := built.Svc, built.Verifier, built.FS
+	// Cloud Run sends SIGTERM 10 s before stopping an instance: live
+	// streams get a bye with a jittered 1–3 s retry, 1.5 s for it to flush,
+	// in-flight requests up to 4 s, then the queued download log (M8) is
+	// flushed and the process exits.
+	srv := &http.Server{Addr: ":" + cfg.Port}
+	stopped := make(chan struct{})
+	go func() {
+		sig := make(chan os.Signal, 1)
+		signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
+		<-sig
+		if err := api.Shutdown(srv, svc, 1500*time.Millisecond, 4*time.Second); err != nil {
+			slog.Warn("shutdown", "err", err)
+		}
+		built.Close()
+		close(stopped)
+	}()
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, _ *http.Request) {
 		httpx.WriteOK(w, map[string]string{"status": "ok", "env": cfg.Env})
 	})
 	mux.HandleFunc("POST /webhooks/stripe", svc.HandleStripeWebhook)
+	mux.HandleFunc("POST /webhooks/revenuecat", svc.HandleRevenueCatWebhook) // Pro changes from the app's stores
+	// The TEST mode endpoint was registered at /webhook (found 2026-11-03:
+	// every test event 404ed); both paths serve the same handler.
+	mux.HandleFunc("POST /webhook", svc.HandleStripeWebhook)
+	// Public price list (S3D-18): no auth, cacheable, CORS like every route.
+	mux.HandleFunc("GET /v1/pricing", svc.HandlePublicPricing)
 	mux.HandleFunc("POST /internal/reconcile", svc.HandleReconcile)
+	// svs-backend's account-switch bookkeeping (proxy key only; 404 otherwise).
+	mux.HandleFunc("GET /internal/holdings/{uid}", svc.HandleHoldings)
 
 	// Sign-in through the gateway for browsers that can't reach Google
 	// (identity package). Same Firebase uid and tokens as the JS SDK.
@@ -109,6 +101,31 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/reset", idh.Reset)
 	mux.HandleFunc("POST /v1/auth/reset/confirm", idh.ResetConfirm)
 
+	// Sign-in with a one-time email code (S3D-70), web and China mode.
+	codes := &emailcode.Service{
+		Store:    emailcode.NewFirestoreStore(fsClient, cfg.Env),
+		Users:    verifier,
+		Sessions: idh.Client,
+		Mail:     mail.NewResend(cfg.ResendAPIKey, cfg.ResetMailFrom),
+	}
+	// QA agents' codes in the TEST log (owner 2026-11-07): APP_ENV=test
+	// and QA_LOG_SIGNIN_CODES=1 together; prod refuses it.
+	codes.Env = cfg.Env
+	codes.LogQACodes = emailcode.QALogAllowed(cfg.Env, os.Getenv(emailcode.QALogSwitch))
+	if os.Getenv(emailcode.QALogSwitch) != "" && !codes.LogQACodes {
+		slog.Error("QA_LOG_SIGNIN_CODES ignored: only APP_ENV=test with value 1 logs QA sign-in codes", "env", cfg.Env)
+	}
+	if codes.LogQACodes {
+		slog.Warn("TEST: sign-in codes for qa-agent+…@lpp.pw are logged")
+	}
+	ech := emailcode.NewHandlers(codes, ips)
+	// Sessions without the SDK (passkey session:true, Apple/Google links)
+	// and email codes for linking (/v1/account/identities).
+	svc.Sessions, svc.EmailCodes = idh.Client, codes
+	codes.Owners = svc.EmailOwners() // any active email signs in to its account (design 2)
+	mux.HandleFunc("POST /v1/auth/email/start", ech.Start)
+	mux.HandleFunc("POST /v1/auth/email/verify", ech.Verify)
+
 	// Authenticated client routes.
 	authed := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser)) http.HandlerFunc {
 		return func(w http.ResponseWriter, r *http.Request) {
@@ -122,42 +139,296 @@ func main() {
 			// waits up to an hour, takes the conversion over.
 			ctx, cancel := context.WithTimeout(r.Context(), appRequestBudget)
 			defer cancel()
-			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email})
+			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email, AuthTime: u.AuthTime, Anonymous: u.Anonymous})
 		}
 	}
+	// Admin console routes (spec M1): its own origin only, the svs_admin
+	// claim and a passkey session (X-Admin-Session, ADR 0135; the only
+	// second factor); money actions check the assertion's freshness
+	// inside. adminToken (the passkey routes) needs the token
+	// alone: the passkey is what they set up or prove.
+	adminWith := func(secondFactor bool, h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return func(w http.ResponseWriter, r *http.Request) {
+			w.Header().Set("Cache-Control", "no-store")
+			w.Header().Set("Content-Security-Policy", "default-src 'none'; frame-ancestors 'none'")
+			if o := r.Header.Get("Origin"); o != "" && !slices.Contains(cfg.AdminOrigins, o) {
+				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "origin_not_allowed", "the admin API answers the admin console only"))
+				return
+			}
+			a, err := verifier.AdminFromRequest(r)
+			if err != nil {
+				httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
+				return
+			}
+			if !a.IsAdmin {
+				httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusForbidden, "no_access", "This account has no access."))
+				return
+			}
+			au, ok, serr := svc.AdminUserFor(r, a.UID, a.Email, a.AuthTime)
+			if secondFactor && serr != nil { // session_expired | invalid_session: the console drops its token
+				e := httpx.Err(http.StatusUnauthorized, api.SessionErrCode(serr), "Your admin session ended. Confirm with your passkey again.")
+				e.Details = map[string]any{"method": "passkey"}
+				httpx.WriteErr(r.Context(), w, e)
+				return
+			}
+			if secondFactor && !ok {
+				e := httpx.Err(http.StatusUnauthorized, "session_required", "Confirm with your passkey.")
+				e.Details = map[string]any{"methods": []string{"passkey"}}
+				httpx.WriteErr(r.Context(), w, e)
+				return
+			}
+			ctx, cancel := context.WithTimeout(r.Context(), 55*time.Second)
+			defer cancel()
+			h(w, r.WithContext(ctx), au)
+		}
+	}
+	admin := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return adminWith(true, h)
+	}
+	adminToken := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser)) http.HandlerFunc {
+		return adminWith(false, h)
+	}
+	adminID := func(h func(http.ResponseWriter, *http.Request, *api.AdminUser, string), key string) func(http.ResponseWriter, *http.Request, *api.AdminUser) {
+		return func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) { h(w, r, a, r.PathValue(key)) }
+	}
+	// Customer passkeys (ADR 0136): sign-in is unauthenticated.
+	mux.HandleFunc("POST /v1/auth/passkey/options", svc.HandleCustomerPasskeySignInOptions)
+	mux.HandleFunc("POST /v1/auth/passkey/verify", svc.HandleCustomerPasskeySignInVerify)
+	mux.HandleFunc("GET /v1/account/passkeys", authed(svc.HandleCustomerPasskeys))
+	mux.HandleFunc("POST /v1/account/passkeys/register/options", authed(svc.FrozenWhileDeleting(svc.HandleCustomerPasskeyRegisterOptions)))
+	mux.HandleFunc("POST /v1/account/passkeys/register/verify", authed(svc.FrozenWhileDeleting(svc.HandleCustomerPasskeyRegisterVerify)))
+	cpkID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
+		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+			id := r.PathValue("id")
+			if !api.ValidPasskeyID(id) {
+				httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("passkey"))
+				return
+			}
+			h(w, r, u, id)
+		}
+	}
+	mux.HandleFunc("PATCH /v1/account/passkeys/{id}", authed(cpkID(svc.HandleCustomerPasskeyRename)))
+	mux.HandleFunc("DELETE /v1/account/passkeys/{id}", authed(api.Fresh(svc.FrozenWhileDeleting(cpkID(svc.HandleCustomerPasskeyDelete)))))
+	// Linked sign-in methods, server-side (the app's sign-in contract).
+	// api.Fresh: a sign-in within 5 minutes (sensitive operations, owner
+	// 2026-11-06), else 401 reauth_required {max_age_s: 300}.
+	mux.HandleFunc("GET /v1/account/identities", authed(svc.HandleIdentities))
+	mux.HandleFunc("POST /v1/account/identities/link", authed(api.Fresh(svc.FrozenWhileDeleting(svc.HandleLinkIdentity))))
+	mux.HandleFunc("DELETE /v1/account/identities/{provider}", authed(api.Fresh(svc.FrozenWhileDeleting(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleUnlinkIdentity(w, r, u, r.PathValue("provider"))
+	}))))
+	// Main and additional emails (design 2).
+	mux.HandleFunc("GET /v1/account/emails", authed(svc.HandleAccountEmails))
+	mux.HandleFunc("POST /v1/account/emails/start", authed(svc.FrozenWhileDeleting(svc.HandleAccountEmailStart)))
+	mux.HandleFunc("POST /v1/account/emails", authed(api.Fresh(svc.FrozenWhileDeleting(svc.HandleAddAccountEmail))))
+	mux.HandleFunc("POST /v1/account/emails/{id}/main", authed(api.Fresh(svc.FrozenWhileDeleting(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleSetMainEmail(w, r, u, r.PathValue("id"))
+	}))))
+	mux.HandleFunc("DELETE /v1/account/emails/{id}", authed(api.Fresh(svc.FrozenWhileDeleting(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleRemoveAccountEmail(w, r, u, r.PathValue("id"))
+	}))))
+	// Restore Purchases from a deleted account (design 1b).
+	mux.HandleFunc("POST /v1/billing/restore/find", authed(svc.HandleRestoreFind))
+	mux.HandleFunc("POST /v1/billing/restore/find/verify", authed(svc.HandleRestoreFindVerify))
+	mux.HandleFunc("POST /v1/billing/restore/move", authed(api.Fresh(svc.FrozenWhileDeleting(svc.HandleRestoreMove))))
+	// Support moves a plan off a live account (RP-05): the receiving account accepts.
+	mux.HandleFunc("GET /v1/support/plan-moves", authed(svc.HandleSupportPlanMoves))
+	mux.HandleFunc("POST /v1/support/plan-moves/{id}/accept", authed(api.Fresh(svc.FrozenWhileDeleting(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		svc.HandleSupportPlanMoveAccept(w, r, u, r.PathValue("id"))
+	}))))
+	mux.HandleFunc("GET /v1/admin/passkey-adoption", admin(svc.HandleAdminPasskeyAdoption))
+
+	// Admin passkeys and sessions (ADR 0135).
+	mux.HandleFunc("POST /v1/admin/passkeys/register/options", adminToken(svc.HandlePasskeyRegisterOptions))
+	mux.HandleFunc("POST /v1/admin/passkeys/register/verify", adminToken(svc.HandlePasskeyRegisterVerify))
+	mux.HandleFunc("GET /v1/admin/passkeys", adminToken(svc.HandleAdminPasskeys))
+	mux.HandleFunc("DELETE /v1/admin/passkeys/{id}", adminToken(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidPasskeyID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("passkey"))
+			return
+		}
+		svc.HandleAdminDeletePasskey(w, r, a, id)
+	}))
+	mux.HandleFunc("POST /v1/admin/session/options", adminToken(svc.HandleAdminSessionOptions))
+	mux.HandleFunc("POST /v1/admin/session/verify", adminToken(svc.HandleAdminSessionVerify))
+	mux.HandleFunc("GET /v1/admin/cases", admin(svc.HandleAdminCases))
+	mux.HandleFunc("POST /v1/admin/cases", admin(svc.HandleAdminOpenCase))
+	mux.HandleFunc("GET /v1/admin/cases/{id}", admin(adminID(svc.HandleAdminCase, "id")))
+	mux.HandleFunc("POST /v1/admin/cases/{id}/actions", admin(adminID(svc.HandleAdminCaseAction, "id")))
+	mux.HandleFunc("GET /v1/admin/cases/{id}/plan-move/preview", admin(adminID(svc.HandleAdminPlanMovePreview, "id")))
+	mux.HandleFunc("GET /v1/admin/accounts", admin(svc.HandleAdminAccountSearch)) // ?q= email prefix or uid (BL-29)
+	mux.HandleFunc("GET /v1/admin/efws", admin(svc.HandleAdminOpenEFWs))          // open early fraud warnings, with or without a case (BL-29)
+	mux.HandleFunc("GET /v1/admin/grants", admin(svc.HandleAdminAllGrants))       // every Grant Pro grant (BL-29)
+	mux.HandleFunc("GET /v1/admin/runs/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidResourceID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusNotFound, "run_not_found", "No run with that ID."))
+			return
+		}
+		svc.HandleAdminRun(w, r, a, id)
+	}))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
+	mux.HandleFunc("GET /v1/admin/deletions", admin(svc.HandleAdminDeletions))      // ?state=pending|cancelled|done
+	mux.HandleFunc("GET /v1/admin/pay-requests", admin(svc.HandleAdminPayRequests)) // D7: ?state=open|paid|void&uid=
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
+	// Grant credit (owner 2026-11-07): usage credit on the balance, fresh sign-in for the writes
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants/preview", admin(adminID(svc.HandleAdminCreditGrantPreview, "uid")))
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants", admin(adminID(svc.HandleAdminCreditGrant, "uid")))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}/credit-grants", admin(adminID(svc.HandleAdminAccountCreditGrants, "uid")))
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants/{id}/revoke", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		uid, id := r.PathValue("uid"), r.PathValue("id")
+		if len(id) != 18 || id[:2] != "cg" {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("grant"))
+			return
+		}
+		svc.HandleAdminCreditGrantRevoke(w, r, a, uid, id)
+	}))
+	mux.HandleFunc("GET /v1/admin/credit-grants", admin(svc.HandleAdminAllCreditGrants))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrants, "uid")))    // Grant Pro 2026-11-04
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrantPro, "uid"))) // fresh sign-in
+	mux.HandleFunc("DELETE /v1/admin/accounts/{uid}/grants/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		id := r.PathValue("id")
+		if !api.ValidResourceID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("grant"))
+			return
+		}
+		svc.HandleAdminRevokeGrant(w, r, a, r.PathValue("uid"), id)
+	}))
+	mux.HandleFunc("GET /v1/admin/disputes/summary", admin(svc.HandleAdminDisputes))
+	mux.HandleFunc("GET /v1/admin/policy", admin(svc.HandleAdminPolicy))
+	mux.HandleFunc("GET /v1/admin/mail-previews", admin(svc.HandleAdminMailPreviews))
+	mux.HandleFunc("POST /v1/admin/reconcile", admin(svc.HandleAdminReconcile)) // M3 on demand
+	mux.HandleFunc("GET /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
+	mux.HandleFunc("GET /v1/admin/onboarding/headsets", admin(svc.HandleAdminOnboardingHeadsets))    // onboarding 2026-11-04
+	mux.HandleFunc("GET /v1/admin/plans/surfaces", admin(svc.HandleAdminPlansSurfaces))              // plans surfaces 2026-11-04
+	mux.HandleFunc("GET /v1/admin/feedback", admin(svc.HandleAdminFeedback))                         // web and app feedback, read only
+	mux.HandleFunc("GET /v1/admin/feedback/seen", admin(svc.HandleAdminFeedbackSeen))                // BL-29
+	mux.HandleFunc("POST /v1/admin/feedback/seen", admin(svc.HandleAdminFeedbackSeenSet))            // BL-29
+	mux.HandleFunc("GET /v1/admin/onboarding/business_funnel", admin(svc.HandleAdminBusinessFunnel)) // business setup 2026-11-04
+	mux.HandleFunc("POST /v1/admin/blocklist", admin(svc.HandleAdminBlocklist))
+
 	withID := func(h func(http.ResponseWriter, *http.Request, *api.AuthedUser, string)) func(http.ResponseWriter, *http.Request, *api.AuthedUser) {
 		return func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
 			id := r.PathValue("id")
-			if len(id) != 12 || strings.ContainsFunc(id, func(c rune) bool {
-				return !strings.ContainsRune("0123456789abcdef", c)
-			}) {
+			if !api.ValidResourceID(id) {
 				httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("conversion"))
 				return
 			}
 			h(w, r, u, id)
 		}
 	}
+	// "Get another format" for a finished run (ADR 0137).
+	mux.HandleFunc("GET /v1/runs/{id}/formats", authed(withID(svc.HandleRunFormats)))
+	mux.HandleFunc("POST /v1/runs/{id}/formats", authed(svc.FrozenWhileDeleting(withID(svc.HandleRunFormatAdd))))
 
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
 	mux.HandleFunc("GET /v1/billing", authed(svc.HandleGetBilling))
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))
-	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettleBilling))
+	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettle2))              // C11 collectOutstanding
+	mux.HandleFunc("POST /v1/billing/settle/one-tap", authed(svc.HandleSettleOneTap)) // BUX-20
+	mux.HandleFunc("GET /v1/billing/history", authed(svc.HandleBillingHistory))
+	mux.HandleFunc("GET /v1/billing/invoices", authed(svc.HandleListInvoices))                         // C6, P10
+	mux.HandleFunc("GET /v1/billing/balance", authed(svc.HandleGetBalance))                            // v7 N13
+	mux.HandleFunc("POST /v1/billing/balance/topup", authed(svc.FrozenWhileDeleting(svc.HandleTopup))) // P17
+	mux.HandleFunc("PUT /v1/billing/balance/settings", authed(svc.HandlePutBalanceSettings))           // P18, P19
+	mux.HandleFunc("GET /v1/billing/balance/entries", authed(svc.HandleBalanceEntries))
+	mux.HandleFunc("GET /v1/billing/usage", authed(svc.HandleUsage))
+	// Restore Purchases: nothing moves between accounts, so no fresh sign-in.
+	mux.HandleFunc("POST /v1/billing/restore", authed(svc.FrozenWhileDeleting(svc.HandleRestore)))
+	mux.HandleFunc("POST /v1/billing/plan", authed(svc.FrozenWhileDeleting(svc.HandleStartPlan))) // pricing 2026-11
+	mux.HandleFunc("POST /v1/billing/plan/cancel", authed(api.Fresh(svc.HandleCancelPlan)))
+	mux.HandleFunc("POST /v1/plans/preview-change", authed(svc.HandlePreviewPlanChange)) // plan changes 2026-11-04
+	mux.HandleFunc("POST /v1/plans/change", authed(api.Fresh(svc.FrozenWhileDeleting(svc.HandlePlanChange))))
+	mux.HandleFunc("DELETE /v1/plans/scheduled-change", authed(api.Fresh(svc.HandleCancelScheduledChange)))
 	mux.HandleFunc("POST /v1/billing/pay-now", authed(svc.HandlePayNow))
 	mux.HandleFunc("POST /v1/billing/photo-pack", authed(svc.HandlePhotoPackWithdrawn)) // 410
-	mux.HandleFunc("POST /v1/billing/portal", authed(svc.HandleBillingPortal))
-	mux.HandleFunc("POST /v1/account/delete", authed(svc.HandleDeleteAccount))
+	mux.HandleFunc("POST /v1/billing/portal", authed(api.Fresh(svc.HandleBillingPortal)))
+	// Our own Billing (spec v6.2 D4/F): methods, backup order, company.
+	mux.HandleFunc("GET /v1/billing/methods", authed(svc.HandleListMethods))
+	mux.HandleFunc("POST /v1/billing/methods/setup", authed(api.Fresh(svc.HandleSetupMethod)))
+	mux.HandleFunc("POST /v1/billing/methods/{id}/default", authed(api.Fresh(withID(svc.HandleSetDefaultMethod))))
+	mux.HandleFunc("PUT /v1/billing/methods/order", authed(api.Fresh(svc.HandlePutMethodOrder)))
+	mux.HandleFunc("DELETE /v1/billing/methods/{id}", authed(api.Fresh(withID(svc.HandleRemoveMethod))))
+	mux.HandleFunc("GET /v1/billing/company", authed(svc.HandleGetCompany))
+	mux.HandleFunc("PUT /v1/billing/company", authed(svc.HandlePutCompany))
+	mux.HandleFunc("POST /v1/billing/company/tax-ids", authed(svc.HandleAddTaxID))
+	// Stripe tax id ids (txi_…) aren't our 12-hex ids: their own check.
+	mux.HandleFunc("DELETE /v1/billing/company/tax-ids/{id}", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		id := r.PathValue("id")
+		if !api.ValidTaxIDRef(id) {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("tax id"))
+			return
+		}
+		svc.HandleDeleteTaxID(w, r, u, id)
+	}))
+	mux.HandleFunc("POST /v1/account/delete", authed(api.Fresh(svc.HandleDeleteAccount)))
+	mux.HandleFunc("POST /v1/account/delete/cancel", authed(api.Fresh(svc.HandleCancelDeletion))) // the 48-hour wait
+	// svs-backend's backstop for missed deletion callbacks (Google ID token, its service account only)
+	mux.HandleFunc("GET /v1/internal/account-deletions", svc.HandleInternalDeletions)
+	// Live updates (SSE, owner 2026-11-07): its own auth (token or ticket), no request budget
+	mux.HandleFunc("GET /v1/events", svc.HandleEventStream)
+	mux.HandleFunc("POST /v1/events/ticket", authed(svc.HandleEventsTicket))
+	mux.HandleFunc("GET /v1/events/probe", svc.HandleEventsProbe)
+	mux.HandleFunc("POST /v1/admin/events/ticket", admin(svc.HandleAdminEventsTicket)) // passkey session
+	mux.HandleFunc("GET /v1/admin/events", svc.HandleAdminEventStream)                 // its ticket, no request budget
+	mux.HandleFunc("GET /v1/admin/campaign", admin(svc.HandleAdminCampaign))
+	mux.HandleFunc("GET /v1/admin/revenue/daily", svc.HandleAdminRevenueDaily)                // KPI ingest: a Google ID token from KPI_OIDC_SERVICE_ACCOUNTS, no admin session                  // the launch offer's totals
+	mux.HandleFunc("POST /internal/deletion-callback-probe", svc.HandleDeletionCallbackProbe) // test only, an unknown uid only
+	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview))                 // what a delete would do
+	mux.HandleFunc("POST /v1/account/plan/cancel", authed(api.Fresh(svc.HandleAccountPlanCancel)))
+	mux.HandleFunc("POST /v1/account/plan/resume", authed(api.Fresh(svc.HandleAccountPlanResume)))
+	mux.HandleFunc("GET /v1/account/settings", authed(svc.HandleAccountSettings))   // BL-25
+	mux.HandleFunc("PATCH /v1/account/settings", authed(svc.HandleAccountSettings)) // BL-25
+	mux.HandleFunc("POST /v1/events", authed(svc.HandleEvents))                     // onboarding 2026-11-04
+	mux.HandleFunc("POST /v1/contact", authed(svc.HandleContact))                   // sales enquiries 2026-11-04
+	// Refund requests from Billing (owner 2026-11-06): always a person decides.
+	mux.HandleFunc("GET /v1/support/refund-options", authed(svc.HandleRefundOptions))
+	mux.HandleFunc("POST /v1/support/refund-requests", authed(api.Fresh(svc.HandleRefundRequest)))
+	mux.HandleFunc("GET /v1/support/requests", authed(svc.HandleSupportRequests))
+	mux.HandleFunc("POST /v1/support/requests/{id}/reply", authed(func(w http.ResponseWriter, r *http.Request, u *api.AuthedUser) {
+		id := r.PathValue("id")
+		if !api.ValidCaseID(id) {
+			httpx.WriteErr(r.Context(), w, httpx.Err(http.StatusNotFound, "request_not_found", "We couldn't find that request."))
+			return
+		}
+		svc.HandleSupportReply(w, r, u, id)
+	}))
+	// Feedback: signed in or out (an invalid token is still 401).
+	mux.HandleFunc("POST /v1/feedback", func(w http.ResponseWriter, r *http.Request) {
+		var user *api.AuthedUser
+		if r.Header.Get("Authorization") != "" {
+			u, err := verifier.FromRequest(r)
+			if err != nil {
+				httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
+				return
+			}
+			user = &api.AuthedUser{UID: u.UID, Email: u.Email}
+		}
+		svc.HandleFeedback(w, r, user)
+	})
 	mux.HandleFunc("POST /v1/auth/profile", authed(func(w http.ResponseWriter, r *http.Request, _ *api.AuthedUser) {
 		idh.Profile(w, r)
 	}))
+	mux.HandleFunc("GET /v1/pro", authed(svc.HandleProStatus))
+	mux.HandleFunc("POST /v1/pro/refresh", authed(svc.HandleProRefresh))
 	mux.HandleFunc("GET /v1/limits", authed(svc.HandleLimits))
 	mux.HandleFunc("POST /v1/uploads", authed(svc.HandleCreateUpload))
 	mux.HandleFunc("POST /v1/uploads/status", authed(svc.HandleUploadStatus))
-	mux.HandleFunc("POST /v1/conversions", authed(svc.HandleCreateConversion))
+	mux.HandleFunc("POST /v1/conversions", authed(svc.FrozenWhileDeleting(svc.HandleCreateConversion)))
 	mux.HandleFunc("GET /v1/conversions", authed(svc.HandleListConversions))
 	mux.HandleFunc("GET /v1/conversions/{id}", authed(withID(svc.HandleGetConversion)))
 	mux.HandleFunc("GET /v1/conversions/{id}/downloads", authed(withID(svc.HandleDownloads)))
+	mux.HandleFunc("POST /v1/conversions/{id}/plays", authed(withID(svc.HandleLogPlay))) // M8
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
+	mux.HandleFunc("POST /v1/conversions/{id}/pay-now", authed(svc.FrozenWhileDeleting(withID(svc.HandleRunPayNow))))
+	mux.HandleFunc("POST /v1/conversions/{id}/pay-one-tap", authed(svc.FrozenWhileDeleting(withID(svc.HandleRunPayOneTap)))) // BUX-20
+	mux.HandleFunc("POST /v1/conversions/{id}/handoff", authed(svc.FrozenWhileDeleting(withID(svc.HandleCreateHandoff))))    // B17
+	mux.HandleFunc("GET /v1/handoff/{code}", svc.HandleGetHandoff)                                                           // public, read-only
+	mux.HandleFunc("POST /v1/handoff/{code}/pay", svc.HandleHandoffPay)                                                      // public
+	mux.HandleFunc("GET /v1/pay-requests/{token}", svc.HandleGetPayRequest)                                                  // D7: public, read-only
+	mux.HandleFunc("POST /v1/pay-requests/{token}/checkout", svc.HandlePayRequestCheckout)                                   // D7: public
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))
@@ -165,13 +436,15 @@ func main() {
 	mux.HandleFunc("GET /v1/projects/{id}", authed(withID(svc.HandleGetProject)))
 	mux.HandleFunc("PATCH /v1/projects/{id}", authed(withID(svc.HandleUpdateProject)))
 	mux.HandleFunc("DELETE /v1/projects/{id}", authed(withID(svc.HandleArchiveProject)))
+	mux.HandleFunc("POST /v1/projects/{id}/delete", authed(withID(svc.HandleDeleteProject)))
+	mux.HandleFunc("POST /v1/projects/{id}/keep", authed(withID(svc.HandleKeepProject)))
 	mux.HandleFunc("PATCH /v1/projects/{id}/scenes", authed(withID(svc.HandleUpdateScenes)))
 	mux.HandleFunc("POST /v1/projects/{id}/depth-map", authed(withID(svc.HandleSetProjectDepthMap)))
 	mux.HandleFunc("DELETE /v1/projects/{id}/depth-map", authed(withID(svc.HandleDeleteProjectDepthMap)))
 	mux.HandleFunc("POST /v1/projects/{id}/analyze", authed(withID(svc.HandleRetryAnalyze)))
 	mux.HandleFunc("POST /v1/projects/{id}/profile", authed(withID(svc.HandleProfileProject)))
 	mux.HandleFunc("POST /v1/projects/{id}/quotes", authed(withID(svc.HandleQuoteStep)))
-	mux.HandleFunc("POST /v1/projects/{id}/conversions", authed(withID(svc.HandleCreateStepConversion)))
+	mux.HandleFunc("POST /v1/projects/{id}/conversions", authed(svc.FrozenWhileDeleting(withID(svc.HandleCreateStepConversion))))
 
 	slog.Info("gateway listening", "port", cfg.Port, "env", cfg.Env)
 	// Storage links answered to browsers that came through the relay point
@@ -180,9 +453,12 @@ func main() {
 		_, viaRelay := ips.ClientIP(r)
 		return viaRelay
 	})
-	handler := httpx.WithCORS(cfg.CORSOrigins, httpx.WithRequestID(media.Middleware(mux)))
-	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
+	handler := httpx.WithSplitCORS(cfg.CORSOrigins, cfg.AdminOrigins, "/v1/admin/", httpx.WithRequestID(httpx.WithTrustedProxy(cfg.SVSProxyKey, media.Middleware(mux))))
+	srv.Handler = handler
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)
 	}
+	<-stopped  // ListenAndServe returns as Shutdown starts: wait for it to finish
+	os.Exit(0) // built.Close already ran (the deferred one must not run twice)
 }

@@ -49,7 +49,66 @@ const (
 	// batch (Stripe.BatchID); the batch's charge settles it to succeeded
 	// or, on a card decision, flips it to charge_failed.
 	PIBatched = "batched"
+	// Pre-charged runs (BillingModeAutoPrecharge) that end without a
+	// result: cancel_pending is the committed intent to give the money
+	// back; refunded is the outcome, refund_failed a refund Stripe refused
+	// (Slack-flagged for a manual refund, no further retries).
+	PIRefunded     = "refunded"
+	PIRefundFailed = "refund_failed"
+	// PICharging: a pre-charge is committed on the record BEFORE Stripe is
+	// called (P8a, record before money); the reconciler replays its
+	// deterministic key when the request died. PIProcessing: Stripe
+	// accepted the payment but hasn't settled it (async methods; P2) — no
+	// submit, credit or tier change until it succeeds ("waiting for
+	// payment"). PIRequiresAction: the bank wants its check (3DS).
+	PICharging       = "charging"
+	PIProcessing     = "processing"
+	PIRequiresAction = "requires_action"
 )
+
+// Payment flows (C1), decided per run at start.
+const (
+	FlowAfter     = "after"     // credit, ≤ the pre-charge threshold: charged when done, grouped
+	FlowPrecharge = "precharge" // a saved method charged at start; refunded on failure/cancel
+	FlowPayNow    = "paynow"    // the sheet (Checkout Session) before the run
+	FlowChina     = "china"     // server-side Alipay / WeChat Pay PaymentIntent before the run
+)
+
+// Kinds of payment object a run, group or settle can hold (E0-1).
+const (
+	PaymentCheckoutSession = "checkout_session"
+	PaymentIntentKind      = "payment_intent"
+)
+
+// Payment is the ONE live payment object of a run, group or settle (E0-1,
+// current_payment): replaced only by compare-and-swap on ID.
+type Payment struct {
+	Kind      string     `firestore:"kind" json:"kind"`
+	ID        string     `firestore:"id" json:"-"`
+	ExpiresAt *time.Time `firestore:"expires_at,omitempty" json:"expires_at,omitempty"`
+	Attempt   int        `firestore:"attempt" json:"-"`
+	// UI: elements (our sheet), hosted_page (the hand-off), "" for a
+	// PaymentIntent.
+	UI string `firestore:"ui,omitempty" json:"-"`
+	// ClientSecret of a session in elements mode (served to the sheet).
+	ClientSecret string    `firestore:"client_secret,omitempty" json:"-"`
+	URL          string    `firestore:"url,omitempty" json:"-"`
+	CreatedAt    time.Time `firestore:"created_at" json:"-"`
+	// ClientIP of the request that opened it: tax location evidence when
+	// a method is saved (C6/D3).
+	ClientIP string `firestore:"client_ip,omitempty" json:"-"`
+}
+
+// Lease gives one writer to a group's or settle's money (E0-4): whoever
+// holds an unexpired lease is the only code that may call Stripe for it or
+// write its failure.
+type Lease struct {
+	Owner string    `firestore:"owner"`
+	Until time.Time `firestore:"until"`
+}
+
+// Held reports an unexpired lease at now.
+func (l *Lease) Held(now time.Time) bool { return l != nil && now.Before(l.Until) }
 
 // Billing modes (Stripe.Mode). Empty means hold mode (legacy records predate
 // the field).
@@ -61,7 +120,30 @@ const (
 	// captured on success. 3DS at creation surfaces as state=created +
 	// billing requires_action until the client confirms.
 	BillingModeAutoHold = "auto_hold"
+	// BillingModeAutoPrecharge: pro steps quoted above the precharge
+	// threshold (owner decision LL-D8, 2026-11-03) — the saved card is
+	// CHARGED (automatic capture) before the job is submitted and refunded
+	// in full if the run fails or is canceled. 3DS at creation parks the
+	// run at state=created like auto_hold; the succeeded webhook submits it.
+	BillingModeAutoPrecharge = "auto_precharge"
 )
+
+// Conversion methods (the project's choice; every run records the one it
+// ran with). Lifelike runs on the shared lifelike3d Modal service
+// (ml-sharp-modal ADR-0019); classic is this repo's depth → warp → inpaint
+// pipeline. Records without a method are classic.
+const (
+	MethodLifelike = "lifelike"
+	MethodClassic  = "classic"
+)
+
+// MethodOr returns m, or classic for records that predate the field.
+func MethodOr(m string) string {
+	if m == "" {
+		return MethodClassic
+	}
+	return m
+}
 
 func IsTerminal(state string) bool {
 	switch state {
@@ -84,6 +166,12 @@ type Source struct {
 	FPS       float64 `firestore:"fps" json:"fps"`
 	Width     int     `firestore:"width" json:"width"`
 	Height    int     `firestore:"height" json:"height"`
+	// PricingFPS: the rate the run was priced at without a target (the
+	// counted rate when a VFR source's is higher than FPS; 0 = FPS).
+	PricingFPS float64 `firestore:"pricing_fps,omitempty" json:"-"`
+	// Filename: the file's name on the user's device, as the upload named
+	// it (projects since 2026-11-07; "" = unknown).
+	Filename string `firestore:"filename,omitempty" json:"-"`
 }
 
 // Params is the clamped, whitelisted subset forwarded to Modal. Trim and
@@ -98,9 +186,12 @@ type Params struct {
 	// pipeline default (-1.0, +0.5). Pro steps use scene_overrides instead.
 	Placement []float64 `firestore:"placement,omitempty" json:"placement,omitempty"`
 	TargetFPS float64   `firestore:"target_fps,omitempty" json:"target_fps,omitempty"`
-	FromFrame int       `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
-	ToFrame   int       `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
-	Inpaint   string    `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
+	// FPSCapped: the account has no plan for rates above 30 fps, so the
+	// source's rate was divided down to TargetFPS (fps_cap.go).
+	FPSCapped bool   `firestore:"fps_capped,omitempty" json:"fps_capped,omitempty"`
+	FromFrame int    `firestore:"from_frame,omitempty" json:"from_frame,omitempty"`
+	ToFrame   int    `firestore:"to_frame,omitempty" json:"to_frame,omitempty"`
+	Inpaint   string `firestore:"inpaint,omitempty" json:"inpaint,omitempty"` // "" = pipeline default; pro steps set it explicitly
 	// DepthModel: video depth backend ("" = pipeline default vda).
 	// Mobile exposes "da2" (per-frame relative DA2 — matches the app's
 	// on-device model); the pro web steps never set it.
@@ -135,6 +226,55 @@ type Params struct {
 	// only): Modal publishes depth + depth_vis and completes — no stereo
 	// warp, no output encodes. Set server-side, never from the client.
 	DepthOnly bool `firestore:"depth_only,omitempty" json:"depth_only,omitempty"`
+	// SplitMaxSeconds cuts the output into files of at most this many
+	// seconds (production; 0 = one file). Lifelike only until the classic
+	// pipeline implements the split contract.
+	SplitMaxSeconds int `firestore:"split_max_seconds,omitempty" json:"split_max_seconds,omitempty"`
+	// Lifelike quality (S3D-04): Quality is the option picked ("full" or a
+	// preset); PricePreset the price-table row when it differs from Preset
+	// (full resolution renders the step above and costs the step below).
+	Quality     string `firestore:"quality,omitempty" json:"quality,omitempty"`
+	PricePreset string `firestore:"price_preset,omitempty" json:"price_preset,omitempty"`
+	// Web: made from the web app (the launch campaign is web only).
+	Web bool `firestore:"web,omitempty" json:"-"`
+	// QuickLook: ordered as a Quick look (the client's own flag, never
+	// inferred from the rate).
+	QuickLook bool `firestore:"quick_look,omitempty" json:"quick_look,omitempty"`
+	// Lifelike (S3D-49/50): OriginalEye keeps the source frame as that eye
+	// ("left" | "right"; "" = both rendered); Foveation "static" (or "").
+	OriginalEye string `firestore:"original_eye,omitempty" json:"original_eye,omitempty"`
+	// Bitrate (S3D-56): the choice ("match_source", "20", "40", "60",
+	// "100"; "" = auto) and what it resolved to (0 = the pipeline's own).
+	Bitrate          string `firestore:"bitrate,omitempty" json:"bitrate,omitempty"`
+	OutputBitrateBps int64  `firestore:"output_bitrate_bps,omitempty" json:"output_bitrate_bps,omitempty"`
+	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
+	// OutputQuality (web Lifelike, owner 2026-11-07; the request's
+	// "quality"): standard | high | master;
+	// MaxBitrateBps caps standard's CRF (the worker's max_bitrate_bps),
+	// BitDepth is master's 10 (the worker's output_bit_depth).
+	OutputQuality string `firestore:"output_quality,omitempty" json:"output_quality,omitempty"`
+	MaxBitrateBps int64  `firestore:"max_bitrate_bps,omitempty" json:"max_bitrate_bps,omitempty"`
+	BitDepth      int    `firestore:"bit_depth,omitempty" json:"bit_depth,omitempty"`
+	// Express (add-on, pricing 2026-11): first in the GPU line.
+	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
+	// RemoveBars / SourceCrop (BL-03): the run takes the project's black
+	// bars off, keeping SourceCrop (displayed source pixels, sent as
+	// source_crop). False / nil: the whole frame.
+	RemoveBars bool  `firestore:"remove_bars,omitempty" json:"remove_bars,omitempty"`
+	SourceCrop *Crop `firestore:"source_crop,omitempty" json:"source_crop,omitempty"`
+	// HDR: HDR output from an HDR source (owner 2026-11-05), sent as
+	// hdr_output: true.
+	HDR bool `firestore:"hdr,omitempty" json:"hdr,omitempty"`
+	// OutputWidth / OutputHeight: the Lifelike output picture per eye,
+	// displayed pixels, as quoted (BL-03: the picture inside the bars
+	// when they come off); 0 = unknown (runs before, or before analysis).
+	OutputWidth  int `firestore:"output_width,omitempty" json:"output_width,omitempty"`
+	OutputHeight int `firestore:"output_height,omitempty" json:"output_height,omitempty"`
+	// IntroS / IntroLanguage: the Lifelike brand intro (BL-25) fixed at
+	// creation: nil = none sent (the flag was off), 0 = a plan's opt-out,
+	// 3 (previews) or 4 seconds. Never billed, never shown to clients.
+	IntroS        *int   `firestore:"intro_s,omitempty" json:"-"`
+	IntroLanguage string `firestore:"intro_language,omitempty" json:"-"`
 }
 
 // SceneOverride is a per-scene stereo tweak, keyed by the scene's first
@@ -156,6 +296,9 @@ const (
 	StepDepthPreview  = "depth_preview"
 	StepStereoPreview = "stereo_preview"
 	StepProduction    = "production"
+	// StepLifelikePreview: a short (≤ 10 s) Lifelike render of the chosen
+	// span; Lifelike projects have this and production only.
+	StepLifelikePreview = "lifelike_preview"
 )
 
 type Quote struct {
@@ -178,15 +321,43 @@ type Stripe struct {
 	// the saved card. Never in JSON; conversionResponse decides exposure.
 	ClientSecret string `firestore:"client_secret,omitempty" json:"-"`
 	PIStatus     string `firestore:"pi_status,omitempty" json:"pi_status,omitempty"`
+	// ChargePM / ChargeEmail: what a recorded pre-charge is made with, so a
+	// replay sends the very same request under its key (P8a).
+	ChargePM string `firestore:"charge_pm,omitempty" json:"-"`
+	// ChargePM2: the pre-charge's second try (C1) — the last good method
+	// when it differs from the default.
+	ChargePM2 string `firestore:"charge_pm2,omitempty" json:"-"`
+	// SettleID: the settle that collected (or is collecting) this run.
+	SettleID    string `firestore:"settle_id,omitempty" json:"-"`
+	ChargeEmail string `firestore:"charge_email,omitempty" json:"-"`
 	// BatchID: the billing batch this auto-mode conversion was folded into
 	// (pi_status batched → succeeded/charge_failed follow the batch).
 	BatchID       string     `firestore:"batch_id,omitempty" json:"batch_id,omitempty"`
 	CapturedCents int64      `firestore:"captured_cents,omitempty" json:"captured_cents,omitempty"`
 	CapturedAt    *time.Time `firestore:"captured_at,omitempty" json:"captured_at,omitempty"`
 	CanceledAt    *time.Time `firestore:"canceled_at,omitempty" json:"canceled_at,omitempty"`
+	// Pre-charged runs that ended without a result (pi_status refunded).
+	RefundedCents int64      `firestore:"refunded_cents,omitempty" json:"refunded_cents,omitempty"`
+	RefundedAt    *time.Time `firestore:"refunded_at,omitempty" json:"refunded_at,omitempty"`
 	// SettleError records a capture/cancel/charge failure for support
 	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
+	// OneTapUntil: a one-tap payment of this run is being made (BUX-20):
+	// a second tap meanwhile is refused, never a second charge.
+	OneTapUntil *time.Time `firestore:"one_tap_until,omitempty" json:"-"`
+	// Presentment: the customer's currency and amount when Stripe's
+	// Adaptive Pricing presented this run's card payment (nil: USD).
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
+}
+
+// CardCents is what the card pays of a run: the quote, less the balance's
+// part when a partial hold pays some of it (split pay). The same as the
+// quote for every run without a partial hold (the app's included).
+func (c *Conversion) CardCents() int64 {
+	if rb := c.RunBalance; rb != nil && rb.Partial {
+		return max(c.Quote.AmountCents-rb.HoldCents, 0)
+	}
+	return c.Quote.AmountCents
 }
 
 type Modal struct {
@@ -197,6 +368,64 @@ type Modal struct {
 	Stage        string     `firestore:"stage,omitempty" json:"stage,omitempty"`
 	ETASeconds   int64      `firestore:"eta_seconds,omitempty" json:"eta_seconds,omitempty"`
 	CostUSD      float64    `firestore:"cost_usd,omitempty" json:"-"`
+	// CostUSDRaw: Lifelike's model figure before its billing factor
+	// (cost_summary.total_usd_raw); CostUSD is the bill estimate.
+	CostUSDRaw float64 `firestore:"cost_usd_raw,omitempty" json:"-"`
+	// Experimental: the job says its output is experimental (Lifelike
+	// 5K-8K, metadata.experimental).
+	Experimental bool `firestore:"experimental,omitempty" json:"-"`
+	// OutputBitDepth / OutputBitDepthReason: the job's
+	// metadata.output_bit_depth (the spatial file's 8 or 10) and why 10
+	// didn't apply when Master asked for it.
+	OutputBitDepth       int    `firestore:"output_bit_depth,omitempty" json:"-"`
+	OutputBitDepthReason string `firestore:"output_bit_depth_reason,omitempty" json:"-"`
+	// WaitingForGPU / QueuedS are copied from the job record (both
+	// pipelines): a GPU call is queued and none runs / total seconds spent
+	// so. Queued time is not the run's fault, so overdue judging adds it.
+	WaitingForGPU bool    `firestore:"waiting_for_gpu,omitempty" json:"waiting_for_gpu"`
+	QueuedS       float64 `firestore:"queued_s,omitempty" json:"queued_s"`
+	// StartedAt: when the run got its GPU, as polls saw it — the moment it
+	// left the queue, or its submission once it ran a cancel window without
+	// ever queueing. nil while it has only waited. The cancel window
+	// counts from here (S3D-23).
+	StartedAt *time.Time `firestore:"started_at,omitempty" json:"-"`
+	// WaitingSince: when the current wait for a GPU began, as polls saw
+	// it (nil while not waiting) — the GPU-line alert's clock (S3D-34).
+	WaitingSince *time.Time `firestore:"waiting_since,omitempty" json:"-"`
+	// Priority / GPUWorkers: what a Lifelike job echoed of its scheduling
+	// (metadata.priority "standard"|"express", metadata.max_gpu_workers).
+	// ExpressCostFactor: the GPU cost factor of an Express run (8 vs 4
+	// GPUs, 1.12 measured), set at submit, for cost reporting.
+	// Brand intro (BL-25) as the job reported it: never billed. IntroFrames
+	// are the intro's (part 1 only); VideoFrames the customer's video
+	// (what was quoted); BrandIntroUSD the brand_intro cost stage.
+	IntroS        int     `firestore:"intro_s,omitempty" json:"-"`
+	IntroFrames   int     `firestore:"intro_frames,omitempty" json:"-"`
+	VideoFrames   int     `firestore:"video_frames,omitempty" json:"-"`
+	BrandIntroUSD float64 `firestore:"brand_intro_usd,omitempty" json:"-"`
+	// SourceVFR / SourceCountedFrames: the pipeline's read of the source
+	// (variable-rate, frames it counted); nil on jobs that don't say.
+	SourceVFR           *bool `firestore:"source_vfr,omitempty" json:"-"`
+	SourceCountedFrames int   `firestore:"source_counted_frames,omitempty" json:"-"`
+	// SourceCrop / SourceCropRequested / SourceDisplaySize: Lifelike's
+	// record of the run's black-bar crop (BL-03): applied (nil: none or
+	// the whole frame), sent, and the source's displayed [w, h].
+	SourceCrop          *Crop   `firestore:"source_crop,omitempty" json:"-"`
+	SourceCropRequested *Crop   `firestore:"source_crop_requested,omitempty" json:"-"`
+	SourceDisplaySize   []int   `firestore:"source_display_size,omitempty" json:"-"`
+	Priority            string  `firestore:"priority,omitempty" json:"-"`
+	GPUWorkers          int     `firestore:"max_gpu_workers,omitempty" json:"-"`
+	ExpressCostFactor   float64 `firestore:"express_cost_factor,omitempty" json:"-"`
+}
+
+// Part is one file of a split output (metadata.parts of the job record):
+// SOURCE frames, half open, the same boundaries for every format.
+type Part struct {
+	Index     int     `firestore:"index" json:"index"`
+	FromFrame int     `firestore:"from_frame" json:"from_frame"`
+	ToFrame   int     `firestore:"to_frame" json:"to_frame"`
+	StartS    float64 `firestore:"start_s" json:"start_s"`
+	DurationS float64 `firestore:"duration_s" json:"duration_s"`
 }
 
 type Error struct {
@@ -208,13 +437,20 @@ type Error struct {
 }
 
 type Conversion struct {
-	ID        string            `firestore:"-" json:"conversion_id"`
-	UID       string            `firestore:"uid" json:"-"`
-	Env       string            `firestore:"env" json:"-"`
-	State     string            `firestore:"state" json:"state"`
-	Kind      string            `firestore:"kind" json:"kind"`                                 // "video" | "image"
-	ProjectID string            `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
-	Step      string            `firestore:"step,omitempty" json:"step,omitempty"`
+	ID  string `firestore:"-" json:"conversion_id"`
+	UID string `firestore:"uid" json:"-"`
+	Env string `firestore:"env" json:"-"`
+	// Sample: the sample project's finished run; Outputs hold public URLs
+	// of shared files, not keys (sample.go).
+	Sample    bool   `firestore:"sample,omitempty" json:"sample,omitempty"`
+	State     string `firestore:"state" json:"state"`
+	Kind      string `firestore:"kind" json:"kind"`                                 // "video" | "image"
+	ProjectID string `firestore:"project_id,omitempty" json:"project_id,omitempty"` // pro pipeline
+	Step      string `firestore:"step,omitempty" json:"step,omitempty"`
+	Method    string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic
+	// Workspace: the Modal workspace the run goes to, its project's
+	// (S3D-40); "" = the default.
+	Workspace string            `firestore:"workspace,omitempty" json:"-"`
 	ScenesVer int               `firestore:"scenes_version,omitempty" json:"scenes_version,omitempty"`
 	Client    Client            `firestore:"client" json:"client,omitempty"`
 	Source    Source            `firestore:"source" json:"source"`
@@ -222,12 +458,50 @@ type Conversion struct {
 	Quote     Quote             `firestore:"quote" json:"quote"`
 	Stripe    Stripe            `firestore:"stripe" json:"-"`
 	Modal     Modal             `firestore:"modal" json:"modal"`
-	Outputs   map[string]string `firestore:"outputs,omitempty" json:"-"` // name → gcs key; clients fetch signed URLs
+	Outputs   map[string]string `firestore:"outputs,omitempty" json:"-"`             // name → gcs key; clients fetch signed URLs
+	Parts     []Part            `firestore:"parts,omitempty" json:"parts,omitempty"` // split outputs only
 	Error     *Error            `firestore:"error,omitempty" json:"error,omitempty"`
 	IdemKey   string            `firestore:"idem_key,omitempty" json:"-"`
 	Support   Support           `firestore:"support" json:"-"`
-	CreatedAt time.Time         `firestore:"created_at" json:"created_at"`
-	UpdatedAt time.Time         `firestore:"updated_at" json:"updated_at"`
+	// Payment layer (spec v6 E0). PaymentFlow is the C1 rule decided at
+	// start; CurrentPayment the one live payment object (E0-1); ExpiresAt
+	// the run's clock while "created", which follows the payment (E0-3);
+	// Lease the one writer while money moves (E0-4).
+	PaymentFlow string `firestore:"payment_flow,omitempty" json:"payment_flow,omitempty"`
+	PayReason   string `firestore:"pay_reason,omitempty" json:"-"`
+	// DeclinedMethodLabel: "Visa •••• 4242" when a pre-charge was declined
+	// (P3 names the method).
+	DeclinedMethodLabel string `firestore:"declined_method_label,omitempty" json:"-"`
+	// HandoffCode: the run's "pay on another device" code (B17), one per run.
+	HandoffCode    string   `firestore:"handoff_code,omitempty" json:"-"`
+	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
+	// RunBalance: a run paid from the prepaid balance holds it here (v7 N5).
+	RunBalance *RunBalance `firestore:"balance,omitempty" json:"-"`
+	// OutputsMedia: each finished output's measured rates (owner
+	// 2026-11-07), by output name; from the worker's figures, else ffprobe
+	// of the delivered file.
+	OutputsMedia map[string]OutputMedia `firestore:"outputs_media,omitempty" json:"-"`
+	// FreePreview: a preview paid with free previews (pricing 2026-11);
+	// given back if it delivers nothing.
+	FreePreview *FreePreview `firestore:"free_preview,omitempty" json:"-"`
+	// CanceledBy: who cancelled it — "" / user, us (support, an early
+	// fraud warning), deletion — for the refund reason (C12).
+	CanceledBy string `firestore:"canceled_by,omitempty" json:"-"`
+	// DisputeID: a dispute is open on the charge that paid it (its files
+	// are locked, 403 disputed).
+	DisputeID string `firestore:"dispute_id,omitempty" json:"-"`
+	// Payments are every payment object the run ever had (for E0-2's
+	// late-money check and support).
+	// Repacks (ADR 0137): formats made later from the run's stored output,
+	// by format (mvhevc | sbs | half_sbs); RepackPending while one runs
+	// (the reconciler polls those).
+	Repacks       map[string]*Repack `firestore:"repacks,omitempty" json:"-"`
+	RepackPending bool               `firestore:"repack_pending,omitempty" json:"-"`
+	Payments      []Payment          `firestore:"payments,omitempty" json:"-"`
+	ExpiresAt     *time.Time         `firestore:"expires_at,omitempty" json:"-"`
+	Lease         *Lease             `firestore:"lease,omitempty" json:"-"`
+	CreatedAt     time.Time          `firestore:"created_at" json:"created_at"`
+	UpdatedAt     time.Time          `firestore:"updated_at" json:"updated_at"`
 }
 
 // Support tracks runs that outlive their estimate. On 2026-10-27 runs sat
@@ -254,13 +528,19 @@ type Customer struct {
 	// /v1/billing). The conversion-create gate reads this cache — a stale
 	// "has card" is caught by the post-success charge, whose failure blocks
 	// further paid steps.
-	DefaultPaymentMethod string    `firestore:"default_payment_method,omitempty"`
-	CardBrand            string    `firestore:"card_brand,omitempty"`
-	CardLast4            string    `firestore:"card_last4,omitempty"`
-	CardExpMonth         int64     `firestore:"card_exp_month,omitempty"`
-	CardExpYear          int64     `firestore:"card_exp_year,omitempty"`
-	CardUpdatedAt        time.Time `firestore:"card_updated_at,omitempty"`
-	CreatedAt            time.Time `firestore:"created_at"`
+	DefaultPaymentMethod string `firestore:"default_payment_method,omitempty"`
+	CardBrand            string `firestore:"card_brand,omitempty"`
+	CardLast4            string `firestore:"card_last4,omitempty"`
+	CardExpMonth         int64  `firestore:"card_exp_month,omitempty"`
+	CardExpYear          int64  `firestore:"card_exp_year,omitempty"`
+	// DefaultMethodType/Wallet/Email: the cached default's type (card,
+	// link, paypal; "" = a card cached before P7), wallet and account
+	// email for Link/PayPal.
+	DefaultMethodType   string    `firestore:"default_method_type,omitempty"`
+	DefaultMethodWallet string    `firestore:"default_method_wallet,omitempty"`
+	DefaultMethodEmail  string    `firestore:"default_method_email,omitempty"`
+	CardUpdatedAt       time.Time `firestore:"card_updated_at,omitempty"`
+	CreatedAt           time.Time `firestore:"created_at"`
 	// OpenBatchID points at the user's currently accumulating billing
 	// batch ("" = none). Owned by the batch transactions in batches.go.
 	OpenBatchID string `firestore:"open_batch_id,omitempty"`
@@ -269,8 +549,42 @@ type Customer struct {
 	// batch tier: users with a proven payment history accumulate more
 	// before a charge. Seeded once from historical succeeded charges
 	// (LifetimePaidSeeded) for accounts that predate batching.
-	LifetimePaidCents  int64 `firestore:"lifetime_paid_cents"`
-	LifetimePaidSeeded bool  `firestore:"lifetime_paid_seeded"`
+	LifetimePaidCents int64 `firestore:"lifetime_paid_cents"`
+	// Blocked: the owner blocked the account (A3); no new paid runs.
+	Blocked bool `firestore:"blocked,omitempty"`
+	// Plan: the web plan (Business, Studio), from Stripe Billing.
+	Plan *Plan `firestore:"plan,omitempty"`
+	// PaidOnce: a payment has gone through (lifts the B14 limits even
+	// before a pre-charged run delivers and earns the money).
+	PaidOnce           bool `firestore:"paid_once,omitempty"`
+	LifetimePaidSeeded bool `firestore:"lifetime_paid_seeded"`
+	// Payment-layer account facts (C1), updated on every off-session or
+	// saved payment. LastGoodMethod: the saved method that most recently
+	// paid us. PaidMethods: every saved method that has ever paid (credit
+	// needs one). AllMethodsFailed: a group's whole backup loop declined
+	// on every method; cleared by any payment with a saved method.
+	// SheetOnly: pays every run in the sheet (a dispute or a stop code).
+	// UnderReview: an early fraud warning; paid runs blocked.
+	LastGoodMethod   string   `firestore:"last_good_method,omitempty"`
+	PaidMethods      []string `firestore:"paid_methods,omitempty"`
+	AllMethodsFailed bool     `firestore:"all_methods_failed,omitempty"`
+	SheetOnly        bool     `firestore:"sheet_only,omitempty"`
+	SheetOnlyReason  string   `firestore:"sheet_only_reason,omitempty"`
+	UnderReview      bool     `firestore:"under_review,omitempty"`
+	// BackupOrder: the customer's order of saved methods for backups
+	// (C5, set in Billing; methods not listed follow in the order added).
+	BackupOrder []string `firestore:"backup_order,omitempty"`
+	// MethodAdds: setup sessions opened per day (H: at most 3 a day).
+	MethodAddsDay string `firestore:"method_adds_day,omitempty"`
+	MethodAdds    int    `firestore:"method_adds,omitempty"`
+	// LiveSettleID: the account's live settle (C11), "" when none;
+	// SettleSeq numbers its settles.
+	LiveSettleID string `firestore:"live_settle_id,omitempty"`
+	SettleSeq    int    `firestore:"settle_seq,omitempty"`
+	// LastChargeFailedAt: the last automatic charge (a conversion's or a
+	// batch's) the card declined. Within the failure lookback it drops the
+	// account to the first batch tier (S3D-19).
+	LastChargeFailedAt *time.Time `firestore:"last_charge_failed_at,omitempty"`
 	// PhotoCredits: leftover balance from the withdrawn photo packs
 	// (sold 2026-09-02 only). Consumed after the free daily allowance and
 	// before a still is charged; refunded when a credited run fails or is
@@ -279,8 +593,109 @@ type Customer struct {
 	// AccountDeleted marks an account deleted through POST
 	// /v1/account/delete. The record stays whole (soft delete); new paid
 	// work is refused.
-	AccountDeleted bool       `firestore:"account_deleted,omitempty"`
-	DeletedAt      *time.Time `firestore:"deleted_at,omitempty"`
+	AccountDeleted bool `firestore:"account_deleted,omitempty"`
+	// SampleCreatedAt: when the account got its "Sunset session" sample
+	// (owner 2026-11-07: every account once, never twice).
+	SampleCreatedAt *time.Time `firestore:"sample_created_at,omitempty"`
+	// Pro credit refunds (PRO-07): the refunded purchases' key hashes,
+	// their count, and the repeat-refunder flag (two or more).
+	ProRefundedKeys []string `firestore:"pro_refunded_keys,omitempty"`
+	ProRefunds      int      `firestore:"pro_refunds,omitempty"`
+	ProRefundFlag   bool     `firestore:"pro_refund_flag,omitempty"`
+	// PlanMovedTo: support moved this account's plan to another (RP-05).
+	PlanMovedTo  string     `firestore:"plan_moved_to,omitempty"`
+	PlanMovedSub string     `firestore:"plan_moved_sub,omitempty"` // the moved subscription (still on this customer)
+	PlanMovedAt  *time.Time `firestore:"plan_moved_at,omitempty"`
+	DeletedAt    *time.Time `firestore:"deleted_at,omitempty"`
+	// DeletionPending: the customer confirmed "Delete and refund"; the
+	// account is deleted once its closure case (DeletionCaseID) is decided
+	// (N8 step 3). New runs and top-ups are refused meanwhile.
+	DeletionPending bool `firestore:"deletion_pending,omitempty"`
+	// DeletionKeepSignIn / DeletionVia: a deletion waiting for its closure
+	// case was asked through svs-backend (keep the Firebase user, call
+	// back when it completes); DeletionRequestedAt is when it was asked.
+	DeletionKeepSignIn  bool       `firestore:"deletion_keep_sign_in,omitempty"`
+	DeletionCaseID      string     `firestore:"deletion_case_id,omitempty"`
+	DeletionRequestedAt *time.Time `firestore:"deletion_requested_at,omitempty"`
+	// DefaultFingerprint: the cached default card's fingerprint (block
+	// list gate, H).
+	DefaultFingerprint string `firestore:"default_fingerprint,omitempty"`
+	// Locale: the account's language for the Lifelike intro (BCP-47; ""
+	// = the browser's). LifelikeIntroOff: a Business/Studio plan's
+	// opt-out (honoured only while such a plan is active).
+	Locale           string `firestore:"locale,omitempty"`
+	LifelikeIntroOff bool   `firestore:"lifelike_intro_off,omitempty"`
+	// Onboarding (owner 2026-11-04): where they watch (the welcome's first
+	// answer; HeadsetsSet tells an empty answer from none), the first-time
+	// hints dismissed, the welcome/checklist/tips flags, and when they
+	// first played or downloaded a run of their own.
+	Headsets       []string    `firestore:"headsets,omitempty"`
+	HeadsetsSet    bool        `firestore:"headsets_set,omitempty"`
+	HintsSeen      []string    `firestore:"hints_seen,omitempty"`
+	Onboarding     *Onboarding `firestore:"onboarding,omitempty"`
+	FirstWatchedAt *time.Time  `firestore:"first_watched_at,omitempty"`
+	// Dismissed: when each plans surface was last dismissed (placement →
+	// time), for the ones that come back (projects_banner after 7 days).
+	Dismissed map[string]time.Time `firestore:"dismissed,omitempty"`
+	// SimulateAppPro (test only, never honoured on prod): the account
+	// reads as holding the app's Pro, for the onboarding variant and the
+	// Pro price tier.
+	SimulateAppPro bool `firestore:"simulate_app_pro,omitempty"`
+	// BusinessSetup: the Business/Studio setup's answers (owner
+	// 2026-11-04).
+	BusinessSetup *BusinessSetup `firestore:"business_setup,omitempty"`
+	// Company: the account's company details for invoices (from a plan
+	// Checkout or PUT /v1/billing/company); the Stripe Customer carries
+	// name, address, tax IDs and the PO custom field, kept in sync.
+	Company *CompanyDetails `firestore:"company,omitempty"`
+	// ProIntroUsed: the account has had web Pro's intro price (once).
+	ProIntroUsed bool `firestore:"pro_intro_used,omitempty"`
+}
+
+// CompanyDetails are the account's invoice details.
+type CompanyDetails struct {
+	CompanyName  string            `firestore:"company_name,omitempty"`
+	Address      map[string]string `firestore:"address,omitempty"` // line1, line2, city, postal_code, state, country
+	TaxIDs       []CompanyTaxID    `firestore:"tax_ids,omitempty"`
+	BillingEmail string            `firestore:"billing_email,omitempty"`
+	POReference  string            `firestore:"po_reference,omitempty"`
+	Source       string            `firestore:"source,omitempty"` // checkout | user
+	UpdatedAt    time.Time         `firestore:"updated_at"`
+	Changes      []CompanyChange   `firestore:"changes,omitempty"` // the last 20
+}
+
+// CompanyTaxID is one tax ID as entered.
+type CompanyTaxID struct {
+	Type  string `firestore:"type"`
+	Value string `firestore:"value"`
+}
+
+// CompanyChange is one change to the company details: when, by what
+// (checkout | user) and which fields.
+type CompanyChange struct {
+	At     time.Time `firestore:"at" json:"at"`
+	By     string    `firestore:"by" json:"by"`
+	Fields []string  `firestore:"fields" json:"fields"`
+}
+
+// BusinessSetup is what the setup flow asked.
+type BusinessSetup struct {
+	TeamSize  string    `firestore:"team_size,omitempty"`
+	MainUse   string    `firestore:"main_use,omitempty"` // client_work | own_channel | stock | other
+	Headsets  []string  `firestore:"headsets,omitempty"`
+	UpdatedAt time.Time `firestore:"updated_at"`
+}
+
+// Onboarding is the account's onboarding flags; nil = never written
+// (welcome_done reads false until the welcome saves it, older accounts
+// too).
+type Onboarding struct {
+	WelcomeDone     *bool `firestore:"welcome_done,omitempty"`
+	ChecklistHidden bool  `firestore:"checklist_hidden,omitempty"`
+	TipsDone        bool  `firestore:"tips_done,omitempty"`
+	// AppProWelcomeDone: the app Pro welcome was shown (once, also for web
+	// accounts that gain the app's Pro later).
+	AppProWelcomeDone bool `firestore:"app_pro_welcome_done,omitempty"`
 }
 
 // ----------------------------------------------------------------- batches
@@ -295,6 +710,7 @@ const (
 	BatchCharging = "charging" // closed; the charge is committed (reconciler sweeps until Stripe answers)
 	BatchPaid     = "paid"     // charged; terminal
 	BatchFailed   = "failed"   // card decision; account delinquent until settled (re-armed to charging)
+	BatchWaived   = "waived"   // every run waived (C13): nothing to charge; terminal
 )
 
 // Batch close reasons (Batch.CloseReason).
@@ -329,12 +745,33 @@ type Batch struct {
 	ClosedAt    *time.Time  `firestore:"closed_at,omitempty" json:"closed_at,omitempty"`
 	CloseReason string      `firestore:"close_reason,omitempty" json:"close_reason,omitempty"`
 	// Stripe settlement: one PaymentIntent per batch across every retry.
-	PaymentIntentID string     `firestore:"payment_intent_id,omitempty" json:"-"`
-	ChargedCents    int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
-	ChargedAt       *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
-	SettleError     string     `firestore:"settle_error,omitempty" json:"-"`
-	CreatedAt       time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `firestore:"updated_at" json:"updated_at"`
+	PaymentIntentID string `firestore:"payment_intent_id,omitempty" json:"-"`
+	// PIStatus: "processing" while Stripe settles an async payment
+	// (CHARGING_ASYNC, P2): still charging, never paid until succeeded.
+	PIStatus string `firestore:"pi_status,omitempty" json:"-"`
+	// Lease: the one writer of this group's charge (E0-4). PaidWith: the
+	// method that paid (a C5 backup may differ from the default).
+	Lease    *Lease `firestore:"lease,omitempty" json:"-"`
+	PaidWith string `firestore:"paid_with,omitempty" json:"-"`
+	// SettleID: the settle collecting this failed group (C11).
+	SettleID string `firestore:"settle_id,omitempty" json:"-"`
+	// FailedAt / SoftDecline / SoftRetried: the 24 h automatic retry of a
+	// soft decline (C5), once.
+	FailedAt     *time.Time `firestore:"failed_at,omitempty" json:"-"`
+	SoftDecline  bool       `firestore:"soft_decline,omitempty" json:"-"`
+	SoftRetried  bool       `firestore:"soft_retried,omitempty" json:"-"`
+	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
+	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
+	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
+	// ChargePM: the method a web group's first charge went to (B6),
+	// recorded before it is sent: a re-drive replays that same request.
+	ChargePM string `firestore:"charge_pm,omitempty" json:"-"`
+	// Retry: a web group's retry schedule after its charge failed (D2:
+	// +24 h and +72 h for a soft decline) and its pay link (D7). Never set
+	// on an app group, which keeps the single 24 h retry (SoftRetried).
+	Retry     *OffSessionRetry `firestore:"retry,omitempty" json:"-"`
+	CreatedAt time.Time        `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time        `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects
@@ -353,6 +790,86 @@ type Probe struct {
 	FPSRational string  `firestore:"fps_rational" json:"fps_rational"`
 	DurationS   float64 `firestore:"duration_s" json:"duration_s"`
 	NumFrames   int     `firestore:"num_frames" json:"num_frames"`
+	// BitRate: the video stream's bits per second when analysis reports it
+	// (0 = unknown; match_source then estimates from the file size).
+	BitRate int64 `firestore:"bit_rate,omitempty" json:"bit_rate,omitempty"`
+	// CountedFrames: the video packets ffprobe counted in the file
+	// (-count_packets), not the header's claim (0 = not counted). A
+	// variable-frame-rate file can state 30 fps and carry bursts well
+	// above it; pricing uses the higher of the stated and counted rates.
+	CountedFrames int `firestore:"counted_frames,omitempty" json:"counted_frames,omitempty"`
+	// VFR: the counted rate is above the stated one (more than 1%).
+	VFR bool `firestore:"vfr,omitempty" json:"vfr,omitempty"`
+	// SourceVFR / SourceCountedFrames: the render pipeline's own read of
+	// the source, from the first run that reports it (for support cases).
+	SourceVFR           *bool `firestore:"source_vfr,omitempty" json:"source_vfr,omitempty"`
+	SourceCountedFrames int   `firestore:"source_counted_frames,omitempty" json:"source_counted_frames,omitempty"`
+	// DynamicRange (owner 2026-11-05): sdr | hlg | pq | dv_8 | dv_5 ("" =
+	// not read: projects analyzed before); DynamicRangeBase the base
+	// layer of dv_8 (hlg | pq | sdr). Read by the gateway's ffprobe at
+	// analysis; shown only while HDR output is on (projectResponse).
+	DynamicRange     string `firestore:"dynamic_range,omitempty" json:"-"`
+	DynamicRangeBase string `firestore:"dynamic_range_base,omitempty" json:"-"`
+	// Details: the source details panel's facts (owner 2026-11-07), read
+	// by the gateway's ffprobe at analysis; nil on projects analyzed
+	// before (no backfill).
+	Details *SourceDetails `firestore:"details,omitempty" json:"-"`
+}
+
+// SourceDetails is what the gateway's ffprobe read of the source file at
+// analysis, beside the analysis' own probe. Zero values are unknown.
+type SourceDetails struct {
+	Container      string  `firestore:"container,omitempty"`
+	DurationS      float64 `firestore:"duration_s,omitempty"`
+	Codec          string  `firestore:"codec,omitempty"`
+	Profile        string  `firestore:"profile,omitempty"`
+	BitDepth       int     `firestore:"bit_depth,omitempty"`
+	PixFmt         string  `firestore:"pix_fmt,omitempty"`
+	VideoBitRate   int64   `firestore:"video_bit_rate,omitempty"`
+	ColorTransfer  string  `firestore:"color_transfer,omitempty"`
+	ColorPrimaries string  `firestore:"color_primaries,omitempty"`
+	Rotation       int     `firestore:"rotation,omitempty"`
+	HasAudio       bool    `firestore:"has_audio"`
+	AudioCodec     string  `firestore:"audio_codec,omitempty"`
+	AudioChannels  int     `firestore:"audio_channels,omitempty"`
+	AudioRate      int     `firestore:"audio_sample_rate,omitempty"`
+	AudioBitRate   int64   `firestore:"audio_bit_rate,omitempty"`
+	Spatial        bool    `firestore:"spatial,omitempty"`
+	StereoLayout   string  `firestore:"stereo_layout,omitempty"` // mvhevc | sbs | tb
+	StereoFrom     string  `firestore:"stereo_from,omitempty"`   // vexu | st3d | side_data | tags
+	CameraMake     string  `firestore:"camera_make,omitempty"`
+	CameraModel    string  `firestore:"camera_model,omitempty"`
+}
+
+// CountedFPS is the counted frames over the duration (0 = not counted).
+func (p *Probe) CountedFPS() float64 {
+	if p == nil || p.CountedFrames <= 0 || p.DurationS <= 0 {
+		return 0
+	}
+	return float64(p.CountedFrames) / p.DurationS
+}
+
+// PricingFPS is the rate a source is priced and capped at: the counted
+// rate when it's more than 1% above the stated one (a VFR source), else
+// the stated rate (durations differ slightly between stream and
+// container, and a 30 fps clip must not read as 30.02 and be capped).
+func (p *Probe) PricingFPS() float64 {
+	if p == nil {
+		return 0
+	}
+	if c := p.CountedFPS(); c > p.FPS*1.01 {
+		return c
+	}
+	return p.FPS
+}
+
+// PricingFrames is the frame count a source is priced at: the higher of
+// the header's and the counted one.
+func (p *Probe) PricingFrames() int {
+	if p == nil {
+		return 0
+	}
+	return max(p.NumFrames, p.CountedFrames)
 }
 
 type Analyze struct {
@@ -360,17 +877,23 @@ type Analyze struct {
 	State   string  `firestore:"state" json:"state"`
 	Error   string  `firestore:"error,omitempty" json:"error,omitempty"`
 	CostUSD float64 `firestore:"cost_usd,omitempty" json:"-"`
-	// Transient live-progress fields (state=running only): filled from the
-	// Modal job on each read-through poll, never persisted — Firestore would
-	// otherwise take a write per client poll.
-	Progress   float64 `firestore:"-" json:"progress,omitempty"`
-	Stage      string  `firestore:"-" json:"stage,omitempty"`
-	ETASeconds int64   `firestore:"-" json:"eta_seconds,omitempty"`
+	// Live progress (state=running only; the response hides it
+	// otherwise): written from the Modal job by SetJobProgress, at most
+	// every ProgressMinGap unless it moved ProgressMinStep, so the live
+	// stream carries it (owner 2026-11-07: an open project page sat at its
+	// first read). ProgressAt: when it was last written.
+	Progress   float64    `firestore:"progress,omitempty" json:"progress,omitempty"`
+	Stage      string     `firestore:"stage,omitempty" json:"stage,omitempty"`
+	ETASeconds int64      `firestore:"eta_seconds,omitempty" json:"eta_seconds,omitempty"`
+	ProgressAt *time.Time `firestore:"progress_at,omitempty" json:"-"`
 	// CreditCents is granted on analyze success and consumed (as a discount)
 	// by the project's first paid conversion; restored if that conversion
 	// ends without capture.
 	CreditCents      int64  `firestore:"credit_cents" json:"credit_cents"`
 	CreditConsumedBy string `firestore:"credit_consumed_by,omitempty" json:"-"`
+	// Retries: automatic re-runs after the analyze call ended without a
+	// result (failed, lost, or past the hard cap); one, then failed.
+	Retries int `firestore:"retries,omitempty" json:"-"`
 }
 
 // ProfileJob tracks the FREE standalone shot-profiling job (the Stereo
@@ -384,10 +907,11 @@ type ProfileJob struct {
 	// same doctrine as SceneProfile.ScenesVersion).
 	ScenesVersion int    `firestore:"scenes_version" json:"scenes_version"`
 	Error         string `firestore:"error,omitempty" json:"error,omitempty"`
-	// Transient live-progress fields (state=running only) — see Analyze.
-	Progress  float64   `firestore:"-" json:"progress,omitempty"`
-	Stage     string    `firestore:"-" json:"stage,omitempty"`
-	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
+	// Live progress (state=running only) — see Analyze.
+	Progress   float64    `firestore:"progress,omitempty" json:"progress,omitempty"`
+	Stage      string     `firestore:"stage,omitempty" json:"stage,omitempty"`
+	ProgressAt *time.Time `firestore:"progress_at,omitempty" json:"-"`
+	UpdatedAt  time.Time  `firestore:"updated_at" json:"updated_at"`
 }
 
 // Scenes is the user-editable cut list. Cuts are SOURCE-frame indices (each
@@ -459,10 +983,21 @@ type DepthUpload struct {
 }
 
 type Project struct {
-	ID           string        `firestore:"-" json:"project_id"`
-	UID          string        `firestore:"uid" json:"-"`
-	Env          string        `firestore:"env" json:"-"`
-	Name         string        `firestore:"name,omitempty" json:"name,omitempty"`
+	ID  string `firestore:"-" json:"project_id"`
+	UID string `firestore:"uid" json:"-"`
+	Env string `firestore:"env" json:"-"`
+	// Sample: the finished "Sunset session" every new account gets
+	// (onboarding, 2026-11-04): read-only, never billed, its files shared
+	// (never deleted), left out of usage, KPIs and billing reports.
+	Sample bool   `firestore:"sample,omitempty" json:"sample,omitempty"`
+	Name   string `firestore:"name,omitempty" json:"name,omitempty"`
+	Method string `firestore:"method,omitempty" json:"method,omitempty"` // "" = classic (projects before Lifelike)
+	// ClassicRan: the project has run Classic, so it may go on with it
+	// after Classic's retirement for new projects (2026-11-04).
+	ClassicRan bool `firestore:"classic_ran,omitempty" json:"-"`
+	// Workspace: the Modal workspace the project lives in, set at
+	// creation (S3D-40); "" = the default (projects made before).
+	Workspace    string        `firestore:"workspace,omitempty" json:"-"`
 	Source       Source        `firestore:"source" json:"source"`
 	Probe        *Probe        `firestore:"probe,omitempty" json:"probe,omitempty"`
 	Analyze      Analyze       `firestore:"analyze" json:"analyze"`
@@ -471,11 +1006,110 @@ type Project struct {
 	Profile      *ProfileJob   `firestore:"profile,omitempty" json:"profile,omitempty"`
 	DepthUpload  *DepthUpload  `firestore:"depth_upload,omitempty" json:"depth_upload,omitempty"`
 	Crop         string        `firestore:"crop,omitempty" json:"crop,omitempty"`
-	PreviewURL   string        `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
-	StripThumbs  []Thumb       `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
-	SceneThumbs  []Thumb       `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
-	Archived     bool          `firestore:"archived" json:"archived"`
-	Pinned       bool          `firestore:"pinned,omitempty" json:"pinned,omitempty"`
-	CreatedAt    time.Time     `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time     `firestore:"updated_at" json:"updated_at"`
+	// RemoveBars: the user's choice for black bars on Lifelike runs
+	// (BL-03, owner 2026-11-03: bars come off by default); nil = the
+	// default (remove when analysis found bars), see removeBars.
+	RemoveBars *bool `firestore:"remove_bars,omitempty" json:"-"`
+	// BarsRemovalOff: set on read when the gateway doesn't send
+	// source_crop yet (lifelike_source_crop_enabled off); never stored.
+	BarsRemovalOff bool    `firestore:"-" json:"-"`
+	PreviewURL     string  `firestore:"preview_url,omitempty" json:"preview_url,omitempty"` // frame-exact h264 proxy (browser playback)
+	StripThumbs    []Thumb `firestore:"strip_thumbs,omitempty" json:"strip_thumbs,omitempty"`
+	SceneThumbs    []Thumb `firestore:"scene_thumbs,omitempty" json:"scene_thumbs,omitempty"`
+	// Poster: the project's picture (card, overview, black-bars before and
+	// after), a non-black frame from analyze; nil before 2026-11-05.
+	Poster   *Thumb `firestore:"poster,omitempty" json:"-"`
+	Archived bool   `firestore:"archived" json:"archived"`
+	// Deleted: removed by the user (POST /v1/projects/{id}/delete, S3D-24).
+	// Soft delete: the API answers 404 for the project and its runs at
+	// once; the record stays, its stored files are purged
+	// deleted_project_purge_days later (kept for disputes).
+	Deleted   bool       `firestore:"deleted,omitempty" json:"-"`
+	DeletedAt *time.Time `firestore:"deleted_at,omitempty" json:"-"`
+	// File keeping (S3D-24, file_keeping.go). LastActivityAt: the last
+	// use (opened, run started, download, keep). FilesDeleteAt: when the
+	// files go — last use + file_keep_days, a deleted project's deletion
+	// + deleted_project_purge_days; never sooner than the last notice's
+	// lead time after that notice went out. FilesNoticeDays: the shortest
+	// notice (days before) sent for the current date, 0 = none yet.
+	// FilesDeletedAt: when the files were erased (the record and billing
+	// stay). The API shows files_delete_at only once a deletion is
+	// scheduled (inside the notice window), see projectResponse.
+	LastActivityAt  *time.Time `firestore:"last_activity_at,omitempty" json:"-"`
+	FilesDeleteAt   *time.Time `firestore:"files_delete_at,omitempty" json:"-"`
+	FilesNoticeDays int        `firestore:"files_notice_days,omitempty" json:"-"`
+	FilesNoticeAt   *time.Time `firestore:"files_notice_at,omitempty" json:"-"`
+	FilesDeletedAt  *time.Time `firestore:"files_deleted_at,omitempty" json:"files_deleted_at,omitempty"`
+	// FilesDryRunAt: a dry-run purge (test env) logged what it would
+	// erase, so later sweeps stay quiet.
+	FilesDryRunAt *time.Time `firestore:"files_dry_run_at,omitempty" json:"-"`
+	Pinned        bool       `firestore:"pinned,omitempty" json:"pinned,omitempty"`
+	CreatedAt     time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt     time.Time  `firestore:"updated_at" json:"updated_at"`
+}
+
+// Crop is a picture area in displayed (post-rotation) source pixels.
+type Crop struct {
+	X int `firestore:"x" json:"x"`
+	Y int `firestore:"y" json:"y"`
+	W int `firestore:"w" json:"w"`
+	H int `firestore:"h" json:"h"`
+}
+
+// Repack is one format made from a finished run's stored output (ADR 0137).
+type Repack struct {
+	Format      string     `firestore:"format"`
+	Source      string     `firestore:"source"` // the output it was made from
+	RepackID    string     `firestore:"repack_id,omitempty"`
+	Status      string     `firestore:"status"` // pending | processing | succeeded | failed
+	Key         string     `firestore:"key"`    // where the new file goes
+	Error       string     `firestore:"error,omitempty"`
+	PriceCents  int64      `firestore:"price_cents"`
+	Bytes       int64      `firestore:"bytes,omitempty"`
+	Width       int        `firestore:"width,omitempty"`
+	Height      int        `firestore:"height,omitempty"`
+	Frames      int        `firestore:"frames,omitempty"`
+	Level       string     `firestore:"level,omitempty"`
+	Attempts    int        `firestore:"attempts"`
+	RequestedAt time.Time  `firestore:"requested_at"`
+	FinishedAt  *time.Time `firestore:"finished_at,omitempty"`
+	// Parts: one repack per output file (a split run has one per part;
+	// otherwise one, index 0). The format is done when every part is.
+	// Records from before parts keep RepackID/Key above.
+	Parts []RepackPart `firestore:"parts,omitempty"`
+}
+
+// RepackPart is one output file's repack.
+type RepackPart struct {
+	Index    int    `firestore:"index"`  // 0 = the run's single file, else the part number
+	Name     string `firestore:"name"`   // the output it becomes (sbs, sbs_part2)
+	Source   string `firestore:"source"` // the output it reads (mvhevc, mvhevc_part2)
+	RepackID string `firestore:"repack_id,omitempty"`
+	Status   string `firestore:"status"` // pending | processing | succeeded | failed
+	Key      string `firestore:"key"`
+	Error    string `firestore:"error,omitempty"`
+	// Progress: Lifelike's 0-1 for this part while it runs (nil: not
+	// reported yet), 1 once done.
+	Progress   *float64   `firestore:"progress,omitempty"`
+	Bytes      int64      `firestore:"bytes,omitempty"`
+	Width      int        `firestore:"width,omitempty"`
+	Height     int        `firestore:"height,omitempty"`
+	Frames     int        `firestore:"frames,omitempty"`
+	Level      string     `firestore:"level,omitempty"`
+	FinishedAt *time.Time `firestore:"finished_at,omitempty"`
+	// Media: the new file's measured rates (the repack's
+	// metadata.outputs_media.<target_format>), copied to the run's
+	// outputs_media when the format is done.
+	Media *OutputMedia `firestore:"media,omitempty"`
+}
+
+// OutputMedia is one output's measured rates. VideoKbps is the video
+// stream's own bit rate; OverallKbps (the container's, audio included)
+// only stands in when the stream reports none. Source: worker | ffprobe.
+type OutputMedia struct {
+	VideoKbps   float64 `firestore:"video_kbps,omitempty" json:"video_kbps,omitempty"`
+	OverallKbps float64 `firestore:"overall_kbps,omitempty" json:"overall_kbps,omitempty"`
+	AudioCodec  string  `firestore:"audio_codec,omitempty" json:"audio_codec,omitempty"`
+	AudioKbps   float64 `firestore:"audio_kbps,omitempty" json:"audio_kbps,omitempty"`
+	Source      string  `firestore:"source" json:"source"`
 }

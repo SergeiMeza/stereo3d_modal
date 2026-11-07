@@ -24,9 +24,10 @@ import (
 // with 402s until a card is on file and no charge_failed conversion is
 // outstanding; POST /v1/billing/settle retries the outstanding charges.
 
-// unpaidLimit bounds the delinquency probe; one unpaid conversion already
-// blocks new paid work, the exact count doesn't matter.
-const unpaidLimit = 10
+// unpaidLimit is a safety bound on the owed-items reads, set far above
+// any real account (P8b): the outstanding amount is the server-side sum of
+// EVERY owed item, so it must never be cut off at a handful of runs.
+const unpaidLimit = 1000
 
 // holdThresholdCents: quotes at or above this place an off-session hold on
 // the saved card BEFORE the job runs (captured on success); below it the
@@ -44,6 +45,7 @@ const holdThresholdCents = 10000
 // sync when presets change — an unknown preset just omits the field.
 var presetOutputHeight = map[string]int{
 	"draft": 1080, "1080p": 1080, "qhd": 1440, "3k": 1620, "4k": 2160,
+	"5k": 2880, "6k": 3240, "8k": 4320, // Lifelike only (S3D-48)
 }
 
 // jobMetadataFromConversion builds the support-facing PaymentIntent
@@ -64,6 +66,7 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	pa := conv.Params
 	put("kind", conv.Kind)
 	put("step", conv.Step)
+	put("method", store.MethodOr(conv.Method))
 	put("preset", pa.Preset)
 	if pa.Inpaint != "" || pa.Warp != "" {
 		inpaint := pa.Inpaint
@@ -129,6 +132,16 @@ func jobMetadataFromConversion(conv *store.Conversion) map[string]string {
 	if h := presetOutputHeight[pa.Preset]; h > 0 {
 		put("output_height", strconv.Itoa(h))
 	}
+	put("quality", pa.Quality)
+	put("original_eye", pa.OriginalEye)
+	put("bitrate", pa.Bitrate)
+	put("foveation", pa.Foveation)
+	if pa.PricePreset != "" {
+		put("price_preset", pa.PricePreset)
+	}
+	if pa.SplitMaxSeconds > 0 {
+		put("split_max_seconds", strconv.Itoa(pa.SplitMaxSeconds))
+	}
 	return m
 }
 
@@ -165,7 +178,12 @@ func jobDescription(conv *store.Conversion) string {
 			return "Stereo preview with inpainting"
 		}
 		return "Stereo preview"
+	case store.StepLifelikePreview:
+		return "Lifelike 3D preview"
 	case store.StepProduction:
+		if conv.Method == store.MethodLifelike {
+			return "Lifelike 3D render"
+		}
 		return "Production 3D render"
 	}
 	if conv.Kind == "image" {
@@ -185,8 +203,9 @@ func cardMatches(c *store.Customer, card *stripex.CardInfo) bool {
 	if card == nil {
 		return c.DefaultPaymentMethod == "" && c.CardLast4 == ""
 	}
-	return c.DefaultPaymentMethod == card.PaymentMethodID && c.CardBrand == card.Brand &&
-		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear
+	return c.DefaultPaymentMethod == card.PaymentMethodID && c.DefaultFingerprint == card.Fingerprint && c.CardBrand == card.Brand &&
+		c.CardLast4 == card.Last4 && c.CardExpMonth == card.ExpMonth && c.CardExpYear == card.ExpYear &&
+		c.DefaultMethodType == card.Type && c.DefaultMethodWallet == card.Wallet && c.DefaultMethodEmail == card.Email
 }
 
 // refreshCardCache reads the live default payment method from Stripe and
@@ -203,7 +222,11 @@ func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) 
 			return cust
 		}
 	}
-	card, err := s.Stripe.DefaultCard(customerID)
+	var order []string
+	if cached, gerr := s.Store.GetCustomer(ctx, uid); gerr == nil {
+		order = cached.BackupOrder
+	}
+	card, err := s.Stripe.DefaultCard(customerID, order...)
 	if err == nil {
 		cardRefreshedAt.Store(uid, time.Now())
 	}
@@ -221,10 +244,14 @@ func (s *Service) refreshCardCache(ctx context.Context, uid, customerID string) 
 		if card == nil {
 			c.DefaultPaymentMethod, c.CardBrand, c.CardLast4 = "", "", ""
 			c.CardExpMonth, c.CardExpYear = 0, 0
+			c.DefaultMethodType, c.DefaultMethodWallet, c.DefaultMethodEmail = "", "", ""
+			c.DefaultFingerprint = ""
 		} else {
+			c.DefaultFingerprint = card.Fingerprint
 			c.DefaultPaymentMethod = card.PaymentMethodID
 			c.CardBrand, c.CardLast4 = card.Brand, card.Last4
 			c.CardExpMonth, c.CardExpYear = card.ExpMonth, card.ExpYear
+			c.DefaultMethodType, c.DefaultMethodWallet, c.DefaultMethodEmail = card.Type, card.Wallet, card.Email
 		}
 		c.CardUpdatedAt = time.Now().UTC()
 		return nil
@@ -291,7 +318,11 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		"delinquent":         len(entries) > 0,
 		"unpaid":             entries,
 		"publishable_key":    s.Stripe.PublishableKey,
-		"tier":               s.tierEntry(ctx, cust),
+		"tier":               s.tierEntry(ctx, cust, false),
+		"web_tier":           s.tierEntry(ctx, cust, true), // D15: what the web's groups batch under
+	}
+	if r := s.webRetryJSON(failedBatches); r != nil {
+		resp["retry"] = r // the banner: a failed web group's schedule and pay link (absent for app accounts)
 	}
 	if cust.PhotoCredits > 0 {
 		resp["photo_credits"] = cust.PhotoCredits // leftover pack balance, honored until spent
@@ -302,13 +333,41 @@ func (s *Service) billingStatus(ctx context.Context, user *AuthedUser, cust *sto
 		httpx.Log(ctx).Warn("open batch lookup failed", "uid", user.UID, "err", oerr)
 	}
 	if cust.DefaultPaymentMethod != "" {
-		resp["card"] = map[string]any{
-			"brand":     cust.CardBrand,
-			"last4":     cust.CardLast4,
-			"exp_month": cust.CardExpMonth,
-			"exp_year":  cust.CardExpYear,
+		// card only when the default IS a card (P7; iOS treats it as
+		// optional); default_method describes any type.
+		if cust.DefaultMethodType == "" || cust.DefaultMethodType == "card" {
+			resp["card"] = map[string]any{
+				"brand":     cust.CardBrand,
+				"last4":     cust.CardLast4,
+				"exp_month": cust.CardExpMonth,
+				"exp_year":  cust.CardExpYear,
+			}
 		}
+		resp["default_method"] = defaultMethodEntry(cust)
 	}
+	// Payment layer (spec v6 F): what's owed (sum, no cap; a live
+	// settle's frozen amount), how runs pay, and the new-account limits.
+	owed := s.owedCents(ctx, user.UID)
+	outstanding := map[string]any{"amount_cents": owed, "settling": false}
+	if live, lerr := s.Store.LiveSettle(ctx, user.UID); lerr == nil && live != nil {
+		outstanding["amount_cents"], outstanding["settling"], outstanding["runs"] = live.AmountCents, true, live.Runs()
+		outstanding["payment_state"] = wirePaymentState(live.PaymentState)
+	}
+	if owed > 0 {
+		resp["outstanding"] = outstanding
+	}
+	resp["has_payment_method"] = cust.DefaultPaymentMethod != ""
+	resp["flow_state"] = flowState(cust)
+	// v7 N13: the prepaid balance (web only; the apps don't read it).
+	resp["balance"] = s.balanceSummary(ctx, user.UID, nil)
+	resp["pro_credit"] = s.ensureProCredit(ctx, user.UID) // PRO-01: this month's Pro credit, granted when due; null without paid Pro
+	// whether the one-time Pro credit can still come (billing UX 2026-11-07:
+	// pro_credit null also means a refunded credit, which never comes back)
+	resp["pro_credit_eligible"] = s.proCreditEligible(ctx, user.UID)
+	if p := s.planJSON(ctx, user.UID); p != nil {
+		resp["plan"] = p // pricing 2026-11: Business / Studio
+	}
+	resp["limits"] = s.limitsFor(ctx, user.UID).JSON()
 	return resp, nil
 }
 
@@ -329,6 +388,7 @@ func (s *Service) HandleGetBilling(w http.ResponseWriter, r *http.Request, user 
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
+	s.addDeletionState(ctx, user.UID, resp) // pending_deletion, delete_after
 	httpx.WriteOK(w, resp)
 }
 
@@ -347,7 +407,7 @@ func (s *Service) HandleCreateSetupIntent(w http.ResponseWriter, r *http.Request
 	sheet, err := s.Stripe.CreateSetupIntent(customerID, user.UID)
 	if err != nil {
 		httpx.Log(ctx).Error("setup intent failed", "uid", user.UID, "err", err)
-		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "could not start card setup; try again"))
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "could not start saving a payment method; try again"))
 		return
 	}
 	httpx.WriteOK(w, sheet)
@@ -397,7 +457,7 @@ func (s *Service) HandleSettleBilling(w http.ResponseWriter, r *http.Request, us
 		}
 	}
 	if len(remaining)+len(stillFailed) > 0 && resp["requires_action"] != true {
-		resp["message"] = "The charge was declined again. Update your card in the billing portal, then retry."
+		resp["message"] = "The charge was declined again. Update your payment method in the billing portal, then retry."
 	}
 	httpx.WriteOK(w, resp)
 }
@@ -469,6 +529,9 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 	if err != nil {
 		return nil, err
 	}
+	if settling, serr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PISettling, unpaidLimit); serr == nil {
+		unpaid = append(unpaid, settling...) // inside a live settle: still owed (C10)
+	}
 	if len(unpaid) > 0 {
 		// The app shows the amount from details.unpaid_cents; without it
 		// the settle sheet read "an unpaid balance of $0.00".
@@ -482,4 +545,101 @@ func (s *Service) requireBillable(ctx context.Context, user *AuthedUser) (*store
 		return nil, e
 	}
 	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
+}
+
+// defaultMethodEntry is the cached default payment method of any type:
+// {type, wallet?, brand?, last4?, email?}.
+func defaultMethodEntry(c *store.Customer) map[string]any {
+	t := c.DefaultMethodType
+	if t == "" {
+		t = "card"
+	}
+	m := map[string]any{"type": t}
+	for k, v := range map[string]string{"wallet": c.DefaultMethodWallet, "brand": c.CardBrand, "last4": c.CardLast4, "email": c.DefaultMethodEmail} {
+		if v != "" {
+			m[k] = v
+		}
+	}
+	return m
+}
+
+// requireRunnable gates a web pro step (spec v6 C1/C4/F): nothing needs to
+// be saved — a run without a method pays in the sheet — so there is no
+// 402 no_payment_method. It ensures the Stripe customer (sessions need
+// one) and refuses: a deleted account (410), an account under review
+// (403 under_review), and an outstanding one (402 payment_method_needed
+// with the owed amount, every owed item, no cap).
+func (s *Service) requireRunnable(ctx context.Context, user *AuthedUser) (*store.Customer, error) {
+	customerID, err := s.ensureCustomerID(ctx, user)
+	if err != nil {
+		return nil, err
+	}
+	cust, err := s.Store.GetCustomer(ctx, user.UID)
+	if err != nil {
+		return nil, err
+	}
+	if cust.DefaultPaymentMethod == "" {
+		cust = s.refreshCardCache(ctx, user.UID, customerID)
+	}
+	if cust.AccountDeleted {
+		return nil, httpx.Err(http.StatusGone, "account_deleted", "this account has been deleted")
+	}
+	if cust.UnderReview {
+		return nil, httpx.Err(http.StatusForbidden, "under_review", "we're checking a payment on your account; contact support to continue")
+	}
+	if cust.Blocked {
+		return nil, httpx.Err(http.StatusForbidden, "account_blocked", "this account can't start new runs; contact support")
+	}
+	if cust.DeletionPending {
+		return nil, errDeletionPending()
+	}
+	if s.methodBlocked(ctx, user.UID, cust) { // H: block list at the gate
+		return nil, errMethodBlocked()
+	}
+	if owed := s.owedCents(ctx, user.UID); owed > 0 {
+		e := httpx.Err(http.StatusPaymentRequired, "payment_method_needed",
+			"a payment didn't go through — pay it before starting new work")
+		e.Details = map[string]any{"amount_cents": owed, "unpaid_cents": owed}
+		return nil, e
+	}
+	return s.ensureLifetimeSeeded(ctx, user.UID, cust), nil
+}
+
+// owedCents sums every owed item (C10): failed groups and per-run failed
+// charges outside a group. No cap (P8b).
+func (s *Service) owedCents(ctx context.Context, uid string) int64 {
+	var sum int64
+	for _, st := range []string{store.PIChargeFailed, store.PISettling} {
+		if runs, err := s.Store.ListUserByPIStatus(ctx, uid, st, unpaidLimit); err == nil {
+			for _, c := range runs {
+				if c.Stripe.BatchID == "" {
+					sum += c.Quote.AmountCents
+				}
+			}
+		}
+	}
+	for _, st := range []string{store.BatchFailed, store.BatchSettling} {
+		if groups, err := s.Store.ListUserBatchesByState(ctx, uid, st, unpaidLimit); err == nil {
+			for _, b := range groups {
+				sum += b.TotalCents
+			}
+		}
+	}
+	return sum
+}
+
+// flowState is the account's C1 state for Billing: credit | saved | sheet
+// | under_review.
+func flowState(c *store.Customer) string {
+	switch {
+	case c == nil:
+		return "sheet"
+	case c.UnderReview:
+		return "under_review"
+	case c.DefaultPaymentMethod == "" || c.AllMethodsFailed || c.SheetOnly:
+		return "sheet"
+	case hasCredit(c):
+		return "credit"
+	}
+	return "saved"
 }

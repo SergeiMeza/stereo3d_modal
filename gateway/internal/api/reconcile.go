@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"log/slog"
 	"net/http"
+	"sort"
 	"sync"
 	"time"
 
@@ -47,6 +48,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			if time.Since(conv.CreatedAt) < createTTL {
 				continue
 			}
+			if conv.Stripe.PIStatus == store.PICharging || conv.Stripe.PIStatus == store.PIProcessing || conv.ExpiresAt != nil {
+				continue // resolved from Stripe first: redrivePrecharges / sweepProcessing / resolveRunClocks (E0-3)
+			}
 			expired, terr := s.Store.Transition(ctx, conv.ID, []string{store.StateCreated}, func(c *store.Conversion) error {
 				c.State = store.StateExpired
 				c.Stripe.PIStatus = store.PICancelPending
@@ -57,6 +61,36 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 				stats["expired"]++
 			}
 		}
+	}
+
+	// Pre-charges recorded but never answered (P8a) and async payments in
+	// flight (P2): resolved from Stripe, never guessed.
+	if n := s.redrivePrecharges(ctx); n > 0 {
+		stats["precharge_redriven"] = n
+	}
+	if n := s.sweepProcessing(ctx); n > 0 {
+		stats["processing_resolved"] = n
+	}
+	if n := s.resolveRunClocks(ctx); n > 0 {
+		stats["run_clocks_resolved"] = n // E0-3
+	}
+	if released, retried := s.settleSweep(ctx); released+retried > 0 {
+		stats["settles_released"], stats["soft_retries"] = released, retried // C11, C5
+	}
+	for k, v := range s.balanceSweep(ctx) { // v7 N: holds (R3), reloads, top-ups, expiry
+		stats[k] = v
+	}
+	for k, v := range s.emailSyncSweep(ctx) { // main email switches still to reach Firebase/Stripe (design 2)
+		stats[k] = v
+	}
+	for k, v := range s.casesSweep(ctx) { // C8 replays, C12 reclassify, N8 withdrawals, M9 reminders
+		stats[k] = v
+	}
+	if n := s.invoiceSweep(ctx); n > 0 {
+		stats["invoices_done"] = n // C6
+	}
+	if n := s.syncRCAttributes(ctx); n > 0 {
+		stats["rc_attributes"] = n // debounced web_* attributes
 	}
 
 	// Settle sweeps: money actions committed (capture_pending/cancel_pending)
@@ -93,7 +127,8 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 			if s.belowChargeMinimum(ctx, b) {
 				// A few paid stills only: too small for a card charge.
 				// Roll the tab over; it collects with the next window.
-				if _, xerr := s.Store.ExtendBatchDue(ctx, b.ID, s.Pricing.Rates(ctx).BatchWindow()); xerr != nil {
+				cust, _ := s.Store.GetCustomer(ctx, b.UID)
+				if _, xerr := s.Store.ExtendBatchDue(ctx, b.ID, s.batchTier(ctx, cust, webBatch(b)).Window()); xerr != nil {
 					log.Warn("batch rollover failed", "batch_id", b.ID, "err", xerr)
 				} else {
 					stats["batch_rolled_over"]++
@@ -136,8 +171,16 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 		stats["modal_pass_skipped"]++
 	} else {
 		s.reconcileModal(ctx, log, stats, &mu)
+		if n := s.pollAllRepacks(ctx); n > 0 { // ADR 0137: "Get another format"
+			mu.Lock()
+			stats["repacks_polled"] += n
+			mu.Unlock()
+		}
+		s.checkGPULine(ctx)     // after the polls refreshed waiting_for_gpu
+		s.fileKeepingSweep(ctx) // hourly (S3D-24)
 		s.reconciling.Store(false)
 	}
+	s.maybeNightly(ctx) // M3, once a day
 
 	if len(stats) > 0 {
 		log.Info("reconcile sweep", "stats", stats)
@@ -188,6 +231,14 @@ func (s *Service) reconcileModal(ctx context.Context, log *slog.Logger, stats ma
 	// ride out Stripe's 7-day auth on a job that will never start.
 	paid, err := s.Store.ListByState(ctx, store.StatePaid, 50)
 	if err == nil {
+		// The gateway's own queue: Express runs are submitted first, then
+		// the oldest.
+		sort.SliceStable(paid, func(i, j int) bool {
+			if ei, ej := paid[i].Params.Express, paid[j].Params.Express; ei != ej {
+				return ei
+			}
+			return paid[i].CreatedAt.Before(paid[j].CreatedAt)
+		})
 		var pwg sync.WaitGroup
 		psem := make(chan struct{}, 8)
 		for _, conv := range paid {
@@ -197,7 +248,7 @@ func (s *Service) reconcileModal(ctx context.Context, log *slog.Logger, stats ma
 					c.Stripe.PIStatus = store.PICancelPending
 					c.Error = &store.Error{
 						Code:            "submit_failed",
-						UserMessage:     "Processing could not be started and you were not charged. Quote this ID to support: " + c.ID,
+						UserMessage:     "Processing could not be started and " + notChargedPhrase(c) + ". Quote this ID to support: " + c.ID,
 						InternalMessage: "modal submit failing since " + conv.UpdatedAt.Format(time.RFC3339),
 					}
 					return nil

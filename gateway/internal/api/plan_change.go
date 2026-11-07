@@ -1,0 +1,668 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log/slog"
+	"math"
+	"net/http"
+	"slices"
+	"time"
+
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/store"
+	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
+)
+
+// Plan changes (owner 2026-11-04, test only), between pro_weekly <
+// pro_monthly < pro_yearly < business < studio, and "none" (pay per
+// video):
+//   - A step-up takes effect now: a full new period from today
+//     (billing_cycle_anchor=now, also at the same interval), charged today
+//     less our credit for the old plan's unused part (oldPlanCredit, a
+//     pending invoice item on the switch invoice; no Stripe proration).
+//     The new plan's credit and free previews come in full that day.
+//   - A step-down takes effect at the end of the paid period: a
+//     subscription schedule switches the price then (→ none:
+//     cancel_at_period_end). No charge, no refund; the current plan's
+//     grants run to that date, the new one's start then.
+//   - Business → Studio is a step-up like the others (owner 2026-11-04):
+//     a full Studio year from that day; the month's leftover Business
+//     credit ends when Studio's is granted.
+// POST /v1/plans/preview-change {to} quotes it; POST /v1/plans/change {to,
+// confirm: true, quote_at?} applies it (nothing changes without confirm);
+// DELETE /v1/plans/scheduled-change takes a waiting step-down back.
+
+const (
+	changeStepUp   = "step_up"
+	changeStepDown = "step_down"
+	planNone       = "none"
+	payPerVideo    = "pay_per_video"
+	quoteValidFor  = 15 * time.Minute
+)
+
+var planOrder = []string{planNone, "pro_weekly", "pro_monthly", "pro_yearly", pricing.TierBusiness, pricing.PlanBusinessYearly, pricing.TierStudio}
+
+func planRank(id string) int { return slices.Index(planOrder, id) }
+
+// publicPlanID is a plan id as the routes answer it: no plan reads
+// pay_per_video (the web's id, also taken as input), never the internal
+// "none" (which the web read as an unknown Pro plan: "Pro starts on …"
+// after a cancel, 3DS 2026-11-05).
+func publicPlanID(id string) string {
+	if id == planNone {
+		return payPerVideo
+	}
+	return id
+}
+
+// creditShares are what's left of the old plan's period: its time, and
+// its usage (Business/Studio: the plan's usage credit; Pro: the period's
+// free previews); nil usage = unknown, time alone counts.
+type creditShares struct {
+	TimeLeft  float64
+	UsageLeft *float64
+}
+
+// share is min(time, usage), clamped to [0, 1].
+func (sh creditShares) share() float64 {
+	share := sh.TimeLeft
+	if sh.UsageLeft != nil {
+		share = min(share, *sh.UsageLeft)
+	}
+	return max(0, min(1, share))
+}
+
+// oldPlanCredit is the credit for the old plan's unused part on a step-up
+// (owner 2026-11-04): what they actually paid for the period (intro prices
+// as paid) × min(share of time left, share of usage left), rounded half up
+// to the cent.
+func oldPlanCredit(paidCents int64, sh creditShares) int64 {
+	return int64(math.Floor(float64(paidCents)*sh.share() + 0.5 + 1e-9))
+}
+
+// timeLeftShare of the plan's current period at t.
+func timeLeftShare(p *store.Plan, at time.Time) float64 {
+	if p == nil || p.CurrentPeriodStart == nil || p.CurrentPeriodEnd == nil {
+		return 0
+	}
+	total := p.CurrentPeriodEnd.Sub(*p.CurrentPeriodStart)
+	if total <= 0 {
+		return 0
+	}
+	return max(0, min(1, float64(p.CurrentPeriodEnd.Sub(at))/float64(total)))
+}
+
+// planTarget is a plan id's price and tier.
+type planTarget struct {
+	ID, Tier, Name, Interval string
+	PriceCents               int64
+	PriceID, LookupKey       string
+}
+
+func (s *Service) planTarget(ctx context.Context, id string) (planTarget, bool) {
+	r := s.rates(ctx)
+	if p, ok := r.ProPlan(id); ok {
+		return planTarget{ID: id, Tier: pricing.TierPro, Name: "Pro", Interval: p.Interval, PriceCents: p.PriceCents,
+			PriceID: p.StripePriceID, LookupKey: p.LookupKey}, true
+	}
+	if d, ok := r.Plan(id); ok {
+		tier := id
+		if id == pricing.PlanBusinessYearly {
+			tier = pricing.TierBusiness // BUX-25
+		}
+		return planTarget{ID: id, Tier: tier, Name: d.Name, Interval: d.Interval, PriceCents: d.PriceCents,
+			PriceID: d.StripePriceID, LookupKey: planLookupKey(d, id)}, true
+	}
+	if id == planNone {
+		return planTarget{ID: planNone, Name: "pay per video"}, true
+	}
+	return planTarget{}, false
+}
+
+func (s *Service) priceIDOf(t planTarget) (string, error) {
+	if t.PriceID != "" {
+		return t.PriceID, nil
+	}
+	return s.Stripe.PriceByLookupKey(t.LookupKey)
+}
+
+// planChangeQuote is a change worked out at quoteAt.
+type planChangeQuote struct {
+	Kind        string
+	From, To    planTarget
+	CreditCents int64
+	TodayCents  int64
+	RenewsAt    time.Time
+	EffectiveAt time.Time
+	QuoteAt     time.Time
+	Shares      creditShares
+	PaidCents   int64
+}
+
+func (q planChangeQuote) json() map[string]any {
+	out := map[string]any{"kind": q.Kind, "from": publicPlanID(q.From.ID), "to": publicPlanID(q.To.ID), "today_cents": q.TodayCents,
+		"new_plan_cents": q.To.PriceCents, "quote_at": q.QuoteAt.Unix()}
+	if q.Kind == changeStepUp {
+		out["unused_credit_cents"], out["renews_at"] = q.CreditCents, q.RenewsAt.Format(time.RFC3339)
+		basis := map[string]any{"time_share": math.Round(q.Shares.TimeLeft*10000) / 10000, "usage_share": nil, "paid_cents": q.PaidCents}
+		if q.Shares.UsageLeft != nil {
+			basis["usage_share"] = math.Round(*q.Shares.UsageLeft*10000) / 10000
+		}
+		out["credit_basis"] = basis
+	} else {
+		out["effective_at"] = q.EffectiveAt.Format(time.RFC3339)
+	}
+	return out
+}
+
+// nextRenewal is at plus one interval (months clamped like Stripe's).
+func nextRenewal(at time.Time, interval string) time.Time {
+	switch interval {
+	case "week":
+		return at.AddDate(0, 0, 7)
+	case "year":
+		return store.AddMonths(at, 12)
+	}
+	return store.AddMonths(at, 1)
+}
+
+// quotePlanChange: the one place both the preview and the change price it.
+func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.Customer, to string, at time.Time) (*planChangeQuote, *httpx.APIError) {
+	if cust == nil || cust.Plan == nil || !cust.Plan.Active(at) || cust.Plan.SubscriptionID == "" {
+		return nil, httpx.Err(http.StatusNotFound, "no_plan", "you don't have a plan to change")
+	}
+	from, ok := s.planTarget(ctx, cust.Plan.Key())
+	if !ok {
+		return nil, httpx.Err(http.StatusConflict, "plan_unknown", "your current plan can't be changed here")
+	}
+	if to == payPerVideo {
+		to = planNone // the same as /v1/billing/plan/cancel
+	}
+	if planNotRenewable(cust.Plan) && to != planNone {
+		return nil, errNotRenewable(cust.Plan) // a new plan is bought on the account's own customer instead
+	}
+	if to != cust.Plan.Key() && s.proWeeklyHidden(ctx, to) {
+		e := errProWeeklyHidden().(*httpx.APIError) // BUX-24: no new weekly plans on the web
+		return nil, e
+	}
+	if to == pricing.PlanBusinessYearly && to != cust.Plan.Key() && !s.rates(ctx).BusinessYearly {
+		return nil, errBusinessYearlyOff() // BUX-25
+	}
+	target, ok := s.planTarget(ctx, to)
+	if !ok {
+		return nil, httpx.ErrInvalid("to is pro_weekly, pro_monthly, pro_yearly, business, studio or pay_per_video (none)")
+	}
+	if target.ID == from.ID {
+		return nil, httpx.Err(http.StatusConflict, "same_plan", "that's your plan already")
+	}
+	q := &planChangeQuote{From: from, To: target, QuoteAt: at}
+	if planRank(target.ID) > planRank(from.ID) {
+		paid := cust.Plan.PeriodPaidCents
+		if paid <= 0 {
+			paid = from.PriceCents
+		}
+		q.Kind = changeStepUp
+		q.Shares = creditShares{TimeLeft: timeLeftShare(cust.Plan, at), UsageLeft: s.usageLeftShare(ctx, uid, from)}
+		q.PaidCents = paid
+		q.CreditCents = oldPlanCredit(paid, q.Shares)
+		q.TodayCents = max(0, target.PriceCents-q.CreditCents)
+		q.RenewsAt = nextRenewal(at, target.Interval)
+		return q, nil
+	}
+	q.Kind = changeStepDown
+	if cust.Plan.CurrentPeriodEnd != nil {
+		q.EffectiveAt = *cust.Plan.CurrentPeriodEnd
+	}
+	return q, nil
+}
+
+// POST /v1/plans/preview-change {to} → step_up: {kind, from, to,
+// today_cents, new_plan_cents, unused_credit_cents, renews_at, quote_at};
+// step_down: {kind, from, to, today_cents: 0, new_plan_cents,
+// effective_at, quote_at}.
+func (s *Service) HandlePreviewPlanChange(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	var req struct {
+		To string `json:"to"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	cust, _ := s.Store.GetCustomer(ctx, user.UID)
+	q, qerr := s.quotePlanChange(ctx, user.UID, cust, req.To, time.Now().UTC().Truncate(time.Second))
+	if qerr != nil {
+		httpx.WriteErr(ctx, w, qerr)
+		return
+	}
+	httpx.WriteOK(w, q.json())
+}
+
+// POST /v1/plans/change {to, confirm: true, quote_at?} → {change, plan}.
+// quote_at (from the preview, within 15 minutes) prices it exactly as
+// previewed.
+func (s *Service) HandlePlanChange(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	var req struct {
+		To      string `json:"to"`
+		Confirm bool   `json:"confirm"`
+		QuoteAt int64  `json:"quote_at"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
+		return
+	}
+	if !req.Confirm {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "confirm_required", "send confirm: true to change the plan"))
+		return
+	}
+	now := time.Now().UTC().Truncate(time.Second)
+	at := now
+	if req.QuoteAt > 0 {
+		at = time.Unix(req.QuoteAt, 0).UTC()
+		if at.After(now) || now.Sub(at) > quoteValidFor {
+			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "quote_expired", "that price has expired; preview the change again"))
+			return
+		}
+	}
+	cust, _ := s.Store.GetCustomer(ctx, user.UID)
+	q, qerr := s.quotePlanChange(ctx, user.UID, cust, req.To, at)
+	if qerr != nil {
+		httpx.WriteErr(ctx, w, qerr)
+		return
+	}
+	var err error
+	if q.Kind == changeStepUp {
+		err = s.applyStepUp(ctx, cust, q)
+		s.stepUpFailed(ctx, user.UID, cust, q, err) // D4: the retry mail and the pay link
+	} else {
+		err = s.scheduleStepDown(ctx, user.UID, cust, q)
+	}
+	if err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	httpx.WriteOK(w, map[string]any{"change": q.json(), "plan": s.planJSON(ctx, user.UID)})
+}
+
+func (s *Service) applyStepUp(ctx context.Context, cust *store.Customer, q *planChangeQuote) error {
+	return s.applyStepUpWith(ctx, cust, q, stepUpPaid{})
+}
+
+// stepUpKey is a step-up's idempotency key (D4): each failed payment of
+// the quote moves it on, so the customer's own retry is a new request,
+// never Stripe's cached 402; concurrent twins still share one.
+func (s *Service) stepUpKey(ctx context.Context, base string) string {
+	if n := s.Store.PlanChangeFails(ctx, base); n > 0 {
+		return fmt.Sprintf("%s_a%d", base, n)
+	}
+	return base
+}
+
+// stepUpPaid: a step-up already paid on the web (its pay page, D4): that
+// amount goes on the change's invoice as a credit beside the old plan's,
+// so the invoice is settled without a second charge.
+type stepUpPaid struct {
+	Cents   int64
+	Session string
+}
+
+func (s *Service) applyStepUpWith(ctx context.Context, cust *store.Customer, q *planChangeQuote, paid stepUpPaid) error {
+	p := cust.Plan
+	priceID, err := s.priceIDOf(q.To)
+	if err != nil || priceID == "" {
+		return httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "that plan isn't available right now")
+	}
+	sub, err := s.Stripe.GetSubscription(p.SubscriptionID)
+	if err != nil {
+		return planStripeFailure(ctx, "read_subscription", err, "couldn't read your plan; try again")
+	}
+	if sub.ItemID() == "" {
+		return httpx.Err(http.StatusBadGateway, "payment_error", "couldn't read your plan; try again")
+	}
+	// A waiting step-down gives way; a change that then fails puts it
+	// back, so the person keeps the switch they chose.
+	released, changed := false, false
+	if p.ScheduleID != "" {
+		if rerr := s.Stripe.ReleaseSchedule(p.ScheduleID); rerr != nil {
+			slog.WarnContext(ctx, "schedule not released", "schedule", p.ScheduleID, "err", rerr)
+		} else {
+			released = true
+		}
+	}
+	defer func() {
+		if released && !changed {
+			s.restoreStepDown(ctx, sub.Metadata["user_id"], p, q.From)
+		}
+	}()
+	base := fmt.Sprintf("planchange_%s_%s_%d", p.SubscriptionID, q.To.ID, q.QuoteAt.Unix())
+	key := base
+	switch {
+	case paid.Session != "":
+		key = base + "_paid_" + paid.Session
+	default:
+		key = s.stepUpKey(ctx, base)
+	}
+	creditItem := ""
+	if q.CreditCents > 0 {
+		desc := fmt.Sprintf("Unused time on %s", q.From.Name)
+		if creditItem, err = s.Stripe.AddPendingCredit(cust.StripeCustomerID, p.SubscriptionID, q.CreditCents, desc, key+"_credit"); err != nil {
+			return planStripeFailure(ctx, "add_credit", err, "couldn't change the plan; try again")
+		}
+	}
+	paidItem := ""
+	if paid.Cents > 0 {
+		desc := "Paid on " + time.Now().UTC().Format("2 January 2006")
+		if paidItem, err = s.Stripe.AddPendingCredit(cust.StripeCustomerID, p.SubscriptionID, paid.Cents, desc, key+"_paidcredit"); err != nil {
+			if creditItem != "" {
+				_ = s.Stripe.RemovePendingCredit(creditItem)
+			}
+			return planStripeFailure(ctx, "add_paid_credit", err, "couldn't change the plan; try again")
+		}
+	}
+	updated, err := s.Stripe.ChangePlan(stripex.PlanChange{SubscriptionID: p.SubscriptionID, ItemID: sub.ItemID(), PriceID: priceID,
+		Metadata: map[string]string{"plan": q.To.Tier, "plan_id": q.To.ID, "changed_from": q.From.ID, "change_kind": changeStepUp}}, key)
+	if err != nil {
+		for _, item := range []string{creditItem, paidItem} {
+			if item == "" {
+				continue
+			}
+			if derr := s.Stripe.RemovePendingCredit(item); derr != nil {
+				s.Slack.Alert(ctx, "plan_change_credit_left", fmt.Sprintf("pending credit %s left after a failed change on %s: %v", item, p.SubscriptionID, derr))
+			}
+		}
+		if paid.Session == "" && stripex.PaymentRequired(err) {
+			s.Store.AddPlanChangeFail(ctx, base)
+		}
+		return planStripeFailure(ctx, "change_plan", err, "couldn't change the plan; try again")
+	}
+	changed = true
+	s.syncPlan(ctx, updated)
+	s.Store.UpdateCustomer(ctx, sub.Metadata["user_id"], func(c *store.Customer) error {
+		if c.Plan != nil {
+			c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
+		}
+		return nil
+	})
+	slog.InfoContext(ctx, "plan stepped up", "subscription", p.SubscriptionID, "from", q.From.ID, "to", q.To.ID, "credit", q.CreditCents)
+	return nil
+}
+
+// restoreStepDown schedules again the step-down a failed step-up released:
+// the same plan from the same date (the period's end), under a key tied
+// to the released schedule. If it can't be made, the account stops
+// showing it and support hears.
+func (s *Service) restoreStepDown(ctx context.Context, uid string, p *store.Plan, from planTarget) {
+	old := p.ScheduleID
+	newID, err := "", error(nil)
+	to, ok := s.planTarget(ctx, p.ScheduledTo)
+	if !ok || to.ID == planNone {
+		err = fmt.Errorf("unknown step-down target %q", p.ScheduledTo)
+	} else {
+		var priceID string
+		if priceID, err = s.priceIDOf(to); err == nil && priceID == "" {
+			err = errors.New("no price for " + to.ID)
+		}
+		if err == nil {
+			newID, err = s.Stripe.ScheduleStepDown(p.SubscriptionID, priceID,
+				map[string]string{"plan": to.Tier, "plan_id": to.ID, "changed_from": from.ID, "change_kind": changeStepDown},
+				"stepdownrestore_"+old)
+		}
+	}
+	if err != nil || newID == "" {
+		if newID != "" {
+			_ = s.Stripe.ReleaseSchedule(newID)
+		}
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			if c.Plan != nil && c.Plan.ScheduleID == old {
+				c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
+			}
+			return nil
+		})
+		s.Slack.Alert(ctx, "step_down_lost", fmt.Sprintf("a failed step-up on %s released step-down %s (to %s) and it couldn't be scheduled again: %v",
+			p.SubscriptionID, old, p.ScheduledTo, err))
+		return
+	}
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && c.Plan.ScheduleID == old {
+			c.Plan.ScheduleID = newID
+		}
+		return nil
+	})
+	slog.InfoContext(ctx, "step-down restored after a failed step-up", "subscription", p.SubscriptionID, "old", old, "schedule", newID, "to", p.ScheduledTo)
+}
+
+func (s *Service) scheduleStepDown(ctx context.Context, uid string, cust *store.Customer, q *planChangeQuote) error {
+	p := cust.Plan
+	if q.To.ID == planNone {
+		// A cancel replaces a waiting step-down (its schedule released), so
+		// nobody has to "Keep Studio" first; cancelling twice is fine.
+		if err := s.cancelPlanAtPeriodEnd(ctx, uid, cust); err != nil {
+			return planStripeFailure(ctx, "cancel_at_period_end", err, "couldn't change the plan; try again")
+		}
+		return nil
+	}
+	if p.ScheduleID != "" || p.CancelAtPeriodEnd {
+		return httpx.Err(http.StatusConflict, "change_scheduled", "a change is already waiting; take it back first")
+	}
+	scheduleID := ""
+	{
+		priceID, err := s.priceIDOf(q.To)
+		if err != nil || priceID == "" {
+			return httpx.Err(http.StatusServiceUnavailable, "plan_unavailable", "that plan isn't available right now")
+		}
+		key := fmt.Sprintf("planstepdown_%s_%s_%d", p.SubscriptionID, q.To.ID, q.QuoteAt.Unix())
+		scheduleID, err = s.Stripe.ScheduleStepDown(p.SubscriptionID, priceID,
+			map[string]string{"plan": q.To.Tier, "plan_id": q.To.ID, "changed_from": q.From.ID, "change_kind": changeStepDown}, key)
+		if err != nil {
+			if scheduleID != "" {
+				s.Stripe.ReleaseSchedule(scheduleID)
+			}
+			return planStripeFailure(ctx, "schedule_step_down", err, "couldn't schedule the change; try again")
+		}
+	}
+	eff := q.EffectiveAt
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && c.Plan.SubscriptionID == p.SubscriptionID {
+			c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = scheduleID, q.To.ID, &eff
+		}
+		return nil
+	})
+	return nil
+}
+
+// DELETE /v1/plans/scheduled-change → the plan ("Keep Studio").
+func (s *Service) HandleCancelScheduledChange(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
+	ctx := r.Context()
+	cust, err := s.Store.GetCustomer(ctx, user.UID)
+	if err != nil || cust.Plan == nil || (cust.Plan.ScheduledTo == "" && !cust.Plan.CancelAtPeriodEnd) {
+		httpx.WriteErr(ctx, w, httpx.Err(http.StatusNotFound, "no_scheduled_change", "no change is waiting"))
+		return
+	}
+	p := cust.Plan
+	if planNotRenewable(p) {
+		httpx.WriteErr(ctx, w, errNotRenewable(p))
+		return
+	}
+	if p.ScheduleID != "" {
+		if err := s.Stripe.ReleaseSchedule(p.ScheduleID); err != nil {
+			httpx.WriteErr(ctx, w, planStripeFailure(ctx, "release_schedule", err, "couldn't keep your plan; try again"))
+			return
+		}
+	}
+	if p.CancelAtPeriodEnd {
+		sub, err := s.Stripe.SetCancelAtPeriodEnd(p.SubscriptionID, false)
+		if err != nil {
+			httpx.WriteErr(ctx, w, planStripeFailure(ctx, "resume", err, "couldn't keep your plan; try again"))
+			return
+		}
+		s.syncPlan(ctx, sub)
+	}
+	s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
+		if c.Plan != nil {
+			c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
+		}
+		return nil
+	})
+	httpx.WriteOK(w, s.planJSON(ctx, user.UID))
+}
+
+// planPeriodPaid records what the period's plan line cost.
+func (s *Service) planPeriodPaid(ctx context.Context, uid string, sub *stripex.Subscription, paid int64) {
+	if paid <= 0 {
+		return
+	}
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && c.Plan.SubscriptionID == sub.ID {
+			c.Plan.PeriodPaidCents = paid
+		}
+		return nil
+	})
+}
+
+// stepDownApplied: the switch date's invoice is paid. The waiting change
+// is done; a Business or Studio entitlement the new plan doesn't have
+// goes (pro stays: the new grant covers it).
+func (s *Service) stepDownApplied(ctx context.Context, uid string, sub *stripex.Subscription) {
+	from := sub.Metadata["changed_from"]
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil || cust.Plan == nil {
+		return
+	}
+	if cust.Plan.ScheduledTo != "" && cust.Plan.ScheduledTo == cust.Plan.Key() {
+		s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+			if c.Plan != nil {
+				c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt = "", "", nil
+			}
+			return nil
+		})
+	}
+	s.planSwapEntitlement(ctx, uid, from, cust.Plan.Tier)
+}
+
+// scheduledChangeJSON is the plan block's scheduled_change (nil = none).
+func scheduledChangeJSON(p *store.Plan) any {
+	switch {
+	case p == nil:
+		return nil
+	case p.ScheduledTo != "" && p.ScheduledAt != nil:
+		return map[string]any{"to": publicPlanID(p.ScheduledTo), "effective_at": p.ScheduledAt.Format(time.RFC3339)}
+	case p.CancelAtPeriodEnd && p.CurrentPeriodEnd != nil:
+		return map[string]any{"to": payPerVideo, "effective_at": p.CurrentPeriodEnd.Format(time.RFC3339)}
+	}
+	return nil
+}
+
+// proIntroCycle puts Weekly Pro's intro coupon on its next cycles' draft
+// invoices (the first had it at Checkout), once each, up to the intro's
+// cycles (invoice.created).
+func (s *Service) proIntroCycle(ctx context.Context, raw json.RawMessage) {
+	var inv struct {
+		ID            string `json:"id"`
+		Status        string `json:"status"`
+		BillingReason string `json:"billing_reason"`
+		Parent        struct {
+			SubscriptionDetails struct {
+				Subscription string            `json:"subscription"`
+				Metadata     map[string]string `json:"metadata"`
+			} `json:"subscription_details"`
+		} `json:"parent"`
+	}
+	if json.Unmarshal(raw, &inv) != nil || inv.Status != "draft" || inv.BillingReason != "subscription_cycle" {
+		return
+	}
+	md := inv.Parent.SubscriptionDetails.Metadata
+	uid := md["user_id"]
+	if md["product"] != "svs-web" || md["env"] != s.Cfg.Env || md["plan"] != pricing.TierPro || uid == "" {
+		return
+	}
+	cust, err := s.Store.GetCustomer(ctx, uid)
+	if err != nil || cust.Plan == nil || !cust.Plan.Intro || cust.Plan.SubscriptionID != inv.Parent.SubscriptionDetails.Subscription {
+		return
+	}
+	def, ok := s.rates(ctx).ProPlan(cust.Plan.PlanID)
+	if !ok || def.Intro == nil || def.Intro.Cycles <= 1 || slices.Contains(cust.Plan.IntroInvoices, inv.ID) ||
+		len(cust.Plan.IntroInvoices) >= def.Intro.Cycles-1 {
+		return
+	}
+	if err := s.Stripe.AddInvoiceCoupon(inv.ID, def.Intro.CouponID); err != nil {
+		slog.WarnContext(ctx, "pro intro not applied", "invoice", inv.ID, "err", err)
+		return
+	}
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
+		if c.Plan != nil && !slices.Contains(c.Plan.IntroInvoices, inv.ID) {
+			c.Plan.IntroInvoices = append(c.Plan.IntroInvoices, inv.ID)
+		}
+		return nil
+	})
+}
+
+// usageLeftShare is what's left of the old plan's usage this period:
+// Business/Studio, the plan credit left ÷ the period's (month's) credit;
+// Pro, the free previews left ÷ the period's allowance. nil when unknown.
+func (s *Service) usageLeftShare(ctx context.Context, uid string, from planTarget) *float64 {
+	if from.Tier == pricing.TierPro {
+		at := s.accountTier(ctx, uid)
+		fp := s.freePreviewStatus(ctx, uid, at, 0)
+		if fp.Allowance <= 0 {
+			return nil
+		}
+		v := float64(fp.Remaining) / float64(fp.Allowance)
+		return &v
+	}
+	def, ok := s.rates(ctx).Plan(from.Tier)
+	if !ok || def.CreditCents <= 0 {
+		return nil
+	}
+	b, err := s.Store.GetBalance(ctx, uid)
+	if err != nil {
+		return nil
+	}
+	v := float64(b.PeriodCreditCents()) / float64(def.CreditCents) // grants aren't the plan's
+	return &v
+}
+
+// planSwapEntitlement: a Business or Studio entitlement the new plan
+// doesn't carry goes (pro stays: the new plan's grant covers it).
+func (s *Service) planSwapEntitlement(ctx context.Context, uid, from, newTier string) {
+	if (from != pricing.TierBusiness && from != pricing.TierStudio) || from == newTier || !s.RevenueCat.CanGrant() {
+		return
+	}
+	rctx, cancel := context.WithTimeout(context.WithoutCancel(ctx), 30*time.Second)
+	defer cancel()
+	if err := s.RevenueCat.RevokePromotionals(rctx, uid, from); err != nil {
+		s.Slack.Alert(ctx, "rc_revoke_failed", fmt.Sprintf("RevenueCat %s not revoked for `%s` after a plan change: %v", from, uid, err))
+	}
+}
+
+// planStripeFailure logs what Stripe said (type, code, param, message; no
+// ids of the person) and answers with the reason the web shows
+// (7054f08): 402 payment_failed with the decline_code for a declined
+// card, or reason requires_action when the card needs confirming; any
+// other failure stays 502 payment_error with its message.
+func planStripeFailure(ctx context.Context, op string, err error, message string) *httpx.APIError {
+	f := stripex.FactsOf(err)
+	httpx.Log(ctx).Warn("plan stripe call failed", append([]any{"op", op}, f.LogArgs()...)...)
+	switch {
+	case f.RequiresAction():
+		e := httpx.Err(http.StatusPaymentRequired, "payment_failed", "your card needs confirming; your plan hasn't changed")
+		e.Details = map[string]any{"reason": "requires_action", "requires_action": true, "code": f.Code}
+		return e
+	case f.Status == http.StatusPaymentRequired || f.Declined():
+		e := httpx.Err(http.StatusPaymentRequired, "payment_failed", "the payment didn't go through; your plan hasn't changed")
+		e.Details = map[string]any{"reason": "card_declined", "code": f.Code}
+		if f.DeclineCode != "" {
+			e.Details["decline_code"] = f.DeclineCode
+		}
+		return e
+	}
+	e := httpx.Err(http.StatusBadGateway, "payment_error", message)
+	if f.Code != "" {
+		e.Details = map[string]any{"code": f.Code}
+	}
+	return e
+}

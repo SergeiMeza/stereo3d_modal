@@ -9,6 +9,7 @@ package gcsx
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -18,6 +19,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"google.golang.org/api/iterator"
 )
 
 // SignFunc signs a URL for one object (storage.BucketHandle.SignedURL).
@@ -30,6 +32,8 @@ type Client struct {
 	sign   SignFunc
 	http   *http.Client // starts resumable sessions
 	stat   func(ctx context.Context, key string) (int64, error)
+	list   func(ctx context.Context, prefix string) ([]string, error)
+	del    func(ctx context.Context, key string) error
 }
 
 func New(ctx context.Context, bucket, prefix string) (*Client, error) {
@@ -50,6 +54,60 @@ func New(ctx context.Context, bucket, prefix string) (*Client, error) {
 func NewWithSigner(bucket, prefix string, sign SignFunc, hc *http.Client) *Client {
 	return &Client{bucket: bucket, prefix: prefix, sign: sign, http: hc}
 }
+
+// WithObjects replaces List and Delete (tests).
+func (c *Client) WithObjects(list func(ctx context.Context, prefix string) ([]string, error), del func(ctx context.Context, key string) error) *Client {
+	c.list, c.del = list, del
+	return c
+}
+
+// List returns the keys under prefix. The prefix must lie inside this
+// env's prefix and name a folder ("…/"), never the env root.
+func (c *Client) List(ctx context.Context, prefix string) ([]string, error) {
+	if !strings.HasSuffix(prefix, "/") || !c.InPrefix(strings.TrimSuffix(prefix, "/")) || prefix == c.prefix {
+		return nil, fmt.Errorf("list: prefix %q outside a folder of %q", prefix, c.prefix)
+	}
+	if c.list != nil {
+		return c.list(ctx, prefix)
+	}
+	if c.gcs == nil {
+		return nil, fmt.Errorf("list gs://%s/%s: no storage connection", c.bucket, prefix)
+	}
+	var out []string
+	it := c.gcs.Bucket(c.bucket).Objects(ctx, &storage.Query{Prefix: prefix})
+	for {
+		attrs, err := it.Next()
+		if errors.Is(err, iterator.Done) {
+			return out, nil
+		}
+		if err != nil {
+			return nil, fmt.Errorf("list gs://%s/%s: %w", c.bucket, prefix, err)
+		}
+		out = append(out, attrs.Name)
+	}
+}
+
+// Delete erases one object inside this env's prefix; one already gone
+// is not an error.
+func (c *Client) Delete(ctx context.Context, key string) error {
+	if !c.InPrefix(key) {
+		return fmt.Errorf("delete: key %q outside %q", key, c.prefix)
+	}
+	if c.del != nil {
+		return c.del(ctx, key)
+	}
+	if c.gcs == nil {
+		return fmt.Errorf("delete gs://%s/%s: no storage connection", c.bucket, key)
+	}
+	err := c.gcs.Bucket(c.bucket).Object(key).Delete(ctx)
+	if errors.Is(err, storage.ErrObjectNotExist) {
+		return nil
+	}
+	return err
+}
+
+// Prefix is this env's key prefix ("stereo3d/{env}/").
+func (c *Client) Prefix() string { return c.prefix }
 
 // WithStat replaces Stat (tests).
 func (c *Client) WithStat(stat func(ctx context.Context, key string) (int64, error)) *Client {
@@ -90,6 +148,18 @@ func (c *Client) SignedGetURL(key string, expires time.Duration) (string, error)
 		Scheme:  storage.SigningSchemeV4,
 		Method:  "GET",
 		Expires: time.Now().Add(expires),
+	})
+}
+
+// SignedGetURLAs is SignedGetURL with a Content-Disposition the storage
+// answer carries, so the browser saves the file under that name. The
+// disposition is part of the signed query.
+func (c *Client) SignedGetURLAs(key string, expires time.Duration, disposition string) (string, error) {
+	return c.sign(key, &storage.SignedURLOptions{
+		Scheme:          storage.SigningSchemeV4,
+		Method:          "GET",
+		Expires:         time.Now().Add(expires),
+		QueryParameters: url.Values{"response-content-disposition": {disposition}},
 	})
 }
 

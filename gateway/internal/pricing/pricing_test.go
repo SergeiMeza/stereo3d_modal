@@ -198,12 +198,19 @@ func TestQuoteStepAnalyzeCreditAndFloor(t *testing.T) {
 	if q.AmountCents != 850 {
 		t.Errorf("want 850, got %d", q.AmountCents)
 	}
-	// credit larger than the subtotal still floors at minimum_cents
+	// credit larger than the subtotal still floors at the minimum (a
+	// preview's: preview_minimum_cents)
 	q = quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 60, CreditCents: 5000,
 	})
-	if q.AmountCents != 50 {
-		t.Errorf("want minimum 50, got %d", q.AmountCents)
+	if q.AmountCents != 100 {
+		t.Errorf("want preview minimum 100, got %d", q.AmountCents)
+	}
+	q = quoteStep(t, StepInputs{
+		Step: "production", Preset: "draft", BillableS: 10, CreditCents: 5000,
+	})
+	if q.AmountCents != 100 {
+		t.Errorf("production floors at the $1 pro minimum, got %d", q.AmountCents)
 	}
 }
 
@@ -326,11 +333,11 @@ func TestQuoteStepProductionNoInpaintIsCheaper(t *testing.T) {
 		t.Errorf("no-inpaint production: want 360¢ ×0.4, got %d ×%v",
 			none.AmountCents, none.Breakdown["inpaint_multiplier"])
 	}
-	// 4k 2.5 min: 2250¢ → 900¢ (no bulk discount at ≤$10); −10% bulk on the full one → 2025 vs 900
+	// 4k 2.5 min billed as 3 (rounded up): 2700¢ → 1080¢; −10% bulk on both → 2430 vs 972
 	full4k := quoteStep(t, StepInputs{Step: "production", Preset: "4k", BillableS: 150, Inpaint: "propainter"})
 	none4k := quoteStep(t, StepInputs{Step: "production", Preset: "4k", BillableS: 150, Inpaint: "none"})
-	if full4k.AmountCents != 2025 || none4k.AmountCents != 900 {
-		t.Errorf("4k: want 2025 vs 900, got %d vs %d", full4k.AmountCents, none4k.AmountCents)
+	if full4k.AmountCents != 2430 || none4k.AmountCents != 972 {
+		t.Errorf("4k: want 2430 vs 972, got %d vs %d", full4k.AmountCents, none4k.AmountCents)
 	}
 	// depth-reuse still stacks on top (35% of the discounted subtotal)
 	reused := quoteStep(t, StepInputs{
@@ -390,12 +397,13 @@ func TestQuoteStepReuseDiscountOnAdjustedSubtotal(t *testing.T) {
 }
 
 func TestQuoteStepDepthResMinimumStillApplies(t *testing.T) {
-	// 20s depth_preview = 75¢; factor 0.5 → 38¢ → floors at 50¢.
+	// 20s depth_preview = 75¢; factor 0.5 → 38¢ → floors at the $1
+	// preview minimum.
 	q := quoteStep(t, StepInputs{
 		Step: "depth_preview", Preset: "draft", BillableS: 20, DepthRes: 140,
 	})
-	if q.AmountCents != 50 {
-		t.Errorf("want minimum 50, got %d", q.AmountCents)
+	if q.AmountCents != 100 {
+		t.Errorf("want preview minimum 100, got %d", q.AmountCents)
 	}
 }
 

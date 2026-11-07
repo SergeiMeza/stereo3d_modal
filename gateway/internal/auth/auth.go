@@ -8,14 +8,19 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	firebase "firebase.google.com/go/v4"
 	fbauth "firebase.google.com/go/v4/auth"
 )
 
 type User struct {
-	UID   string
-	Email string // empty for anonymous users
+	UID      string
+	Email    string    // empty for anonymous users
+	AuthTime time.Time // when they last signed in (the token's auth_time)
+	// Anonymous: the token's sign-in provider is "anonymous" (no sign-in
+	// method on the account).
+	Anonymous bool
 }
 
 type Verifier struct {
@@ -45,7 +50,7 @@ func (v *Verifier) FromRequest(r *http.Request) (*User, error) {
 	if err != nil {
 		return nil, errUnauthorized
 	}
-	user := &User{UID: token.UID}
+	user := &User{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC(), Anonymous: token.Firebase.SignInProvider == "anonymous"}
 	if email, ok := token.Claims["email"].(string); ok {
 		user.Email = email
 	}
@@ -106,3 +111,37 @@ type errUnauthorizedType struct{}
 func (errUnauthorizedType) Error() string { return "unauthorized" }
 
 func IsUnauthorized(err error) bool { return err == errUnauthorized }
+
+// Admin is a verified admin-console caller (spec M1): the svs_admin
+// custom claim and when they signed in. The second factor is a passkey
+// session the API checks (ADR 0135), never a Firebase one.
+type Admin struct {
+	UID      string
+	Email    string
+	IsAdmin  bool
+	AuthTime time.Time
+}
+
+// AdminFromRequest verifies the token (revocation checked) and reads the
+// admin facts; the caller decides what they allow.
+func (v *Verifier) AdminFromRequest(r *http.Request) (*Admin, error) {
+	header := r.Header.Get("Authorization")
+	parts := strings.SplitN(header, " ", 2)
+	if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") || parts[1] == "" {
+		return nil, errUnauthorized
+	}
+	token, err := v.client.VerifyIDTokenAndCheckRevoked(r.Context(), parts[1])
+	if err != nil {
+		return nil, errUnauthorized
+	}
+	return adminOf(token), nil
+}
+
+func adminOf(token *fbauth.Token) *Admin {
+	a := &Admin{UID: token.UID, AuthTime: time.Unix(token.AuthTime, 0).UTC()}
+	if email, ok := token.Claims["email"].(string); ok {
+		a.Email = email
+	}
+	a.IsAdmin, _ = token.Claims["svs_admin"].(bool)
+	return a
+}

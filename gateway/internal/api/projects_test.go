@@ -91,7 +91,7 @@ func TestResolveDepthPreviewAcceptsDepthRes(t *testing.T) {
 }
 
 func TestResolveDepthPreviewIgnoresPresetAndFormats(t *testing.T) {
-	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Preset: "4k", Formats: []string{"sbs"}})
+	p := resolveOK(t, &stepConvReq{Step: store.StepDepthPreview, Preset: "3k", Formats: []string{"sbs"}})
 	if p.Preset != "draft" || len(p.Formats) != 0 || !p.DepthOnly {
 		t.Errorf("depth_preview must stay draft/depth-only with no formats, got %s/%v (depth_only=%v)",
 			p.Preset, p.Formats, p.DepthOnly)
@@ -192,8 +192,9 @@ func TestResolveProductionTemplate(t *testing.T) {
 	if len(p.Formats) != 2 || p.Formats[0] != "mvhevc" || p.Formats[1] != "half_sbs" {
 		t.Errorf("formats: want [mvhevc half_sbs], got %v", p.Formats)
 	}
-	if p.Inpaint != "propainter" {
-		t.Errorf("inpaint: want propainter default, got %s", p.Inpaint)
+	// S3D-29: the default edge style is the backward warp ("Stretched")
+	if p.Warp != "backward" || p.Inpaint != "none" {
+		t.Errorf("edge default: want backward/none, got %s/%s", p.Warp, p.Inpaint)
 	}
 	if p.TargetFPS != 0 { // full source fps
 		t.Errorf("target_fps: want 0 (source), got %v", p.TargetFPS)
@@ -201,10 +202,10 @@ func TestResolveProductionTemplate(t *testing.T) {
 	// production accepts everything (square source so depth_res 2520 clears the
 	// aspect-aware VRAM ceiling — a 16:9 source would reject 2520; see
 	// TestResolveDepthResAspectCeiling).
-	p = resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "4k", Inpaint: "none",
+	p = resolveOKP(t, &stepConvReq{Step: store.StepProduction, Preset: "3k", Inpaint: "none",
 		DepthRes: 2520, DepthScale: 0.3,
 		SceneOverrides: []sceneOverrideReq{{First: 240, Displacement: 0.03}}}, squareProbeProject())
-	if p.Preset != "4k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
+	if p.Preset != "3k" || p.Inpaint != "none" || p.DepthRes != 2520 || p.DepthScale != 0.3 {
 		t.Errorf("production overrides not applied: %+v", p)
 	}
 }
@@ -346,10 +347,21 @@ func TestResolveWarpValidation(t *testing.T) {
 			}
 		}
 	}
-	// absent warp: not stored (pipeline default), inpaint untouched
+	// absent warp AND inpaint: the S3D-29 default, backward ("Stretched")
 	p := resolveOK(t, &stepConvReq{Step: store.StepProduction})
-	if p.Warp != "" || p.Inpaint != "propainter" {
+	if p.Warp != "backward" || p.Inpaint != "none" {
 		t.Errorf("no warp: got warp=%q inpaint=%s", p.Warp, p.Inpaint)
+	}
+	// an explicit inpaint keeps the forward warp it implies (unstored)
+	for _, inpaint := range []string{"propainter", "migan", "none"} {
+		p := resolveOK(t, &stepConvReq{Step: store.StepProduction, Inpaint: inpaint})
+		if p.Warp != "" || p.Inpaint != inpaint {
+			t.Errorf("explicit inpaint %s: got warp=%q inpaint=%s", inpaint, p.Warp, p.Inpaint)
+		}
+	}
+	// stereo previews default to stretched too
+	if p := resolveOK(t, &stepConvReq{Step: store.StepStereoPreview}); p.Warp != "backward" {
+		t.Errorf("stereo preview default: %+v", p)
 	}
 }
 

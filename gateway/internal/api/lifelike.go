@@ -1,0 +1,1033 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"math"
+	"net/http"
+	"slices"
+	"strconv"
+	"strings"
+	"time"
+
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
+	"spatial-ai-labs/stereo3d-gateway/internal/store"
+)
+
+// Lifelike 3D (2026-11-03): a second conversion method next to Classic,
+// chosen per project and switchable any time (owner decisions LL-D1..D8;
+// contract in the lifelike-gateway-web brief). Lifelike runs on the shared
+// lifelike3d Modal service (ml-sharp-modal ADR-0019, docs/LIFELIKE_API.md),
+// whose submit/job shape is the stereo3d API's, so the conversion state
+// machine, billing and settlement are shared; only the steps, the request
+// body, the price inputs and the ETA differ. Projects without a stored
+// method are classic.
+
+const (
+	// split_max_seconds rails (the service's own floor is 10 s).
+	minSplitSeconds = 60
+	maxSplitSeconds = 3600
+	// splitSuggestSeconds: outputs longer than this make Deliver offer
+	// "Split into parts" (LL-D6); quotes flag them.
+	splitSuggestSeconds = 900
+)
+
+var lifelikeFormats = []string{"mvhevc", "sbs", "half_sbs"}
+
+func projectMethod(p *store.Project) string { return store.MethodOr(p.Method) }
+
+// errMethodUnavailable: the Lifelike service isn't configured for this
+// environment (LIFELIKE_BASE_URL empty).
+func errMethodUnavailable() *httpx.APIError {
+	return httpx.Err(http.StatusBadRequest, "method_unavailable", "Lifelike is not available right now; use Classic")
+}
+
+// resolveMethod validates a client-named method. "" is classic: clients
+// that predate Lifelike send no method and only know the classic steps, so
+// they must keep getting classic projects. The web app names the method
+// explicitly and defaults its own UI to lifelike (defaultMethod).
+func (s *Service) resolveMethod(requested string) (string, *httpx.APIError) {
+	return s.resolveMethodFor(requested, s.assignWorkspace().Lifelike != nil) // new projects' workspace
+}
+
+// resolveMethodFor is resolveMethod against a workspace whose Lifelike
+// is (not) configured (S3D-40).
+func (s *Service) resolveMethodFor(requested string, lifelike bool) (string, *httpx.APIError) {
+	switch requested {
+	case "":
+		return store.MethodClassic, nil
+	case store.MethodLifelike:
+		if !lifelike {
+			return "", errMethodUnavailable()
+		}
+		return requested, nil
+	case store.MethodClassic:
+		return requested, nil
+	}
+	return "", httpx.ErrInvalid("method must be lifelike|classic")
+}
+
+// methodSourceError enforces a method's source-length cap against the
+// analyzed probe: Classic keeps max_source_duration_s, Lifelike is unlimited
+// unless lifelike_max_source_duration_s says otherwise. nil before the
+// probe lands (the analyze fold applies the cap then).
+func methodSourceError(rates *pricing.Rates, p *store.Project, method string) *httpx.APIError {
+	if err := sourceBytesError(rates, p.Source.Bytes, method); err != nil {
+		return err
+	}
+	if f := p.Probe.PricingFPS(); f > fpsPlanMax*1.001 {
+		return httpx.ErrSource("source_fps_too_high", fmt.Sprintf(
+			"This video runs at %.0f fps. Videos can be at most 120 fps.", f))
+	}
+	maxS := rates.MaxSourceDurationFor(method)
+	if p.Probe == nil || maxS <= 0 || p.Probe.DurationS <= maxS {
+		return nil
+	}
+	msg := fmt.Sprintf("This video is %s long. Classic works on videos up to %s; Lifelike has no length limit.",
+		formatMinSec(p.Probe.DurationS), formatMinSec(maxS))
+	if method == store.MethodLifelike {
+		msg = fmt.Sprintf("This video is %s long. Lifelike works on videos up to %s.",
+			formatMinSec(p.Probe.DurationS), formatMinSec(maxS))
+	}
+	return httpx.Err(http.StatusBadRequest, "source_too_long_for_method", msg)
+}
+
+// sourceBytesError enforces a method's source-file cap (S3D-42: Lifelike
+// 25 GiB, Classic max_source_bytes). 400 source_too_large, as before.
+func sourceBytesError(rates *pricing.Rates, bytes int64, method string) *httpx.APIError {
+	maxB := rates.MaxSourceBytesFor(method)
+	if maxB <= 0 || bytes <= maxB {
+		return nil
+	}
+	name := "Classic"
+	if method == store.MethodLifelike {
+		name = "Lifelike"
+	}
+	return httpx.ErrSource("source_too_large", fmt.Sprintf(
+		"This file is %s. %s works on files up to %s.", formatGB(bytes), name, formatGB(maxB)))
+}
+
+// formatGB renders a byte count as "8 GB" / "12.4 GB" for limit messages.
+func formatGB(b int64) string {
+	gb := float64(b) / (1 << 30)
+	if gb == math.Trunc(gb) {
+		return fmt.Sprintf("%.0f GB", gb)
+	}
+	return fmt.Sprintf("%.1f GB", gb)
+}
+
+// methodSwitchError enforces the one-way switch (owner decisions S3D-01,
+// S3D-30, S3D-44): a classic project may move to lifelike at any time, even
+// after paid runs; a lifelike project never goes back, runs or not.
+func methodSwitchError(from, to string) *httpx.APIError {
+	if from == store.MethodLifelike && to == store.MethodClassic {
+		return httpx.Err(http.StatusBadRequest, "method_switch_not_allowed",
+			"A Lifelike project can't be switched to Classic.")
+	}
+	return nil
+}
+
+func errStepForMethod(step, method string) *httpx.APIError {
+	steps := "depth_preview|stereo_preview|production"
+	if method == store.MethodLifelike {
+		steps = "lifelike_preview|production"
+	}
+	return httpx.Err(http.StatusBadRequest, "step_not_supported_for_method",
+		fmt.Sprintf("step %q is not available for %s projects (use %s)", step, method, steps))
+}
+
+// resolveLifelikeParams is resolveStepParams for Lifelike projects: the
+// steps are lifelike_preview and production, the knobs preset (1080p|qhd|
+// 3k|4k, never above the source), formats (mvhevc|sbs|half_sbs),
+// target_fps, the trim and split_max_seconds. Every Classic-only knob is a
+// 400 rather than silently dropped.
+func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string) (store.Params, *httpx.APIError) {
+	var params store.Params
+	switch req.Step {
+	case store.StepLifelikePreview:
+		// sbs for the web's player, mvhevc so a preview downloads for
+		// Vision Pro too (owner, 2026-11-03); half_sbs where full width
+		// is refused, below.
+		params.Formats = []string{"sbs", "mvhevc"}
+	case store.StepProduction:
+		params.Formats = []string{"mvhevc", "half_sbs"}
+	default:
+		return params, errStepForMethod(req.Step, store.MethodLifelike)
+	}
+	classicOnly := map[string]bool{
+		"depth_res":          req.DepthRes != 0,
+		"depth_scale":        req.DepthScale != 0,
+		"inpaint":            req.Inpaint != "",
+		"warp":               req.Warp != "",
+		"scene_overrides":    len(req.SceneOverrides) > 0,
+		"use_uploaded_depth": req.UseUploadedDepth,
+		"displacement":       req.Displacement != 0,
+	}
+	for _, knob := range []string{"depth_res", "depth_scale", "inpaint", "warp", "scene_overrides", "use_uploaded_depth", "displacement"} {
+		if classicOnly[knob] {
+			return params, httpx.ErrInvalid(knob + " applies to classic projects only")
+		}
+	}
+	q, qerr := pickQuality(lifelikeQualities(p, enabled), req.Preset, sourceShortSide(p), enabled)
+	if qerr != nil {
+		return params, qerr
+	}
+	params.Preset, params.Quality = q.Preset, q.ID
+	if q.PricePreset != q.Preset {
+		params.PricePreset = q.PricePreset
+	}
+	if req.OriginalEye != nil && *req.OriginalEye != "" {
+		if *req.OriginalEye != "left" && *req.OriginalEye != "right" {
+			return params, httpx.ErrInvalid("original_eye must be left, right or null")
+		}
+		params.OriginalEye = *req.OriginalEye
+	}
+	if q.OriginalEyeRequired && params.OriginalEye == "" {
+		// S3D-65: above 4K the source is always one eye; absent or null
+		// means the left.
+		params.OriginalEye = "left"
+	}
+	// At 1080p the server decides (S3D-50, owner 2026-11-07): included and
+	// on whenever it can apply, whatever the request says (below).
+	if fov := req.Foveation.value(); fov != "" && params.Preset != foveationIncludedPreset {
+		if fov != "static" {
+			return params, httpx.ErrInvalid("foveation must be static")
+		}
+		if short := sourceShortSide(p); short > 0 && !foveationFits(p, params) {
+			return params, httpx.ErrInvalid(fmt.Sprintf(
+				"foveation needs a size below this video's own (%dp); pick a smaller quality", short))
+		}
+		params.Foveation = fov
+	}
+	params.Express = req.Express                   // the add-on (pricing 2026-11)
+	if c, ok := barsCrop(p); ok && removeBars(p) { // BL-03: the run keeps what it took off
+		params.RemoveBars, params.SourceCrop = true, &c
+	}
+	params.OutputWidth, params.OutputHeight = outputDims(p, params) // the size it delivers
+	if req.Formats != nil && len(req.Formats) == 0 {
+		return params, httpx.ErrInvalid("formats cannot be empty: select at least one output format")
+	}
+	if len(req.Formats) > 0 {
+		for _, f := range req.Formats {
+			if !slices.Contains(lifelikeFormats, f) {
+				return params, httpx.ErrInvalid("unsupported format " + f + " (lifelike outputs mvhevc|sbs|half_sbs)")
+			}
+		}
+		params.Formats = req.Formats
+	}
+	if fullSBSRefused(params) && slices.Contains(params.Formats, "sbs") {
+		if req.Step == store.StepLifelikePreview {
+			// the preview's look, at a width that works
+			params.Formats = slices.DeleteFunc(slices.Clone(params.Formats), func(f string) bool { return f == "sbs" || f == "half_sbs" })
+			params.Formats = append([]string{"half_sbs"}, params.Formats...)
+		} else {
+			return params, httpx.Err(http.StatusBadRequest, "format_unavailable",
+				"full-width side-by-side isn't available at this size; choose half side-by-side or a smaller quality")
+		}
+	}
+	if req.TargetFPS < 0 || req.TargetFPS > maxTargetFPS(p)*1.001 {
+		return params, httpx.ErrInvalid("target_fps cannot exceed the source frame rate")
+	}
+	params.TargetFPS = req.TargetFPS // 0 = the source rate
+	if req.FromFrame < 0 || req.ToFrame < 0 ||
+		(req.ToFrame > 0 && req.ToFrame <= req.FromFrame) ||
+		(p.Probe != nil && req.FromFrame >= p.Probe.NumFrames) {
+		return params, httpx.ErrInvalid("invalid trim range: need 0 <= from_frame < to_frame <= num_frames")
+	}
+	params.FromFrame, params.ToFrame = req.FromFrame, req.ToFrame
+	if req.Step == store.StepLifelikePreview {
+		if req.ToFrame == 0 {
+			return params, httpx.ErrInvalid("lifelike_preview needs from_frame and to_frame")
+		}
+		// its length rule is config (checkPreviewSpan, from resolveParams)
+		if req.SplitMaxSeconds != 0 {
+			return params, httpx.ErrInvalid("split_max_seconds applies to production only")
+		}
+	}
+	if req.SplitMaxSeconds != 0 {
+		if req.SplitMaxSeconds < minSplitSeconds || req.SplitMaxSeconds > maxSplitSeconds {
+			return params, httpx.ErrInvalid(fmt.Sprintf(
+				"split_max_seconds must be in [%d, %d]", minSplitSeconds, maxSplitSeconds))
+		}
+		params.SplitMaxSeconds = req.SplitMaxSeconds
+	}
+	if p.Scenes != nil {
+		params.SceneCuts = p.Scenes.Cuts
+	}
+	if projectMethod(p) == store.MethodLifelike && (req.Quality != "" || (req.web && req.Bitrate.Choice == "match_source")) {
+		// the quality tiers decide (applyQuality): a web match_source is standard now
+	} else if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
+		return params, berr
+	}
+	return params, nil
+}
+
+// lifelikeBody builds the whitelisted lifelike3d submit body (the service
+// ignores unknown keys, but nothing unvalidated is sent). The project's cut
+// list is always sent ([] = one scene), so the service skips its own scene
+// scan and the run matches the user's scene edit.
+func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
+	cuts := c.Params.SceneCuts
+	if cuts == nil {
+		cuts = []int{}
+	}
+	body := map[string]any{
+		"input_path": c.Source.GCSKey,
+		"preset":     c.Params.Preset,
+		"formats":    c.Params.Formats,
+		"scene_cuts": cuts,
+	}
+	if c.Params.FromFrame > 0 {
+		body["from_frame"] = c.Params.FromFrame
+	}
+	if c.Params.ToFrame > 0 {
+		body["to_frame"] = c.Params.ToFrame
+	}
+	if c.Params.TargetFPS > 0 {
+		body["target_fps"] = c.Params.TargetFPS
+	}
+	if c.Params.SplitMaxSeconds > 0 {
+		body["split_max_seconds"] = c.Params.SplitMaxSeconds
+	}
+	if c.Params.OriginalEye != "" {
+		body["original_eye"] = c.Params.OriginalEye
+	}
+	if c.Params.OutputBitrateBps > 0 {
+		body["output_bitrate_bps"] = c.Params.OutputBitrateBps // absent = auto
+	}
+	if c.Params.MaxBitrateBps > 0 {
+		body["max_bitrate_bps"] = c.Params.MaxBitrateBps // standard: CRF capped here (ignored until the worker ships it)
+	}
+	if c.Params.BitDepth > 0 {
+		body["output_bit_depth"] = c.Params.BitDepth // master: 10-bit (name pending Spatial 3D Studio)
+	}
+	if c.Params.Foveation != "" {
+		body["foveation"] = c.Params.Foveation
+	}
+	if c.Params.HDR {
+		body["hdr_output"] = true // owner 2026-11-05; absent = SDR as before
+	}
+	if c.Params.RemoveBars && c.Params.SourceCrop != nil {
+		// BL-03: the picture inside the black bars, displayed (post-rotation)
+		// source pixels, on every path (full runs, previews, split parts,
+		// Express); absent = the whole frame.
+		sc := c.Params.SourceCrop
+		body["source_crop"] = map[string]int{"x": sc.X, "y": sc.Y, "w": sc.W, "h": sc.H}
+	}
+	if c.Params.Express {
+		// Express (pricing 2026-11): the Lifelike slot scheduler gives
+		// freed GPU slots to "express" first and the caller passes the
+		// Express GPU count (8). Only this value, and only on Express
+		// runs: standard runs omit the key (the service defaults to
+		// "standard"; anything else is a 400).
+		body["priority"] = "express"
+	}
+	if c.Params.IntroS != nil && *c.Params.IntroS > 0 { // BL-25: flag on at creation; an opt-out omits both fields
+		body["intro_s"] = *c.Params.IntroS
+		lang := c.Params.IntroLanguage
+		if lang == "" {
+			lang = "en"
+		}
+		body["intro_language"] = lang
+	}
+	if c.Step == store.StepLifelikePreview {
+		maxGPUWorkers = 1 // a preview runs in one container anyway
+	}
+	body["max_gpu_workers"] = max(1, min(maxGPUWorkers, pricing.MaxGPUWorkersPerJob))
+	return body
+}
+
+// modalFor is the pipeline service a conversion runs on, in its
+// workspace; nil when that workspace (or its Lifelike) is no longer
+// configured.
+func (s *Service) modalFor(c *store.Conversion) *modalapi.Client {
+	ws, ok := s.workspace(c.Workspace) // S3D-40: the run's own workspace
+	if !ok {
+		return nil
+	}
+	if c.Method == store.MethodLifelike {
+		return ws.Lifelike
+	}
+	return ws.Modal
+}
+
+// lifelikeIn: the project's workspace runs Lifelike.
+func (s *Service) lifelikeIn(p *store.Project) bool {
+	ws, ok := s.workspace(p.Workspace)
+	return ok && ws.Lifelike != nil
+}
+
+// stepETA is the pre-run wall-clock estimate of a step for the method: the
+// quote shows it and overdue runs are judged against it.
+func (s *Service) stepETA(ctx context.Context, p *store.Project, params store.Params, step, method string, reuseStages []string) int64 {
+	if p.Probe == nil {
+		return 0
+	}
+	billable, berr := billableSeconds(p.Probe.NumFrames, p.Probe.FPS, params.FromFrame, params.ToFrame)
+	if berr != nil {
+		return 0
+	}
+	in := s.stepQuoteInputs(p, params, step, billable)
+	if method == store.MethodLifelike {
+		rates := s.Pricing.Rates(ctx)
+		gpus := rates.GPUWorkersFor(store.MethodLifelike)
+		if params.Express {
+			gpus = rates.ExpressGPUWorkers()
+		}
+		if step == store.StepLifelikePreview {
+			gpus = 1
+		}
+		return s.Pricing.EstimateLifelikeETA(ctx, pricing.LifelikeInputs{
+			Step: step, Preset: params.Preset, OutputSeconds: billable,
+			EffectiveFPS: in.EffectiveFPS, GPUs: gpus,
+			OutputBitrateBps: params.OutputBitrateBps, MasterBitrateBps: masterBitrateBps(params.Preset),
+		})
+	}
+	in.ReuseStages = reuseStages
+	return s.Pricing.EstimateStepETA(ctx, in)
+}
+
+// chargeTiming says when a pro step's money moves: "before" (charged up
+// front, refunded on failure) above the precharge threshold, else "after"
+// (joins the batch on success). Both methods (LL-D8).
+func chargeTiming(rates *pricing.Rates, amountCents int64) string {
+	if amountCents > rates.PrechargeThreshold() {
+		return "before"
+	}
+	return "after"
+}
+
+// outputFile describes one output for GET .../downloads: split parts come
+// back one entry per part with a 1-based part number.
+type outputFile struct {
+	Name     string `json:"name"`
+	Format   string `json:"format"`
+	Part     int    `json:"part,omitempty"`
+	Filename string `json:"filename,omitempty"`
+	URL      string `json:"url"`
+	// SizeBytes from the stored object (S3D-31); absent when storage
+	// didn't answer.
+	SizeBytes int64 `json:"size_bytes,omitempty"`
+}
+
+// splitOutputName parses the lifelike3d part names ("mvhevc_part02" →
+// mvhevc, 2); part 0 for an unsplit output.
+func splitOutputName(name string) (format string, part int) {
+	i := strings.LastIndex(name, "_part")
+	if i <= 0 {
+		return name, 0
+	}
+	n := 0
+	for _, r := range name[i+5:] {
+		if r < '0' || r > '9' {
+			return name, 0
+		}
+		n = n*10 + int(r-'0')
+	}
+	if n == 0 {
+		return name, 0
+	}
+	return name[:i], n
+}
+
+// sortOutputFiles orders by format, then part.
+func sortOutputFiles(files []outputFile) {
+	slices.SortFunc(files, func(a, b outputFile) int {
+		if c := strings.Compare(a.Format, b.Format); c != 0 {
+			return c
+		}
+		return a.Part - b.Part
+	})
+}
+
+// overdueQueueAllowance is the GPU queueing a run has sat through: time the
+// app-wide GPU cap held it back is not the run being slow.
+func overdueQueueAllowance(c *store.Conversion) float64 {
+	return math.Max(c.Modal.QueuedS, 0)
+}
+
+// defaultMethod is the method the web UI preselects (GET /v1/limits
+// default_method; LL-D1): lifelike wherever the service is configured. The
+// API's own default for a request without a method stays classic.
+func (s *Service) defaultMethod() string {
+	if s.assignWorkspace().Lifelike != nil {
+		return store.MethodLifelike
+	}
+	return store.MethodClassic
+}
+
+// GET /v1/pricing — the public price list (S3D-18): both methods' customer
+// prices, the preview price, the fps rule, discounts, minimum, pre-charge
+// threshold, balance window and new-account cap, and per-method limits, all
+// from the live config (pricing.Service.Public). No auth; the config cache
+// is a minute, so five minutes of HTTP caching is plenty fresh.
+func (s *Service) HandlePublicPricing(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	httpx.WriteOK(w, s.Pricing.Public(r.Context()))
+}
+
+// ------------------------------------------------------------- qualities
+
+// quality is one output size a Lifelike project offers (S3D-04). Lifelike
+// keeps the source's shape, sizes by the short side per eye and never
+// upscales, so a step is offered only when the source's short side reaches
+// it; between steps (3840×1606) or below 1080 a "full" option renders the
+// next step up — which Lifelike clamps to the source — labelled with the
+// real size and priced at the step below (1080p below 1080). The top step
+// is 8K (S3D-48); bigger sources are scaled down to it.
+type quality struct {
+	ID string `json:"id"` // a preset, or "full"
+	// LabelShortSide is the output's short side per eye ("Full
+	// resolution (1606p)"), odd sizes rounded down to even.
+	LabelShortSide int `json:"label_short_side"`
+	// OriginalEyeRequired: sizes above 4K always keep the source as one
+	// eye (S3D-65); the tile says so.
+	OriginalEyeRequired bool `json:"original_eye_required,omitempty"`
+	// Experimental: the service marks these outputs experimental (5K-8K).
+	Experimental bool   `json:"experimental,omitempty"`
+	Preset       string `json:"preset"`       // what Lifelike is asked for
+	PricePreset  string `json:"price_preset"` // the price table row
+	// Formats this size can be delivered in: full-width SBS stops at 5K
+	// (no video level covers a frame that wide at 6K/8K; half SBS works).
+	Formats []string `json:"formats"`
+}
+
+// sbsTooWide: Lifelike refuses full-width SBS for these presets (400).
+var sbsTooWide = map[string]bool{"6k": true, "8k": true}
+
+// h264MaxFrameMBs: H.264's largest frame (Level 6.2 MaxFS, macroblocks),
+// Lifelike's H264_MAX_FRAME_MBS: a full-width side by side above it has
+// no level and Lifelike answers 400 "use half_sbs".
+const h264MaxFrameMBs = 139_264
+
+// fullSBSFits: a full-width side by side of these eyes has an H.264 level.
+func fullSBSFits(eyeW, eyeH int) bool {
+	return (2*eyeW+15)/16*((eyeH+15)/16) <= h264MaxFrameMBs
+}
+
+// fullSBSRefused: Lifelike won't make full-width SBS for the run: 6K/8K
+// always, and a cropped picture (BL-03) whose doubled frame passes level
+// 6.2 (a near-square crop at 5K: 2 x 4320 x 4320).
+func fullSBSRefused(params store.Params) bool {
+	if sbsTooWide[params.Preset] {
+		return true
+	}
+	return params.RemoveBars && params.OutputWidth > 0 && !fullSBSFits(params.OutputWidth, params.OutputHeight)
+}
+
+// formatsFor lists the Lifelike formats a preset can be delivered in.
+func formatsFor(preset string) []string {
+	if sbsTooWide[preset] {
+		return []string{"mvhevc", "half_sbs"}
+	}
+	return slices.Clone(lifelikeFormats)
+}
+
+// newQuality builds an offered size; above 4K the source is always one
+// eye and the result experimental (S3D-65), by the preset it renders.
+func newQuality(id string, shortSide int, preset, pricePreset string) quality {
+	above4K := presetOutputHeight[preset] > originalEyeAboveShortSide
+	return quality{ID: id, LabelShortSide: shortSide, Preset: preset, PricePreset: pricePreset,
+		OriginalEyeRequired: above4K, Experimental: above4K, Formats: formatsFor(preset)}
+}
+
+const qualityFull = "full"
+
+// originalEyeAboveShortSide: outputs whose short side is above this (4K's
+// 2160) always keep the source as one eye (S3D-65).
+const originalEyeAboveShortSide = 2160
+
+// presetLongEdge: a size step's 16:9 width (1080 → 1920, 2160 → 3840).
+func presetLongEdge(short int) int { return short * 16 / 9 }
+
+// sourceShortSide is the source's short side, rotation-proof (min of the
+// two sides), rounded down to even; 0 before analysis. When the run takes
+// black bars off (BL-03) the steps go by their long edge (Lifelike's
+// crop_output_size), so it is the short side of the 16:9 frame as wide as
+// the picture inside: a letterboxed 4K film (3840x1600 inside) still
+// reaches 4K, a 1440x1080 pillarbox renders whole at 1080p.
+func sourceShortSide(p *store.Project) int {
+	if c, ok := barsCrop(p); ok && removeBars(p) {
+		return (max(c.W, c.H) * 9 / 16) &^ 1
+	}
+	if p.Probe == nil || p.Probe.Width <= 0 || p.Probe.Height <= 0 {
+		return 0
+	}
+	return min(p.Probe.Width, p.Probe.Height) &^ 1
+}
+
+// contentDims is the picture a Lifelike run renders, displayed pixels:
+// the crop inside the bars when the run takes them off, else the frame
+// (turned to the crop's orientation when analysis saw it rotated).
+func contentDims(p *store.Project) (w, h int) {
+	if c, ok := barsCrop(p); ok && removeBars(p) {
+		return c.W, c.H
+	}
+	return displayedFrame(p)
+}
+
+func evenRound(v float64) int { return int(math.Round(v/2)) * 2 }
+
+// cropOutputSize is Lifelike's crop_output_size (1d23c0e), integer for
+// integer: the crop's long edge at the step's long edge, never above its
+// own, even; the other side from the crop's aspect, rounded half up to
+// even, never above the crop's. 3840x1600 inside a 4K frame: 3840x1600
+// at 4K, 1920x800 at 1080p; a 4:3 2880x2160 crop at 1080p: 1920x1440.
+func cropOutputSize(cropW, cropH, stepShort int) (w, h int) {
+	longIn, shortIn := max(cropW, cropH), min(cropW, cropH)
+	long := min(presetLongEdge(stepShort), longIn)
+	long -= long % 2
+	short := min(2*((long*shortIn+longIn)/(2*longIn)), shortIn-shortIn%2)
+	short = max(2, short)
+	if cropW >= cropH {
+		return long, short
+	}
+	return short, long
+}
+
+// outputDims is a run's output picture per eye, displayed pixels (0, 0
+// before analysis). Without bars removed: the step's short side
+// (outputShortSide) and the frame's aspect. With bars removed (BL-03):
+// cropOutputSize of the run's crop.
+func outputDims(p *store.Project, params store.Params) (w, h int) {
+	if params.RemoveBars {
+		step := presetOutputHeight[params.Preset]
+		c := params.SourceCrop
+		if c == nil {
+			if bc, ok := barsCrop(p); ok {
+				c = &bc
+			}
+		}
+		if c == nil || step <= 0 {
+			return 0, 0
+		}
+		return cropOutputSize(c.W, c.H, step)
+	}
+	cw, ch := contentDims(p)
+	if cw <= 0 || ch <= 0 {
+		return 0, 0
+	}
+	long, short := float64(max(cw, ch)), float64(min(cw, ch))
+	outShort := outputShortSide(p, params)
+	outLong := evenRound(long * float64(outShort) / short)
+	if cw >= ch {
+		return outLong, outShort
+	}
+	return outShort, outLong
+}
+
+// lifelikeQualities lists what a project's source can be rendered at,
+// smallest first, among the enabled presets (lifelike_enabled_presets).
+// Before analysis every enabled step is listed. A full option renders the
+// first ENABLED step above the source (clamped to the source); with none
+// enabled above it, the top enabled step is the top.
+func lifelikeQualities(p *store.Project, enabled []string) []quality {
+	short := sourceShortSide(p)
+	var out []quality
+	below := "" // the highest step the source reaches
+	for _, preset := range pricing.LifelikePresets {
+		if !slices.Contains(enabled, preset) {
+			continue
+		}
+		h := presetOutputHeight[preset]
+		if short == 0 || h <= short {
+			out = append(out, croppedFormats(p, newQuality(preset, h, preset, preset)))
+			below = preset
+			continue
+		}
+		// first step above the source: full resolution, unless the source
+		// sits exactly on a step (then the step itself is its full size)
+		if presetOutputHeight[below] != short {
+			price := below
+			if price == "" {
+				price = pricing.LifelikePresets[0] // below 1080: the 1080p price
+			}
+			label := short
+			if c, ok := barsCrop(p); ok && removeBars(p) {
+				w, h := cropOutputSize(c.W, c.H, presetOutputHeight[preset])
+				label = min(w, h) // what the cropped picture comes out at
+			}
+			out = append(out, croppedFormats(p, newQuality(qualityFull, label, preset, price)))
+		}
+		break
+	}
+	return out
+}
+
+// pickQuality resolves a requested preset against the offered qualities:
+// "" picks 1080p, or full resolution on a source below 1080; "full" or the
+// preset the full option renders pick full resolution. A step the source
+// doesn't reach is 400 preset_above_source.
+func pickQuality(offered []quality, requested string, short int, enabled []string) (quality, *httpx.APIError) {
+	if requested == "" {
+		requested = pricing.LifelikePresets[0]
+	}
+	for _, q := range offered {
+		if q.ID == requested || (q.ID == qualityFull && q.Preset == requested) {
+			return q, nil
+		}
+	}
+	if !slices.Contains(pricing.LifelikePresets, requested) && requested != qualityFull {
+		return quality{}, httpx.ErrInvalid("lifelike preset must be one of " +
+			strings.Join(pricing.LifelikePresets, "|") + "|" + qualityFull)
+	}
+	if requested != qualityFull && !slices.Contains(enabled, requested) {
+		// Refused before any charge: the service doesn't render it yet.
+		return quality{}, errPresetUnavailable(requested, enabled)
+	}
+	return quality{}, httpx.Err(http.StatusBadRequest, "preset_above_source", fmt.Sprintf(
+		"%s is above this video's own size (%dp); Lifelike never upscales", requested, short))
+}
+
+// outputShortSide is what a Lifelike run will deliver per eye: the preset,
+// clamped to the source; with bars removed, the cropped picture's short
+// side (outputDims).
+func outputShortSide(p *store.Project, params store.Params) int {
+	if params.RemoveBars {
+		w, h := outputDims(p, params)
+		return min(w, h)
+	}
+	h := presetOutputHeight[params.Preset]
+	if short := sourceShortSide(p); short > 0 && short < h {
+		return short
+	}
+	return h
+}
+
+// pricePreset is the preset a run is priced at (the full option prices at
+// the step below its render preset).
+func pricePreset(params store.Params) string {
+	if params.PricePreset != "" {
+		return params.PricePreset
+	}
+	return params.Preset
+}
+
+// checkPreviewSpan applies the Lifelike preview's length rule (config
+// lifelike_preview, 2-10 s by default) in source seconds, with a frame of
+// slack either way for clients rounding seconds to frames.
+func checkPreviewSpan(p *store.Project, params store.Params, rule pricing.PreviewSeconds) *httpx.APIError {
+	if p.Probe == nil || p.Probe.FPS <= 0 {
+		return nil
+	}
+	end := params.ToFrame
+	if end <= 0 || end > p.Probe.NumFrames {
+		end = p.Probe.NumFrames
+	}
+	frames := float64(end - params.FromFrame)
+	if (frames-1)/p.Probe.FPS > rule.MaxS || (frames+1)/p.Probe.FPS < rule.MinS {
+		return httpx.ErrInvalid(fmt.Sprintf(
+			"lifelike_preview covers %g-%g s of the source", rule.MinS, rule.MaxS))
+	}
+	return nil
+}
+
+// resolveParams is resolveStepParams plus the rules that live in config.
+func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.Project) (store.Params, *httpx.APIError) {
+	var params store.Params
+	var err *httpx.APIError
+	if dolbyVision5(p) { // refused at analysis; a guard for the record
+		return params, httpx.Err(http.StatusUnprocessableEntity, dolbyVisionErrorCode, errDolbyVision5Text)
+	}
+
+	if projectMethod(p) == store.MethodLifelike {
+		params, err = resolveLifelikeParams(req, p, s.Pricing.Rates(ctx).EnabledLifelikePresets())
+	} else {
+		params, err = resolveStepParams(req, p)
+	}
+	if err != nil {
+		return params, err
+	}
+	params.Web = req.web // the launch campaign is web only
+	params.QuickLook = req.QuickLook
+	rates := s.Pricing.Rates(ctx)
+	// HDR output is automatic and free (owner 2026-11-05): every Lifelike
+	// run of an HDR source gets it while the switch is on. A request's
+	// "hdr" (older web builds) is ignored.
+	params.HDR = rates.LifelikeHDROutputEnabled && projectMethod(p) == store.MethodLifelike && hdrSource(p)
+	if params.Foveation != "" && !rates.FoveationEnabled {
+		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "foveation is not available yet")
+	}
+	// S3D-50: once switched on, foveation is the default whenever the size
+	// is below the source; only an explicit "foveation": null turns it off.
+	// At 1080p it's included, free and always on when it can apply (owner
+	// 2026-11-07); at the source's own size it's a no-op (the pipeline only
+	// re-spends bits, never renders above the source), so it isn't sent.
+	if rates.FoveationEnabled && projectMethod(p) == store.MethodLifelike {
+		switch {
+		case params.Preset == foveationIncludedPreset:
+			params.Foveation = ""
+			if foveationFits(p, params) {
+				params.Foveation = "static"
+			}
+		case !req.Foveation.Set && foveationFits(p, params):
+			params.Foveation = "static"
+		}
+	}
+	if projectMethod(p) == store.MethodLifelike && req.Step == store.StepLifelikePreview {
+		if serr := checkPreviewSpan(p, params, s.Pricing.Rates(ctx).LifelikePreviewSeconds()); serr != nil {
+			return params, serr
+		}
+	}
+	// Above 30 fps needs a Business or Studio plan, checked against the
+	// account now (the quote and again when the run is created).
+	if ferr := s.applyFPSCap(ctx, p, req.TargetFPS, &params); ferr != nil {
+		return params, ferr
+	}
+	// the quality tiers, at the frame rate the run will have
+	if projectMethod(p) == store.MethodLifelike {
+		if qerr := s.applyQuality(ctx, req, p, &params); qerr != nil {
+			return params, qerr
+		}
+	}
+	return params, nil
+}
+
+// errPresetUnavailable: a Lifelike size the service doesn't render yet
+// (not in lifelike_enabled_presets) — 400 before any charge.
+func errPresetUnavailable(preset string, enabled []string) *httpx.APIError {
+	top := "4K"
+	if n := len(enabled); n > 0 {
+		top = strings.ToUpper(enabled[n-1])
+	}
+	return httpx.Err(http.StatusBadRequest, "preset_unavailable", fmt.Sprintf(
+		"%s isn't available yet; choose %s or lower", strings.ToUpper(preset), top))
+}
+
+// enabledLifelikePresets for responses built without a request context
+// (projectResponse): the cached config, bounded so a cold read can't hang
+// the response; defaults without a pricing service (tests).
+func (s *Service) enabledLifelikePresets() []string {
+	if s.Pricing == nil {
+		return pricing.DefaultLifelikeEnabled
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	return s.Pricing.Rates(ctx).EnabledLifelikePresets()
+}
+
+// optString is a JSON field that tells absent (Set false) from an explicit
+// null (Set true, Value nil).
+type optString struct {
+	Set   bool
+	Value *string
+}
+
+func (o *optString) UnmarshalJSON(b []byte) error {
+	o.Set = true
+	if string(b) == "null" {
+		o.Value = nil
+		return nil
+	}
+	var v string
+	if err := json.Unmarshal(b, &v); err != nil {
+		return err
+	}
+	o.Value = &v
+	return nil
+}
+
+// value is the string sent, "" when absent or null.
+func (o optString) value() string {
+	if o.Value == nil {
+		return ""
+	}
+	return *o.Value
+}
+
+// foveationIncludedPreset: Foveated Detail is free and always on here
+// (owner 2026-11-07).
+const foveationIncludedPreset = "1080p"
+
+// foveationView is the quote's and the run's foveation: {applied,
+// included, reason?}; nil for Classic.
+func foveationView(p *store.Project, params store.Params, method string) map[string]any {
+	if method != store.MethodLifelike {
+		return nil
+	}
+	included := params.Preset == foveationIncludedPreset
+	out := map[string]any{"applied": params.Foveation != "", "included": included}
+	if included && params.Foveation == "" {
+		out["reason"] = "output_not_below_source" // nothing to re-spend at the source's own size
+	}
+	return out
+}
+
+// foveationFits: foveation spends the source's extra pixels on the centre
+// of view, so the output must be smaller than the source (S3D-50).
+func foveationFits(p *store.Project, params store.Params) bool {
+	short := sourceShortSide(p)
+	return short > 0 && presetOutputHeight[params.Preset] < short
+}
+
+// ------------------------------------------------------------- bitrate
+
+// bitrateReq is the request's bitrate (S3D-56): a string ("auto",
+// "match_source") or a number of Mbit/s; absent or null = auto.
+type bitrateReq struct {
+	Choice string // "" = auto
+}
+
+func (b *bitrateReq) UnmarshalJSON(raw []byte) error {
+	if string(raw) == "null" {
+		b.Choice = ""
+		return nil
+	}
+	var s string
+	if json.Unmarshal(raw, &s) == nil {
+		b.Choice = s
+		return nil
+	}
+	var n float64
+	if err := json.Unmarshal(raw, &n); err != nil {
+		return fmt.Errorf("bitrate must be auto, match_source or a number of Mbit/s")
+	}
+	b.Choice = strconv.FormatFloat(n, 'f', -1, 64)
+	return nil
+}
+
+// bitrateMaster is the Master bitrate add-on's choice.
+const bitrateMaster = "master"
+
+// masterBitrateBps: the Master bitrate per output size (both eyes).
+func masterBitrateBps(preset string) int64 {
+	mbps := map[string]int64{"draft": 60, "1080p": 60, "qhd": 80, "3k": 100, "4k": 150, "5k": 200, "6k": 250, "8k": 300}[preset]
+	if mbps == 0 {
+		mbps = 150
+	}
+	return mbps * 1_000_000
+}
+
+// Bitrate rails: the fixed choices in Mbit/s, and match_source's cap.
+var bitrateChoicesMbps = []string{"20", "40", "60", "100"}
+
+const maxMatchSourceBps = 200_000_000
+
+// sourceBitrate is the source video's bits per second: the analyzed video
+// stream's bit_rate, else file size × 8 / duration; 0 when unknown.
+func sourceBitrate(p *store.Project) int64 {
+	if p.Probe == nil {
+		return 0
+	}
+	if p.Probe.BitRate > 0 {
+		return p.Probe.BitRate
+	}
+	if p.Source.Bytes > 0 && p.Probe.DurationS > 0 {
+		return int64(float64(p.Source.Bytes) * 8 / p.Probe.DurationS)
+	}
+	return 0
+}
+
+// applyBitrate resolves the request's bitrate into params: auto leaves
+// both fields empty (the pipeline's own rate); match_source takes the
+// source's, capped at 200 Mbit/s; a number is that many Mbit/s. Same price
+// either way.
+func applyBitrate(params *store.Params, b bitrateReq, p *store.Project) *httpx.APIError {
+	switch b.Choice {
+	case "", "auto":
+		return nil
+	case bitrateMaster:
+		// Master bitrate (add-on, pricing 2026-11): a high fixed rate per
+		// size, priced +20% under tier pricing.
+		params.Bitrate, params.OutputBitrateBps = bitrateMaster, masterBitrateBps(params.Preset)
+		return nil
+	case "match_source":
+		src := sourceBitrate(p)
+		if src <= 0 {
+			return httpx.ErrConflict("match_source needs the analyzed source; try again once analysis is done")
+		}
+		params.Bitrate, params.OutputBitrateBps = b.Choice, min(src, maxMatchSourceBps)
+		return nil
+	}
+	if !slices.Contains(bitrateChoicesMbps, b.Choice) {
+		return httpx.ErrInvalid("bitrate must be auto, match_source, master, 20, 40, 60 or 100")
+	}
+	mbps, _ := strconv.ParseInt(b.Choice, 10, 64)
+	params.Bitrate, params.OutputBitrateBps = b.Choice, mbps*1_000_000
+	return nil
+}
+
+// estimatedSizeBytes is one output file's size at the run's bitrate over
+// its output length (0 with auto: the pipeline picks the rate).
+func estimatedSizeBytes(params store.Params, outputSeconds float64) int64 {
+	if params.OutputBitrateBps <= 0 {
+		return 0
+	}
+	return int64(float64(params.OutputBitrateBps) * outputSeconds / 8)
+}
+
+// applyQuality resolves the web's quality tiers (owner 2026-11-07) after
+// the frame rate is settled: an explicit quality wins; else the legacy
+// bitrate maps ("master" → master; a web "match_source" → standard; a
+// number, or an API caller's match_source, keeps today's fixed rate and
+// price); else a web request gets standard
+// and an API caller today's pipeline default. The app paths (the mobile
+// one-shot) never come here.
+func (s *Service) applyQuality(ctx context.Context, req *stepConvReq, p *store.Project, params *store.Params) *httpx.APIError {
+	tier := req.Quality
+	switch {
+	case tier != "":
+		if !slices.Contains(pricing.QualityTiers, tier) {
+			return httpx.ErrInvalid("quality must be standard, high or master")
+		}
+	case req.Bitrate.Choice == bitrateMaster:
+		tier = pricing.QualityMaster
+	case req.Bitrate.Choice == "match_source" && req.web:
+		tier = pricing.QualityStandard // an older web build
+	case req.Bitrate.Choice != "" && req.Bitrate.Choice != "auto":
+		return nil // a fixed Mbit/s: today's behaviour and price
+	case req.web:
+		tier = pricing.QualityStandard
+	default:
+		return nil
+	}
+	rates := s.Pricing.Rates(ctx)
+	w, h := params.OutputWidth, params.OutputHeight
+	if w <= 0 || h <= 0 {
+		h = presetOutputHeight[params.Preset]
+		w = h * 16 / 9
+	}
+	mbps := rates.QualityMbps(tier, w, h, effectiveFPS(p, *params))
+	bps := int64(mbps * 1_000_000)
+	params.OutputQuality, params.MaxBitrateBps, params.BitDepth = tier, 0, 0
+	switch tier {
+	case pricing.QualityStandard:
+		params.Bitrate, params.OutputBitrateBps, params.MaxBitrateBps = "", 0, bps
+	case pricing.QualityHigh:
+		params.Bitrate, params.OutputBitrateBps = "", bps
+	case pricing.QualityMaster:
+		params.Bitrate, params.OutputBitrateBps, params.BitDepth = bitrateMaster, bps, rates.QualityBitDepth()
+	}
+	return nil
+}
+
+// qualityView is the quote's quality block; nil without a tier.
+func (s *Service) qualityView(ctx context.Context, params store.Params, outputSeconds float64) map[string]any {
+	if params.OutputQuality == "" {
+		return nil
+	}
+	rates := s.Pricing.Rates(ctx)
+	out := map[string]any{"tier": params.OutputQuality, "approx": true, "price_pct": 0.0, "label": "Standard quality · included"}
+	bps := params.OutputBitrateBps
+	if params.OutputQuality == pricing.QualityStandard {
+		out["max_mbps"] = float64(params.MaxBitrateBps) / 1e6
+		bps = int64(float64(params.MaxBitrateBps) * rates.QualityTypicalShare())
+	}
+	out["mbps"] = math.Round(float64(bps)/1e5) / 10
+	if params.BitDepth > 0 {
+		out["bit_depth"] = params.BitDepth
+	}
+	if outputSeconds > 0 {
+		out["estimated_size_bytes"] = int64(float64(bps) * outputSeconds / 8) // per file
+	}
+	if a := map[string]string{pricing.QualityHigh: pricing.AddOnHigh, pricing.QualityMaster: pricing.AddOnMaster}[params.OutputQuality]; a != "" {
+		pct := rates.AddOnPct(a)
+		out["price_pct"] = pct
+		out["label"] = fmt.Sprintf("%s quality +%d%%", map[string]string{pricing.QualityHigh: "High", pricing.QualityMaster: "Master"}[params.OutputQuality],
+			int(math.Round(pct*100)))
+	}
+	return out
+}
