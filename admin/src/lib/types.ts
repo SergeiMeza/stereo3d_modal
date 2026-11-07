@@ -5,6 +5,7 @@
  */
 
 import type { QualityFields } from "./fileQuality";
+import type { SourceInfo, SourceProbe } from "./sourceDetails";
 
 export type CaseType =
   | "refund"
@@ -207,8 +208,11 @@ export interface RefundRow {
   updated_at: string;
 }
 
-export interface EvidenceRun extends QualityFields {
+export interface EvidenceRun extends QualityFields, Partial<Omit<SourceInfo, "probe">> {
   conversion_id: string;
+  /** owner 2026-11-07: the run's project source (gateway: to come) */
+  source?: SourceInfo | null;
+  probe?: SourceProbe | null;
   project_id?: string;
   step?: string;
   method?: string;

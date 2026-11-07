@@ -95,6 +95,14 @@ export function casePage(over: Partial<CasePage> = {}, caseOver: Partial<CasePag
           gpu_cost_usd: 4.29,
           quality: "high",
           bitrate_requested: "auto",
+          source: {
+            probe: { width: 3840, height: 2160, fps: 29.97, duration_s: 312.4, num_frames: 9363, bit_rate: 41_200_000, vfr: true, counted_frames: 9686 },
+            source_bytes: 1_610_612_736,
+            has_bars: true,
+            crop: "3840:1600:0:280",
+            remove_bars: true,
+            dynamic_range: "hlg",
+          },
           outputs_media: {
             mvhevc_part01: { video_kbps: 41200, audio_codec: "aac", audio_kbps: 256, source: "worker" },
             sbs_part01: { video_kbps: 38400, audio_codec: "aac", audio_kbps: 256, source: "ffprobe" },

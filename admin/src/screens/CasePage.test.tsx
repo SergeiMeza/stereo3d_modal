@@ -34,6 +34,11 @@ describe("case page (A2)", () => {
     expect(screen.getByTestId("run-quality")).toHaveTextContent(
       "Quality: High (measured: Spatial 41 Mbit/s · SBS 38 Mbit/s) · Audio: AAC 256 kbit/s",
     );
+    // owner 2026-11-07: the run's source video, as the web's Overview shows it
+    expect(screen.getByTestId("run-source").textContent).toBe(
+      "Size1.5 GBLength5 min 12 sResolution3840×2160 · 4KFrame rate29.97 fps · variable, up to 31.01 fps" +
+        "Frames9,363Video bitrate41 Mbit/sDynamic rangeHDR (HLG)Black barsDetected · picture 3840×1600 · removed in 3D",
+    );
   });
 
   it("renders customer text as plain text and drops unsafe links", async () => {

@@ -7,6 +7,7 @@ import { dateOnly, dateTime, money, time, words } from "../lib/format";
 import { stripeLinkLabel } from "../lib/links";
 import { Link, paths } from "../lib/router";
 import { audioLine, fileQualityLine } from "../lib/fileQuality";
+import { sourceOf, sourceRows } from "../lib/sourceDetails";
 import type { Evidence, EvidenceRun } from "../lib/types";
 
 function Section({
@@ -149,6 +150,23 @@ export function EvidencePanel({ evidence, n }: { evidence: Evidence | null; n: n
           <RunTimeline run={r} />
         </Section>
       ))}
+      {runs.map((r) => {
+        // owner 2026-11-07: the run's source video, as the web's Overview shows it
+        const src = sourceOf(r);
+        const rows = src ? sourceRows(src) : [];
+        return rows.length > 0 ? (
+          <Section key={`src-${r.conversion_id}`} title="Source" open={false} aside={<span className="font-mono">{r.conversion_id}</span>}>
+            <dl data-testid="run-source" className="grid grid-cols-[max-content_1fr] gap-x-4 gap-y-1 text-xs">
+              {rows.map((row) => (
+                <div key={row.label} className="contents">
+                  <dt className="text-muted-foreground">{row.label}</dt>
+                  <dd className="min-w-0 break-words">{row.value}</dd>
+                </div>
+              ))}
+            </dl>
+          </Section>
+        ) : null;
+      })}
       {runs.length === 0 && (
         <Section title="Run timeline" aside="none">
           <p className="text-xs text-muted-foreground">No runs on this case.</p>
