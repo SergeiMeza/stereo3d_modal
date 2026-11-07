@@ -12,6 +12,7 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/auth"
 	"spatial-ai-labs/stereo3d-gateway/internal/config"
 	"spatial-ai-labs/stereo3d-gateway/internal/gcsx"
+	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
 	"spatial-ai-labs/stereo3d-gateway/internal/notify"
@@ -71,6 +72,7 @@ func Build(ctx context.Context, cfg *config.Config) (*Built, error) {
 	}
 	b.close = append(b.close, func() { gcs.Close() })
 
+	api.SetClientIPPolicy(identity.NewIPPolicy(cfg.LBIPs, cfg.RelayIPs)) // the addresses clientIP trusts
 	svc := &api.Service{
 		Cfg:     cfg,
 		Auth:    verifier,

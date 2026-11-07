@@ -35,7 +35,7 @@ func (c *cpkClient) req(method, body string) *http.Request {
 		r.Header.Set("Origin", c.origin)
 	}
 	r.Header.Set("User-Agent", iphoneUA)
-	r.Header.Set("X-Client-IP", c.ip)
+	r.Header.Set("X-Forwarded-For", c.ip) // the caller's own address (X-Client-IP counts only from the relay)
 	return r
 }
 
