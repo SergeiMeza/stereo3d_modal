@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
-import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox, type Tone } from "@/components/common";
+import { Banner, EmptyRow, ErrorState, FilterSelect, KV, LoadingBlock, Modal, Note, PageHeader, Panel, StateBox } from "@/components/common";
 import { PasskeyNote } from "@/components/PasskeyNote";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -22,6 +22,7 @@ import { ApiError, errorMessage } from "../lib/api";
 import { ago, dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
+import { LiveRunStatus as LiveStatus } from "@/components/LiveRunStatus";
 import { liveAccountRunIdsAtom, liveAdminRunAtom, openAdminRunStream } from "../lib/liveRuns";
 import { useServices } from "../lib/services";
 import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRuns } from "../lib/types";
@@ -667,31 +668,6 @@ function signInMethod(m: string): string {
   return METHODS[m] ?? words(m);
 }
 
-function runTone(status: string): Tone {
-  const s = status.toUpperCase();
-  if (s === "SUCCEEDED") return "green";
-  if (s === "FAILED" || s === "CANCELLED" || s === "CANCELED") return "amber";
-  return "plain";
-}
-
-/** A run's status as the stream last said it, with its progress while
- * it's being made ("processing · 62%", "waiting for a GPU"). */
-function LiveStatus({ id, status }: { id: string; status: string }) {
-  const live = useAtomValue(liveAdminRunAtom(id));
-  const state = live?.state ?? status;
-  const working = state.toLowerCase() === "processing";
-  const pct = working && typeof live?.progress === "number" ? Math.round(Math.min(Math.max(live.progress, 0), 1) * 100) : null;
-  return (
-    <span className="inline-flex items-center gap-2" data-testid={`run-status-${id}`}>
-      <Badge variant={runTone(state)}>{words(state).toLowerCase()}</Badge>
-      {working && live?.waiting_for_gpu ? (
-        <span className="text-xs text-muted-foreground">waiting for a GPU</span>
-      ) : pct !== null ? (
-        <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
-      ) : null}
-    </span>
-  );
-}
 
 /** A run the stream announced after the page loaded. */
 function LiveNewRun({ id }: { id: string }) {

@@ -1,6 +1,6 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 
 import { casePage, mailPreviews } from "../test/fixtures";
 import { apiError, FakeAuth, renderApp } from "../test/harness";
@@ -246,6 +246,45 @@ describe("case page (A2)", () => {
     await userEvent.type(await screen.findByLabelText("Add a note"), "Checked the logs.");
     await userEvent.click(screen.getByRole("button", { name: "Add note" }));
     await waitFor(() => expect(calls.find((c) => c.method === "POST")?.body).toEqual({ action: "note", text: "Checked the logs." }));
+  });
+
+  it("a run still going follows its own console stream (run_id=); finished runs open none (owner 2026-11-07)", async () => {
+    const opened: { url: string; target: EventTarget }[] = [];
+    class FakeES extends EventTarget {
+      readyState = 1;
+      onerror: (() => void) | null = null;
+      constructor(public url: string) {
+        super();
+        opened.push({ url, target: this });
+      }
+      close() {
+        this.readyState = 2;
+      }
+    }
+    vi.stubGlobal("EventSource", FakeES);
+    const page = casePage({}, { status: "waiting_for_run" });
+    page.runs = [
+      { ...page.runs![0], conversion_id: "c_going", state: "PROCESSING" },
+      { ...page.runs![0], conversion_id: "c_done", state: "SUCCEEDED" },
+    ];
+    renderApp("/cases/CASE-0042", {
+      ...base(page),
+      "POST /v1/admin/events/ticket": () => ({ json: { ticket: "t9", expires_at: "2026-11-07T10:02:00Z", url: "/v1/admin/events?ticket=t9" } }),
+    });
+    await screen.findByRole("heading", { name: "CASE-0042" });
+    await waitFor(() => expect(opened).toHaveLength(1));
+    expect(opened[0].url).toBe("https://gw.test/v1/admin/events?ticket=t9&run_id=c_going");
+    act(() => {
+      opened[0].target.dispatchEvent(
+        new MessageEvent("run.progress", {
+          data: JSON.stringify({ type: "run.progress", run_id: "c_going", version: 3, state: "processing", progress: 0.4 }),
+          lastEventId: "1",
+        }),
+      );
+    });
+    expect(screen.getByTestId("run-status-c_going")).toHaveTextContent("processing40%");
+    expect(screen.queryByTestId("run-status-c_done")).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it("closed cases offer no decisions", async () => {

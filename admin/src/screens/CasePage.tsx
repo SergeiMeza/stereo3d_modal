@@ -1,4 +1,5 @@
-import { useState, type ReactNode } from "react";
+import { useStore } from "jotai";
+import { useEffect, useState, type ReactNode } from "react";
 import { toast } from "sonner";
 
 import { Banner, EmptyRow, ErrorState, LoadingBlock, MiniTable, Note, Panel, PlainText, StateBox } from "@/components/common";
@@ -14,6 +15,8 @@ import { ApiError, errorMessage } from "../lib/api";
 import { dateOnly, dateTime, money, until, words } from "../lib/format";
 import { statusLabel, statusTone, typeLabel, typeTone } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
+import { LiveRunStatus } from "@/components/LiveRunStatus";
+import { openAdminRunStream } from "../lib/liveRuns";
 import { useServices } from "../lib/services";
 import type { CaseAction, CasePage as Page } from "../lib/types";
 import { caseQuery, mailPreviewsQuery } from "@/state/queries";
@@ -23,6 +26,22 @@ import { deliveredChip, EvidencePanel } from "./CaseEvidence";
 import { PlanMovePanel } from "./PlanMove";
 
 /** A2: one case. */
+const FINISHED = new Set(["SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "EXPIRED"]);
+/** At most this many run streams on one case page. */
+const MAX_RUN_STREAMS = 6;
+
+/** One console stream per run id (run_id=), while the page shows them. */
+function useRunStreams(ids: string[]) {
+  const { api } = useServices();
+  const store = useStore();
+  const key = ids.join(",");
+  useEffect(() => {
+    if (key === "") return;
+    const closes = key.split(",").map((run_id) => openAdminRunStream(api, { scope: { run_id }, store }));
+    return () => closes.forEach((c) => c());
+  }, [api, store, key]);
+}
+
 export function CasePage({ id }: { id: string }) {
   const { state, retry, reload, set } = useQuery(caseQuery, id);
   // loaded ahead for the action sheet's mail preview; a failure only hides it
@@ -79,6 +98,10 @@ function CaseBody({
   const actions = page.actions ?? [];
   const has = (a: CaseAction) => actions.includes(a);
   const runs = page.runs ?? [];
+  // owner 2026-11-07: each run still going follows its own console
+  // stream (run_id=); finished ones don't change (refunds are the case's)
+  const going = runs.filter((r) => !FINISHED.has(r.state.toUpperCase())).map((r) => r.conversion_id).slice(0, MAX_RUN_STREAMS);
+  useRunStreams(going);
   const evRuns = page.evidence?.runs ?? [];
   const max = page.max_refundable_cents;
   const waive = c.type === "waive";
@@ -257,6 +280,12 @@ function CaseBody({
                 <TableRow key={r.conversion_id}>
                   <TableCell>
                     <span className="font-mono text-xs text-muted-foreground">{r.conversion_id}</span> {r.label}
+                    {/* owner 2026-11-07: a run still going shows its live state */}
+                    {!FINISHED.has(r.state.toUpperCase()) ? (
+                      <span className="ml-2">
+                        <LiveRunStatus id={r.conversion_id} status={r.state} />
+                      </span>
+                    ) : null}
                   </TableCell>
                   <TableCell numeric>{money(r.price_cents)}</TableCell>
                   {waive ? (
