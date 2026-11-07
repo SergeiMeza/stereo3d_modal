@@ -134,7 +134,7 @@ function mailPlan(
         ? {
             id: "E10",
             subject: fillMail(base, c.id, null).subject,
-            text: `${body}\n\nQuestions? Reply to this email and quote ${c.id}.`,
+            text: `${body}\n\nQuestions? Reply to this email and quote ${c.id.replace(/^CASE-/, "REF-")}.`,
           }
         : null;
       return { mail, note: "" };
