@@ -347,6 +347,16 @@ type Stripe struct {
 	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
 }
 
+// CardCents is what the card pays of a run: the quote, less the balance's
+// part when a partial hold pays some of it (split pay). The same as the
+// quote for every run without a partial hold (the app's included).
+func (c *Conversion) CardCents() int64 {
+	if rb := c.RunBalance; rb != nil && rb.Partial {
+		return max(c.Quote.AmountCents-rb.HoldCents, 0)
+	}
+	return c.Quote.AmountCents
+}
+
 type Modal struct {
 	JobID        string     `firestore:"job_id,omitempty" json:"job_id,omitempty"`
 	SubmittedAt  *time.Time `firestore:"submitted_at,omitempty" json:"submitted_at,omitempty"`

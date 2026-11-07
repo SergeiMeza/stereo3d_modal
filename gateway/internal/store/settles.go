@@ -240,8 +240,8 @@ func (s *Store) OpenSettle(ctx context.Context, uid, trigger string, lease Lease
 			if c.Stripe.BatchID != "" {
 				continue // part of a group above
 			}
-			st.Items = append(st.Items, SettleItem{Kind: "run", ID: c.ID, AmountCents: c.Quote.AmountCents, PaymentIntentID: c.Stripe.PaymentIntentID})
-			st.AmountCents += c.Quote.AmountCents
+			st.Items = append(st.Items, SettleItem{Kind: "run", ID: c.ID, AmountCents: c.CardCents(), PaymentIntentID: c.Stripe.PaymentIntentID})
+			st.AmountCents += c.CardCents() // B9: the card's part, never the balance's
 			runs = append(runs, c)
 		}
 		if len(st.Items) == 0 {
@@ -406,7 +406,7 @@ func (s *Store) FinishSettle(ctx context.Context, id string, out SettleOutcome, 
 			switch {
 			case out.Paid:
 				c.Stripe.PIStatus, c.Stripe.PaymentIntentID = PISucceeded, out.PaymentIntentID
-				c.Stripe.CapturedCents, c.Stripe.CapturedAt, c.Stripe.SettleError = c.Quote.AmountCents, &now, ""
+				c.Stripe.CapturedCents, c.Stripe.CapturedAt, c.Stripe.SettleError = c.CardCents(), &now, "" // B9
 				c.Stripe.SettleID = id
 			case own:
 				c.Stripe.PIStatus = PIChargeFailed
