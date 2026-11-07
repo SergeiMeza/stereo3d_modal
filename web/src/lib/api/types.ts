@@ -1606,7 +1606,11 @@ export interface BillingStatus {
   unpaid: UnpaidCharge[];
   /** the open batch, when any step is waiting to be charged */
   pending?: PendingBatch;
+  /** the app's batch ladder (D15, gateway 5ce38a4); read batchTierOf */
   tier?: BillingTier;
+  /** D15: the web's batch ladder ($25 / 1 h to start, up to $1,000 / 24 h);
+   * absent on gateways before it */
+  web_tier?: BillingTier;
   publishable_key: string;
   /** spec v6 F/C10: what the account owes (sum, no cap); settling = a
    * payment for it is in progress */
@@ -1894,4 +1898,10 @@ const ONE_TAP_STATES: ReadonlySet<string> = new Set(["succeeded", "processing", 
 export function tapStateOf(answer: OneTapAnswer): OneTapState {
   if (answer.one_tap_state && ONE_TAP_STATES.has(answer.one_tap_state)) return answer.one_tap_state;
   return answer.state && ONE_TAP_STATES.has(answer.state) ? (answer.state as OneTapState) : "declined";
+}
+
+/** D15: the batch cap and window the web goes by: web_tier, else tier
+ * (gateways before 5ce38a4 send one ladder). */
+export function batchTierOf(status: Pick<BillingStatus, "tier" | "web_tier"> | null | undefined): BillingTier | null {
+  return status?.web_tier ?? status?.tier ?? null;
 }
