@@ -58,6 +58,14 @@ describe("/account/billing?settle=1", () => {
     expect(screen.queryByTestId("settle-nothing")).toBeNull();
   });
 
+  it("the failed-payment mails' ?pay=1 opens it too (BUX-01)", async () => {
+    mockDb.billing.unpaid.push({ conversion_id: "m0cdeadbeef1", amount_cents: 333, currency: "usd", needs_action: false });
+    window.history.replaceState(null, "", "/account/billing?pay=1&utm_source=mail");
+    renderPage();
+    expect(await screen.findByTestId("settle-sheet")).toBeTruthy();
+    expect(window.location.search).toBe("?utm_source=mail");
+  });
+
   it("with nothing owed: Nothing to pay.", async () => {
     window.history.replaceState(null, "", "/account/billing?settle=1");
     renderPage();
