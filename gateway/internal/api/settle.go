@@ -32,6 +32,9 @@ const (
 	// runs of web projects): the web's charge rules (pmc_web, the web
 	// backups), where the app's groups keep soft_retry (D1).
 	settleWebRetry = "web_retry"
+	// settleOneTap: the customer paid what they owe with one tap (BUX-20):
+	// on-session, the default, no sheet.
+	settleOneTap = "one_tap"
 
 	iosBankCheckLease = 30 * time.Minute
 )
@@ -129,6 +132,8 @@ func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, p
 		return s.paySettleFromBalance(ctx, st, dropped)
 	case settleSheet:
 		return s.openSettleSession(ctx, st, pc)
+	case settleOneTap:
+		return s.oneTapSettle(ctx, st, dropped, pc)
 	case settleIOS:
 		return s.chargeSettle(ctx, st, dropped, false)
 	default:
@@ -159,6 +164,8 @@ func (s *Service) markRunPaidAlone(ctx context.Context, convID string, out strip
 func (s *Service) liveSettleResult(ctx context.Context, st *store.Settle, trigger string, pc payContext) (settleResult, error) {
 	res := settleResult{Settle: st, Live: true}
 	switch trigger {
+	case settleOneTap:
+		return s.oneTapLiveSettle(ctx, st, pc)
 	case settleSheet:
 		if cp := st.CurrentPayment; cp != nil && cp.Kind == store.PaymentCheckoutSession && cp.UI == "elements" {
 			if out, sess, err := s.Stripe.SessionOutcome(cp.ID); err == nil {
@@ -613,7 +620,7 @@ func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *Au
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be made; try again"))
 			return
 		}
-		httpx.WriteOK(w, s.settleSheetResponse(ctx, user.UID, res))
+		httpx.WriteOK(w, noOneTapInChina(r, s.settleSheetResponse(ctx, user.UID, res)))
 		return
 	}
 	customerID, err := s.ensureCustomerID(ctx, user)
@@ -629,7 +636,7 @@ func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *Au
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be opened; try again"))
 			return
 		}
-		httpx.WriteOK(w, s.settleSheetResponse(ctx, user.UID, res))
+		httpx.WriteOK(w, noOneTapInChina(r, s.settleSheetResponse(ctx, user.UID, res)))
 		return
 	}
 	res, err := s.collectOutstanding(ctx, user.UID, settleIOS, payContextOf(r))
@@ -689,6 +696,10 @@ func (s *Service) settleSheetResponse(ctx context.Context, uid string, res settl
 		if st.State == store.SettlePaid {
 			if more := s.owedCents(ctx, uid); more > 0 {
 				resp["more_owed_cents"] = more // "One more payment is waiting."
+			}
+		} else if st.State == store.SettleSettling {
+			if cust, err := s.Store.GetCustomer(ctx, uid); err == nil {
+				resp["one_tap"] = s.oneTapOffer(ctx, uid, cust, st.AmountCents, false) // BUX-20: null when not allowed
 			}
 		}
 	}

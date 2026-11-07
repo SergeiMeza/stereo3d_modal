@@ -616,6 +616,9 @@ type payContext struct {
 	China  bool
 	Device string
 	IP     string
+	// OneTapCents / SettleID: what a one-tap settle showed (BUX-20).
+	OneTapCents int64
+	SettleID    string
 }
 
 func payContextOf(r *http.Request) payContext {

@@ -287,6 +287,11 @@ type Rates struct {
 	// local currency (owner 2026-11-07, Option B). Our amounts stay USD.
 	// Test on; prod off until the owner says.
 	AdaptivePricingEnabled bool `firestore:"adaptive_pricing_enabled"`
+	// OneTapEnabled: a pay-first run or a settle can be paid with one tap
+	// on the saved default that has paid before (BUX-20, owner
+	// 2026-11-07): an on-session PaymentIntent, no sheet. Test on; absent
+	// = off (prod until the owner says).
+	OneTapEnabled bool `firestore:"one_tap_enabled"`
 	// ChinaPaymentsEnabled: China mode's own payments (Alipay run pay-now,
 	// hand-off Alipay, Alipay top-up) and plan checkout in China mode
 	// (owner 2026-11-07: off at launch; "Payments in mainland China are
@@ -873,6 +878,7 @@ func DefaultsFor(env string) *Rates {
 		applyTestTierDefaults(r)           // 2026-11 pricing, test only
 		r.AccountDeleteDelayHours = 48     // the 48-hour wait (owner 2026-11-07), test first
 		r.AdaptivePricingEnabled = true    // Option B (owner 2026-11-07), test first
+		r.OneTapEnabled = true             // BUX-20, test first
 	}
 	return r
 }

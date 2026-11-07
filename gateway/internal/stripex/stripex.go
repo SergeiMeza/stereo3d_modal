@@ -844,6 +844,46 @@ func (c *Client) chargeKeyed(customerID, paymentMethodID string, amountCents int
 	return paymentintent.New(params)
 }
 
+// CreateOnSession makes an on-session PaymentIntent for the saved default
+// (one-tap, BUX-20): USD under job.PMC, not confirmed — the caller records
+// it first, then ConfirmOnSession moves the money. Key: one per tap.
+func (c *Client) CreateOnSession(customerID, paymentMethodID string, amountCents int64, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey(key)
+	return paymentintent.New(params)
+}
+
+// ConfirmOnSession confirms it with the customer present (off_session
+// false: the bank may ask for its check, answered by the web's
+// handleNextAction); returnURL serves redirect methods (PayPal).
+func (c *Client) ConfirmOnSession(paymentIntentID, returnURL string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentConfirmParams{ReturnURL: stripe.String(returnURL)}
+	params.SetIdempotencyKey("onetap_confirm_" + paymentIntentID)
+	return paymentintent.Confirm(paymentIntentID, params)
+}
+
+// ChargeOnSession creates and confirms in one call (a settle's one-tap,
+// recorded before by the caller, B5).
+func (c *Client) ChargeOnSession(customerID, paymentMethodID string, amountCents int64, returnURL, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String("usd"),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		ReturnURL:     stripe.String(returnURL),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey(key)
+	return paymentintent.New(params)
+}
+
 // CreateAlipayPayment creates and confirms an Alipay PaymentIntent
 // server-side for China mode (B7): no Stripe.js. The browser follows
 // next_action.alipay_handle_redirect.url and comes back to returnURL. Key

@@ -36,6 +36,7 @@ type offFake struct {
 	creates  []map[string]string
 	confirms []map[string]string // {pi, pm, key}
 	cancels  []string
+	expired  []string // Checkout Sessions closed
 	sessions []map[string]string
 	n        int
 	// lostAnswers: the next n creates charge, then answer 500 (a timeout
@@ -57,6 +58,10 @@ func newOffFake(t *testing.T) *offFake {
 
 func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
 	pi["payment_method"] = pm
+	if f.outcome[pm] == "auth" && pi["on_session"] == true { // the bank's check, customer present
+		pi["status"] = "requires_action"
+		return 200, f.piJSON(pi)
+	}
 	switch o := f.outcome[pm]; {
 	case o == "":
 		pi["status"], pi["amount_received"] = "succeeded", pi["amount"]
@@ -150,8 +155,14 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		pi := map[string]any{"id": id, "amount": amount, "currency": form["currency"], "customer": form["customer"], "metadata": md,
 			"pmc":           form["payment_method_configuration"],
 			"client_secret": id + "_secret_x", "created": time.Now().Unix()}
+		pi["on_session"] = form["off_session"] != "true"
 		f.pis[id] = pi
 		f.creates = append(f.creates, form)
+		if form["confirm"] != "true" { // made, not confirmed
+			pi["payment_method"], pi["status"] = form["payment_method"], "requires_confirmation"
+			reply(200, f.piJSON(pi))
+			return
+		}
 		code, body := f.charge(pi, form["payment_method"])
 		if f.keptAnswers > 0 {
 			f.keptAnswers--
@@ -179,7 +190,14 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case strings.HasPrefix(p, "/v1/payment_intents/") && strings.HasSuffix(p, "/confirm"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/payment_intents/"), "/confirm")
 		pi := f.pis[id]
-		f.confirms = append(f.confirms, map[string]string{"pi": id, "pm": form["payment_method"], "key": key})
+		f.confirms = append(f.confirms, map[string]string{"pi": id, "pm": form["payment_method"], "key": key, "return_url": form["return_url"],
+			"off_session": form["off_session"]})
+		if pi != nil && form["payment_method"] == "" {
+			form["payment_method"], _ = pi["payment_method"].(string)
+		}
+		if pi != nil {
+			pi["on_session"] = form["off_session"] != "true"
+		}
 		if pi == nil || pi["status"] == "succeeded" || pi["status"] == "canceled" {
 			reply(400, map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "payment_intent_unexpected_state"}})
 			return
@@ -238,6 +256,10 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		reply(404, map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "resource_missing"}})
+	case strings.HasPrefix(p, "/v1/checkout/sessions/") && strings.HasSuffix(p, "/expire"):
+		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/checkout/sessions/"), "/expire")
+		f.expired = append(f.expired, id)
+		reply(200, map[string]any{"id": id, "object": "checkout.session", "status": "expired", "payment_status": "unpaid"})
 	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
 		f.n++
 		f.sessions = append(f.sessions, form)
