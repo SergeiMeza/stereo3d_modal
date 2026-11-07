@@ -1,7 +1,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"log/slog"
 	"strings"
 	"testing"
 	"time"
@@ -266,5 +268,38 @@ func TestStepUpNoLongerStepUpRefunded(t *testing.T) {
 	pr, _ := f.s.Store.GetPayRequest(ctx, tok)
 	if pr.State != store.PayVoid || pr.ApplyError != "no longer a step-up" || len(f.fake.refunds) != 1 {
 		t.Fatalf("%+v %v", pr, f.fake.refunds)
+	}
+}
+
+// REV-15: a pay link's token pays its debt, so logs and support cases name
+// it by its first 10 characters only.
+func TestPayTokenStaysOutOfLogsAndCases(t *testing.T) {
+	var buf bytes.Buffer
+	prev := slog.Default()
+	slog.SetDefault(slog.New(slog.NewTextHandler(&buf, nil)))
+	t.Cleanup(func() { slog.SetDefault(prev) })
+	f, tok, md := stepUpPaidFixture(t)
+	ctx := context.Background()
+	f.fake.changeDown = true
+	f.s.applyStepUpSession(ctx, "checkout.session.completed", "cs_su", md) // logs the failed try
+	f.s.Store.UpdatePayRequest(ctx, tok, func(x *store.PayRequest) error { // then refunded: a case
+		x.Apply["plan_to"] = "pro_weekly"
+		return nil
+	})
+	f.fake.changeDown = false
+	f.s.stepUpApplySweep(ctx, time.Now().Add(3*time.Minute))
+	if strings.Contains(buf.String(), tok) || !strings.Contains(buf.String(), payTokenRef(tok)) {
+		t.Fatalf("log names the token: %s", buf.String())
+	}
+	cases, _ := f.s.Store.ListCasesByPI(ctx, "pi_cs_su", 20)
+	if len(cases) == 0 {
+		t.Fatal("no refund case")
+	}
+	for _, c := range cases {
+		for _, id := range c.Related.ConversionIDs {
+			if strings.Contains(id, tok) {
+				t.Fatalf("case %s names the token: %v", c.ID, c.Related)
+			}
+		}
 	}
 }

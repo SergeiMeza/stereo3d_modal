@@ -170,7 +170,7 @@ func (s *Service) applyStepUpSession(ctx context.Context, eventType, sessionID s
 		return nil
 	})
 	if errors.Is(err, store.ErrStateConflict) || errors.Is(err, store.ErrNotFound) {
-		s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + token, UID: uid}, out.PaymentIntentID, out.AmountReceived, "a step-up paid twice or not ours")
+		s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + payTokenRef(token), UID: uid}, out.PaymentIntentID, out.AmountReceived, "a step-up paid twice or not ours")
 		return nil
 	}
 	if err != nil {
@@ -209,7 +209,7 @@ func (s *Service) stepUpApply(ctx context.Context, token, uid, sessionID string,
 			}
 			return nil
 		})
-		slog.WarnContext(ctx, "paid step-up not applied yet; tried again", "pay_request", token, "err", err)
+		slog.WarnContext(ctx, "paid step-up not applied yet; tried again", "pay_request", payTokenRef(token), "err", err)
 		return err
 	}
 	cust, err := s.Store.GetCustomer(ctx, uid)
@@ -258,8 +258,8 @@ func (s *Service) stepUpRefund(ctx context.Context, token, uid, sessionID string
 		}
 		return nil
 	})
-	slog.WarnContext(ctx, "paid step-up not applied; refunding", "pay_request", token, "err", why)
-	s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + token, UID: uid}, out.PaymentIntentID, out.AmountReceived, "the plan change couldn't be made after it was paid")
+	slog.WarnContext(ctx, "paid step-up not applied; refunding", "pay_request", payTokenRef(token), "err", why)
+	s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + payTokenRef(token), UID: uid}, out.PaymentIntentID, out.AmountReceived, "the plan change couldn't be made after it was paid")
 	s.Slack.Alert(ctx, "stepup_refunded", fmt.Sprintf("`%s`'s paid step-up to %s couldn't be made (%v); %s refunded", uid, to, why, money(out.AmountReceived)))
 }
 

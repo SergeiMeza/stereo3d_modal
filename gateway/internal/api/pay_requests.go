@@ -507,9 +507,13 @@ func (s *Service) payRequestsAfterSettle(ctx context.Context, uid string) {
 	}
 }
 
+// payTokenRef names a pay link in logs, cases and alerts (REV-15): the
+// token's first 10 characters, as admin shows it; the whole token pays.
+func payTokenRef(token string) string { return token[:min(len(token), 10)] }
+
 // payRequestJSON is one link for admin (the token itself only shortened).
 func payRequestJSON(p *store.PayRequest) map[string]any {
-	out := map[string]any{"token_prefix": p.ID[:min(len(p.ID), 10)], "uid": p.UID, "kind": p.Kind, "source_id": p.SourceID,
+	out := map[string]any{"token_prefix": payTokenRef(p.ID), "uid": p.UID, "kind": p.Kind, "source_id": p.SourceID,
 		"amount_cents": p.AmountCents, "label": p.Label, "state": p.State, "created_at": p.CreatedAt.Format(time.RFC3339),
 		"expires_at": p.ExpiresAt.Format(time.RFC3339)}
 	if p.State == store.PayOpen && !time.Now().Before(p.ExpiresAt) {
