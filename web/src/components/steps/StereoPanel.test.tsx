@@ -1143,6 +1143,9 @@ describe("StereoPanel free shot profiling", () => {
       </AuthProvider>,
     );
 
+    // CI 2026-11-07: two reads in one poll could skip 60%; it holds there
+    // until the test lets it finish
+    mockDb.profileHold = true;
     await user.click(screen.getByRole("button", { name: "Profile shots (free)" }));
 
     // POST set profile running; the live feed moves it on
@@ -1152,6 +1155,7 @@ describe("StereoPanel free shot profiling", () => {
     expect(screen.queryByRole("button", { name: "Profile shots (free)" })).toBeNull();
 
     // the next tick finishes it; the harness reads the project again
+    mockDb.profileHold = false;
     await waitFor(() => expect(screen.queryByTestId("profile-running")).toBeNull());
 
     // rows re-seeded from the profiled shots (mock bucket 0 = standard) —

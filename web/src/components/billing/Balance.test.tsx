@@ -285,6 +285,34 @@ describe("Balance card (P10)", () => {
   });
 });
 
+/** Resolves once the mock gateway has answered a top-up of this amount. */
+function topupAnswer(cents: number): Promise<void> {
+  const asked = new Set<string>();
+  const answered = new Set<string>();
+  return new Promise((resolve) => {
+    const finish = (id: string) => {
+      if (!asked.has(id) || !answered.has(id)) return;
+      server.events.removeListener("request:start", start);
+      server.events.removeListener("response:mocked", done);
+      resolve();
+    };
+    // the body is read after the request starts, so either may come last
+    const start = async ({ request, requestId }: { request: Request; requestId: string }) => {
+      if (!request.url.endsWith("/v1/billing/balance/topup")) return;
+      const body = (await request.clone().json()) as { amount_cents?: number };
+      if (body.amount_cents !== cents) return;
+      asked.add(requestId);
+      finish(requestId);
+    };
+    const done = ({ requestId }: { requestId: string }) => {
+      answered.add(requestId);
+      finish(requestId);
+    };
+    server.events.on("request:start", start);
+    server.events.on("response:mocked", done);
+  });
+}
+
 describe("Add funds (P17)", () => {
   it("adds the chosen amount and shows the new balance", async () => {
     renderBilling();
@@ -307,7 +335,11 @@ describe("Add funds (P17)", () => {
     fireEvent.click(within(sheet).getByRole("radio", { name: "Other" }));
     fireEvent.change(within(sheet).getByRole("textbox", { name: "Amount" }), { target: { value: "5" } });
     expect(await screen.findByText("The minimum is $10.")).toBeTruthy();
+    // CI 2026-11-07: the line comes with the gateway's refusal (after the
+    // sheet's 250 ms settle), so wait for that answer, not the clock
+    const refused = topupAnswer(20000);
     fireEvent.change(screen.getByRole("textbox", { name: "Amount" }), { target: { value: "200" } });
+    await refused;
     expect(await screen.findByText("You can add up to $100 for your first top-up.")).toBeTruthy();
   });
 });

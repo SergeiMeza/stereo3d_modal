@@ -6,7 +6,7 @@
  * Preview tab's sizes follow Remove black bars.
  */
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { delay, http } from "msw";
+import { http } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 import type { Project } from "@/lib/api/types";
@@ -68,10 +68,18 @@ function creates(): Record<string, unknown>[] {
 describe("starting a free preview", () => {
   it("is busy until the answer, starts one run for a double click, then shows it and the previews left", async () => {
     const posted = creates();
-    // a cold start: the create answers slowly
+    // CI 2026-11-07: the run used to finish on the 30 ms polls before the
+    // free previews were priced again under load, and the finished view
+    // has no price line. It waits for a GPU for the whole test instead.
+    mockDb.gpuWaitPolls = Number.MAX_SAFE_INTEGER;
+    // a cold start: the create answers when the test says so
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
     server.use(
       http.post(`${GATEWAY}/v1/projects/:id/conversions`, async () => {
-        await delay(400);
+        await answered;
         return undefined;
       }),
     );
@@ -93,9 +101,13 @@ describe("starting a free preview", () => {
     expect(main.getAttribute("aria-busy")).toBe("true");
     fireEvent.click(main);
 
-    // one run, with its own key
+    // one run, with its own key, and still busy while the answer is out
     await waitFor(() => expect(posted).toHaveLength(1));
     expect(posted[0].key).toBeTruthy();
+    expect(main.textContent).toBe(STARTING);
+    expect(main.disabled).toBe(true);
+    answer();
+
     // created: the run shows at once, the project is read again, and the
     // free previews left are priced again
     expect(await screen.findByRole("region", { name: "Past previews" })).toBeTruthy();
@@ -103,9 +115,7 @@ describe("starting a free preview", () => {
     await waitFor(() => expect(screen.getByTestId("free-previews").textContent).toMatch(/^19 of 20 free previews left/), {
       timeout: 3000,
     });
-    await act(async () => {
-      await delay(500);
-    });
+    // the clicks while it was busy never became a second run
     expect(posted).toHaveLength(1);
   });
 
