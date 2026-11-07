@@ -169,6 +169,62 @@ describe("account page (A3)", () => {
     expect(calls.some((c) => c.url.includes("runs_limit=20&runs_before=r2"))).toBe(true);
   });
 
+  it("the runs follow the console's stream: progress, then the finish, and a new run joins the top (owner 2026-11-07)", async () => {
+    // a stand-in EventSource the test drives
+    const opened: FakeES[] = [];
+    class FakeES extends EventTarget {
+      readyState = 1;
+      onerror: (() => void) | null = null;
+      constructor(public url: string) {
+        super();
+        opened.push(this);
+      }
+      close() {
+        this.readyState = 2;
+      }
+      emit(name: string, data: unknown, id: string) {
+        this.dispatchEvent(new MessageEvent(name, { data: JSON.stringify(data), lastEventId: id }));
+      }
+    }
+    vi.stubGlobal("EventSource", FakeES);
+    const run = (id: string, status: string) => ({ id, project_id: "p1", status, kind: "lifelike", created_at: "2026-11-07T10:00:00Z", amount_cents: 1200 });
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: { ...account, runs: { count: 1, items: [run("live_r1", "PROCESSING")], next_before: null } },
+      }),
+      "POST /v1/admin/events/ticket": () => ({ json: { ticket: "t1", expires_at: "2026-11-07T10:02:00Z", url: "/v1/admin/events?ticket=t1" } }),
+    });
+    await screen.findByTestId("account-runs");
+    await waitFor(() => expect(opened).toHaveLength(1));
+    expect(opened[0].url).toBe("https://gw.test/v1/admin/events?ticket=t1&uid=uid_123");
+    const es = opened[0];
+    act(() => es.emit("run.progress", { type: "run.progress", run_id: "live_r1", version: 10, state: "processing", progress: 0.62 }, "1"));
+    expect(screen.getByTestId("run-status-live_r1")).toHaveTextContent("processing62%");
+    // an older event delivered late changes nothing
+    act(() => es.emit("run.progress", { type: "run.progress", run_id: "live_r1", version: 9, state: "processing", progress: 0.3 }, "2"));
+    expect(screen.getByTestId("run-status-live_r1")).toHaveTextContent("processing62%");
+    act(() =>
+      es.emit("run.state", { type: "run.state", run_id: "live_r1", version: 11, state: "succeeded", run: { conversion_id: "live_r1", state: "succeeded", progress: 1 } }, "3"),
+    );
+    expect(screen.getByTestId("run-status-live_r1")).toHaveTextContent("succeeded");
+    act(() =>
+      es.emit(
+        "run.state",
+        {
+          type: "run.state",
+          run_id: "live_r2",
+          version: 12,
+          state: "paid",
+          run: { conversion_id: "live_r2", state: "paid", step: "production", created_at: "2026-11-07T10:05:00Z", quote: { amount_cents: 900 } },
+        },
+        "4",
+      ),
+    );
+    expect(screen.getByTestId("run-status-live_r2")).toHaveTextContent("paid");
+    expect(within(screen.getByTestId("account-runs")).getAllByRole("row")).toHaveLength(3);
+    vi.unstubAllGlobals();
+  });
+
   it("shows 'No account with that ID.'", async () => {
     renderApp("/accounts/nobody", { "GET /v1/admin/accounts/nobody": () => apiError(404, "no_account", "No account with that ID.") });
     expect(await screen.findByText("No account with that ID.")).toBeInTheDocument();

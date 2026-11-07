@@ -256,6 +256,17 @@ export class AdminApi {
   }
 
   /** One account; `runs` pages its runs list (gateway rev 00114). */
+  /** POST /v1/admin/events/ticket (owner 2026-11-07): the console stream's
+   * ticket, two minutes, under the passkey session. */
+  eventsTicket(): Promise<{ ticket: string; expires_at: string; url: string }> {
+    return this.json("POST", "/v1/admin/events/ticket", {});
+  }
+
+  /** A gateway path as a full address (the stream's EventSource). */
+  urlOf(path: string): string {
+    return this.baseUrl + path;
+  }
+
   getAccount(uid: string, runs?: { limit?: number; before?: string }): Promise<AccountPage> {
     const q = new URLSearchParams();
     if (runs?.limit) q.set("runs_limit", String(runs.limit));

@@ -1,5 +1,5 @@
-import { useSetAtom } from "jotai";
-import { useState } from "react";
+import { useAtomValue, useSetAtom, useStore } from "jotai";
+import { useEffect, useState } from "react";
 import { ChevronDownIcon } from "lucide-react";
 import { toast } from "sonner";
 
@@ -22,6 +22,7 @@ import { ApiError, errorMessage } from "../lib/api";
 import { ago, dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
+import { liveAccountRunIdsAtom, liveAdminRunAtom, openAdminRunStream } from "../lib/liveRuns";
 import { useServices } from "../lib/services";
 import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRuns } from "../lib/types";
 import { accountQuery } from "@/state/queries";
@@ -673,6 +674,50 @@ function runTone(status: string): Tone {
   return "plain";
 }
 
+/** A run's status as the stream last said it, with its progress while
+ * it's being made ("processing · 62%", "waiting for a GPU"). */
+function LiveStatus({ id, status }: { id: string; status: string }) {
+  const live = useAtomValue(liveAdminRunAtom(id));
+  const state = live?.state ?? status;
+  const working = state.toLowerCase() === "processing";
+  const pct = working && typeof live?.progress === "number" ? Math.round(Math.min(Math.max(live.progress, 0), 1) * 100) : null;
+  return (
+    <span className="inline-flex items-center gap-2" data-testid={`run-status-${id}`}>
+      <Badge variant={runTone(state)}>{words(state).toLowerCase()}</Badge>
+      {working && live?.waiting_for_gpu ? (
+        <span className="text-xs text-muted-foreground">waiting for a GPU</span>
+      ) : pct !== null ? (
+        <span className="text-xs tabular-nums text-muted-foreground">{pct}%</span>
+      ) : null}
+    </span>
+  );
+}
+
+/** A run the stream announced after the page loaded. */
+function LiveNewRun({ id }: { id: string }) {
+  const live = useAtomValue(liveAdminRunAtom(id));
+  if (!live?.created_at) return null;
+  return (
+    <TableRow>
+      <TableCell className="font-mono text-xs text-muted-foreground">{dateTime(live.created_at)}</TableCell>
+      <TableCell className="font-mono text-xs">{id}</TableCell>
+      <TableCell>{live.step ? words(live.step) : "—"}</TableCell>
+      <TableCell numeric>{typeof live.quote?.amount_cents === "number" ? money(live.quote.amount_cents) : "—"}</TableCell>
+      <TableCell>
+        <LiveStatus id={id} status={live.state ?? ""} />
+      </TableCell>
+    </TableRow>
+  );
+}
+
+/** A streamed run newer than the newest listed one (older ones stay off:
+ * they belong to pages not loaded). */
+function isNewer(created: string | undefined, items: { created_at: string }[]): boolean {
+  if (!created) return false;
+  const newest = items[0]?.created_at;
+  return !newest || created > newest;
+}
+
 /** The account's runs, newest first, 20 at a time (runs_before paging). */
 function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
   const { api } = useServices();
@@ -699,9 +744,16 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
       setBusy(false);
     }
   };
+  // owner 2026-11-07: the account's runs follow the console's stream
+  // (state and progress); runs started since the page loaded join the top
+  // (into this session's store)
+  const store = useStore();
+  useEffect(() => openAdminRunStream(api, { scope: { uid }, store }), [api, uid, store]);
+  const liveIds = useAtomValue(liveAccountRunIdsAtom(uid));
+  const fresh = liveIds.filter((id) => !items.some((r) => r.id === id) && isNewer(store.get(liveAdminRunAtom(id))?.created_at, items));
   return (
     <Panel title="Runs" note={<span className="tabular-nums">{runs.count} in total</span>}>
-      {items.length === 0 ? (
+      {items.length === 0 && fresh.length === 0 ? (
         <EmptyRow>No runs.</EmptyRow>
       ) : (
         <Table data-testid="account-runs">
@@ -715,6 +767,9 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
             </TableRow>
           </TableHeader>
           <TableBody>
+            {fresh.map((id) => (
+              <LiveNewRun key={id} id={id} />
+            ))}
             {items.map((r) => (
               <TableRow key={r.id}>
                 <TableCell className="font-mono text-xs text-muted-foreground">{dateTime(r.created_at)}</TableCell>
@@ -722,7 +777,7 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
                 <TableCell>{r.kind ? words(r.kind) : "—"}</TableCell>
                 <TableCell numeric>{typeof r.amount_cents === "number" ? money(r.amount_cents) : "—"}</TableCell>
                 <TableCell>
-                  <Badge variant={runTone(r.status)}>{words(r.status).toLowerCase()}</Badge>
+                  <LiveStatus id={r.id} status={r.status} />
                 </TableCell>
               </TableRow>
             ))}
