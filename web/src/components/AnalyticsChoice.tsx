@@ -73,7 +73,7 @@ export function AnalyticsChoice() {
         >
           <span
             className={`inline-block size-4 rounded-full bg-white transition-transform ${
-              on ? "translate-x-4" : "translate-x-0.5"
+              on ? "translate-x-4 rtl:-translate-x-4" : "translate-x-0.5 rtl:-translate-x-0.5"
             }`}
           />
         </button>

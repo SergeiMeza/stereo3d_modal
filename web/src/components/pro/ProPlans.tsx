@@ -96,7 +96,7 @@ export function ProPlans({
               disabled={buying}
               onClick={() => setChosen(p.id)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors",
+                "flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-start transition-colors",
                 on
                   ? "border-primary bg-primary/10"
                   : "border-edge bg-surface-1 hover:border-primary/50",
@@ -125,7 +125,7 @@ export function ProPlans({
                   </span>
                 )}
               </span>
-              <span className="shrink-0 text-right">
+              <span className="shrink-0 text-end">
                 <span className="block font-semibold tabular-nums text-fg">
                   {p.price}
                 </span>

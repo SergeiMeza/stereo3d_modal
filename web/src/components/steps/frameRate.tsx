@@ -236,7 +236,7 @@ export function FrameRatePicker({
               disabled={o.locked}
               data-testid={`fps-${o.fps}`}
               onClick={() => onChange(o.fps)}
-              className={`flex items-center gap-2 rounded-lg border text-left text-sm transition-colors ${
+              className={`flex items-center gap-2 rounded-lg border text-start text-sm transition-colors ${
                 compact ? "h-8 px-2.5 text-xs" : "p-3"
               } ${
                 o.locked

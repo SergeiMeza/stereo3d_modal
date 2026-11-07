@@ -371,7 +371,7 @@ export function DeliverPanel({
                         className="accent-primary"
                       />
                       <span className="font-medium">{edgeStyleName(m, t)}</span>
-                      <span data-testid={`edge-price-${m}`} className="ml-auto font-mono text-xs">
+                      <span data-testid={`edge-price-${m}`} className="ms-auto font-mono text-xs">
                         {edgePrices[m] !== undefined ? formatCents(edgePrices[m], t) : "…"}
                       </span>
                     </label>
@@ -417,7 +417,7 @@ export function DeliverPanel({
             heading={
               <div className="flex items-center gap-2">
                 <h3 className="text-[15px] font-semibold text-fg">{t("quote.view.yourPrice")}</h3>
-                <span className="ml-auto rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted">
+                <span className="ms-auto rounded-full border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted">
                   Classic 3D
                 </span>
               </div>

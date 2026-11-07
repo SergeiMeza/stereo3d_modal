@@ -235,7 +235,7 @@ export function MoveToLifelikeDialog({
             data-testid="move-compare"
             className="w-full overflow-hidden rounded-lg border border-edge text-sm"
           >
-            <thead className="bg-surface-2 text-left text-xs text-fg-muted">
+            <thead className="bg-surface-2 text-start text-xs text-fg-muted">
               <tr>
                 <th className="px-3 py-2 font-normal">
                   {quality
@@ -349,7 +349,7 @@ export function MoveToLifelikeOffer({
       </span>
       <button
         type="button"
-        className="ml-auto text-xs text-primary hover:underline"
+        className="ms-auto text-xs text-primary hover:underline"
         onClick={() => setConfirming(true)}
       >
         {t("workspace.method.offer.move")}

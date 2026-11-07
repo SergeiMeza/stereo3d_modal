@@ -199,7 +199,7 @@ function BeforeAfter({ project, removing }: { project: Project; removing: boolea
   return (
     <div data-testid="bars-before-after" className="flex shrink-0 items-end gap-2" aria-hidden="true">
       {frame(probe.width / probe.height, null, t("workspace.bars.before"))}
-      <span className="pb-5 text-fg-muted">→</span>
+      <span className="inline-block pb-5 text-fg-muted rtl:-scale-x-100">→</span>
       {removing
         ? frame(c.width / c.height, croppedImg, t("workspace.bars.after"))
         : frame(probe.width / probe.height, null, t("workspace.bars.after"))}

@@ -401,7 +401,7 @@ export function UploadDropzone({
                 ? t("upload.uploading", { name: fileName ?? t("upload.videoFallback") })
                 : t("upload.creating")}
             </span>
-            <span className="ml-3 shrink-0 font-mono">{percent}%</span>
+            <span className="ms-3 shrink-0 font-mono">{percent}%</span>
           </div>
           {phase === "uploading" ? (
             <p

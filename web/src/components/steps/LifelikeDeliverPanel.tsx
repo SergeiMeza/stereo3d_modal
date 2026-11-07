@@ -102,9 +102,9 @@ function AddOnRow({
           onChange={(e) => onChange(e.target.checked)}
           className="accent-primary"
         />
-        {label} <span className="text-xs text-fg-muted">{price}</span>
+        {label} <span className="ltr text-xs text-fg-muted">{price}</span>
       </label>
-      <p className="pl-6 text-xs text-fg-muted">{hint}</p>
+      <p className="ps-6 text-xs text-fg-muted">{hint}</p>
     </div>
   );
 }
@@ -427,12 +427,12 @@ export function LifelikeDeliverPanel({
                   {foveatedDetail(t)}
                   {/* the add-on's share from /v1/pricing, like Master and Express */}
                   {addons?.foveated?.pct ? (
-                    <span data-testid="foveated-pct" className="text-xs text-fg-muted">
+                    <span data-testid="foveated-pct" className="ltr text-xs text-fg-muted">
                       +{Math.round(addons.foveated.pct * 100)}%
                     </span>
                   ) : null}
                 </label>
-                <p className="pl-6 text-xs text-fg-muted">{foveatedHint(t)}</p>
+                <p className="ps-6 text-xs text-fg-muted">{foveatedHint(t)}</p>
               </div>
             ) : null}
             {qualityOffered ? (
@@ -539,7 +539,7 @@ export function LifelikeDeliverPanel({
           heading={
             <div className="flex items-center gap-2">
               <h3 className="text-[15px] font-semibold text-fg">{t("quote.view.yourPrice")}</h3>
-              <span className="ll-chip ml-auto rounded-full px-2 py-0.5 text-[11px]">
+              <span className="ll-chip ms-auto rounded-full px-2 py-0.5 text-[11px]">
                 Lifelike 3D
               </span>
             </div>

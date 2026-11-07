@@ -124,7 +124,7 @@ export function LandingContent() {
       <section className="relative mx-auto grid w-full max-w-6xl items-center gap-10 px-4 pt-14 pb-12 sm:pt-20 lg:grid-cols-[1fr_1.15fr] lg:gap-14">
         <div
           aria-hidden
-          className="pointer-events-none absolute top-0 right-0 h-[420px] w-[620px] max-w-full rounded-full bg-[radial-gradient(closest-side,rgb(79_140_255/0.18),rgb(167_139_250/0.08)_60%,transparent)] blur-md"
+          className="pointer-events-none absolute top-0 end-0 h-[420px] w-[620px] max-w-full rounded-full bg-[radial-gradient(closest-side,rgb(79_140_255/0.18),rgb(167_139_250/0.08)_60%,transparent)] blur-md"
         />
         <div className="relative">
           <p className="flex flex-wrap items-center gap-2.5">

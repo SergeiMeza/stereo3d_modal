@@ -356,7 +356,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
               {videoFacts(project, tr)}
             </span>
           ) : null}
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ms-auto flex items-center gap-2">
             <Tooltip>
               <TooltipTrigger asChild>
                 <button

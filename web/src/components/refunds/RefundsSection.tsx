@@ -223,7 +223,7 @@ function RequestRow({ request: r }: { request: SupportRequest }): JSX.Element {
         {typeof r.requested_cents === "number" && r.requested_cents > 0 ? (
           <span className="text-xs text-fg-muted tabular-nums">{formatCents(r.requested_cents, t)}</span>
         ) : null}
-        <span data-testid="request-status" className={`ml-auto text-xs ${asked ? "text-amber-300" : "text-fg"}`}>
+        <span data-testid="request-status" className={`ms-auto text-xs ${asked ? "text-amber-300" : "text-fg"}`}>
           {r.status}
           {r.state === "refunded" && (r.refunded_cents ?? 0) > 0 ? ` · ${formatCents(r.refunded_cents!, t)}` : ""}
         </span>

@@ -62,16 +62,16 @@ export function MakeSection({
           </span>
           <span>{title}</span>
         </h3>
-        {aside ? <span className="ml-auto">{aside}</span> : null}
+        {aside ? <span className="ms-auto">{aside}</span> : null}
       </div>
-      {hint ? <p className="-mt-1.5 pl-7.5 text-xs text-fg-muted">{hint}</p> : null}
+      {hint ? <p className="-mt-1.5 ps-7.5 text-xs text-fg-muted">{hint}</p> : null}
       {children}
     </section>
   );
 }
 
 function tileClass(on: boolean): string {
-  return `flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-left text-sm transition-colors ${
+  return `flex cursor-pointer items-start gap-2.5 rounded-lg border p-3 text-start text-sm transition-colors ${
     on
       ? "border-primary bg-primary/10 text-fg"
       : "border-edge bg-surface-0 text-fg-muted hover:bg-surface-2"
@@ -350,7 +350,7 @@ export function QualityTiles({
                   <span
                     data-testid={`quality-top-${q.preset}`}
                     title={highestQualityTag(t)}
-                    className="ll-chip ml-auto rounded-full px-1.5 py-px text-[10px] leading-4"
+                    className="ll-chip ms-auto rounded-full px-1.5 py-px text-[10px] leading-4"
                   >
                     {rich(t, "make.controls.highestChip", {
                       sr: (c) => <span className="sr-only">{c}</span>,
@@ -461,7 +461,8 @@ export function TrimControl({
   const tiles = thumbs.length > 0 ? thumbs.filter((_, i) => i % Math.ceil(thumbs.length / 24) === 0) : [];
   return (
     <div className="flex flex-col gap-3">
-      <div className="relative h-12 overflow-hidden rounded-md border border-edge bg-surface-2">
+      {/* owner 2026-11-07: the part of the video runs left to right in every language */}
+      <div dir="ltr" className="relative h-12 overflow-hidden rounded-md border border-edge bg-surface-2">
         <div aria-hidden className="absolute inset-0 flex">
           {tiles.map((t) => (
             // eslint-disable-next-line @next/next/no-img-element
@@ -470,12 +471,12 @@ export function TrimControl({
         </div>
         <div
           aria-hidden
-          className="absolute inset-y-0 left-0 bg-black/60"
+          className="absolute inset-y-0 start-0 bg-black/60"
           style={{ width: `${pct(from)}%` }}
         />
         <div
           aria-hidden
-          className="absolute inset-y-0 right-0 bg-black/60"
+          className="absolute inset-y-0 end-0 bg-black/60"
           style={{ width: `${100 - pct(to)}%` }}
         />
         <div

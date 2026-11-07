@@ -122,7 +122,7 @@ export default async function RootLayout({
               <HeaderPlans />
               {/* owner 2026-11-04: Feedback sits on the right, beside Sign in
                   (icon only on phones, labelled for screen readers) */}
-              <div className="ml-auto flex min-w-0 items-center gap-2">
+              <div className="ms-auto flex min-w-0 items-center gap-2">
                 <FeedbackLink />
                 <UserMenu />
               </div>

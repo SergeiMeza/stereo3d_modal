@@ -411,7 +411,8 @@ export function FilmstripTimeline({
   }
 
   return (
-    <div className="space-y-1.5">
+    // owner 2026-11-07: time runs left to right in every language
+    <div dir="ltr" className="space-y-1.5">
       <div className="flex items-center gap-2 text-[11px] text-fg-muted">
         <Button
           variant="outline"
@@ -444,7 +445,7 @@ export function FilmstripTimeline({
         <Button
           variant="outline"
           size="xs"
-          className="ml-auto"
+          className="ms-auto"
           aria-pressed={compact}
           aria-label={
             compact ? t("workspace.filmstrip.fullHeightLabel") : t("workspace.filmstrip.compactLabel")
@@ -590,7 +591,7 @@ export function FilmstripTimeline({
                 {dragIndex === i ? (
                   <span
                     data-testid="drag-label"
-                    className="absolute top-1 left-1.5 z-30 rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-fg"
+                    className="absolute top-1 start-1.5 z-30 rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-fg"
                   >
                     {frameLabel(frame, fps)}
                   </span>
@@ -624,8 +625,8 @@ export function FilmstripTimeline({
                 // under the bands when there are any
                 className={`absolute ${bands.length > 0 ? "bottom-1" : "top-1"} rounded bg-black/80 px-1 py-0.5 font-mono text-[10px] whitespace-nowrap text-white ${
                   (hoverFrame - frameWindow.start) / Math.max(frameWindow.frames, 1) > 0.75
-                    ? "right-1.5"
-                    : "left-1.5"
+                    ? "end-1.5"
+                    : "start-1.5"
                 }`}
               >
                 {hoverLabel(hoverFrame, fps, cuts, t)}

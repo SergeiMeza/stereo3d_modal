@@ -271,7 +271,7 @@ export function ProjectCard({
             <img src={thumb} alt="" className="h-full w-full object-cover" />
           ) : null}
           {probe ? (
-            <span className="absolute right-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
+            <span className="absolute end-1 bottom-1 rounded bg-black/70 px-1 font-mono text-[10px] text-white">
               {formatClock(probe.duration_s)}
             </span>
           ) : null}
@@ -305,7 +305,7 @@ export function ProjectCard({
               <Badge
                 variant="outline"
                 data-testid="card-sample"
-                className="ml-1.5 border-edge bg-surface-2 text-fg-muted"
+                className="ms-1.5 border-edge bg-surface-2 text-fg-muted"
               >
                 {t("projects.card.sample")}
               </Badge>
@@ -334,12 +334,12 @@ export function ProjectCard({
             {state.label}
           </Badge>
           {state.right ? (
-            <span className="ml-auto text-fg-muted">{state.right}</span>
+            <span className="ms-auto text-fg-muted">{state.right}</span>
           ) : null}
           {state.link ? (
             <Link
               href={`${href}#tab=${state.link.tab}`}
-              className="ml-auto text-primary hover:underline"
+              className="ms-auto text-primary hover:underline"
             >
               {state.link.label}
             </Link>
@@ -353,7 +353,7 @@ export function ProjectCard({
         ) : null}
       </div>
 
-      <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pr-2 pl-3.5 text-xs text-fg-muted">
+      <div className="mt-auto flex items-center gap-2 border-t border-edge py-1.5 pe-2 ps-3.5 text-xs text-fg-muted">
         {/* S3D-35: no money on cards — the method chip and the state only */}
         {deleteSoon && !kept && project.files_deleted_at === undefined ? (
           <span

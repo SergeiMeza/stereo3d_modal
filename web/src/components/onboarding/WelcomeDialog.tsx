@@ -337,7 +337,7 @@ export function WelcomeDialog({
                     aria-pressed={on}
                     data-testid={`welcome-device-${d.id}`}
                     onClick={() => toggle(d.id)}
-                    className={`flex min-h-12 items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-left transition-colors sm:min-h-14 ${
+                    className={`flex min-h-12 items-center gap-3 rounded-[10px] border px-3.5 py-2.5 text-start transition-colors sm:min-h-14 ${
                       on
                         ? "border-primary bg-primary/10"
                         : "border-edge bg-surface-2 hover:border-fg-muted"

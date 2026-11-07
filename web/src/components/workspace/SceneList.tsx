@@ -98,7 +98,7 @@ export function SceneList({
       {/* ~2 rows of cards before scrolling. */}
       <div
         ref={scrollRef}
-        className="grid max-h-[18rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
+        className="grid max-h-[18rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pe-1"
       >
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;
@@ -117,7 +117,7 @@ export function SceneList({
                   blurAfterMouseClick(e);
                   onSelectScene(start);
                 }}
-                className={`w-full rounded-md border p-1.5 text-left transition-colors ${
+                className={`w-full rounded-md border p-1.5 text-start transition-colors ${
                   active
                     ? "border-primary bg-surface-2 ring-1 ring-primary"
                     : "border-edge bg-surface-1 hover:bg-surface-2"
@@ -156,7 +156,7 @@ export function SceneList({
                     blurAfterMouseClick(e);
                     onMergeScene(start);
                   }}
-                  className="absolute top-2.5 right-2.5 z-10 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-black/80 hover:text-fg"
+                  className="absolute top-2.5 end-2.5 z-10 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-black/80 hover:text-fg"
                 >
                   {t("workspace.sceneList.merge")}
                 </button>

@@ -261,12 +261,12 @@ function NoMoneyRow({ row }: { row: BillingRow }): JSX.Element {
         <span className="min-w-0 truncate text-fg-muted">
           {row.label ? groupMoney(row.label) : row.kind === "credit" ? t("billing.history.usageCredit") : t("billing.history.planChange")}
         </span>
-        <span data-testid="row-amount" className="text-right font-mono text-fg-muted">
+        <span data-testid="row-amount" className="text-end font-mono text-fg-muted">
           —
         </span>
         <span className="hidden sm:block" />
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${scheduled ? "text-amber-300" : "text-fg-muted"}`}>
-          <span aria-hidden className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
+          <span aria-hidden className="me-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
           {noMoneyStatus(row, t)}
         </span>
         <span />
@@ -315,17 +315,17 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           aria-expanded={open}
           disabled={!many}
           onClick={() => setOpen((o) => !o)}
-          className="min-w-0 truncate text-left text-fg disabled:cursor-default"
+          className="min-w-0 truncate text-start text-fg disabled:cursor-default"
         >
           {many ? (
-            <span aria-hidden className={`mr-1 inline-block text-fg-muted transition-transform ${open ? "rotate-90" : ""}`}>
+            <span aria-hidden className={`me-1 inline-block text-fg-muted transition-transform ${open ? "rotate-90" : "rtl:-scale-x-100"}`}>
               ›
             </span>
           ) : null}
           {what}
           {many && !planRow ? <span className="text-fg-muted"> · {formatCents(row.amount_cents, t)}</span> : null}
         </button>
-        <span data-testid="row-amount" className="text-right font-mono tabular-nums text-fg">
+        <span data-testid="row-amount" className="text-end font-mono tabular-nums text-fg">
           {amount}
         </span>
         <span className="hidden min-w-0 items-center gap-2 text-xs text-fg sm:flex">
@@ -333,7 +333,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           <span className="truncate">{row.payment_method?.label ?? ""}</span>
         </span>
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${s.cls}`}>
-          <span aria-hidden className="mr-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
+          <span aria-hidden className="me-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
           {s.label}
           {s.help ? <span className="block text-[11px] text-fg-muted">{s.help}</span> : null}
         </span>
@@ -359,7 +359,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         <RowMenu row={row} />
       </div>
       {open && lines ? (
-        <ul data-testid="row-lines" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
+        <ul data-testid="row-lines" className="flex flex-col gap-1 pb-3 ps-[4.25rem] text-xs">
           {lines.map((l, i) => (
             <li key={i} className="flex items-center gap-3">
               <span className="min-w-0 flex-1 truncate text-fg-muted">{groupMoney(l.description)}</span>
@@ -370,7 +370,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           ))}
         </ul>
       ) : open ? (
-        <ul data-testid="row-items" className="flex flex-col gap-1 pb-3 pl-[4.25rem] text-xs">
+        <ul data-testid="row-items" className="flex flex-col gap-1 pb-3 ps-[4.25rem] text-xs">
           {items.map((i) => (
             <li key={i.conversion_id} className="flex items-center gap-3">
               <Link
@@ -462,7 +462,7 @@ function MethodsSection(): JSX.Element {
           variant="outline"
           size="sm"
           data-testid="add-method"
-          className="ml-auto"
+          className="ms-auto"
           disabled={methods !== null && methods.length >= max}
           onClick={() => setAdding(true)}
         >
@@ -491,7 +491,7 @@ function MethodsSection(): JSX.Element {
                   </span>
                 ) : null}
               </span>
-              <span className="ml-auto flex items-center gap-2">
+              <span className="ms-auto flex items-center gap-2">
               {m.is_default ? (
                 <span className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] text-primary">
                   <span className="sr-only">· </span>
@@ -831,7 +831,7 @@ export function BillingScreen(): JSX.Element {
           </TabsList>
         </Tabs>
         {tab === "usage" ? (
-          <span className="ml-auto">
+          <span className="ms-auto">
             <UsageTools month={month} onMonth={setMonth} />
           </span>
         ) : null}

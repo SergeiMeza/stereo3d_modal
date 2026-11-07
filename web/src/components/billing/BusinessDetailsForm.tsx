@@ -336,7 +336,7 @@ export function BusinessDetailsForm(): JSX.Element {
         ) : null}
         <Link
           href="/account/billing"
-          className="ml-auto text-sm text-primary hover:underline"
+          className="ms-auto text-sm text-primary hover:underline"
         >
           {t("company.form.billingLink")}
         </Link>

@@ -103,6 +103,17 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* owner 2026-11-07: in right-to-left pages, prices, sizes, resolutions
+     and timecodes (set in mono or tabular figures, or marked .ltr) keep
+     their own left-to-right order inside the sentence */
+  [dir="rtl"] :is(.font-mono, .tabular-nums, .ltr) {
+    unicode-bidi: isolate;
+  }
+  /* inline runs read left to right ("3840×2160", "$12.00", "0:42");
+     blocks keep the page's alignment */
+  [dir="rtl"] :is(span, bdi, code, kbd, time, data):is(.font-mono, .tabular-nums, .ltr) {
+    direction: ltr;
+  }
   body {
     @apply bg-background text-foreground;
   }

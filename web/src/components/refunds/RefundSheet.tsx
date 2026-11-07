@@ -187,7 +187,7 @@ function RefundBody({
           onChange={(e) => setNote(e.target.value)}
           className="w-full rounded-lg border border-edge bg-surface-2 px-3 py-2 text-sm text-fg outline-none focus:border-primary/60"
         />
-        <p className="text-right text-xs text-fg-muted tabular-nums">
+        <p className="text-end text-xs text-fg-muted tabular-nums">
           {note.length}/{NOTE_MAX}
         </p>
       </div>

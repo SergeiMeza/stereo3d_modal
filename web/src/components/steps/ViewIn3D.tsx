@@ -165,7 +165,7 @@ export function ViewIn3D({
         preload="none"
         aria-hidden={!playing}
         data-testid="view-in-3d-video"
-        className="pointer-events-none fixed top-0 left-0 h-px w-px opacity-0 [&:fullscreen]:pointer-events-auto [&:fullscreen]:opacity-100"
+        className="pointer-events-none fixed top-0 start-0 h-px w-px opacity-0 [&:fullscreen]:pointer-events-auto [&:fullscreen]:opacity-100"
       />
     </span>
   );

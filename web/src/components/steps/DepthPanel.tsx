@@ -577,7 +577,7 @@ function DepthSceneGrid({
       <div
         ref={scrollRef}
         data-testid="depth-scenes"
-        className="grid max-h-[18rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pr-1"
+        className="grid max-h-[18rem] grid-cols-[repeat(auto-fill,minmax(170px,1fr))] gap-2 overflow-y-auto pe-1"
       >
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;
@@ -599,7 +599,7 @@ function DepthSceneGrid({
                   blurAfterMouseClick(e);
                   onSelectScene(start);
                 }}
-                className={`w-full rounded-md border p-1.5 text-left transition-colors ${
+                className={`w-full rounded-md border p-1.5 text-start transition-colors ${
                   active
                     ? "border-primary bg-surface-2 ring-1 ring-primary"
                     : "border-edge bg-surface-1 hover:bg-surface-2"
@@ -628,7 +628,7 @@ function DepthSceneGrid({
               </button>
               {/* 3D toggle — SIBLING of the card button (nested buttons are
                   invalid HTML), overlaid top-right. */}
-              <label className="absolute top-2.5 right-2.5 z-10 flex cursor-pointer items-center gap-1 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] hover:bg-black/80">
+              <label className="absolute top-2.5 end-2.5 z-10 flex cursor-pointer items-center gap-1 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] hover:bg-black/80">
                 <input
                   type="checkbox"
                   aria-label={t("depth.scene.convertAria", { n: i + 1 })}

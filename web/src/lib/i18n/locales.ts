@@ -18,7 +18,8 @@ export const LOCALES = [
   { code: "es", name: "Español", intl: "es-419" },
   { code: "ru", name: "Русский", intl: "ru-RU" },
   { code: "tr", name: "Türkçe", intl: "tr-TR" },
-  { code: "ar", name: "العربية", intl: "ar" },
+  // Latin digits, like the resolutions and file sizes beside them
+  { code: "ar", name: "العربية", intl: "ar-u-nu-latn" },
 ] as const;
 
 export type Locale = (typeof LOCALES)[number]["code"];

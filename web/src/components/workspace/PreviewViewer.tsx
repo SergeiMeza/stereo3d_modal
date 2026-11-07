@@ -89,7 +89,8 @@ export function PreviewViewer({
     : `calc(30vh * ${aspect})`;
 
   return (
-    <div className="space-y-2">
+    // owner 2026-11-07: the video and its scrubber stay left to right
+    <div dir="ltr" className="space-y-2">
       <div
         className={[
           aside ? "grid gap-2 sm:grid-cols-2" : "",
@@ -213,7 +214,7 @@ export function PreviewViewer({
         <Button
           variant="outline"
           size="xs"
-          className="ml-auto"
+          className="ms-auto"
           aria-pressed={compact}
           aria-label={compact ? t("workspace.viewer.theaterLabel") : t("workspace.viewer.compactLabel")}
           onClick={(e) => {

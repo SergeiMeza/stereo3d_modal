@@ -98,7 +98,7 @@ export default async function DevicePageRoute({
         {d.fileNote ? <p className="text-xs text-fg-muted">{d.fileNote}</p> : null}
       </div>
       <nav aria-label={t("common.devicePage.othersLabel")} className="border-t border-edge pt-6 text-sm text-fg-muted">
-        <span className="mr-2">{t("common.devicePage.others")}</span>
+        <span className="me-2">{t("common.devicePage.others")}</span>
         {others.map((o, i) => (
           <span key={o.slug}>
             {i > 0 ? " · " : ""}

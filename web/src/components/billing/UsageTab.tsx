@@ -100,7 +100,7 @@ export function UsageTools({ month, onMonth }: { month: string; onMonth: (m: str
           aria-label={t("billing.usage.month")}
           value={month}
           onChange={(e) => onMonth(e.target.value)}
-          className="h-8 appearance-none rounded-md border border-edge bg-surface-1 pr-8 pl-3 text-xs text-fg"
+          className="h-8 appearance-none rounded-md border border-edge bg-surface-1 pe-8 ps-3 text-xs text-fg"
         >
           {recentMonths().map((m) => (
             <option key={m} value={m}>
@@ -108,7 +108,7 @@ export function UsageTools({ month, onMonth }: { month: string; onMonth: (m: str
             </option>
           ))}
         </select>
-        <ChevronDownIcon aria-hidden className="pointer-events-none absolute top-2 right-2 size-4 text-fg-muted" />
+        <ChevronDownIcon aria-hidden className="pointer-events-none absolute top-2 end-2 size-4 text-fg-muted" />
       </label>
       <Button
         variant="outline"
@@ -194,15 +194,15 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
         <div className="-mx-5 overflow-x-auto">
           <table data-testid="usage" className="w-full min-w-[720px] text-sm">
             <thead>
-              <tr className="border-y border-edge text-left text-xs text-fg-muted">
+              <tr className="border-y border-edge text-start text-xs text-fg-muted">
                 <th className="px-5 py-2 font-normal">{t("billing.usage.columns.date")}</th>
                 <th className="py-2 font-normal">{t("billing.usage.columns.project")}</th>
                 <th className="py-2 font-normal">{t("billing.usage.columns.method")}</th>
                 <th className="py-2 font-normal">{t("billing.usage.columns.preset")}</th>
-                <th className="py-2 text-right font-normal">{t("billing.usage.columns.minutes")}</th>
-                <th className="py-2 pr-4 text-right font-normal">{t("billing.usage.columns.cost")}</th>
+                <th className="py-2 text-end font-normal">{t("billing.usage.columns.minutes")}</th>
+                <th className="py-2 pe-4 text-end font-normal">{t("billing.usage.columns.cost")}</th>
                 <th className="py-2 font-normal">{t("billing.usage.columns.paidWith")}</th>
-                <th className="py-2 pr-5 font-normal">{t("billing.usage.columns.status")}</th>
+                <th className="py-2 pe-5 font-normal">{t("billing.usage.columns.status")}</th>
               </tr>
             </thead>
             <tbody>
@@ -220,8 +220,8 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
                     <td className="py-2.5 text-fg">{r.project}</td>
                     <td className="py-2.5 text-fg">{r.method === "lifelike" ? "Lifelike" : "Classic"}</td>
                     <td className="py-2.5 text-fg">{qualityName(r.preset)}</td>
-                    <td className="py-2.5 text-right font-mono tabular-nums text-fg">{clockOf(r.minutes)}</td>
-                    <td className="py-2.5 pr-4 text-right font-mono tabular-nums text-fg">
+                    <td className="py-2.5 text-end font-mono tabular-nums text-fg">{clockOf(r.minutes)}</td>
+                    <td className="py-2.5 pe-4 text-end font-mono tabular-nums text-fg">
                       {r.cost_cents === null ? "–" : formatCents(r.cost_cents, t)}
                     </td>
                     <td className="py-2.5">
@@ -230,7 +230,7 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
                         {paid}
                       </span>
                     </td>
-                    <td className={`py-2.5 pr-5 ${st.cls}`}>{st.text}</td>
+                    <td className={`py-2.5 pe-5 ${st.cls}`}>{st.text}</td>
                   </tr>
                 );
               })}
@@ -246,7 +246,7 @@ export function UsageTab({ month }: { month: string }): JSX.Element {
       {entries && entries.length > 0 ? (
         <details data-testid="balance-history" className="group pt-3">
           <summary className="flex cursor-pointer list-none items-center gap-2 text-sm font-medium text-fg">
-            <ChevronDownIcon aria-hidden className="size-4 -rotate-90 text-fg-muted transition-transform group-open:rotate-0" />
+            <ChevronDownIcon aria-hidden className="size-4 -rotate-90 text-fg-muted transition-transform group-open:rotate-0 rtl:rotate-90 rtl:group-open:rotate-0" />
             {t("billing.usage.balanceHistory")}
           </summary>
           <ul className="mt-2 flex flex-col">

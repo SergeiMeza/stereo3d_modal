@@ -102,7 +102,7 @@ function Option({
       aria-checked={on}
       data-testid={testId}
       onClick={onPick}
-      className={`flex min-h-14 w-full items-center gap-3 rounded-[10px] border px-3.5 py-2 text-left transition-colors ${
+      className={`flex min-h-14 w-full items-center gap-3 rounded-[10px] border px-3.5 py-2 text-start transition-colors ${
         on
           ? "border-primary bg-primary/10"
           : "border-edge hover:border-fg-muted"
@@ -534,7 +534,7 @@ export function CinemaTierPrices({
             send("dismiss");
             dismiss();
           }}
-          className="ml-auto flex items-center gap-1 text-fg-muted hover:text-fg"
+          className="ms-auto flex items-center gap-1 text-fg-muted hover:text-fg"
         >
           <X className="size-3" aria-hidden /> {t("plans.quote.hide")}
         </button>

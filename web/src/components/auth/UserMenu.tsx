@@ -36,7 +36,7 @@ export function UserMenu() {
     return (
       <Link
         href="/signin"
-        className="ml-auto rounded-md border border-edge px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-primary/60 hover:text-fg"
+        className="ms-auto rounded-md border border-edge px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-primary/60 hover:text-fg"
       >
         {t("auth.signIn.title")}
       </Link>
@@ -44,7 +44,7 @@ export function UserMenu() {
   }
 
   return (
-    <div className="ml-auto min-w-0">
+    <div className="ms-auto min-w-0">
       <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
           <button

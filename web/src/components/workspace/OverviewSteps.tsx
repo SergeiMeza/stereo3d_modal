@@ -227,7 +227,7 @@ export function OverviewSteps({
           ))}
         </div>
         <div className="flex items-center gap-3">
-          <button type="button" onClick={() => onNavigate(cur.tab)} className="min-w-0 flex-1 text-left">
+          <button type="button" onClick={() => onNavigate(cur.tab)} className="min-w-0 flex-1 text-start">
             <span className="block text-xs text-fg-muted">
               {t("workspace.steps.stepOf", { step: String(at + 1), total: String(steps.length) })}
             </span>
@@ -260,7 +260,7 @@ export function OverviewSteps({
               <button
                 type="button"
                 onClick={() => onNavigate(s.tab)}
-                className={`flex min-w-0 items-start gap-2 text-left text-sm ${
+                className={`flex min-w-0 items-start gap-2 text-start text-sm ${
                   s.state === "upcoming" || s.state === "skipped" ? "text-fg-muted" : "text-fg"
                 }`}
               >

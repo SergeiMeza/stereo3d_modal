@@ -112,7 +112,7 @@ export function FileQualityScale({
               />
               <span className="truncate font-medium">{qualityName(q)}</span>
               {pct > 0 ? (
-                <span className={`text-xs ${on ? "text-primary-foreground/80" : "text-fg-muted"}`}>
+                <span className={`ltr text-xs ${on ? "text-primary-foreground/80" : "text-fg-muted"}`}>
                   +{Math.round(pct * 100)}%
                 </span>
               ) : null}

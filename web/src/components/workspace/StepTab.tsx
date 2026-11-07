@@ -71,7 +71,7 @@ function TipsCard({ title, items }: { title: string; items: string[] }) {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <ul className="flex list-disc flex-col gap-1.5 pl-4 text-xs text-fg-muted">
+        <ul className="flex list-disc flex-col gap-1.5 ps-4 text-xs text-fg-muted">
           {items.map((item) => (
             <li key={item}>{item}</li>
           ))}
@@ -151,7 +151,7 @@ export function StepTab({
                       <Button
                         variant="link"
                         size="xs"
-                        className="ml-auto"
+                        className="ms-auto"
                         onClick={() => onNavigate("files")}
                       >
                         {t("workspace.stepTab.files")}

@@ -190,7 +190,7 @@ export function PlansSheet({
                 aria-checked={on}
                 data-testid={`plans-sheet-${p.kind}`}
                 onClick={() => setPicked(p.id)}
-                className={`flex min-h-[60px] items-center gap-3 rounded-[10px] border px-3.5 py-2 text-left ${
+                className={`flex min-h-[60px] items-center gap-3 rounded-[10px] border px-3.5 py-2 text-start ${
                   on
                     ? "border-primary bg-primary/10"
                     : "border-edge hover:border-fg-muted"
@@ -244,7 +244,7 @@ export function PlansSheet({
                     })}
               </span>
             </span>
-            <ChevronRight className="size-4 text-fg-muted" aria-hidden />
+            <ChevronRight className="size-4 text-fg-muted rtl:-scale-x-100" aria-hidden />
           </Link>
         ) : null}
       </div>

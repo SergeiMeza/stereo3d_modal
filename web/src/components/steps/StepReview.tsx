@@ -294,7 +294,7 @@ export function StepReview({
         </h3>
         {headingExtras}
         {toolbar ? (
-          <div className="ml-auto flex shrink-0 items-center gap-2">{toolbar}</div>
+          <div className="ms-auto flex shrink-0 items-center gap-2">{toolbar}</div>
         ) : null}
       </div>
 

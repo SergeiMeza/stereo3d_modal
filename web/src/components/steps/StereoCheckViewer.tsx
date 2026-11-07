@@ -114,6 +114,7 @@ export function StereoCheckViewer({
   const canvasMode = mode !== "sbs";
   return (
     <div
+      dir="ltr"
       data-testid="stereo-check"
       data-mode={mode}
       className="relative w-full overflow-hidden rounded-md border border-edge bg-black"
@@ -152,16 +153,16 @@ export function StereoCheckViewer({
               else v.pause();
             }}
           />
-          <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+          <span className="pointer-events-none absolute top-2 start-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
             {mode === "anaglyph" ? t("preview.check.redCyan") : t("preview.check.wiggle")}
           </span>
         </>
       ) : (
         <>
-          <span className="pointer-events-none absolute top-2 left-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+          <span className="pointer-events-none absolute top-2 start-2 rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
             {t("preview.check.leftEye")}
           </span>
-          <span className="pointer-events-none absolute top-2 left-[calc(50%+0.5rem)] rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
+          <span className="pointer-events-none absolute top-2 start-[calc(50%+0.5rem)] rounded bg-black/60 px-1.5 py-0.5 text-[10px] text-white">
             {t("preview.check.rightEye")}
           </span>
         </>

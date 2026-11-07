@@ -274,7 +274,7 @@ export function ConversionTracker({
         <span data-testid="tracker-line" className="text-sm text-fg">
           {runLine(conv, {}, t)}
         </span>
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ms-auto flex items-center gap-3">
           {waiting || terminal ? null : runEta !== null ? (
             <span data-testid="tracker-eta" className="text-xs text-fg-muted">
               {formatTimeLeft(runEta, t)}
@@ -366,7 +366,7 @@ export function ConversionTracker({
               <Button
                 variant="outline"
                 size="xs"
-                className="ml-auto"
+                className="ms-auto"
                 onClick={() => void cancel()}
                 disabled={canceling}
               >

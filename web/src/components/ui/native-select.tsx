@@ -11,14 +11,14 @@ function NativeSelect({ className, ...props }: React.ComponentProps<"select">) {
       <select
         data-slot="native-select"
         className={cn(
-          "h-10 w-full appearance-none rounded-lg border border-edge bg-surface-2 pr-9 pl-3 text-sm text-fg outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50",
+          "h-10 w-full appearance-none rounded-lg border border-edge bg-surface-2 pe-9 ps-3 text-sm text-fg outline-none focus-visible:border-primary/60 focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50",
           className
         )}
         {...props}
       />
       <ChevronDownIcon
         aria-hidden
-        className="pointer-events-none absolute top-1/2 right-3 size-4 -translate-y-1/2 text-fg-muted"
+        className="pointer-events-none absolute top-1/2 end-3 size-4 -translate-y-1/2 text-fg-muted"
       />
     </div>
   )

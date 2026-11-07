@@ -27,10 +27,10 @@ export function HeroLoop() {
             label={t("landing.heroLoop.label", { method: METHOD_NAMES.lifelike })}
             className="absolute inset-0 h-full w-full object-cover"
           />
-          <span className="pointer-events-none absolute top-3 left-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
+          <span className="pointer-events-none absolute top-3 start-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
             {t("landing.heroLoop.yourVideo")}
           </span>
-          <span className="pointer-events-none absolute top-3 right-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
+          <span className="pointer-events-none absolute top-3 end-3 rounded-full bg-black/60 px-2.5 py-1 text-xs text-white">
             {METHOD_NAMES.lifelike}
           </span>
         </div>

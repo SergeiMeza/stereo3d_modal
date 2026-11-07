@@ -59,7 +59,7 @@ export function PlanCard(): JSX.Element | null {
             {formatCents(planPrice(plan).cents, t)} {planPrice(plan).per}
           </span>
         ) : null}
-        <span className="ml-auto">
+        <span className="ms-auto">
           {/* owner 2026-11-04: step-downs and cancelling wait for the period's end */}
           <PlanChangeMenu plan={plan} />
         </span>
@@ -169,7 +169,7 @@ export function IntroSwitch(): JSX.Element | null {
           }`}
         >
           <span
-            className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`}
+            className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "start-[18px]" : "start-0.5"}`}
           />
         </button>
       </label>

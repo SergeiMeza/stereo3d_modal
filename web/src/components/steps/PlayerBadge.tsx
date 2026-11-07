@@ -42,7 +42,7 @@ export function PlayerBadge({
     <span
       data-testid={testId ?? "player-badge"}
       title={title}
-      className="pointer-events-none absolute top-1.5 right-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-white/90"
+      className="pointer-events-none absolute top-1.5 end-1.5 z-10 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] leading-4 text-white/90"
     >
       {dims ? `${label} ${dims.w}×${dims.h}` : label}
     </span>

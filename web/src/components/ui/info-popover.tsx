@@ -45,7 +45,7 @@ export function InfoPopover({
         </PopoverTrigger>
         <PopoverContent
           align={align === "right" ? "end" : "start"}
-          className="flex flex-col gap-2 text-left text-fg"
+          className="flex flex-col gap-2 text-start text-fg"
         >
           {children}
         </PopoverContent>

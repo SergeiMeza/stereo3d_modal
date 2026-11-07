@@ -42,6 +42,11 @@ Then run `npx vitest run src/lib/i18n` (it checks every message parses).
   Pico, Galaxy XR, Steam Frame, iPhone, Mac.
 - **Amounts, sizes and resolutions** (1080p, 4K, 3840×2160, 24 fps, $12.00)
   come in as placeholders and are formatted for the language by the app.
-- **Arabic** reads right to left; the app mirrors its layout. Write it
-  naturally; don't add direction marks around placeholders.
+- **Arabic** reads right to left; the app mirrors its layout and keeps
+  numbers, prices, sizes and timecodes in their own order. Write it
+  naturally; don't add direction marks around placeholders. Arrows inside
+  a message point the reading way: write "←" where English has "→".
+- **Markup tags** like `<link>…</link>` or `<b>…</b>` wrap a link or bold
+  text: keep the tags, translate what's between them, move them where the
+  sentence needs them.
 - Legal pages (/terms, /privacy) are not in these files and stay English.

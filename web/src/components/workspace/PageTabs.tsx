@@ -220,7 +220,7 @@ export function PageTabs({
       role="tablist"
       aria-label={t("workspace.tabs.railLabel")}
       // phone (screen 11): a scrolling row of top tabs; wider: the side rail
-      className="flex shrink-0 flex-row items-stretch gap-1 overflow-x-auto border-b border-edge bg-surface-1 px-2 sm:flex-col sm:justify-center sm:overflow-visible sm:border-r sm:border-b-0 sm:px-0 sm:py-4"
+      className="flex shrink-0 flex-row items-stretch gap-1 overflow-x-auto border-b border-edge bg-surface-1 px-2 sm:flex-col sm:justify-center sm:overflow-visible sm:border-e sm:border-b-0 sm:px-0 sm:py-4"
     >
       {tabs.map((tab, i) => {
         const selected = tab.id === active;
@@ -250,7 +250,7 @@ export function PageTabs({
                 {/* active indicator, Resolve-style thin bar on the tab edge */}
                 <span
                   aria-hidden
-                  className={`absolute inset-x-2 bottom-0 h-0.5 rounded-t sm:inset-x-auto sm:inset-y-2 sm:bottom-auto sm:left-0 sm:h-auto sm:w-0.5 sm:rounded-t-none sm:rounded-r ${
+                  className={`absolute inset-x-2 bottom-0 h-0.5 rounded-t sm:inset-x-auto sm:inset-y-2 sm:bottom-auto sm:start-0 sm:h-auto sm:w-0.5 sm:rounded-t-none sm:rounded-e ${
                     selected ? "bg-primary" : "bg-transparent"
                   }`}
                 />

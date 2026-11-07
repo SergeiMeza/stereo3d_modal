@@ -353,12 +353,12 @@ export function AnotherFormat({
                 aria-valuemin={0}
                 aria-valuemax={100}
                 aria-valuenow={Math.round(p.fraction * 100)}
-                className="ml-5.5 h-1 overflow-hidden rounded-full bg-surface-2"
+                className="ms-5.5 h-1 overflow-hidden rounded-full bg-surface-2"
               >
                 <div className="h-full bg-primary transition-[width]" style={{ width: `${Math.round(p.fraction * 100)}%` }} />
               </div>
             ) : null}
-            {long && !done ? <p className="pl-5.5 text-fg-muted">{t("files.another.longWait")}</p> : null}
+            {long && !done ? <p className="ps-5.5 text-fg-muted">{t("files.another.longWait")}</p> : null}
           </div>
         );
       })}

@@ -133,7 +133,7 @@ function HistoryRow({
         <span data-testid="history-params" className="text-xs text-fg-muted">
           {runMeta(project, c, t)}
         </span>
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ms-auto flex items-center gap-3">
           <span
             data-testid="run-status"
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
@@ -150,7 +150,7 @@ function HistoryRow({
             {word ? ` · ${word}` : ""}
             {/* owner 2026-11-07: the launch offer the run had */}
             {(c.campaign_cents ?? c.quote.breakdown?.campaign_cents ?? 0) > 0 ? (
-              <span data-testid="history-offer" className="ml-1 text-xs text-emerald-300">
+              <span data-testid="history-offer" className="ms-1 text-xs text-emerald-300">
                 {c.quote.breakdown?.campaign_label ?? t("files.history.launchOffer")}
               </span>
             ) : null}

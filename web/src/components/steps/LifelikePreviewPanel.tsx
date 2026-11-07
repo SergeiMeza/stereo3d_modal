@@ -306,7 +306,7 @@ function ReadyPreviewPanel({
             {latest ? t("preview.card.backToLatest") : t("preview.card.back")}
           </button>
         ) : null}
-        <span data-testid="preview-shown-meta" className="ml-auto text-[11px] text-fg-muted">
+        <span data-testid="preview-shown-meta" className="ms-auto text-[11px] text-fg-muted">
           {shownMeta}
         </span>
       </div>
@@ -349,7 +349,7 @@ function ReadyPreviewPanel({
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
             <ViewIn3D files={downloads} onPlay={logPlay} />
-            <a href="#tab=make" className="ml-auto text-xs text-primary hover:underline">
+            <a href="#tab=make" className="ms-auto text-xs text-primary hover:underline">
               {t("preview.card.makeWhole")}
             </a>
           </div>
@@ -395,7 +395,7 @@ function ReadyPreviewPanel({
             <span className="font-mono text-fg-muted">
               {formatCents(shown.quote.amount_cents, t)}
             </span>
-            <a href="#tab=make" className="ml-auto text-primary hover:underline">
+            <a href="#tab=make" className="ms-auto text-primary hover:underline">
               {t("preview.card.makeWhole")}
             </a>
           </div>
@@ -645,7 +645,7 @@ function PreviewRow({
       <span className="text-fg-muted">{quality}</span>
       <span className="text-fg-muted">{day}</span>
       <StateChip conversion={c} />
-      <span className="ml-auto font-mono text-fg-muted">
+      <span className="ms-auto font-mono text-fg-muted">
         {formatCents(c.quote.amount_cents, t)}
       </span>
       {onShow ? (

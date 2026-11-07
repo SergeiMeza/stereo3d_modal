@@ -120,7 +120,7 @@ export function SheetFrame({
             <DialogPrimitive.Close
               disabled={locked}
               aria-label={t("common.ui.close")}
-              className={`-mr-1 flex shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-foreground/10 hover:text-fg disabled:opacity-40 ${
+              className={`-me-1 flex shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-foreground/10 hover:text-fg disabled:opacity-40 ${
                 big ? "size-14" : "size-8"
               }`}
             >

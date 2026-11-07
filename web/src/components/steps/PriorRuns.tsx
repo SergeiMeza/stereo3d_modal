@@ -87,7 +87,7 @@ function PriorRunRow({
         <StateChip conversion={c} />
         <span className="font-mono text-xs text-fg-muted">{meta}</span>
         <span className="font-mono text-xs">{formatCents(c.quote.amount_cents, t)}</span>
-        <time dateTime={c.created_at} className="ml-auto text-[11px] text-fg-muted">
+        <time dateTime={c.created_at} className="ms-auto text-[11px] text-fg-muted">
           {new Date(c.created_at).toLocaleString(t.intl)}
         </time>
       </div>

@@ -8,9 +8,10 @@
  * server process, and the language must be one per request.
  */
 
+import { Direction } from "radix-ui";
 import { createContext, useContext, useMemo, type JSX, type ReactNode } from "react";
 
-import type { Locale } from "./locales";
+import { dirOf, type Locale } from "./locales";
 import { EN, makeTr, type Messages, type Tr } from "./t";
 
 // eslint-disable-next-line no-restricted-syntax -- per-request language (see above)
@@ -26,7 +27,12 @@ export function I18nProvider({
   children: ReactNode;
 }): JSX.Element {
   const tr = useMemo(() => makeTr(locale, messages), [locale, messages]);
-  return <TrContext.Provider value={tr}>{children}</TrContext.Provider>;
+  // menus, selects and sliders follow the page's direction (Arabic: rtl)
+  return (
+    <TrContext.Provider value={tr}>
+      <Direction.Provider dir={dirOf(locale)}>{children}</Direction.Provider>
+    </TrContext.Provider>
+  );
 }
 
 /** The request's translator (call it with a key and values; .locale, .intl). */

@@ -40,7 +40,7 @@ export function PricingScreen(): JSX.Element {
           <PayPerVideoLine pricing={pricing} />
         </p>
       </div>
-      <FirstTimeHint id="pricing" className="mx-auto mt-6 max-w-md text-left" />
+      <FirstTimeHint id="pricing" className="mx-auto mt-6 max-w-md text-start" />
       {pricing === null ? (
         <p className="mt-10 text-center text-fg-muted">{t("pricing.screen.loading")}</p>
       ) : (

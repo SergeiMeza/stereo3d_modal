@@ -144,7 +144,7 @@ export function PreviousRuns({
       <div className="flex items-baseline gap-2">
         <h3 className="text-sm font-semibold text-fg">{t("runs.previous.title")}</h3>
         <span className="text-xs text-fg-muted">{runs.length}</span>
-        <a href="#tab=files" className="ml-auto text-xs text-primary hover:underline">
+        <a href="#tab=files" className="ms-auto text-xs text-primary hover:underline">
           {t("runs.previous.allFiles")}
         </a>
       </div>
@@ -194,7 +194,7 @@ function RunRow({ project, conversion }: { project: Project; conversion: Convers
         <span className="font-medium text-fg">{rangeText(c, project, t)}</span>
         <span className="text-fg-muted">{outputText(c, project, t)}</span>
         <span className="text-fg-muted">{formatShortDay(c.created_at, t)}</span>
-        <span className="ml-auto flex items-center gap-3">
+        <span className="ms-auto flex items-center gap-3">
           <span
             data-testid="previous-run-state"
             className={`rounded-full border px-2 py-0.5 text-[11px] ${
@@ -262,7 +262,7 @@ function RunActions({ conversion: c }: { conversion: Conversion }): JSX.Element 
       <a
         href="#tab=files"
         data-testid="previous-run-files"
-        className="ml-auto text-xs text-primary hover:underline"
+        className="ms-auto text-xs text-primary hover:underline"
       >
         {t("runs.previous.files")}
       </a>

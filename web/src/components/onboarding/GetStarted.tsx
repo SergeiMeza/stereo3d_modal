@@ -96,7 +96,7 @@ export function GetStarted({ onPickHeadset }: { onPickHeadset: () => void }): JS
         <Button
           variant="ghost"
           size="xs"
-          className="ml-auto"
+          className="ms-auto"
           onClick={() => update({ onboarding: { checklist_hidden: true } })}
         >
           {t("onboarding.getStarted.hide")}

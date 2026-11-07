@@ -66,7 +66,7 @@ export function PlanMoveOffers(): JSX.Element | null {
             <div className="grid gap-2 sm:grid-cols-2">
               <div>
                 <p className="text-xs text-fg-muted">{t("billing.planMove.whatMoves")}</p>
-                <ul className="list-disc pl-4 text-fg">
+                <ul className="list-disc ps-4 text-fg">
                   {o.moves.map((m) => (
                     <li key={m}>
                       {line(MOVES, m)}
@@ -77,7 +77,7 @@ export function PlanMoveOffers(): JSX.Element | null {
               </div>
               <div>
                 <p className="text-xs text-fg-muted">{t("billing.planMove.whatStays")}</p>
-                <ul className="list-disc pl-4 text-fg-muted">
+                <ul className="list-disc ps-4 text-fg-muted">
                   {o.stays.map((m) => (
                     <li key={m}>{line(STAYS, m)}</li>
                   ))}

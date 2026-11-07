@@ -443,7 +443,7 @@ export function SceneCutEditor({
           <Button
             variant="outline"
             size="sm"
-            className="ml-auto shrink-0 border-amber-400/50 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
+            className="ms-auto shrink-0 border-amber-400/50 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
             onClick={() => void reloadAndReapply()}
           >
             {t("workspace.cuts.reload")}
@@ -557,7 +557,7 @@ export function SceneCutEditor({
       >
         <span aria-hidden className="h-3 w-[2px] shrink-0 bg-amber-400/80" />
         {t("workspace.cuts.legend.cut")}
-        <span aria-hidden className="ml-2 h-3 w-[2px] shrink-0 bg-fg" />
+        <span aria-hidden className="ms-2 h-3 w-[2px] shrink-0 bg-fg" />
         {t("workspace.cuts.legend.playhead")}
       </p>
 

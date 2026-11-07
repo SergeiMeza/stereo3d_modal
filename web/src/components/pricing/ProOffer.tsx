@@ -61,7 +61,7 @@ export function ProSaveLink({ step }: { step: Step }): JSX.Element | null {
         type="button"
         data-testid="pro-save-link"
         onClick={() => setOpen(true)}
-        className="-mt-1 mb-1.5 ml-auto w-fit text-xs text-fg-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-fg"
+        className="-mt-1 mb-1.5 ms-auto w-fit text-xs text-fg-muted underline decoration-dotted underline-offset-4 transition-colors hover:text-fg"
       >
         {proSaveLine(pro.pct, t)}
       </button>

@@ -307,7 +307,7 @@ export function BusinessSetup(): JSX.Element {
                   disabled={current}
                   data-testid={`setup-plan-${k}`}
                   onClick={() => setPlan(k)}
-                  className={`flex flex-col gap-3 rounded-xl border p-4 text-left ${
+                  className={`flex flex-col gap-3 rounded-xl border p-4 text-start ${
                     on
                       ? "border-primary bg-primary/10"
                       : "border-edge bg-surface-1 hover:border-fg-muted"
@@ -317,7 +317,7 @@ export function BusinessSetup(): JSX.Element {
                     <span className="text-lg font-semibold text-fg">
                       {d.name}
                       {current ? (
-                        <span className="ml-2 text-xs font-normal text-fg-muted">
+                        <span className="ms-2 text-xs font-normal text-fg-muted">
                           {t("business.setup.yourPlan")}
                         </span>
                       ) : null}

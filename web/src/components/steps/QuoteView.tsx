@@ -298,7 +298,7 @@ export function QuoteView({
           <summary className="cursor-pointer text-fg-muted">
             {t("quote.view.howPriced")}
           </summary>
-          <div className="mt-1.5 flex flex-col gap-1 pl-3">
+          <div className="mt-1.5 flex flex-col gap-1 ps-3">
             {hasDepthFactor ? (
               <Line
                 label={
@@ -452,7 +452,7 @@ export function QuoteView({
       </div>
       {/* gateway 00166: how it'd be paid, in the gateway's words */}
       {result.pay_split?.text && !freePreview ? (
-        <p data-testid="quote-pay-split" className="text-right text-xs text-fg-muted tabular-nums">
+        <p data-testid="quote-pay-split" className="text-end text-xs text-fg-muted tabular-nums">
           {result.pay_split.text}
         </p>
       ) : null}

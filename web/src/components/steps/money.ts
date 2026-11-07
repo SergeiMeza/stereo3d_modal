@@ -1,3 +1,4 @@
+import { dirOf } from "@/lib/i18n/locales";
 import type { Tr } from "@/lib/i18n/t";
 
 /**
@@ -11,7 +12,7 @@ export function formatCents(cents: number, tr?: Pick<Tr, "locale" | "intl">): st
   const sign = cents < 0 ? "−" : "";
   const abs = Math.abs(Math.trunc(cents));
   // owner 2026-11-07: another language writes USD its own way ("1.500,00 $")
-  if (tr && tr.locale !== "en") return `${sign}${usdFormat(tr.intl, 2).format(abs / 100)}`;
+  if (tr && tr.locale !== "en") return isolate(`${sign}${usdFormat(tr.intl, 2).format(abs / 100)}`, tr);
   const dollars = Math.floor(abs / 100);
   const rem = abs % 100;
   return `${sign}$${dollars.toLocaleString("en-US")}.${String(rem).padStart(2, "0")}`;
@@ -31,8 +32,14 @@ export function groupMoney(text: string): string {
 /** Round amounts in rules and headlines: 2500 → "$25", 1250 → "$12.50". */
 export function formatCentsShort(cents: number, tr?: Pick<Tr, "locale" | "intl">): string {
   if (cents % 100 !== 0) return formatCents(cents, tr);
-  if (tr && tr.locale !== "en") return `${cents < 0 ? "−" : ""}${usdFormat(tr.intl, 0).format(Math.abs(cents) / 100)}`;
+  if (tr && tr.locale !== "en") return isolate(`${cents < 0 ? "−" : ""}${usdFormat(tr.intl, 0).format(Math.abs(cents) / 100)}`, tr);
   return formatCents(cents).replace(/\.00$/, "");
+}
+
+/** In a right-to-left language an amount keeps its own order inside a
+ * sentence (Unicode isolates); others get it as is. */
+function isolate(text: string, tr: Pick<Tr, "locale">): string {
+  return dirOf(tr.locale) === "rtl" ? `\u2066${text}\u2069` : text;
 }
 
 const usd = new Map<string, Intl.NumberFormat>();

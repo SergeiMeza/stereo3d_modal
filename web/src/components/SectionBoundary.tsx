@@ -65,7 +65,7 @@ function SectionFailed({
       }
     >
       <span className="text-fg-muted">{t("common.sectionBoundary.failed", { name })}</span>
-      <button type="button" onClick={onRetry} className="ml-auto text-primary hover:underline">
+      <button type="button" onClick={onRetry} className="ms-auto text-primary hover:underline">
         {t("common.sectionBoundary.tryAgain")}
       </button>
     </Tag>

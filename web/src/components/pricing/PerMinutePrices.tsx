@@ -93,12 +93,12 @@ export function LifelikePrices({
       <table className="mt-3 w-full text-sm">
         <thead>
           <tr className="text-xs text-fg-muted">
-            <th className="py-1.5 text-left font-normal">{t("pricing.table.quality")}</th>
-            <th className="py-1.5 text-right font-normal">
+            <th className="py-1.5 text-start font-normal">{t("pricing.table.quality")}</th>
+            <th className="py-1.5 text-end font-normal">
               {t("pricing.table.perMinute", { fps: pricing.fps.base })}
             </th>
             {pro ? (
-              <th className="py-1.5 pl-4 text-right font-normal text-primary">
+              <th className="py-1.5 ps-4 text-end font-normal text-primary">
                 {pricing.pro_discount?.pct
                   ? t("pricing.table.withProOff", { pro: "Pro", pct: Math.round(pricing.pro_discount.pct * 100) })
                   : t("pricing.table.withPro", { pro: "Pro" })}
@@ -111,7 +111,7 @@ export function LifelikePrices({
             <tr key={p} className="border-t border-edge">
               <td className="py-2">
                 {qualityName(p)}
-                <span className="ml-2 font-mono text-[11px] text-fg-muted">
+                <span className="ms-2 font-mono text-[11px] text-fg-muted">
                   {size169(p, t)}
                 </span>
                 {/* owner 2026-11-07: a badge only; the prices stay the list */}
@@ -119,22 +119,22 @@ export function LifelikePrices({
                   <span
                     data-testid={`offer-${p}`}
                     title={activeCampaign(pricing)?.label}
-                    className="ml-2 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
+                    className="ms-2 inline-block rounded-full border border-emerald-500/30 bg-emerald-500/10 px-1.5 py-px text-[10px] leading-4 text-emerald-300"
                   >
                     {campaignBadge(pricing, p)}
                   </span>
                 ) : null}
               </td>
-              <td data-testid={`price-${p}`} className="py-2 text-right font-mono">
+              <td data-testid={`price-${p}`} className="py-2 text-end font-mono">
                 {own && typeof list[p] === "number" && list[p]! > mine[p]! ? (
-                  <span data-testid={`list-${p}`} className="mr-2 text-xs text-fg-muted line-through">
+                  <span data-testid={`list-${p}`} className="me-2 text-xs text-fg-muted line-through">
                     {formatCents(list[p]!, t)}
                   </span>
                 ) : null}
                 {formatCents(mine[p]!, t)}
               </td>
               {pro ? (
-                <td data-testid={`pro-${p}`} className="py-2 pl-4 text-right font-mono text-primary">
+                <td data-testid={`pro-${p}`} className="py-2 ps-4 text-end font-mono text-primary">
                   {pro[p] !== undefined ? formatCents(pro[p]!, t) : "–"}
                 </td>
               ) : null}

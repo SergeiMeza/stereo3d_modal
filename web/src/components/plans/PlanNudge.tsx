@@ -55,7 +55,7 @@ export function PlanNudge({
         aria-label={t("plans.nudge.dismiss")}
         data-testid={`${testId}-dismiss`}
         onClick={onDismiss}
-        className="ml-auto shrink-0 rounded p-0.5 text-fg-muted hover:text-fg"
+        className="ms-auto shrink-0 rounded p-0.5 text-fg-muted hover:text-fg"
       >
         <X className="size-4" aria-hidden />
       </button>

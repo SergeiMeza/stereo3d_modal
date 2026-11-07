@@ -816,7 +816,7 @@ function SceneOverrideRows({
         {t("look.scenes.heading", { count: ranges.length })}
       </h3>
       <p className="text-xs text-fg-muted">{t("look.scenes.hint")}</p>
-      <ul ref={scrollRef} className="flex max-h-96 flex-col gap-1.5 overflow-y-auto pr-1">
+      <ul ref={scrollRef} className="flex max-h-96 flex-col gap-1.5 overflow-y-auto pe-1">
         {ranges.map(([start, end], i) => (
           <SceneRow
             key={`${start}-${end}`}
@@ -888,7 +888,7 @@ function SceneRow({
           blurAfterMouseClick(e);
           onSelect();
         }}
-        className="flex items-center gap-2 rounded text-left hover:bg-surface-2"
+        className="flex items-center gap-2 rounded text-start hover:bg-surface-2"
       >
         <span className="h-9 w-16 shrink-0 overflow-hidden rounded bg-black">
           {thumbUrl ? (

@@ -376,9 +376,9 @@ export function EmailCodeStep({
       <button
         type="button"
         onClick={onBack}
-        className="-ml-1 inline-flex items-center gap-1 text-sm text-fg-muted transition-colors hover:text-fg"
+        className="-ms-1 inline-flex items-center gap-1 text-sm text-fg-muted transition-colors hover:text-fg"
       >
-        <ArrowLeft className="size-4" aria-hidden="true" />
+        <ArrowLeft className="size-4 rtl:-scale-x-100" aria-hidden="true" />
         {tr("auth.code.back")}
       </button>
       <div className="space-y-1.5">

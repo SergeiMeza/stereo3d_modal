@@ -355,7 +355,7 @@ function Toggle({ label, on, onChange }: { label: string; on: boolean; onChange:
         onClick={() => onChange(!on)}
         className={`relative h-6 w-10 rounded-full transition-colors ${on ? "bg-primary" : "bg-surface-2 ring-1 ring-edge"}`}
       >
-        <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "left-[18px]" : "left-0.5"}`} />
+        <span className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "start-[18px]" : "start-0.5"}`} />
       </button>
     </label>
   );

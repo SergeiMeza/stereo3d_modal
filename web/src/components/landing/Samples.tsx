@@ -84,7 +84,7 @@ function SampleTile({ sample }: { sample: Sample }) {
             </button>
           </>
         )}
-        <div className="absolute right-2 bottom-2 flex rounded-md bg-black/60 p-0.5 text-[11px] text-white">
+        <div className="absolute end-2 bottom-2 flex rounded-md bg-black/60 p-0.5 text-[11px] text-white">
           {(["2d", "redcyan"] as const).map((l) => (
             <button
               key={l}

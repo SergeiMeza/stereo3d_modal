@@ -145,7 +145,7 @@ export function OverviewTab({
             <img src={thumb} alt="" className="h-full w-full object-cover" />
           ) : null}
           {probe ? (
-            <span className="absolute right-2 bottom-2 rounded bg-black/70 px-1.5 font-mono text-[11px] text-white">
+            <span className="absolute end-2 bottom-2 rounded bg-black/70 px-1.5 font-mono text-[11px] text-white">
               {formatClock(probe.duration_s)}
             </span>
           ) : null}
@@ -172,13 +172,13 @@ export function OverviewTab({
                     <MethodChip method={method} />
                   </dd>
                 </div>
-                <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-l">
+                <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-s">
                   <dt className="text-xs text-fg-muted">{t("workspace.overview.youGet")}</dt>
                   <dd data-testid="overview-you-get" className="text-fg">
                     {t("workspace.overview.youGetValue")}
                   </dd>
                 </div>
-                <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-l">
+                <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-s">
                   <dt className="text-xs text-fg-muted">
                     {project.sample || !own
                       ? t("workspace.overview.price")

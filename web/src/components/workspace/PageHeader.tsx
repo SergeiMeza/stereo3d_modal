@@ -2,7 +2,7 @@
  * PageHeader — the slim header row every workspace page opens with: the
  * page title (text-sm font-semibold, the Cut page's "Scene cuts" style),
  * optional inline meta (version/duration chips), a one-line muted
- * description, and right-aligned actions (Save/Reset, the ⓘ Tips/Guide
+ * description, and end-aligned actions (Save/Reset, the ⓘ Tips/Guide
  * drawer trigger). One convention for all six pages.
  */
 
@@ -35,7 +35,7 @@ export function PageHeader({
         </p>
       ) : null}
       {actions ? (
-        <div className="ml-auto flex shrink-0 items-center gap-2">{actions}</div>
+        <div className="ms-auto flex shrink-0 items-center gap-2">{actions}</div>
       ) : null}
     </header>
   );

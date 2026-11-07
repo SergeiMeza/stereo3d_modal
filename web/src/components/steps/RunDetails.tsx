@@ -30,6 +30,7 @@ import { formatCents } from "./money";
 import { runPrice } from "./PreviousRuns";
 import { useRunFiles } from "./RunFiles";
 import { runDetailsOpenAtom, runReceiptsAtom } from "./runDetailsAtoms";
+import { ltrRuns } from "@/lib/i18n/bidi";
 
 const TERMINAL: ReadonlySet<Conversion["state"]> = new Set(["succeeded", "failed", "canceled", "expired"]);
 
@@ -257,7 +258,7 @@ function DetailsBody({ project, conversion: c }: { project: Project; conversion:
     <dl className={DETAIL_LIST_CLASS}>
       {rows.map((r) => (
         <Row key={r.id ?? r.label} label={r.label} id={r.id}>
-          {r.value}
+          {typeof r.value === "string" ? ltrRuns(r.value, t) : r.value}
         </Row>
       ))}
       {receipt ? (
