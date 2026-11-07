@@ -33,6 +33,7 @@ import { previousRunsOpenAtom } from "./previousRunsAtoms";
 import { PreviewDownloads, useRunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
 import { ViewIn3D } from "./ViewIn3D";
+import { ltrRuns } from "@/lib/i18n/bidi";
 
 /** Rows shown before "Show all". */
 export const PREVIOUS_RUNS_SHOWN = 3;
@@ -89,15 +90,15 @@ function rangeText(c: Conversion, project: Project, t: Tr): string {
   if (from === undefined || to === undefined || !project.probe) return t("runs.previous.wholeVideo");
   const fps = parseRational(project.probe.fps_rational);
   if (from === 0 && to >= project.probe.num_frames) return t("runs.previous.wholeVideo");
-  return `${formatClock(frameToSeconds(from, fps))} – ${formatClock(frameToSeconds(to, fps))}`;
+  return ltrRuns(`${formatClock(frameToSeconds(from, fps))} – ${formatClock(frameToSeconds(to, fps))}`, t);
 }
 
 /** "4K · 24 fps" */
 function outputText(c: Conversion, project: Project, t: Tr): string {
   const fps = c.params.target_fps ?? project.probe?.fps;
-  return [qualityLabelFor(project, c.params.preset, t), fps ? fpsLabel(fps, t) : null]
+  return ltrRuns([qualityLabelFor(project, c.params.preset, t), fps ? fpsLabel(fps, t) : null]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "), t);
 }
 
 /** The run's frame span, the whole video when it sent none. */

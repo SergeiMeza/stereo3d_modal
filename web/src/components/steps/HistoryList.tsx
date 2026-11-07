@@ -33,6 +33,7 @@ import { RunDetails } from "./RunDetails";
 import { RunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
+import { ltrRuns } from "@/lib/i18n/bidi";
 
 /** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion, t: Tr = EN): string {
@@ -52,7 +53,7 @@ export function runMeta(project: Project, c: Conversion, t: Tr = EN): string {
     c.params.to_frame !== undefined
       ? `${clock(c.params.from_frame)} – ${clock(c.params.to_frame)}`
       : null;
-  return [
+  return ltrRuns([
     range,
     c.step !== "depth_preview"
       ? qualityLabelFor(project, c.params.preset, t)
@@ -64,7 +65,7 @@ export function runMeta(project: Project, c: Conversion, t: Tr = EN): string {
     }),
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "), t);
 }
 
 // by the English state word (runStateShort without a translator)

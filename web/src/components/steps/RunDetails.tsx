@@ -304,9 +304,11 @@ export function DetailItem({
   id?: string;
   children: ReactNode;
 }): JSX.Element {
+  // right to left: a value built from parts keeps its numbers in order
+  const t = useT();
   return (
     <Row label={label} id={id}>
-      {children}
+      {typeof children === "string" ? ltrRuns(children, t) : children}
     </Row>
   );
 }

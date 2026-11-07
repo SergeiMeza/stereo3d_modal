@@ -19,6 +19,7 @@ import type {
 } from "@/lib/api/types";
 import { formatVideoLength } from "@/lib/format";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { ltrRuns } from "@/lib/i18n/bidi";
 
 /** Name helpers take `t` last; used as `.map(helper)` they get an index
  * there instead, and read English. */
@@ -287,12 +288,12 @@ export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo, t:
   // a depth preview makes a depth video: its formats/edges are defaults
   // it never used
   if (step === "depth_preview" || p.depth_only) {
-    return [stepName("depth_preview", t), p.target_fps ? t("glossary.fps", { fps: String(p.target_fps) }) : null]
+    return ltrRuns([stepName("depth_preview", t), p.target_fps ? t("glossary.fps", { fps: String(p.target_fps) }) : null]
       .filter(Boolean)
-      .join(" · ");
+      .join(" · "), t);
   }
   const edge = edgeModeOf(p);
-  return [
+  return ltrRuns([
     p.preset ? qualityName(p.preset, t) : null,
     p.formats?.length ? p.formats.map((f) => formatName(f, t)).join(" + ") : null,
     edge ? edgeName(edge, t) : null,
@@ -313,7 +314,7 @@ export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo, t:
     p.foveation === "static" || foveation?.applied === true ? t("glossary.foveatedDetail") : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "), t);
 }
 
 /** A video's resolution in customer words: "4K", "1080p", "720p". */
@@ -342,7 +343,7 @@ export function videoFacts(
   if (!p) return "";
   const fps = Math.round(p.fps * 100) / 100;
   const scenes = (project.scenes?.cuts ?? []).length + 1;
-  return [
+  return ltrRuns([
     formatVideoLength(p.duration_s, t),
     resolutionName(p),
     t("glossary.fps", { fps: String(fps) }),
@@ -351,5 +352,5 @@ export function videoFacts(
     project.hdr_output === true ? t("glossary.hdrVideo") : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "), t);
 }

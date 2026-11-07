@@ -84,6 +84,7 @@ import {
   loadCompanyAtom,
   loadInvoicesAtom,
 } from "./billingHistoryAtoms";
+import { ltrRuns } from "@/lib/i18n/bidi";
 
 /** Each status's colour, and whether it has a help line
  * (billing.history.status.* and billing.history.statusHelp.*). */
@@ -145,14 +146,14 @@ function shortDate(iso: string, t: Tr = EN): string {
 /** "Kyoto walk · 3D video · 4K", with the launch offer when the run had
  * it ("… · 1080p · Launch offer −25%", gateway 00178) */
 export function itemLine(i: BillingChargeItem, t: Tr = EN): string {
-  return [
+  return ltrRuns([
     i.project_name ?? t("billing.history.item.untitled"),
     i.step === "production" ? t("billing.history.item.production") : t("billing.history.item.preview"),
     i.preset ? qualityName(i.preset, t) : null,
     (i.campaign_cents ?? 0) > 0 ? (i.campaign_label ?? t("billing.history.item.launchOffer")) : null,
   ]
     .filter(Boolean)
-    .join(" · ");
+    .join(" · "), t);
 }
 
 /** Older gateways' card charges, in the row shape. */

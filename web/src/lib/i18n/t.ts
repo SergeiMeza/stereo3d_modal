@@ -16,7 +16,8 @@ import { IntlMessageFormat } from "intl-messageformat";
 
 import en from "../../../messages/en.json";
 
-import { DEFAULT_LOCALE, intlTag, type Locale } from "./locales";
+import { ltrRuns } from "./bidi";
+import { DEFAULT_LOCALE, dirOf, intlTag, type Locale } from "./locales";
 
 export type Messages = { [key: string]: string | Messages };
 export type Values = Record<string, string | number | boolean | Date | null | undefined>;
@@ -83,7 +84,13 @@ export interface Tr {
 
 export function makeTr(locale: Locale, messages: Messages | null): Tr {
   const own = locale === DEFAULT_LOCALE ? null : messages;
-  const fn = ((key: string, values?: Values) => translate(locale, own, key, values)) as Tr;
+  // right to left: numbers and Latin runs inside a message keep their own
+  // order ("1920×1080", "8K", "24 fps", "about 12 min")
+  const rtl = dirOf(locale) === "rtl";
+  const fn = ((key: string, values?: Values) => {
+    const out = translate(locale, own, key, values);
+    return rtl ? ltrRuns(out, { locale }) : out;
+  }) as Tr;
   Object.defineProperty(fn, "locale", { value: locale });
   Object.defineProperty(fn, "intl", { value: intlTag(locale) });
   Object.defineProperty(fn, "messages", { value: own });
