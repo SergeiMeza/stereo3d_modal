@@ -2,10 +2,16 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"io"
 	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/mail"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -277,5 +283,113 @@ func TestRefundPolicyKeepsRunRefunds(t *testing.T) {
 	}
 	if refundRequestWindow != 30*24*time.Hour || withdrawalWindow != 14*24*time.Hour {
 		t.Fatalf("windows %s %s", refundRequestWindow, withdrawalWindow)
+	}
+}
+
+// mailTrap sends the service's customer mails to a local Resend stand-in
+// and keeps their texts.
+func mailTrap(t *testing.T, s *Service) func() []string {
+	t.Helper()
+	var mu sync.Mutex
+	var texts []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		raw, _ := io.ReadAll(r.Body)
+		var m map[string]any
+		_ = json.Unmarshal(raw, &m)
+		mu.Lock()
+		texts = append(texts, m["subject"].(string)+"\n"+m["text"].(string))
+		mu.Unlock()
+		_, _ = w.Write([]byte(`{"id":"m1"}`))
+	}))
+	t.Cleanup(srv.Close)
+	s.Mail = mail.NewResend("re_test", "").WithEndpoint(srv.URL)
+	return func() []string {
+		mu.Lock()
+		defer mu.Unlock()
+		return append([]string(nil), texts...)
+	}
+}
+
+// DL1 (deletion scheduled) names the unspent balance the deletion loses,
+// with no mention of a refund (owner 2026-11-08); without cash it has no
+// balance line.
+func TestDeletionScheduledMailBalanceLine(t *testing.T) {
+	after := time.Date(2026, 11, 10, 9, 30, 0, 0, time.UTC)
+	want := "Your unspent balance of $21.25 will be lost when your account is deleted."
+	if m := deletionScheduledMail(after, "https://example.test", 2125); len(m.Lines) != 5 || m.Lines[2] != want {
+		t.Fatalf("with a balance %q", m.Lines)
+	}
+	if m := deletionScheduledMail(after, "https://example.test", 0); len(m.Lines) != 4 || strings.Contains(strings.Join(m.Lines, " "), "balance") {
+		t.Fatalf("without %q", m.Lines)
+	}
+	for _, tc := range []struct {
+		name  string
+		cents int64
+	}{{"with a balance", 2125}, {"without", 0}} {
+		t.Run(tc.name, func(t *testing.T) {
+			f := deletionFixture(t)
+			sent := mailTrap(t, f.s)
+			if tc.cents > 0 {
+				paidTopup(t, f.s, f.uid, tc.cents)
+			}
+			if code, out := deleteAccount(f, `{}`, false); code != http.StatusAccepted {
+				t.Fatalf("request %d %v", code, out)
+			}
+			var dl1 string
+			for _, m := range sent() {
+				if strings.Contains(m, "your account will be deleted on") {
+					dl1 = m
+				}
+			}
+			line := "Your unspent balance of $21.25 will be lost when your account is deleted."
+			if dl1 == "" || strings.Contains(dl1, line) != (tc.cents > 0) || (tc.cents == 0 && strings.Contains(dl1, "unspent balance")) ||
+				strings.Contains(strings.ToLower(dl1), "refund") {
+				t.Fatalf("DL1 %q", dl1)
+			}
+		})
+	}
+}
+
+// The old closure wording ("once your refund is decided", the refund
+// case's 202 and the deletion_pending refusal) is reachable only for an
+// account already waiting for a legacy closure case: a new deletion with
+// a balance never produces it, in answers, refusals or mails.
+func TestNewDeletionNeverUsesClosureWording(t *testing.T) {
+	f := deletionFixture(t)
+	sent := mailTrap(t, f.s)
+	paidTopup(t, f.s, f.uid, 2000)
+	var seen []string
+	note := func(code int, out map[string]any) {
+		raw, _ := json.Marshal(out)
+		seen = append(seen, string(raw))
+	}
+	note(callAs(f, f.s.HandleDeletePreview, http.MethodGet, ``, false))
+	note(deleteAccount(f, `{"balance_confirmed":true}`, false))
+	note(deleteAccount(f, `{}`, false)) // the repeat while pending
+	ctx := context.Background()
+	if _, err := f.s.requireRunnable(ctx, &AuthedUser{UID: f.uid}); err != nil {
+		seen = append(seen, err.Error())
+	}
+	due(t, f)
+	f.s.deletionScheduleSweep(ctx)
+	seen = append(seen, sent()...)
+	f2 := deletionFixture(t)
+	paidTopup(t, f2.s, f2.uid, 2000)
+	note(deleteAccountNow(f2, `{}`))
+	all := strings.Join(seen, "\n")
+	for _, bad := range []string{"refund is decided", "deletion_pending\":true", "case_id", "refund_cents", "Delete and refund", "refund it to your"} {
+		if strings.Contains(all, bad) {
+			t.Fatalf("closure wording %q in a new deletion:\n%s", bad, all)
+		}
+	}
+	if c, _ := f.s.Store.GetCustomer(ctx, f.uid); c.DeletionPending || c.DeletionCaseID != "" {
+		t.Fatalf("legacy pending set: %+v", c)
+	}
+	// the legacy account still gets it
+	g := deletionFixture(t)
+	paidTopup(t, g.s, g.uid, 2000)
+	legacyClosureCase(t, g.s, g.uid, false)
+	if _, out := deleteAccount(g, `{}`, false); !strings.Contains(out["message"].(string), "refund is decided") {
+		t.Fatalf("legacy %v", out)
 	}
 }

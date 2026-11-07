@@ -303,7 +303,7 @@ func TestDeletionDelayDefaults(t *testing.T) {
 	if pricing.DefaultsFor("test").AccountDeleteDelayHours != 48 || pricing.DefaultsFor("prod").AccountDeleteDelayHours != 0 {
 		t.Fatal("delay defaults")
 	}
-	m := deletionScheduledMail(time.Date(2026, 11, 9, 14, 5, 0, 0, time.UTC), "https://example.test")
+	m := deletionScheduledMail(time.Date(2026, 11, 9, 14, 5, 0, 0, time.UTC), "https://example.test", 0)
 	if m.Subject != "Spatial Video Studio: your account will be deleted on 9 November 2026" || !m.OwnAddress ||
 		m.Link != "https://example.test/account?deletion=keep" {
 		t.Fatalf("mail %+v", m)

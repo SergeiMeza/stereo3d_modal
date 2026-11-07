@@ -55,7 +55,11 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 	}
 	if created {
 		slog.InfoContext(ctx, "account deletion scheduled", "uid", uid, "delete_after", d.DeleteAfter)
-		s.mailCustomer(ctx, fmt.Sprintf("DL1_%s_%d", uid, d.RequestedAt.Unix()), uid, d.Email, deletionScheduledMail(d.DeleteAfter, s.Cfg.SiteURL))
+		var lost int64 // the unspent cash the deletion forfeits (balance_lost_cents)
+		if b, berr := s.Store.GetBalance(ctx, uid); berr == nil && b.Exists() {
+			lost = b.ForfeitableCents()
+		}
+		s.mailCustomer(ctx, fmt.Sprintf("DL1_%s_%d", uid, d.RequestedAt.Unix()), uid, d.Email, deletionScheduledMail(d.DeleteAfter, s.Cfg.SiteURL, lost))
 	}
 	return http.StatusAccepted, scheduledDeletionBody(d, deletionPlan(cust)), nil
 }
@@ -312,17 +316,24 @@ func configRetryDue(r *store.OffSessionRetry, now time.Time) bool {
 // deletionDate is the day a deletion runs, in mails and messages (UTC).
 func deletionDate(t time.Time) string { return t.UTC().Format("2 January 2006") }
 
-func deletionScheduledMail(after time.Time, site string) customerMail {
+// deletionScheduledMail is DL1; lostCents > 0 (the unspent cash the
+// deletion forfeits, refund policy 2026-11-08) adds the balance line.
+func deletionScheduledMail(after time.Time, site string, lostCents int64) customerMail {
+	lines := []string{
+		"You asked us to delete your Spatial Video Studio account. We'll delete it on " + deletionDate(after) +
+			" at " + after.UTC().Format("15:04") + " UTC.",
+		"Until then your account is paused: runs you started finish, but you can't start new ones or change how you sign in.",
+	}
+	if lostCents > 0 {
+		lines = append(lines, "Your unspent balance of "+money(lostCents)+" will be lost when your account is deleted.")
+	}
+	lines = append(lines,
+		"Changed your mind? Sign in before then and choose Keep my account.",
+		"If you didn't ask for this, sign in and keep your account, then reply to this email.")
 	return customerMail{Kind: "DL1", OwnAddress: true,
 		Subject: "Spatial Video Studio: your account will be deleted on " + deletionDate(after),
-		Lines: []string{
-			"You asked us to delete your Spatial Video Studio account. We'll delete it on " + deletionDate(after) +
-				" at " + after.UTC().Format("15:04") + " UTC.",
-			"Until then your account is paused: runs you started finish, but you can't start new ones or change how you sign in.",
-			"Changed your mind? Sign in before then and choose Keep my account.",
-			"If you didn't ask for this, sign in and keep your account, then reply to this email.",
-		},
-		Button: "Sign in to keep your account", Link: strings.TrimRight(site, "/") + "/account?deletion=keep"}
+		Lines:   lines,
+		Button:  "Sign in to keep your account", Link: strings.TrimRight(site, "/") + "/account?deletion=keep"}
 }
 
 func deletionCancelledMail(site string) customerMail {
