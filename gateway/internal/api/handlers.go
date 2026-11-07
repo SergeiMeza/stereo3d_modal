@@ -735,13 +735,13 @@ func (s *Service) HandleLimits(w http.ResponseWriter, r *http.Request, user *Aut
 			cust = s.refreshCardCache(ctx, user.UID, cust.StripeCustomerID)
 		}
 		hasCard = cust.DefaultPaymentMethod != ""
-		tier = s.tierEntry(ctx, cust)
+		tier = s.tierEntry(ctx, cust, false) // the mobile limits: the app's ladder, unchanged
 		if open, oerr := s.Store.OpenBatchFor(ctx, user.UID); oerr == nil && open != nil {
 			pendingCents = open.TotalCents
 		}
 	}
 	if tier == nil {
-		tier = s.tierEntry(ctx, nil)
+		tier = s.tierEntry(ctx, nil, false)
 	}
 	if unpaid, uerr := s.Store.ListUserByPIStatus(ctx, user.UID, store.PIChargeFailed, unpaidLimit); uerr == nil {
 		delinquent = len(unpaid) > 0
