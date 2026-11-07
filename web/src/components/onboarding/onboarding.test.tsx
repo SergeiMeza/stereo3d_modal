@@ -113,6 +113,53 @@ describe("welcome after sign-up", () => {
   });
 });
 
+describe("no Skip; the welcome until it's saved (owner 2026-11-07)", () => {
+  it("a brand-new account: its first Projects list brings the sample, and the welcome has no Skip", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    let lists = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/projects") lists += 1;
+    });
+    renderProjects();
+    await screen.findByTestId("welcome-device-quest");
+    // the gateway adds the sample inside GET /v1/projects (no other call)
+    expect(lists).toBeGreaterThan(0);
+    expect(await screen.findByTestId("card-sample")).toBeTruthy();
+    expect(screen.queryByText("Skip")).toBeNull();
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    expect(screen.queryByText("Skip")).toBeNull();
+    // the last step offers the sample; nothing jumps past the steps
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    expect(await screen.findByTestId("welcome-sample")).toBeTruthy();
+    expect(screen.queryByText("Skip")).toBeNull();
+    server.events.removeAllListeners();
+  });
+
+  it("closing the tab mid-way: the welcome shows again; finishing it saves welcome_done and ends it", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    const first = renderProjects();
+    await screen.findByTestId("welcome-device-quest");
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    // the tab closes: nothing saved
+    first.unmount();
+    expect(mockDb.accountSettings.onboarding.welcome_done).not.toBe(true);
+    resetAccountSettingsCache();
+    const second = renderProjects();
+    expect(await screen.findByTestId("welcome-device-quest")).toBeTruthy();
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    fireEvent.click(await screen.findByTestId("welcome-next"));
+    fireEvent.click(await screen.findByTestId("welcome-later"));
+    await waitFor(() => expect(mockDb.accountSettings.onboarding.welcome_done).toBe(true));
+    second.unmount();
+    resetAccountSettingsCache();
+    renderProjects();
+    expect(await screen.findByTestId("card-sample")).toBeTruthy();
+    expect(screen.queryByTestId("welcome")).toBeNull();
+  });
+});
+
 describe("the welcome keeps its taps (owner bug 2026-11-05)", () => {
   it("a variant landing late and a list reload under it neither close, remount nor lose the picks", async () => {
     mockDb.projects.clear();

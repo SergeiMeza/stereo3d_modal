@@ -12,9 +12,10 @@
  *    site hero's 2D → 3D loop (poster only under reduced motion).
  * 3. Your first project: the upload, or the finished sample.
  *
- * Shown once per account (onboarding.welcome_done). Desktop: a centered
- * dialog; phone and headset widths: full screen, shorter copy, Skip at the
- * top. No plans or paywall here.
+ * Shown once per account (onboarding.welcome_done, saved when it's
+ * finished or closed; closing the tab mid-way shows it again). Desktop: a
+ * centered dialog; phone and headset widths: full screen, shorter copy.
+ * No Skip (owner 2026-11-07). No plans or paywall here.
  *
  * App Pro (owner 2026-11-04, onboarding.variant "app_pro"): people whose Pro
  * comes from the app get "Your Pro works here too" — Pro prices on every
@@ -265,18 +266,9 @@ export function WelcomeDialog({
         showCloseButton={false}
         className="flex h-dvh max-h-dvh w-full max-w-full flex-col gap-0 overflow-y-auto rounded-none p-0 sm:h-auto sm:max-h-[92dvh] sm:max-w-[560px] sm:rounded-2xl"
       >
-        {/* phone: Skip at the top, as on the canvas */}
-        <div className="flex items-center justify-end px-5 pt-4 sm:hidden">
-          {step < total ? (
-            <button
-              type="button"
-              onClick={() => setStep(total)}
-              className="text-sm text-fg-muted hover:text-fg"
-            >
-              {t("onboarding.welcome.skip")}
-            </button>
-          ) : null}
-        </div>
+        {/* owner 2026-11-07: no Skip; every new account goes through the
+            welcome (closing the tab mid-way shows it again) */}
+        <div className="pt-4 sm:hidden" />
 
         {kind === "pro" ? (
           <div className="flex flex-col" data-testid="welcome-app-pro">
@@ -483,15 +475,7 @@ export function WelcomeDialog({
               ))}
           </div>
           <div className="flex items-center gap-2">
-            {total === 1 ? null : step === 1 ? (
-              <Button
-                variant="ghost"
-                className="hidden sm:inline-flex"
-                onClick={() => setStep(total)}
-              >
-                {t("onboarding.welcome.skip")}
-              </Button>
-            ) : (
+            {total === 1 || step === 1 ? null : (
               <Button
                 variant="ghost"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
