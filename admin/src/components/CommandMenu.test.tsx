@@ -68,8 +68,23 @@ describe("⌘K search (BL-29 redesign B)", () => {
     await userEvent.type(input, "c_7Hk2Qm");
     const opt = await within(dialog).findByRole("option", { name: /c_7Hk2Qm · lifelike · SUCCEEDED/ });
     expect(opt).toHaveTextContent("$42.50");
+    expect(opt).not.toHaveTextContent("Paid");
     await userEvent.click(opt);
     await waitFor(() => expect(window.location.pathname).toBe("/accounts/uid_9"));
+  });
+
+  it("a run the card paid in its own currency shows both amounts (owner 2026-11-07)", async () => {
+    renderApp("/cases", {
+      ...routes,
+      "GET /v1/admin/runs/c_jpy0001": () => ({
+        json: { run: { id: "c_jpy0001", uid: "uid_9", status: "SUCCEEDED", created_at: "2026-11-03T21:40:00Z", amount_cents: 4250, currency: "usd", kind: "lifelike", presentment: { amount_minor: 6390, currency: "jpy" } } },
+      }),
+    });
+    fireEvent.keyDown(document.body, { key: "k", ctrlKey: true });
+    const dialog = await screen.findByRole("dialog", { name: "Search" });
+    await userEvent.type(within(dialog).getByRole("combobox", { name: "Search" }), "c_jpy0001");
+    const opt = await within(dialog).findByRole("option", { name: /c_jpy0001/ });
+    expect(opt).toHaveTextContent("Paid ¥6,390 ($42.50)");
   });
 
   it("isn't there before sign-in", () => {

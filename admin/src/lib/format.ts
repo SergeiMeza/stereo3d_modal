@@ -1,5 +1,25 @@
 /** Formatting for amounts and times. Amounts are USD cents. */
 
+/** Any currency in its own minor units, with Intl (owner 2026-11-07,
+ * Option B): formatMoney(7480, "jpy") → "¥7,480" (JPY and KRW have none),
+ * formatMoney(760, "eur") → "€7.60". */
+export function formatMoney(amountMinor: number, currency: string, locale = "en-US"): string {
+  const f = new Intl.NumberFormat(locale, { style: "currency", currency: currency.toUpperCase() });
+  const digits = f.resolvedOptions().maximumFractionDigits ?? 2;
+  return f.format(Math.trunc(amountMinor) / 10 ** digits);
+}
+
+/** What a card paid in its own currency (Stripe Adaptive Pricing): "Paid
+ * ¥7,480 ($49.72)"; null when it paid US dollars (null presentment or a
+ * USD one), so the caller shows the USD amount as before. */
+export function paidLocal(
+  presentment: { amount_minor: number; currency: string } | null | undefined,
+  usdCents: number | null | undefined,
+): string | null {
+  if (!presentment?.currency || presentment.currency.toLowerCase() === "usd") return null;
+  return `Paid ${formatMoney(presentment.amount_minor, presentment.currency)} (${money(usdCents)})`;
+}
+
 export function money(cents: number | null | undefined): string {
   const v = Number(cents ?? 0);
   const sign = v < 0 ? "-" : "";

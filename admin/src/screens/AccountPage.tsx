@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
-import { ago, dateOnly, dateTime, money, parseSignedDollars, words } from "../lib/format";
+import { ago, dateOnly, dateTime, money, paidLocal, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
 import { LiveRunStatus as LiveStatus } from "@/components/LiveRunStatus";
@@ -366,7 +366,9 @@ export function AccountPage({ uid }: { uid: string }) {
                       </div>
                     ))}
                   </TableCell>
-                  <TableCell numeric>{money(ch.amount_cents)}</TableCell>
+                  <TableCell numeric data-testid={`charge-amount-${ch.charge_id}`}>
+                    {paidLocal(ch.presentment, ch.amount_cents) ?? money(ch.amount_cents)}
+                  </TableCell>
                   <TableCell>{words(ch.invoice_state) || "—"}</TableCell>
                 </TableRow>
               ))}
@@ -753,8 +755,8 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
                 <TableCell className="font-mono text-xs text-muted-foreground">{dateTime(r.created_at)}</TableCell>
                 <TableCell className="font-mono text-xs">{r.id}</TableCell>
                 <TableCell>{r.kind ? words(r.kind) : "—"}</TableCell>
-                <TableCell numeric>
-                  {typeof r.amount_cents === "number" ? money(r.amount_cents) : "—"}
+                <TableCell numeric data-testid={`run-amount-${r.id}`}>
+                  {typeof r.amount_cents === "number" ? (paidLocal(r.presentment, r.amount_cents) ?? money(r.amount_cents)) : "—"}
                   {/* owner 2026-11-07: the launch offer's line on the run */}
                   {(r.campaign_cents ?? 0) > 0 && (
                     <span data-testid={`run-campaign-${r.id}`} className="block text-xs text-success-foreground">

@@ -15,7 +15,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Kbd } from "@/components/ui/kbd";
 import { Spinner } from "@/components/ui/spinner";
-import { dateOnly, money, words } from "@/lib/format";
+import { dateOnly, money, paidLocal, words } from "@/lib/format";
 import { typeLabel } from "@/lib/labels";
 import { paths, useRouter } from "@/lib/router";
 import { createQuery, useQuery } from "@/state/query";
@@ -243,7 +243,7 @@ export function CommandMenu() {
                   </span>
                 </span>
                 <CommandShortcut className="font-mono tracking-normal tabular-nums">
-                  {typeof run.amount_cents === "number" ? money(run.amount_cents) : "—"}
+                  {typeof run.amount_cents === "number" ? (paidLocal(run.presentment, run.amount_cents) ?? money(run.amount_cents)) : "—"}
                 </CommandShortcut>
               </CommandItem>
             </CommandGroup>

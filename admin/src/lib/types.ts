@@ -380,8 +380,17 @@ export interface BalanceSummary {
 }
 
 /** BL-29 (gateway rev 00114): the account's runs, newest first, paged. */
+/** owner 2026-11-07 (Option B): what a card paid in its own currency, in
+ * that currency's minor units; null: US dollars. */
+export interface Presentment {
+  amount_minor: number;
+  /** lower-case ISO 4217 ("jpy") */
+  currency: string;
+}
+
 export interface AccountRun extends QualityFields {
   id: string;
+  presentment?: Presentment | null;
   project_id?: string | null;
   status: string;
   kind?: string | null;
@@ -496,6 +505,7 @@ export interface AccountPage {
             }[]
           | null;
         invoice_state: string;
+        presentment?: Presentment | null;
       }[]
     | null;
   refunds?: RefundRow[] | null;
@@ -905,6 +915,7 @@ export interface RunLookup {
   currency?: string | null;
   kind?: string | null;
   method?: string | null;
+  presentment?: Presentment | null;
 }
 
 /** GET /v1/admin/grants (BL-29, gateway rev 00114): every admin grant

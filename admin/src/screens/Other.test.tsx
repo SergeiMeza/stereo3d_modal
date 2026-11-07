@@ -89,6 +89,24 @@ describe("account page (A3)", () => {
     ledger: null,
   };
 
+  it("a run and a charge the card paid in its own currency say so; null stays US dollars (owner 2026-11-07)", async () => {
+    const run = (id: string, presentment: unknown) => ({ id, project_id: "p1", status: "SUCCEEDED", kind: "lifelike", created_at: "2026-11-03T10:00:00Z", amount_cents: 4972, presentment });
+    const charge = (id: string, presentment: unknown) => ({ charge_id: id, kind: "run", amount_cents: 4972, currency: "usd", paid_at: "2026-11-03T10:00:00Z", lines: null, invoice_state: "paid", presentment });
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          runs: { count: 2, items: [run("r_jpy", { amount_minor: 7480, currency: "jpy" }), run("r_usd", null)], next_before: null },
+          charges: [charge("ch_jpy", { amount_minor: 7480, currency: "jpy" }), charge("ch_usd", null)],
+        },
+      }),
+    });
+    expect(await screen.findByTestId("run-amount-r_jpy")).toHaveTextContent("Paid ¥7,480 ($49.72)");
+    expect(screen.getByTestId("run-amount-r_usd").textContent).toBe("$49.72");
+    expect(screen.getByTestId("charge-amount-ch_jpy")).toHaveTextContent("Paid ¥7,480 ($49.72)");
+    expect(screen.getByTestId("charge-amount-ch_usd").textContent).toBe("$49.72");
+  });
+
   it("shows the business details on the account's invoices", async () => {
     renderApp("/accounts/uid_123", {
       "GET /v1/admin/accounts/uid_123": () => ({
