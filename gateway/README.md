@@ -868,6 +868,52 @@ test only (pricing proposal 2026-11, BL-19, owner-approved for test).
   config/pricing_prod; prod quotes return to the Classic prices within
   the 60 s config cache, and runs already quoted keep their quote.
 
+### Output quality tiers and measured rates (owner 2026-11-07, TEST)
+
+Web Lifelike runs take `quality: "standard" | "high" | "master"` (absent
+= standard for a web request, i.e. one with our CORS `Origin`; API
+callers and the app paths keep the pipeline default). One quality add-on
+per run, priced whatever the client sends; Business and Studio pay it
+too.
+- **standard** (free): the CRF quality target, capped (`max_bitrate_bps`
+  to the worker): 25 Mbit/s at 1080p, 40 at 4K.
+- **high** (+30%, add-on `high`): `output_bitrate_bps` 40 at 1080p, 80
+  at 4K.
+- **master** (+50%, add-on `master`, was +20% and +100% on TEST):
+  `output_bitrate_bps` 100 at 1080p, 150 at 4K, `output_bit_depth` 10.
+- Other sizes scale by per-eye pixels between the two; standard and high
+  ×1.4 above 30 fps (at the run's frame rate after the 30 fps cap).
+- **Old clients**: `bitrate: "master"` → master (+50%); a web
+  `bitrate: "match_source"` → standard; a number keeps today's fixed rate
+  and price; an API caller's `match_source` is unchanged.
+- **Quote**: `quality {tier, mbps (standard: an estimate at
+  quality_standard_typical × the cap), max_mbps (standard), approx: true,
+  bit_depth (master), estimated_size_bytes (per file), price_pct, label
+  ("High quality +30%")}`; breakdown `quality`, `quality_label`;
+  `/v1/pricing` `quality` (the tiers, anchors, modes, pct, hfr factor) and
+  `addons.high`.
+- **Runs**: `quality`, `bitrate_requested` (auto | match_source | a
+  number | master) and, once finished, `outputs_media {<output>:
+  {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source: worker |
+  ffprobe}}`: the worker's measured figures when it reports them (per
+  output object or `metadata.outputs_media`), else ffprobe of the
+  delivered file's index through a signed link (also for formats added
+  later). `overall_kbps` (the container's, audio included) appears only
+  when the video stream has no rate of its own. Never estimated.
+- Worker params `max_bitrate_bps` and `output_bit_depth` are sent now and
+  ignored until ml-sharp-modal ships them (names to confirm with Spatial
+  3D Studio).
+- **Config keys** (`config/pricing_{env}`, all optional; the defaults
+  above): `quality_standard_cap_mbps {"1080p", "4k"}`,
+  `quality_high_mbps {"1080p", "4k"}`, `quality_master_mbps {"1080p",
+  "4k"}`, `quality_hfr_factor` (1.4), `quality_master_bit_depth` (10),
+  `quality_standard_typical` (0.5), `addon_pct {high: 0.30, master: 0.50}`.
+- **Release step (prod)**: tier pricing on (`tier_pricing: true`, the
+  add-on shares come from the code: master 0.50, high 0.30), and set any
+  quality key the owner tuned on TEST; then a prod web quote at 1080p
+  reads `quality.tier: "standard"`, `max_mbps: 25`, and a High quote
+  +30%.
+
 ### Live updates: SSE (owner 2026-11-07, TEST)
 
 `GET /v1/events` streams the viewer's runs and projects (Server-Sent

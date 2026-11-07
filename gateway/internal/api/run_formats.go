@@ -558,6 +558,9 @@ func (s *Service) applyRepackResults(ctx context.Context, convID, format string,
 	if err != nil {
 		return nil
 	}
+	if event == "run_format_added" {
+		defer s.fillOutputsMedia(context.WithoutCancel(ctx), convID) // the new format's measured rates
+	}
 	if event != "" {
 		s.passkeyEvent(ctx, uid, event, map[string]any{"run_id": convID, "format": format, "error": nilIfEmpty(why)})
 		slog.InfoContext(ctx, "repack finished", "conversion_id", convID, "format", format, "event", event)

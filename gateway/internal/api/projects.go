@@ -679,6 +679,11 @@ type stepConvReq struct {
 	Bitrate bitrateReq `json:"bitrate"`
 	// Express (add-on, pricing 2026-11, Lifelike): first in the GPU line.
 	Express bool `json:"express"`
+	// Quality (web Lifelike, owner 2026-11-07): "standard" (free, the
+	// default for web requests) | "high" (+30%) | "master" (+50%).
+	Quality string `json:"quality"`
+	// web: the request came from our web app (set by the handler).
+	web bool
 	// Method (quotes only, S3D-14): price the step as if the project used
 	// this method, without changing the project — the chooser shows both
 	// methods' price and ETA. On conversions it must match the project's.
@@ -1061,7 +1066,8 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 			at = s.accountTier(ctx, p.UID)
 		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
-		in.Master, in.Express = params.Bitrate == bitrateMaster, params.Express
+		in.Master, in.Express = params.Bitrate == bitrateMaster && params.OutputQuality == "", params.Express
+		in.Quality = params.OutputQuality // high +30% / master +50%, one per run
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
 			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
@@ -1210,6 +1216,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	req.web = s.webClient(r)
 	if req.Method != "" && req.Method != projectMethod(p) {
 		// What-if quote under the other method: validated and priced by
 		// that method's rules on a copy; the project is not touched.
@@ -1250,6 +1257,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		"reuse_stages":  reuseStages,
 		"charge_timing": chargeTiming(rates, quote.AmountCents),
 		"fps":           s.fpsInfo(ctx, p, params),
+	}
+	if qv := s.qualityView(ctx, params, billableOr0(p, params)); qv != nil {
+		resp["quality"] = qv // {tier, mbps, max_mbps?, approx, bit_depth?, estimated_size_bytes, price_pct, label}
 	}
 	if fv := foveationView(p, params, method); fv != nil {
 		resp["foveation"] = fv // {applied, included, reason?}: "Foveated Detail · included" at 1080p
@@ -1402,6 +1412,7 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	req.web = s.webClient(r)
 	if req.Method != "" && req.Method != projectMethod(p) {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "method_mismatch",
 			"this project uses "+projectMethod(p)+"; switch the project's method first"))

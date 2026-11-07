@@ -240,6 +240,13 @@ type Params struct {
 	Bitrate          string `firestore:"bitrate,omitempty" json:"bitrate,omitempty"`
 	OutputBitrateBps int64  `firestore:"output_bitrate_bps,omitempty" json:"output_bitrate_bps,omitempty"`
 	Foveation        string `firestore:"foveation,omitempty" json:"foveation,omitempty"`
+	// OutputQuality (web Lifelike, owner 2026-11-07; the request's
+	// "quality"): standard | high | master;
+	// MaxBitrateBps caps standard's CRF (the worker's max_bitrate_bps),
+	// BitDepth is master's 10 (the worker's output_bit_depth).
+	OutputQuality string `firestore:"output_quality,omitempty" json:"output_quality,omitempty"`
+	MaxBitrateBps int64  `firestore:"max_bitrate_bps,omitempty" json:"max_bitrate_bps,omitempty"`
+	BitDepth      int    `firestore:"bit_depth,omitempty" json:"bit_depth,omitempty"`
 	// Express (add-on, pricing 2026-11): first in the GPU line.
 	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
 	// RemoveBars / SourceCrop (BL-03): the run takes the project's black
@@ -441,6 +448,10 @@ type Conversion struct {
 	CurrentPayment *Payment `firestore:"current_payment,omitempty" json:"-"`
 	// RunBalance: a run paid from the prepaid balance holds it here (v7 N5).
 	RunBalance *RunBalance `firestore:"balance,omitempty" json:"-"`
+	// OutputsMedia: each finished output's measured rates (owner
+	// 2026-11-07), by output name; from the worker's figures, else ffprobe
+	// of the delivered file.
+	OutputsMedia map[string]OutputMedia `firestore:"outputs_media,omitempty" json:"-"`
 	// FreePreview: a preview paid with free previews (pricing 2026-11);
 	// given back if it delivers nothing.
 	FreePreview *FreePreview `firestore:"free_preview,omitempty" json:"-"`
@@ -1014,4 +1025,15 @@ type RepackPart struct {
 	Frames     int        `firestore:"frames,omitempty"`
 	Level      string     `firestore:"level,omitempty"`
 	FinishedAt *time.Time `firestore:"finished_at,omitempty"`
+}
+
+// OutputMedia is one output's measured rates. VideoKbps is the video
+// stream's own bit rate; OverallKbps (the container's, audio included)
+// only stands in when the stream reports none. Source: worker | ffprobe.
+type OutputMedia struct {
+	VideoKbps   float64 `firestore:"video_kbps,omitempty" json:"video_kbps,omitempty"`
+	OverallKbps float64 `firestore:"overall_kbps,omitempty" json:"overall_kbps,omitempty"`
+	AudioCodec  string  `firestore:"audio_codec,omitempty" json:"audio_codec,omitempty"`
+	AudioKbps   float64 `firestore:"audio_kbps,omitempty" json:"audio_kbps,omitempty"`
+	Source      string  `firestore:"source" json:"source"`
 }

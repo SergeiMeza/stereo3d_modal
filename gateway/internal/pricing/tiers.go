@@ -1,6 +1,7 @@
 package pricing
 
 import (
+	"fmt"
 	"math"
 	"slices"
 )
@@ -33,6 +34,7 @@ const (
 const (
 	AddOnFoveated = "foveated"
 	AddOnMaster   = "master"
+	AddOnHigh     = "high" // High quality (owner 2026-11-07)
 	AddOnExpress  = "express"
 )
 
@@ -171,13 +173,15 @@ func defaultTierPct() map[string]float64 {
 }
 
 func defaultAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.20, AddOnExpress: 0.50}
+	// Master +50% and High +30% (owner 2026-11-07, the quality tiers; Master
+	// was +20%).
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50}
 }
 
 // testAddOnPct: master bitrate +100% on TEST (owner 2026-11-07; was 20%);
 // Express stays +50% (owner 2026-11-07, after a +100% try), foveated +30%.
 func testAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 1.00, AddOnExpress: 0.50}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50}
 }
 
 // Stripe TEST prices (products "Spatial Video Studio Business plan" /
@@ -384,8 +388,11 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 	if in.Foveated {
 		addOns = append(addOns, AddOnFoveated)
 	}
-	if in.Master {
+	switch { // one quality add-on per run
+	case in.Master || in.Quality == AddOnMaster:
 		addOns = append(addOns, AddOnMaster)
+	case in.Quality == AddOnHigh:
+		addOns = append(addOns, AddOnHigh)
 	}
 	expressIncluded := false
 	if in.Express {
@@ -464,6 +471,11 @@ func (r *Rates) quoteClassicTiers(in StepInputs, afterReuse int64, bd map[string
 func (r *Rates) fillTierBreakdown(bd map[string]any, q tierQuote, in StepInputs) {
 	bd["list_base_cents"], bd["base_cents"] = q.ListBase, q.ListBase
 	bd["addons"], bd["addon_pct"] = q.AddOns, round4(q.AddOnPct)
+	for _, a := range []string{AddOnMaster, AddOnHigh} { // the quality line ("High quality +30%")
+		if _, ok := q.AddOns[a]; ok {
+			bd["quality"], bd["quality_label"] = a, fmt.Sprintf("%s quality +%d%%", qualityName[a], int(math.Round(r.AddOnPct(a)*100)))
+		}
+	}
 	if c, ok := q.AddOns[AddOnFoveated]; ok {
 		bd["foveation_cents"], bd["foveation_multiplier"] = c, 1+r.AddOnPct(AddOnFoveated)
 	} else {
@@ -527,11 +539,24 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 	out["addons"] = map[string]any{
 		AddOnFoveated: map[string]any{"pct": r.AddOnPct(AddOnFoveated), "methods": []string{"lifelike"}, "enabled": r.FoveationEnabled,
 			"included_presets": []string{"1080p"}}, // free and always on at 1080p (owner 2026-11-07)
-		AddOnMaster: map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"}, "request": map[string]any{"bitrate": "master"}},
+		AddOnMaster: map[string]any{"pct": r.AddOnPct(AddOnMaster), "methods": []string{"lifelike", "classic"},
+			"request": map[string]any{"quality": "master"}, "legacy_request": map[string]any{"bitrate": "master"}},
+		AddOnHigh: map[string]any{"pct": r.AddOnPct(AddOnHigh), "methods": []string{"lifelike"}, "request": map[string]any{"quality": "high"}},
 		AddOnExpress: map[string]any{"pct": r.AddOnPct(AddOnExpress), "methods": []string{"lifelike"}, "request": map[string]any{"express": true},
 			"included_in": []string{TierBusiness, TierStudio}, "effect": "first in the GPU line"},
 		"on": "the run's price at its tier, before the bulk discount",
 	}
+	hfr := r.QualityHFRFactor
+	if hfr <= 0 {
+		hfr = 1.4
+	}
+	// the web's output quality tiers (owner 2026-11-07): one per run
+	out["quality"] = map[string]any{"tiers": QualityTiers, "default": QualityStandard, "methods": []string{"lifelike"},
+		QualityStandard: map[string]any{"mode": "crf_capped", "cap_mbps": qualityAnchors(QualityStandard, r), "price_pct": 0.0},
+		QualityHigh:     map[string]any{"mode": "target", "mbps": qualityAnchors(QualityHigh, r), "price_pct": r.AddOnPct(AddOnHigh)},
+		QualityMaster: map[string]any{"mode": "target", "mbps": qualityAnchors(QualityMaster, r), "price_pct": r.AddOnPct(AddOnMaster),
+			"bit_depth": r.QualityBitDepth()},
+		"hfr_factor": hfr, "hfr_applies_to": []string{QualityStandard, QualityHigh}, "scale": "per-eye pixels between the 1080p and 4k values"}
 	out["discount"] = map[string]any{"threshold_cents": r.DiscountThresholdCents, "pct": r.DiscountPct,
 		"stacks_with_tier": false, "rule": "a run gets the bigger of bulk and its tier price, never both"}
 	out["pro_discount"] = map[string]any{"pct": r.TierPct(TierPro), "applies_to": "production", "tiered": true}
@@ -555,4 +580,73 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		"daily_cap":     r.FreePreviewDailyCap(),
 		"rollover":      false,
 	}
+}
+
+var qualityName = map[string]string{AddOnMaster: "Master", AddOnHigh: "High"}
+
+// Quality tiers.
+const (
+	QualityStandard = "standard"
+	QualityHigh     = "high"
+	QualityMaster   = "master"
+)
+
+// QualityTiers are the request's choices, in order.
+var QualityTiers = []string{QualityStandard, QualityHigh, QualityMaster}
+
+func qualityAnchors(tier string, r *Rates) map[string]float64 {
+	var cfg, def map[string]float64
+	switch tier {
+	case QualityStandard:
+		cfg, def = r.QualityStandardCapMbps, map[string]float64{"1080p": 25, "4k": 40}
+	case QualityHigh:
+		cfg, def = r.QualityHighMbps, map[string]float64{"1080p": 40, "4k": 80}
+	case QualityMaster:
+		cfg, def = r.QualityMasterMbps, map[string]float64{"1080p": 100, "4k": 150}
+	default:
+		return nil
+	}
+	if cfg["1080p"] > 0 && cfg["4k"] > 0 {
+		return cfg
+	}
+	return def
+}
+
+// QualityMbps is a tier's Mbit/s for an output picture of width×height
+// per eye at fps: the 1080p and 4K anchors scaled linearly by pixels
+// (never below a tenth of the 1080p value), ×hfr above 30 fps for
+// standard and high. For standard it's the cap of a CRF target.
+func (r *Rates) QualityMbps(tier string, width, height int, fps float64) float64 {
+	a := qualityAnchors(tier, r)
+	if a == nil || width <= 0 || height <= 0 {
+		return 0
+	}
+	const px1080, px4k = 1920.0 * 1080, 3840.0 * 2160
+	px := float64(width) * float64(height)
+	v := a["1080p"] + (px-px1080)*(a["4k"]-a["1080p"])/(px4k-px1080)
+	v = max(v, a["1080p"]/10)
+	if fps > 30 && tier != QualityMaster {
+		f := r.QualityHFRFactor
+		if f <= 0 {
+			f = 1.4
+		}
+		v *= f
+	}
+	return math.Round(v*10) / 10
+}
+
+// QualityBitDepth is master's bit depth (10).
+func (r *Rates) QualityBitDepth() int {
+	if r.QualityMasterBitDepth > 0 {
+		return r.QualityMasterBitDepth
+	}
+	return 10
+}
+
+// QualityTypicalShare is a standard file's usual share of its cap (0.5).
+func (r *Rates) QualityTypicalShare() float64 {
+	if r.QualityStandardTypical > 0 && r.QualityStandardTypical <= 1 {
+		return r.QualityStandardTypical
+	}
+	return 0.5
 }

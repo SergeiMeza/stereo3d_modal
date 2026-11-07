@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"math"
+	"strconv"
 	"strings"
 )
 
@@ -123,4 +125,71 @@ func ParseDynamic(raw []byte) (*DynamicRange, error) {
 		break
 	}
 	return d, nil
+}
+
+// MediaRates is a file's measured rates: the first video stream's bit
+// rate, the container's overall rate, and the first audio stream.
+type MediaRates struct {
+	VideoKbps   float64
+	OverallKbps float64
+	AudioCodec  string
+	AudioKbps   float64
+}
+
+// Media reads the rates of the object behind url (ffprobe reads the
+// index, not the whole file).
+func Media(ctx context.Context, url string) (*MediaRates, error) {
+	if err := acquire(ctx); err != nil {
+		return nil, err
+	}
+	defer release()
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	out, err := command(ctx, "ffprobe", "-v", "error", "-show_entries", "stream=codec_type,codec_name,bit_rate:format=bit_rate",
+		"-of", "json", url).Output()
+	if err != nil {
+		if ctx.Err() != nil {
+			return nil, fmt.Errorf("ffprobe: %w", ctx.Err())
+		}
+		return nil, fmt.Errorf("ffprobe failed")
+	}
+	return ParseMedia(out)
+}
+
+// ParseMedia reads ffprobe's stream and format bit rates.
+func ParseMedia(raw []byte) (*MediaRates, error) {
+	var parsed struct {
+		Streams []struct {
+			CodecType string `json:"codec_type"`
+			CodecName string `json:"codec_name"`
+			BitRate   string `json:"bit_rate"`
+		} `json:"streams"`
+		Format struct {
+			BitRate string `json:"bit_rate"`
+		} `json:"format"`
+	}
+	if err := json.Unmarshal(raw, &parsed); err != nil {
+		return nil, err
+	}
+	kbps := func(s string) float64 {
+		v, err := strconv.ParseFloat(s, 64)
+		if err != nil || v <= 0 {
+			return 0
+		}
+		return math.Round(v/100) / 10
+	}
+	out := &MediaRates{OverallKbps: kbps(parsed.Format.BitRate)}
+	seenVideo := false
+	for _, st := range parsed.Streams {
+		switch {
+		case st.CodecType == "video" && !seenVideo:
+			seenVideo, out.VideoKbps = true, kbps(st.BitRate)
+		case st.CodecType == "audio" && out.AudioCodec == "":
+			out.AudioCodec, out.AudioKbps = st.CodecName, kbps(st.BitRate)
+		}
+	}
+	if !seenVideo {
+		return nil, fmt.Errorf("ffprobe: no video stream")
+	}
+	return out, nil
 }

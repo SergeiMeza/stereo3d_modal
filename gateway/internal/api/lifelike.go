@@ -257,7 +257,9 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 	if p.Scenes != nil {
 		params.SceneCuts = p.Scenes.Cuts
 	}
-	if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
+	if projectMethod(p) == store.MethodLifelike && (req.Quality != "" || (req.web && req.Bitrate.Choice == "match_source")) {
+		// the quality tiers decide (applyQuality): a web match_source is standard now
+	} else if berr := applyBitrate(&params, req.Bitrate, p); berr != nil {
 		return params, berr
 	}
 	return params, nil
@@ -295,6 +297,12 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.OutputBitrateBps > 0 {
 		body["output_bitrate_bps"] = c.Params.OutputBitrateBps // absent = auto
+	}
+	if c.Params.MaxBitrateBps > 0 {
+		body["max_bitrate_bps"] = c.Params.MaxBitrateBps // standard: CRF capped here (ignored until the worker ships it)
+	}
+	if c.Params.BitDepth > 0 {
+		body["output_bit_depth"] = c.Params.BitDepth // master: 10-bit (name pending Spatial 3D Studio)
 	}
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
@@ -767,6 +775,12 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	if ferr := s.applyFPSCap(ctx, p, req.TargetFPS, &params); ferr != nil {
 		return params, ferr
 	}
+	// the quality tiers, at the frame rate the run will have
+	if projectMethod(p) == store.MethodLifelike {
+		if qerr := s.applyQuality(ctx, req, p, &params); qerr != nil {
+			return params, qerr
+		}
+	}
 	return params, nil
 }
 
@@ -941,4 +955,77 @@ func estimatedSizeBytes(params store.Params, outputSeconds float64) int64 {
 		return 0
 	}
 	return int64(float64(params.OutputBitrateBps) * outputSeconds / 8)
+}
+
+// applyQuality resolves the web's quality tiers (owner 2026-11-07) after
+// the frame rate is settled: an explicit quality wins; else the legacy
+// bitrate maps ("master" → master; a web "match_source" → standard; a
+// number, or an API caller's match_source, keeps today's fixed rate and
+// price); else a web request gets standard
+// and an API caller today's pipeline default. The app paths (the mobile
+// one-shot) never come here.
+func (s *Service) applyQuality(ctx context.Context, req *stepConvReq, p *store.Project, params *store.Params) *httpx.APIError {
+	tier := req.Quality
+	switch {
+	case tier != "":
+		if !slices.Contains(pricing.QualityTiers, tier) {
+			return httpx.ErrInvalid("quality must be standard, high or master")
+		}
+	case req.Bitrate.Choice == bitrateMaster:
+		tier = pricing.QualityMaster
+	case req.Bitrate.Choice == "match_source" && req.web:
+		tier = pricing.QualityStandard // an older web build
+	case req.Bitrate.Choice != "" && req.Bitrate.Choice != "auto":
+		return nil // a fixed Mbit/s: today's behaviour and price
+	case req.web:
+		tier = pricing.QualityStandard
+	default:
+		return nil
+	}
+	rates := s.Pricing.Rates(ctx)
+	w, h := params.OutputWidth, params.OutputHeight
+	if w <= 0 || h <= 0 {
+		h = presetOutputHeight[params.Preset]
+		w = h * 16 / 9
+	}
+	mbps := rates.QualityMbps(tier, w, h, effectiveFPS(p, *params))
+	bps := int64(mbps * 1_000_000)
+	params.OutputQuality, params.MaxBitrateBps, params.BitDepth = tier, 0, 0
+	switch tier {
+	case pricing.QualityStandard:
+		params.Bitrate, params.OutputBitrateBps, params.MaxBitrateBps = "", 0, bps
+	case pricing.QualityHigh:
+		params.Bitrate, params.OutputBitrateBps = "", bps
+	case pricing.QualityMaster:
+		params.Bitrate, params.OutputBitrateBps, params.BitDepth = bitrateMaster, bps, rates.QualityBitDepth()
+	}
+	return nil
+}
+
+// qualityView is the quote's quality block; nil without a tier.
+func (s *Service) qualityView(ctx context.Context, params store.Params, outputSeconds float64) map[string]any {
+	if params.OutputQuality == "" {
+		return nil
+	}
+	rates := s.Pricing.Rates(ctx)
+	out := map[string]any{"tier": params.OutputQuality, "approx": true, "price_pct": 0.0, "label": "Standard quality · included"}
+	bps := params.OutputBitrateBps
+	if params.OutputQuality == pricing.QualityStandard {
+		out["max_mbps"] = float64(params.MaxBitrateBps) / 1e6
+		bps = int64(float64(params.MaxBitrateBps) * rates.QualityTypicalShare())
+	}
+	out["mbps"] = math.Round(float64(bps)/1e5) / 10
+	if params.BitDepth > 0 {
+		out["bit_depth"] = params.BitDepth
+	}
+	if outputSeconds > 0 {
+		out["estimated_size_bytes"] = int64(float64(bps) * outputSeconds / 8) // per file
+	}
+	if a := map[string]string{pricing.QualityHigh: pricing.AddOnHigh, pricing.QualityMaster: pricing.AddOnMaster}[params.OutputQuality]; a != "" {
+		pct := rates.AddOnPct(a)
+		out["price_pct"] = pct
+		out["label"] = fmt.Sprintf("%s quality +%d%%", map[string]string{pricing.QualityHigh: "High", pricing.QualityMaster: "Master"}[params.OutputQuality],
+			int(math.Round(pct*100)))
+	}
+	return out
 }

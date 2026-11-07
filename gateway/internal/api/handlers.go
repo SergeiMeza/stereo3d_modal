@@ -1076,6 +1076,19 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 		"kind":          c.Kind,
 		"params":        c.Params,
 	}
+	if c.Params.OutputQuality != "" {
+		resp["quality"] = c.Params.OutputQuality // standard | high | master (web Lifelike)
+	}
+	if len(c.OutputsMedia) > 0 {
+		resp["outputs_media"] = c.OutputsMedia // {name: {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source}}
+	}
+	if c.ProjectID != "" {
+		req := c.Params.Bitrate // what was asked: auto, match_source, a number of Mbit/s or master
+		if req == "" {
+			req = "auto"
+		}
+		resp["bitrate_requested"] = req
+	}
 	if c.Method == store.MethodLifelike && c.Step != "" {
 		paid := false // a 1080p run quoted before 2026-11-07 paid for it
 		switch v := c.Quote.Breakdown["foveation_cents"].(type) {

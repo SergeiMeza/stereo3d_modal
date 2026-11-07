@@ -460,6 +460,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	updated, err := s.Store.Transition(ctx, conv.ID, []string{store.StateProcessing}, func(c *store.Conversion) error {
 		c.State = store.StateSucceeded
 		c.Outputs = outputs
+		c.OutputsMedia = workerOutputsMedia(job, outputs) // measured by the worker, when it reports it
 		c.Modal.Progress = 1
 		c.Modal.Stage = ""
 		c.Modal.CostUSD = job.CostSummary.TotalUSD
@@ -481,6 +482,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	}
 	slog.InfoContext(ctx, "conversion succeeded",
 		"conversion_id", conv.ID, "uid", conv.UID, "modal_cost_usd", job.CostSummary.TotalUSD)
+	defer s.fillOutputsMedia(context.WithoutCancel(ctx), updated.ID) // after the money: ffprobe what the worker didn't report
 	if updated.ProjectID != "" && updated.Kind == "video" {
 		s.foldSceneProfile(ctx, updated, job)
 	}
@@ -1262,10 +1264,14 @@ func (s *Service) collectOutputs(ctx context.Context, conversionID string, job *
 			}
 			continue
 		}
-		var nested map[string]string
+		// an object of URLs; other values (the worker's measured
+		// video_kbps and the like, 2026-11) are skipped, never a reason to
+		// drop the output
+		var nested map[string]json.RawMessage
 		if json.Unmarshal(raw, &nested) == nil {
-			for sub, u := range nested {
-				if u != "" {
+			for sub, v := range nested {
+				var u string
+				if json.Unmarshal(v, &u) == nil && u != "" && strings.HasPrefix(u, "http") {
 					add(name+"/"+sub, u)
 				}
 			}

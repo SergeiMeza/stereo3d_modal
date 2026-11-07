@@ -269,11 +269,24 @@ type Rates struct {
 	// the sheet before the run starts. Only an explicit true turns it on.
 	DeferredPaymentsEnabled bool `firestore:"deferred_payments_enabled"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
-	ProCreditExpiryDaysOverride int            `firestore:"pro_credit_expiry_days"`
-	FreePreviewsEnabled         bool           `firestore:"free_previews_enabled"`
-	FreePreviewsOverride        map[string]int `firestore:"free_previews"`
-	FreePreviewsPerDay          int            `firestore:"free_previews_per_day"`
-	FreePreviewUnitSeconds      float64        `firestore:"free_preview_unit_s"`
+	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
+	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
+	// anchors per size ("1080p", "4k"; others scaled by pixels per eye),
+	// ×QualityHFRFactor above 30 fps for standard and high. Standard is a
+	// CRF target capped at its value; high and master are target rates;
+	// master is QualityMasterBitDepth-bit. Defaults in QualityMbps.
+	QualityStandardCapMbps map[string]float64 `firestore:"quality_standard_cap_mbps"`
+	QualityHighMbps        map[string]float64 `firestore:"quality_high_mbps"`
+	QualityMasterMbps      map[string]float64 `firestore:"quality_master_mbps"`
+	QualityHFRFactor       float64            `firestore:"quality_hfr_factor"`
+	QualityMasterBitDepth  int                `firestore:"quality_master_bit_depth"`
+	// QualityStandardTypical: a standard file's usual share of its cap,
+	// for the quote's size estimate (0.5).
+	QualityStandardTypical float64        `firestore:"quality_standard_typical"`
+	FreePreviewsEnabled    bool           `firestore:"free_previews_enabled"`
+	FreePreviewsOverride   map[string]int `firestore:"free_previews"`
+	FreePreviewsPerDay     int            `firestore:"free_previews_per_day"`
+	FreePreviewUnitSeconds float64        `firestore:"free_preview_unit_s"`
 }
 
 // MaxGPUWorkersPerJob clamps every job's max_gpu_workers: each app is held
@@ -721,8 +734,11 @@ type StepInputs struct {
 	Pro bool
 	// Tier pricing (tiers.go): the account's tier, the add-ons, and a
 	// free preview (quoted $0, Units free previews used).
-	Tier        string
-	Master      bool
+	Tier   string
+	Master bool
+	// Quality (web Lifelike, owner 2026-11-07): "high" (+30%) or "master"
+	// (+50%) is its own add-on, one per run; "" or "standard" is free.
+	Quality     string
 	Express     bool
 	FreePreview bool
 	Units       int

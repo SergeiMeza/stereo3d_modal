@@ -55,12 +55,17 @@ func TestTierPricing(t *testing.T) {
 		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 1280, "tier"},
 		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 300, "tier"},
 		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 2000, ""},
-		// add-ons on the base: 1600 + 480 (foveated 30%) + 1600 (master 100%) + 800 (express 50%) = 4480, not over $50
-		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 4480, ""},
+		// add-ons on the base: 1600 + 480 (foveated 30%) + 800 (master 50%) + 800 (express 50%) = 3680, not over $50
+		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 3680, ""},
 		{"express", with(min1, func(i *StepInputs) { i.Express = true }), 2400, ""},
-		{"master", with(min1, func(i *StepInputs) { i.Master = true }), 3200, ""},
-		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 4000, ""},
-		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 3400, "tier"},
+		{"master", with(min1, func(i *StepInputs) { i.Master = true }), 2400, ""},
+		{"quality master", with(min1, func(i *StepInputs) { i.Quality = QualityMaster }), 2400, ""},
+		{"quality high", with(min1, func(i *StepInputs) { i.Quality = QualityHigh }), 2080, ""},
+		{"standard is free", with(min1, func(i *StepInputs) { i.Quality = QualityStandard }), 1600, ""},
+		{"one quality add-on per run", with(min1, func(i *StepInputs) { i.Master, i.Quality = true, QualityHigh }), 2400, ""},
+		{"business pays high", with(min1, func(i *StepInputs) { i.Tier, i.Quality = TierBusiness, QualityHigh }), 1664, "tier"},
+		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 3200, ""},
+		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 2720, "tier"},
 		// Express included for Business: 1280 + 30% foveated
 		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1664, "tier"},
 		// 6 min of 4K list = 9600 > 5000 → bulk 960 → 8640
@@ -159,5 +164,29 @@ func TestHDRHasNoPrice(t *testing.T) {
 	raw, _ := json.Marshal(map[string]any{"quote": q.Breakdown, "public": NewStatic(on).Public(ctx)})
 	if strings.Contains(string(raw), "hdr") {
 		t.Fatalf("hdr priced: %s", raw)
+	}
+}
+
+// Quality tiers in Mbit/s: the 1080p and 4K anchors, by pixels between,
+// ×1.4 above 30 fps for standard and high, master not.
+func TestQualityMbps(t *testing.T) {
+	r := DefaultsFor("test")
+	for _, tc := range []struct {
+		tier string
+		w, h int
+		fps  float64
+		want float64
+	}{
+		{QualityStandard, 1920, 1080, 24, 25}, {QualityStandard, 3840, 2160, 25, 40}, {QualityStandard, 1920, 1080, 60, 35},
+		{QualityHigh, 1920, 1080, 30, 40}, {QualityHigh, 3840, 2160, 60, 112}, {QualityMaster, 3840, 2160, 60, 150},
+		{QualityMaster, 1920, 1080, 24, 100}, {QualityHigh, 2560, 1440, 24, 50.4},
+	} {
+		if got := r.QualityMbps(tc.tier, tc.w, tc.h, tc.fps); got != tc.want {
+			t.Errorf("%s %dx%d@%v: %v, want %v", tc.tier, tc.w, tc.h, tc.fps, got, tc.want)
+		}
+	}
+	r.QualityHighMbps = map[string]float64{"1080p": 50, "4k": 90}
+	if r.QualityMbps(QualityHigh, 1920, 1080, 24) != 50 || r.QualityBitDepth() != 10 {
+		t.Fatal("config")
 	}
 }
