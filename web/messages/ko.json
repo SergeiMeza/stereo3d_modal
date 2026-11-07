@@ -641,7 +641,8 @@
         "dispute_freeze": "결제 검토 중 보류",
         "dispute_unfreeze": "검토 후 해제됨",
         "dispute_loss": "은행 이의 제기 후 차감됨",
-        "topup_bonus": "충전 보너스"
+        "topup_bonus": "충전 보너스",
+        "topup_bonus_removed": "충전 보너스 회수"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "이미 플랜을 이용 중이에요. 다른 플랜을 선택하려면 결제 내역에서 먼저 해지해 주세요.",
       "errorUnderReview": "계정의 결제를 확인하고 있어요. 계속하려면 지원팀에 문의해 주세요.",
       "errorUnavailable": "지금은 플랜을 이용할 수 없어요. 나중에 다시 시도해 주세요.",
+      "errorPlanUnavailable": "이 플랜은 지금 제공되지 않아요. 다른 플랜을 선택하세요.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "매월 결제돼요. 해지하기 전까지 {date}에 갱신돼요.",
       "billedYearly": "매년 결제돼요. 해지하기 전까지 {date}에 갱신돼요.",
@@ -1551,6 +1553,7 @@
       "renews": "해지하기 전까지 {price}에 갱신돼요.",
       "planActive": "이미 플랜을 이용 중이에요. 결제 내역에서 관리해 주세요.",
       "unavailable": "지금은 Pro를 이용할 수 없어요. 나중에 다시 시도해 주세요.",
+      "planUnavailable": "이 플랜은 더 이상 제공되지 않아요. 다른 플랜을 선택하세요.",
       "subtitleWithCredit": "{price}, {credit} 포함",
       "start": "Pro 시작 · {price}",
       "success": "Pro가 시작됐어요. 이제 모든 영상이 더 저렴해요.",

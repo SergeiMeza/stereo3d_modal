@@ -641,7 +641,8 @@
         "dispute_freeze": "Bir ödeme incelenirken beklemede",
         "dispute_unfreeze": "İncelemeden sonra serbest bırakıldı",
         "dispute_loss": "Banka uyuşmazlığı sonrası kaldırıldı",
-        "topup_bonus": "Yükleme bonusu"
+        "topup_bonus": "Yükleme bonusu",
+        "topup_bonus_removed": "Yükleme bonusu geri alındı"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "Zaten bir planınız var. Başka bir plan seçmeden önce Faturalandırma’dan iptal edin.",
       "errorUnderReview": "Hesabınızdaki bir ödemeyi kontrol ediyoruz. Devam etmek için destekle iletişime geçin.",
       "errorUnavailable": "Planlar şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
+      "errorPlanUnavailable": "Bu plan şu anda sunulmuyor. Başka bir plan seçin.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "Aylık faturalandırılır. İptal edene kadar {date} tarihinde yenilenir.",
       "billedYearly": "Yıllık faturalandırılır. İptal edene kadar {date} tarihinde yenilenir.",
@@ -1551,6 +1553,7 @@
       "renews": "İptal edene kadar {price} üzerinden yenilenir.",
       "planActive": "Zaten bir planınız var. Faturalandırma’dan yönetin.",
       "unavailable": "Pro şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
+      "planUnavailable": "Bu plan artık burada sunulmuyor. Başka bir plan seçin.",
       "subtitleWithCredit": "{price}, {credit} ile",
       "start": "Pro’yu başlat · {price}",
       "success": "Pro etkin. Artık her video daha ucuz.",

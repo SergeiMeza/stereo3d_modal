@@ -641,7 +641,8 @@
         "dispute_freeze": "Pausiert, während eine Zahlung geprüft wird",
         "dispute_unfreeze": "Nach Prüfung freigegeben",
         "dispute_loss": "Nach Bankreklamation entfernt",
-        "topup_bonus": "Aufladebonus"
+        "topup_bonus": "Aufladebonus",
+        "topup_bonus_removed": "Aufladebonus entfernt"
       }
     },
     "balance": {
@@ -1318,6 +1319,7 @@
       "errorPlanActive": "Du hast bereits einen Plan. Kündige ihn unter Abrechnung, bevor du einen anderen wählst.",
       "errorUnderReview": "Wir prüfen eine Zahlung auf deinem Konto. Wende dich an den Support, um fortzufahren.",
       "errorUnavailable": "Pläne sind gerade nicht verfügbar. Versuche es später erneut.",
+      "errorPlanUnavailable": "Dieser Plan wird gerade nicht angeboten. Wähl einen anderen.",
       "title": "{plan} · {price} {per}",
       "billedMonthly": "Monatliche Abrechnung. Verlängert sich am {date}, bis du kündigst.",
       "billedYearly": "Jährliche Abrechnung. Verlängert sich am {date}, bis du kündigst.",
@@ -1551,6 +1553,7 @@
       "renews": "Verlängert sich zu {price}, bis du kündigst.",
       "planActive": "Du hast bereits einen Plan. Verwalte ihn unter Abrechnung.",
       "unavailable": "Pro ist gerade nicht verfügbar. Versuche es später erneut.",
+      "planUnavailable": "Dieser Plan wird hier nicht mehr angeboten. Wähl einen anderen.",
       "subtitleWithCredit": "{price}, mit {credit}",
       "start": "Pro starten · {price}",
       "success": "Pro ist aktiv. Jedes Video ist jetzt günstiger.",
