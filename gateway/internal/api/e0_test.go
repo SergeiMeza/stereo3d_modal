@@ -394,8 +394,12 @@ func (f *fakeStripe) session(id string) map[string]any {
 	if v, ok := s["expires_at"].(int64); ok { // a session near its end
 		exp = v
 	}
-	return map[string]any{"id": id, "object": "checkout.session", "status": s["status"], "payment_status": s["payment_status"],
-		"payment_intent": s["payment_intent"], "expires_at": exp}
+	out := map[string]any{"id": id, "object": "checkout.session", "status": s["status"], "payment_status": s["payment_status"],
+		"payment_intent": s["payment_intent"], "expires_at": exp, "currency": "usd"}
+	if v, ok := s["presentment_details"]; ok { // Adaptive Pricing
+		out["presentment_details"], out["currency"] = v, s["currency"]
+	}
+	return out
 }
 
 func (f *fakeStripe) addSession(id, status, piStatus string) {

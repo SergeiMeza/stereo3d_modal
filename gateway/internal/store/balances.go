@@ -256,25 +256,28 @@ type BalanceEffects struct {
 // Topup is topups_{env}/{id}: one top-up, by the sheet, China or an
 // auto-reload.
 type Topup struct {
-	ID              string     `firestore:"-" json:"topup_id"`
-	UID             string     `firestore:"uid" json:"-"`
-	Cents           int64      `firestore:"cents" json:"amount_cents"`
-	Currency        string     `firestore:"currency" json:"currency"`
-	State           string     `firestore:"state" json:"state"`
-	Auto            bool       `firestore:"auto" json:"auto"`
-	CurrentPayment  *Payment   `firestore:"current_payment,omitempty" json:"-"`
-	Payments        []Payment  `firestore:"payments,omitempty" json:"-"`
-	PaymentIntentID string     `firestore:"payment_intent_id,omitempty" json:"-"`
-	PaidWith        string     `firestore:"paid_with,omitempty" json:"-"`
-	PaidCents       int64      `firestore:"paid_cents,omitempty" json:"-"`
-	CustomerID      string     `firestore:"customer_id,omitempty" json:"-"`
-	Lease           *Lease     `firestore:"lease,omitempty" json:"-"`
-	Error           string     `firestore:"error,omitempty" json:"-"`
-	ConversionID    string     `firestore:"conversion_id,omitempty" json:"-"` // the run waiting for this reload
-	Attempt         int        `firestore:"attempt" json:"-"`
-	CreatedAt       time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt       time.Time  `firestore:"updated_at" json:"-"`
-	PaidAt          *time.Time `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
+	ID              string    `firestore:"-" json:"topup_id"`
+	UID             string    `firestore:"uid" json:"-"`
+	Cents           int64     `firestore:"cents" json:"amount_cents"`
+	Currency        string    `firestore:"currency" json:"currency"`
+	State           string    `firestore:"state" json:"state"`
+	Auto            bool      `firestore:"auto" json:"auto"`
+	CurrentPayment  *Payment  `firestore:"current_payment,omitempty" json:"-"`
+	Payments        []Payment `firestore:"payments,omitempty" json:"-"`
+	PaymentIntentID string    `firestore:"payment_intent_id,omitempty" json:"-"`
+	PaidWith        string    `firestore:"paid_with,omitempty" json:"-"`
+	PaidCents       int64     `firestore:"paid_cents,omitempty" json:"-"`
+	// Presentment: what the customer paid in their currency (Adaptive
+	// Pricing; nil: USD).
+	Presentment  *Presentment `firestore:"presentment,omitempty" json:"-"`
+	CustomerID   string       `firestore:"customer_id,omitempty" json:"-"`
+	Lease        *Lease       `firestore:"lease,omitempty" json:"-"`
+	Error        string       `firestore:"error,omitempty" json:"-"`
+	ConversionID string       `firestore:"conversion_id,omitempty" json:"-"` // the run waiting for this reload
+	Attempt      int          `firestore:"attempt" json:"-"`
+	CreatedAt    time.Time    `firestore:"created_at" json:"created_at"`
+	UpdatedAt    time.Time    `firestore:"updated_at" json:"-"`
+	PaidAt       *time.Time   `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
 }
 
 func balancesCol(env string) string { return "balances_" + env }

@@ -60,10 +60,13 @@ type Settle struct {
 	PaymentIntentID string       `firestore:"payment_intent_id,omitempty" json:"-"`
 	PaidWith        string       `firestore:"paid_with,omitempty" json:"-"`
 	PaidCents       int64        `firestore:"paid_cents,omitempty" json:"-"`
-	Error           string       `firestore:"error,omitempty" json:"-"`
-	CreatedAt       time.Time    `firestore:"created_at" json:"created_at"`
-	UpdatedAt       time.Time    `firestore:"updated_at" json:"-"`
-	PaidAt          *time.Time   `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
+	// Presentment: what the customer paid in their currency (Adaptive
+	// Pricing; nil: USD).
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
+	Error       string       `firestore:"error,omitempty" json:"-"`
+	CreatedAt   time.Time    `firestore:"created_at" json:"created_at"`
+	UpdatedAt   time.Time    `firestore:"updated_at" json:"-"`
+	PaidAt      *time.Time   `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
 }
 
 // Runs counts the runs a settle pays for.

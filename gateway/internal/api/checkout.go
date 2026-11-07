@@ -335,6 +335,9 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		if aerr != nil {
 			return aerr
 		}
+		if perr := s.notePresentment(ctx, store.PresentRun, convID, out); perr != nil {
+			return perr // 5xx → Stripe retries; the payment above is applied once
+		}
 		if out.Paid && updated != nil && updated.Stripe.PaymentIntentID == out.PaymentIntentID {
 			s.recordSavedMethod(ctx, updated, out.PaymentMethod, payment, updated.PayReason != "no_method")
 		}
@@ -472,8 +475,10 @@ func (s *Service) applySettleSessionEvent(ctx context.Context, eventType, sessio
 		if oerr != nil {
 			return oerr
 		}
-		_, aerr := s.applySettlePayment(ctx, settleID, payment, out)
-		return aerr
+		if _, aerr := s.applySettlePayment(ctx, settleID, payment, out); aerr != nil {
+			return aerr
+		}
+		return s.notePresentment(ctx, store.PresentSettle, settleID, out) // an error → 5xx → Stripe retries
 	case "checkout.session.expired", "checkout.session.async_payment_failed":
 		if st.State == store.SettleSettling && st.CurrentPayment != nil && st.CurrentPayment.ID == sessionID {
 			_, ferr := s.Store.FinishSettle(ctx, settleID, store.SettleOutcome{}, nil)

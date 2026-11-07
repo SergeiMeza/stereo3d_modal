@@ -36,6 +36,10 @@ type Session struct {
 	Customer      string            `json:"customer"`
 	Metadata      map[string]string `json:"metadata"`
 	UIMode        string            `json:"ui_mode"`
+	Currency      string            `json:"currency"`
+	// PresentmentDetails: the customer's currency and amount when
+	// Adaptive Pricing presented it (filled once the client rendered).
+	PresentmentDetails *presentmentDetails `json:"presentment_details"`
 }
 
 // Expires is the session's expiry as a time.
@@ -158,6 +162,10 @@ type Outcome struct {
 	PaymentIntentID string
 	AmountReceived  int64
 	PaymentMethod   string
+	// Presentment: what the customer paid in their currency, from a paid
+	// Checkout Session under Adaptive Pricing (nil otherwise: USD, or an
+	// outcome read from a PaymentIntent).
+	Presentment *Presentment
 }
 
 // ClosePaymentIntent cancels a PaymentIntent so it can't be paid any more,
@@ -228,6 +236,9 @@ func (c *Client) sessionOutcome(s *Session) (Outcome, error) {
 	}
 	out.Paid = pi.Status == stripe.PaymentIntentStatusSucceeded
 	out.Processing = pi.Status == stripe.PaymentIntentStatusProcessing
+	if out.Paid {
+		out.Presentment = s.PresentmentDetails.value(s.Currency)
+	}
 	return out, nil
 }
 

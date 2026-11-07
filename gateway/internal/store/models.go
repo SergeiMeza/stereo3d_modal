@@ -342,6 +342,9 @@ type Stripe struct {
 	// SettleError records a capture/cancel/charge failure for support
 	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
+	// Presentment: the customer's currency and amount when Stripe's
+	// Adaptive Pricing presented this run's card payment (nil: USD).
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
 }
 
 type Modal struct {

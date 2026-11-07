@@ -365,6 +365,8 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 	if st.State != store.SettleSettling {
 		if st.PaymentIntentID != out.PaymentIntentID {
 			s.refundLateSettle(ctx, st, out)
+		} else {
+			s.notePresentmentQuiet(ctx, store.PresentSettle, settleID, out) // a retry fills a missed one
 		}
 		return settleResult{Settle: st, Paid: st.State == store.SettlePaid}, nil
 	}
@@ -382,6 +384,7 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 		return settleResult{Settle: st}, err
 	}
 	slog.InfoContext(ctx, "settle paid", "settle_id", settleID, "uid", st.UID, "amount_cents", out.AmountReceived)
+	s.notePresentmentQuiet(ctx, store.PresentSettle, settleID, out)
 	if p.Kind == store.PaymentCheckoutSession && out.PaymentMethod != "" {
 		// D3: a method saved with the settle becomes the default.
 		if cust, cerr := s.Store.GetCustomer(ctx, st.UID); cerr == nil {

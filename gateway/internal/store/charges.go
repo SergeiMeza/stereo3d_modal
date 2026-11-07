@@ -52,17 +52,20 @@ type CreditNoteRef struct {
 // the invoice job's state, and (with the refund layer) refund_seq.
 // charge_id is {kind}_{source id}.
 type Charge struct {
-	ID              string       `firestore:"-" json:"charge_id"`
-	UID             string       `firestore:"uid" json:"-"`
-	Kind            string       `firestore:"kind" json:"kind"`
-	SourceID        string       `firestore:"source_id" json:"-"`
-	CustomerID      string       `firestore:"customer_id" json:"-"`
-	PaymentIntentID string       `firestore:"payment_intent_id" json:"-"`
-	AmountCents     int64        `firestore:"amount_cents" json:"amount_cents"`
-	Currency        string       `firestore:"currency" json:"currency"`
-	PaidWith        string       `firestore:"paid_with,omitempty" json:"-"`
-	PaidAt          time.Time    `firestore:"paid_at" json:"paid_at"`
-	Lines           []ChargeLine `firestore:"lines" json:"lines"`
+	ID              string    `firestore:"-" json:"charge_id"`
+	UID             string    `firestore:"uid" json:"-"`
+	Kind            string    `firestore:"kind" json:"kind"`
+	SourceID        string    `firestore:"source_id" json:"-"`
+	CustomerID      string    `firestore:"customer_id" json:"-"`
+	PaymentIntentID string    `firestore:"payment_intent_id" json:"-"`
+	AmountCents     int64     `firestore:"amount_cents" json:"amount_cents"`
+	Currency        string    `firestore:"currency" json:"currency"`
+	PaidWith        string    `firestore:"paid_with,omitempty" json:"-"`
+	PaidAt          time.Time `firestore:"paid_at" json:"paid_at"`
+	// Presentment: what the customer paid in their currency (Adaptive
+	// Pricing; nil: USD). The invoice notes it; amounts stay USD.
+	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
+	Lines       []ChargeLine `firestore:"lines" json:"lines"`
 
 	InvoiceState     string          `firestore:"invoice_state" json:"invoice_state"`
 	InvoiceAttempt   int             `firestore:"invoice_attempt" json:"-"`

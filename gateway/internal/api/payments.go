@@ -246,7 +246,8 @@ func (s *Service) applyRunPayment(ctx context.Context, convID string, p store.Pa
 	}
 	if conv.State != store.StateCreated || conv.Stripe.PIStatus == store.PISucceeded {
 		if conv.Stripe.PaymentIntentID == out.PaymentIntentID {
-			return conv, nil // the payment the run already has: nothing extra
+			s.notePresentmentQuiet(ctx, store.PresentRun, convID, out) // a retry fills a missed one
+			return conv, nil                                           // the payment the run already has: nothing extra
 		}
 		if out.Paid {
 			s.refundLatePayment(ctx, conv, out.PaymentIntentID, out.AmountReceived, "paid after the run was "+conv.State)
@@ -296,6 +297,7 @@ func (s *Service) applyRunPayment(ctx context.Context, convID string, p store.Pa
 		}
 	}
 	if updated.State == store.StatePaid {
+		s.notePresentmentQuiet(ctx, store.PresentRun, convID, out)
 		s.afterRunPaid(ctx, updated, out.PaymentMethod)
 	}
 	return updated, nil

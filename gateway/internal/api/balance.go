@@ -300,6 +300,7 @@ func (s *Service) applyTopupPayment(ctx context.Context, topupID string, out str
 	if err != nil {
 		return err
 	}
+	s.notePresentmentQuiet(ctx, store.PresentTopup, topupID, out)
 	if t.PaidAt == nil || time.Since(*t.PaidAt) > time.Minute {
 		return nil // already applied earlier
 	}
@@ -537,7 +538,10 @@ func (s *Service) applyTopupSessionEvent(ctx context.Context, eventType, session
 				}
 			}
 		}
-		return s.applyTopupPayment(ctx, topupID, out)
+		if err := s.applyTopupPayment(ctx, topupID, out); err != nil {
+			return err
+		}
+		return s.notePresentment(ctx, store.PresentTopup, topupID, out) // an error → 5xx → Stripe retries
 	case "checkout.session.expired", "checkout.session.async_payment_failed":
 		_, _ = s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error {
 			if x.State != store.TopupOpen || x.CurrentPayment == nil || x.CurrentPayment.ID != sessionID {
