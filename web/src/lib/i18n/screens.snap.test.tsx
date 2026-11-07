@@ -51,6 +51,8 @@ afterEach(() => {
 afterAll(() => server.close());
 
 function show(locale: Locale, node: ReactNode) {
+  // as customers see it: deferred payments are off on staging and prod
+  mockDb.deferredPayments = false;
   document.documentElement.lang = locale;
   document.documentElement.dir = dirOf(locale);
   return render(
