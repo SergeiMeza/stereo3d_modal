@@ -80,14 +80,25 @@ if gcloud secrets describe "svs-gateway-proxy-key-${ENV}" --project "$PROJECT" >
   SECRETS="${SECRETS},SVS_PROXY_KEY=svs-gateway-proxy-key-${ENV}:latest"
 fi
 
+# Optional pass-throughs (unset = unchanged behaviour): SVS_BACKEND_URL
+# (prod: https://svs-backend-prod-151335782809.us-central1.run.app for the
+# deletion hand-off; test has it as the code default), and the scaling the
+# live stream needs (ADR 0143; defaults 20 and 10 as before).
+EXTRA_ENV=""
+if [[ -n "${SVS_BACKEND_URL:-}" ]]; then
+  EXTRA_ENV="${EXTRA_ENV}|SVS_BACKEND_URL=${SVS_BACKEND_URL}"
+fi
+CONCURRENCY="${CONCURRENCY:-20}"
+MAX_INSTANCES="${MAX_INSTANCES:-10}"
+
 gcloud run deploy "$SERVICE" \
   --project "$PROJECT" --region "$REGION" \
   --source . \
   --service-account "$SA" \
   --allow-unauthenticated \
-  --min-instances 0 --max-instances 10 \
-  --memory 1Gi --cpu 1 --timeout 3600 --concurrency 20 \
-  --set-env-vars "^|^APP_ENV=${ENV}|GCP_PROJECT_ID=${PROJECT}|MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run|CORS_ORIGINS=${CORS_ORIGINS}|FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}|LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}|MODAL_WORKSPACE_ID=${MODAL_WORKSPACE}|OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}|FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}|STRIPE_PMC_WEB=${STRIPE_PMC_WEB}" \
+  --min-instances 0 --max-instances "${MAX_INSTANCES}" \
+  --memory 1Gi --cpu 1 --timeout 3600 --concurrency "${CONCURRENCY}" \
+  --set-env-vars "^|^APP_ENV=${ENV}|GCP_PROJECT_ID=${PROJECT}|MODAL_BASE_URL=https://${MODAL_WORKSPACE}--stereo3d-api-${ENV}.modal.run|CORS_ORIGINS=${CORS_ORIGINS}|FIREBASE_WEB_API_KEY=${FIREBASE_WEB_API_KEY}|LIFELIKE_BASE_URL=${LIFELIKE_BASE_URL}|MODAL_WORKSPACE_ID=${MODAL_WORKSPACE}|OWNER_ALERT_EMAIL=${OWNER_ALERT_EMAIL}|FILE_KEEPING_TEST_ACCOUNTS=${FILE_KEEPING_TEST_ACCOUNTS}|STRIPE_PMC_WEB=${STRIPE_PMC_WEB}${EXTRA_ENV}" \
   --set-secrets "$SECRETS"
 
 URL=$(gcloud run services describe "$SERVICE" --project "$PROJECT" --region "$REGION" --format 'value(status.url)')
