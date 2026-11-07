@@ -1390,7 +1390,8 @@
       "saving": "保存中…",
       "save": "保存",
       "below": "残高がこの額を下回ったら",
-      "add": "チャージ額"
+      "add": "チャージ額",
+      "localEstimate": "本日のレートで約{local}。"
     },
     "spending": {
       "title": "利用額",

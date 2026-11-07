@@ -1390,7 +1390,8 @@
       "saving": "保存中…",
       "save": "保存",
       "below": "当我的余额低于",
-      "add": "充值"
+      "add": "充值",
+      "localEstimate": "按今日汇率约为 {local}。"
     },
     "spending": {
       "title": "消费",

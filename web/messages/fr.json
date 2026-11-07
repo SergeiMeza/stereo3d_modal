@@ -1390,7 +1390,8 @@
       "saving": "Enregistrement…",
       "save": "Enregistrer",
       "below": "Quand mon solde passe sous",
-      "add": "Ajouter"
+      "add": "Ajouter",
+      "localEstimate": "≈ {local} au taux du jour."
     },
     "spending": {
       "title": "Dépenses",

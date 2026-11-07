@@ -1390,7 +1390,8 @@
       "saving": "Guardando…",
       "save": "Guardar",
       "below": "Cuando mi saldo baje de",
-      "add": "Agregar"
+      "add": "Agregar",
+      "localEstimate": "≈ {local} al tipo de cambio de hoy."
     },
     "spending": {
       "title": "Gastos",

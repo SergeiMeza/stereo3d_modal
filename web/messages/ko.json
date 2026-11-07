@@ -1390,7 +1390,8 @@
       "saving": "저장 중…",
       "save": "저장",
       "below": "잔액이 다음 금액 아래로 내려가면",
-      "add": "충전 금액"
+      "add": "충전 금액",
+      "localEstimate": "오늘 환율 기준 약 {local}."
     },
     "spending": {
       "title": "사용 내역",

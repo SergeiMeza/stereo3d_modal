@@ -1390,7 +1390,8 @@
       "saving": "儲存中…",
       "save": "儲存",
       "below": "當我的餘額低於",
-      "add": "儲值"
+      "add": "儲值",
+      "localEstimate": "按今日匯率約為 {local}。"
     },
     "spending": {
       "title": "支出",

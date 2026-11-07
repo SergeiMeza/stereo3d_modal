@@ -1390,7 +1390,8 @@
       "saving": "Speichern…",
       "save": "Speichern",
       "below": "Wenn mein Guthaben unter",
-      "add": "Aufladen um"
+      "add": "Aufladen um",
+      "localEstimate": "≈ {local} zum heutigen Kurs."
     },
     "spending": {
       "title": "Ausgaben",
