@@ -65,6 +65,32 @@ func (s *Store) ListUserProjects(ctx context.Context, uid string, limit int) ([]
 	}
 }
 
+// CountOwnProjects counts the account's own projects — not the sample, not
+// deleted ones — stopping at upTo, so it reads only as far as it must
+// (every deleted or sample project on the way, then upTo of its own).
+func (s *Store) CountOwnProjects(ctx context.Context, uid string, upTo int) (int, error) {
+	iter := s.fs.Collection(projectsCol(s.env)).Where("uid", "==", uid).Documents(ctx)
+	defer iter.Stop()
+	n := 0
+	for n < upTo {
+		snap, err := iter.Next()
+		if isIterDone(err) {
+			break
+		}
+		if err != nil {
+			return 0, err
+		}
+		var p Project
+		if err := snap.DataTo(&p); err != nil {
+			return 0, err
+		}
+		if !p.Sample && !p.Deleted {
+			n++
+		}
+	}
+	return n, nil
+}
+
 // ListProjectsAnalyzing returns projects whose free analyze job is still
 // running (reconciler sweep).
 func (s *Store) ListProjectsAnalyzing(ctx context.Context, limit int) ([]*Project, error) {

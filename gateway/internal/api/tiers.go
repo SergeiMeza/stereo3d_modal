@@ -208,9 +208,17 @@ func (s *Service) freePreviewStatus(ctx context.Context, uid string, at accountT
 
 // onFirstProject: the account has made at most one project (the intro
 // preview is for the first).
+//
+// The "Sunset session" sample doesn't count (owner bug 2026-11-07: a new
+// account with the sample and one upload was charged $1.00 for the
+// preview the onboarding promises free). Deleted projects don't count
+// either: the intro is recorded once per account (IntroUsed, set in the
+// same transaction that takes it, given back only when its run delivered
+// nothing), and it's checked before this, so deleting and uploading again
+// can't win a second one.
 func (s *Service) onFirstProject(ctx context.Context, uid string) bool {
-	ps, err := s.Store.ListUserProjects(ctx, uid, 3)
-	return err == nil && len(ps) <= 1
+	n, err := s.Store.CountOwnProjects(ctx, uid, 2)
+	return err == nil && n <= 1
 }
 
 // consumeFreePreview takes the free previews a quoted-free run needs;
