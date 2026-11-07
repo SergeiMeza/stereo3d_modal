@@ -263,7 +263,36 @@ func (s *Service) HandleSetDefaultMethod(w http.ResponseWriter, r *http.Request,
 	}
 	cardRefreshedAt.Delete(user.UID)
 	s.refreshCardCache(ctx, user.UID, customerID)
+	s.repointPlans(ctx, user.UID, customerID, m.PaymentMethodID) // D6
 	s.HandleListMethods(w, r, user)
+}
+
+// repointPlans makes pm the method every live web plan of the customer's
+// is charged to (D6, owner 2026-11-07): Checkout set the subscription's
+// own default_payment_method, which wins over the customer's, so renewals
+// and step-ups kept charging the old method after "Make default". Best
+// effort: a failure is logged and alerted, never fails the caller.
+func (s *Service) repointPlans(ctx context.Context, uid, customerID, pm string) {
+	if customerID == "" || pm == "" {
+		return
+	}
+	subs, err := s.Stripe.CustomerSubscriptions(customerID)
+	if err != nil {
+		slog.WarnContext(ctx, "plans not repointed: subscriptions unreadable", "uid", uid, "err", err)
+		s.Slack.Alert(ctx, "plan_method_not_repointed", fmt.Sprintf("`%s`'s plans still charge their old method (subscriptions unreadable): %v", uid, err))
+		return
+	}
+	for _, sub := range subs {
+		if !sub.Live() || sub.Metadata["product"] != "svs-web" || sub.Metadata["env"] != s.Cfg.Env || sub.DefaultPaymentMethod == pm {
+			continue
+		}
+		if err := s.Stripe.SetSubscriptionMethod(sub.ID, pm); err != nil {
+			slog.WarnContext(ctx, "plan not repointed", "uid", uid, "subscription", sub.ID, "err", err)
+			s.Slack.Alert(ctx, "plan_method_not_repointed", fmt.Sprintf("`%s`'s plan %s still charges its old method: %v", uid, sub.ID, err))
+			continue
+		}
+		slog.InfoContext(ctx, "plan repointed to the default method", "uid", uid, "subscription", sub.ID)
+	}
 }
 
 // PUT /v1/billing/methods/order {ids: [...]} — the backup order (C5).
@@ -331,7 +360,9 @@ func (s *Service) HandleRemoveMethod(w http.ResponseWriter, r *http.Request, use
 		rest := orderMethods(slices.DeleteFunc(methods, func(x *stripex.CardInfo) bool { return x.PaymentMethodID == m.PaymentMethodID }),
 			"", cust.BackupOrder)
 		if len(rest) > 0 {
-			_ = s.Stripe.SetDefaultMethod(customerID, rest[0].PaymentMethodID)
+			if s.Stripe.SetDefaultMethod(customerID, rest[0].PaymentMethodID) == nil {
+				s.repointPlans(ctx, user.UID, customerID, rest[0].PaymentMethodID) // D6: the plan follows the new default
+			}
 		}
 	}
 	s.forgetMethod(ctx, user.UID, m.PaymentMethodID)

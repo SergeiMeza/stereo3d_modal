@@ -99,10 +99,13 @@ type Subscription struct {
 	CancelAtPeriodEnd bool              `json:"cancel_at_period_end"`
 	Metadata          map[string]string `json:"metadata"`
 	// Schedule: the subscription schedule managing it ("" when none).
-	Schedule           string `json:"schedule"`
-	CurrentPeriodStart int64  `json:"current_period_start"`
-	CurrentPeriodEnd   int64  `json:"current_period_end"`
-	Items              struct {
+	Schedule string `json:"schedule"`
+	// DefaultPaymentMethod: the method its invoices are charged to ("":
+	// the customer's default).
+	DefaultPaymentMethod string `json:"default_payment_method"`
+	CurrentPeriodStart   int64  `json:"current_period_start"`
+	CurrentPeriodEnd     int64  `json:"current_period_end"`
+	Items                struct {
 		Data []struct {
 			ID                 string `json:"id"`
 			CurrentPeriodStart int64  `json:"current_period_start"`

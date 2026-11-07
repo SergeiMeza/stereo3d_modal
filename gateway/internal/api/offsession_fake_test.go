@@ -41,11 +41,13 @@ type offFake struct {
 	// lostAnswers: the next n creates charge, then answer 500 (a timeout
 	// after Stripe took the money).
 	lostAnswers int
+	subs        map[string]map[string]any // subscription id → {customer, status, metadata, default_payment_method}
+	subSets     []map[string]string       // POST /v1/subscriptions/{id} forms
 }
 
 func newOffFake(t *testing.T) *offFake {
 	return &offFake{t: t, outcome: map[string]string{}, methods: map[string][]string{}, pis: map[string]map[string]any{},
-		idem: map[string][2]any{}}
+		idem: map[string][2]any{}, subs: map[string]map[string]any{}}
 }
 
 func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
@@ -192,6 +194,21 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			def = map[string]any{"id": ms[0], "object": "payment_method", "type": "card", "card": map[string]any{"brand": "visa", "last4": "4242"}}
 		}
 		reply(200, map[string]any{"id": cus, "object": "customer", "invoice_settings": map[string]any{"default_payment_method": def}})
+	case p == "/v1/subscriptions" && r.Method == http.MethodGet:
+		data := []any{}
+		for _, sub := range f.subs {
+			if sub["customer"] == r.URL.Query().Get("customer") {
+				data = append(data, sub)
+			}
+		}
+		reply(200, map[string]any{"object": "list", "data": data, "has_more": false})
+	case strings.HasPrefix(p, "/v1/subscriptions/") && r.Method == http.MethodPost:
+		id := strings.TrimPrefix(p, "/v1/subscriptions/")
+		f.subSets = append(f.subSets, form)
+		if sub := f.subs[id]; sub != nil && form["default_payment_method"] != "" {
+			sub["default_payment_method"] = form["default_payment_method"]
+		}
+		reply(200, f.subs[id])
 	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
 		f.n++
 		f.sessions = append(f.sessions, form)
