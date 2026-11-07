@@ -34,6 +34,23 @@ import { qualitySteps } from "@/components/steps/FileQuality";
 const PLAN_KEYS = ["business", "studio"] as const;
 type PlanKey = (typeof PLAN_KEYS)[number];
 
+/** BUX-25 (proposal, off by default): Business billed yearly, offered
+ * beside monthly while /v1/pricing business_yearly is on and sends the
+ * plan. A first purchase only; a plan change stays monthly. */
+export function businessYearlyDef(pricing: PublicPricing): PlanDef | null {
+  const def = pricing.business_yearly === true ? pricing.plans?.business_yearly : undefined;
+  return def && def.interval === "year" ? def : null;
+}
+
+/** "Save 17%": a yearly plan against twelve of its months (null under 1%). */
+export function yearlySavePct(yearly: PlanDef, monthly: PlanDef): number | null {
+  const year = planPrice(yearly).cents;
+  const twelve = planPrice(monthly).cents * 12;
+  if (twelve <= 0 || year >= twelve) return null;
+  const pct = Math.round((1 - year / twelve) * 100);
+  return pct >= 1 ? pct : null;
+}
+
 /** BUX-11 (owner 2026-11-07): the plan the page recommends. */
 export const RECOMMENDED_PLAN: PlanKey = "business";
 
@@ -94,7 +111,14 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
   const billing = useBilling();
   // the sheet is picked when it opens and kept: a purchase that makes the
   // plan active must not swap the open sheet for another
-  const [open, setOpen] = useState<{ plan: PlanKey; from: string | null; change: boolean; team: boolean } | null>(null);
+  const [open, setOpen] = useState<{
+    plan: PlanKey | "business_yearly";
+    from: string | null;
+    change: boolean;
+    team: boolean;
+  } | null>(null);
+  // BUX-25: Business monthly or yearly (monthly first, as today)
+  const [bizYearly, setBizYearly] = useState(false);
   const pro = useProStatus();
   const plans = pricing.plans;
   if (!plans || PLAN_KEYS.every((k) => !plans[k])) return null;
@@ -111,6 +135,9 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
   const mineName = mine ? (teamPlan?.name ?? plans[mine]?.name ?? (mine === "studio" ? "Studio" : "Business")) : null;
   const proPeriod = periodWord(billing.status?.plan?.plan === "pro" ? billing.status.plan.plan_id : pro?.plan_id ?? pro?.via);
   const proName = `Pro${proPeriod ? ` ${proPeriod}` : ""}`;
+  const yearlyBiz = businessYearlyDef(pricing);
+  // a plan change (Business, Studio or a web Pro) stays monthly
+  const offerYearly = yearlyBiz !== null && !!plans.business && !mineName && !webPro;
   return (
     <section data-testid="plans" aria-labelledby="plans-title" className="flex flex-col gap-4">
       <div className="text-center">
@@ -127,7 +154,9 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
           if (!def) return null;
           const pct = pricing.tiers?.classic_pct?.[k];
           const recommended = k === RECOMMENDED_PLAN;
-          const head = planHeadline(def, t);
+          const yearlyHere = k === "business" && offerYearly && bizYearly && yearlyBiz !== null;
+          const head = planHeadline(yearlyHere ? yearlyBiz : def, t);
+          const save = k === "business" && offerYearly && yearlyBiz ? yearlySavePct(yearlyBiz, def) : null;
           return (
             <div
               key={k}
@@ -143,6 +172,29 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
               ) : null}
               <div>
                 <h3 className="text-base font-semibold">{def.name}</h3>
+                {k === "business" && offerYearly ? (
+                  <div
+                    role="radiogroup"
+                    aria-label={t("pricing.plans.billingPeriod")}
+                    data-testid="business-period"
+                    className="mt-2 inline-flex rounded-lg border border-edge p-0.5 text-xs"
+                  >
+                    {([false, true] as const).map((y) => (
+                      <button
+                        key={String(y)}
+                        type="button"
+                        role="radio"
+                        aria-checked={bizYearly === y}
+                        data-testid={y ? "business-yearly" : "business-monthly"}
+                        onClick={() => setBizYearly(y)}
+                        className={`rounded-md px-2.5 py-1 ${bizYearly === y ? "bg-primary text-primary-foreground" : "text-fg-muted hover:text-fg"}`}
+                      >
+                        {y ? t("pricing.plans.yearly") : t("pricing.plans.monthly")}
+                        {y && save ? ` · ${t("pricing.plans.savePct", { pct: save })}` : ""}
+                      </button>
+                    ))}
+                  </div>
+                ) : null}
                 <p data-testid={`plan-price-${k}`} className="mt-1 text-2xl font-semibold tabular-nums">
                   {formatCentsShort(head.cents, t)}
                   <span className="text-sm font-normal text-fg-muted"> {head.per}</span>
@@ -171,7 +223,12 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                   variant={recommended ? "default" : "outline"}
                   className="mt-auto w-full"
                   onClick={() =>
-                    setOpen({ plan: k, from: mineName ?? (webPro ? proName : null), change: mineName !== null || webPro, team: mineName !== null })
+                    setOpen({
+                      plan: yearlyHere ? "business_yearly" : k,
+                      from: mineName ?? (webPro ? proName : null),
+                      change: mineName !== null || webPro,
+                      team: mineName !== null,
+                    })
                   }
                 >
                   {mine ? t("pricing.plans.changeTo", { name: def.name }) : t("pricing.plans.choose", { name: def.name })}
@@ -186,7 +243,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
         })}
       </div>
       {open && plans[open.plan] ? (
-        open.change ? (
+        open.change && open.plan !== "business_yearly" ? (
           <PlanChangeSheet
             plan={open.plan}
             def={plans[open.plan]!}

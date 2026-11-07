@@ -1804,7 +1804,11 @@
         "invoices": "Invoices"
       },
       "recommended": "Recommended",
-      "billedYearly": "billed yearly ({amount})"
+      "billedYearly": "billed yearly ({amount})",
+      "billingPeriod": "Billing period",
+      "monthly": "Monthly",
+      "yearly": "Yearly",
+      "savePct": "save {pct}%"
     },
     "table": {
       "perEye": "{size} per eye",

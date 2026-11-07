@@ -90,7 +90,8 @@ export function PlanSheet({
   onClose,
   companyLink = false,
 }: {
-  plan: "business" | "studio";
+  /** business_yearly: BUX-25's yearly Business (proposal, off by default) */
+  plan: "business" | "studio" | "business_yearly";
   def: PlanDef;
   onClose: (started: boolean) => void;
   /** /pricing (owner 2026-11-05): no welcome follows, so the success

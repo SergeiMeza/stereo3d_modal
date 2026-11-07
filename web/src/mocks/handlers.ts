@@ -294,6 +294,12 @@ function balanceQuote(amountCents: number): Record<string, unknown> {
   return { ...out, balance: { available_cents: available, enough: false } };
 }
 
+/** BUX-25 (proposal): Business billed yearly at 10× its month. */
+function businessYearlyMock() {
+  const m = TIERS.plans.business;
+  return { ...m, interval: "year", price_cents: m.monthly_cents * 10 };
+}
+
 /** BUX-23 (proposal): the bonus a top-up gets, as the gateway would
  * (the highest tier it reaches, rounded to the cent); 0 while off. */
 function mockTopupBonus(cents: number): number {
@@ -328,6 +334,8 @@ interface MockCheckout {
   token?: string;
   /** kind "plan": business | studio */
   plan?: "business" | "studio";
+  /** BUX-25: the yearly Business (plan "business" billed yearly) */
+  yearly?: boolean;
   conversion_id?: string;
   amount_cents: number;
   state: "open" | "paid" | "expired";
@@ -435,6 +443,9 @@ interface DB {
   /** GET /v1/pricing topup_bonus (BUX-23 proposal): off (null) everywhere,
    * the mock included; tests set the tiers */
   topupBonus: import("@/lib/api/types").TopupBonus | null;
+  /** GET /v1/pricing business_yearly (BUX-25 proposal): off everywhere, the
+   * mock included; on, plans.business_yearly is sold at 10× the month */
+  businessYearly: boolean;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -766,7 +777,9 @@ function publicTiers(): Record<string, unknown> {
       master: { mode: "target", price_pct: TIERS.addons.master, bit_depth: 10 },
     },
     discount: { ...TIERS.bulk, stacks_with_tier: false, rule: "a run gets the bigger of bulk and its tier price, never both" },
-    plans: TIERS.plans,
+    // BUX-25 (proposal): Business yearly at 10× its month, only while on
+    plans: mockDb.businessYearly ? { ...TIERS.plans, business_yearly: businessYearlyMock() } : TIERS.plans,
+    business_yearly: mockDb.businessYearly,
     free_previews: {
       enabled: true,
       allowances: TIERS.allowances,
@@ -1054,6 +1067,7 @@ function seed(): DB {
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     webProWeeklyHidden: false,
     topupBonus: null,
+    businessYearly: false,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -4219,6 +4233,9 @@ export const handlers = [
       });
       return HttpResponse.json({ plan: proDef.id, publishable_key: "pk_test_mock", checkout: { client_secret: secret, expires_at } });
     }
+    // BUX-25: the yearly Business, only while it's on
+    const yearly = body.plan === "business_yearly" && mockDb.businessYearly;
+    if (yearly) body.plan = "business";
     if (body.plan !== "business" && body.plan !== "studio") {
       return err(400, "unknown_plan", "plan must be business or studio");
     }
@@ -4233,9 +4250,10 @@ export const handlers = [
     mockDb.billing.checkouts.set(secret, {
       kind: "plan",
       plan: body.plan,
-      amount_cents: TIERS.plans[body.plan].monthly_cents,
+      amount_cents: yearly ? businessYearlyMock().price_cents : TIERS.plans[body.plan].monthly_cents,
       state: "open",
       expires_at,
+      ...(yearly ? { yearly: true } : {}),
     });
     return HttpResponse.json({ plan: body.plan, publishable_key: "pk_test_mock", checkout: { client_secret: secret, expires_at } });
   }),
@@ -4297,7 +4315,7 @@ export const handlers = [
     }
     if (ch.kind === "plan" && ch.plan) {
       ch.state = "paid";
-      const def = TIERS.plans[ch.plan];
+      const def = ch.yearly ? businessYearlyMock() : TIERS.plans[ch.plan];
       const yearly = def.interval === "year";
       const end = new Date();
       if (yearly) end.setUTCFullYear(end.getUTCFullYear() + 1);
@@ -4306,6 +4324,7 @@ export const handlers = [
       resets.setUTCMonth(resets.getUTCMonth() + 1);
       b.plan = {
         plan: ch.plan,
+        ...(ch.yearly ? { plan_id: "business_yearly" } : {}),
         name: def.name,
         status: "active",
         active: true,

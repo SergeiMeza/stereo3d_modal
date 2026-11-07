@@ -825,6 +825,9 @@ export interface PublicPricing {
    * +10% at $100), never refunded or paid out; missing, null or no tiers:
    * off */
   topup_bonus?: TopupBonus | null;
+  /** BUX-25 (proposal): Business billed yearly at 10× its month
+   * (plans.business_yearly); missing or false: Business bills monthly only */
+  business_yearly?: boolean;
   methods: {
     lifelike?: {
       presets: Preset[];
@@ -902,7 +905,9 @@ export interface PublicPricing {
     tiers?: OutputQuality[];
     default?: OutputQuality;
   } & Partial<Record<OutputQuality, { price_pct?: number; bit_depth?: number }>>;
-  plans?: Partial<Record<"business" | "studio", PlanDef>>;
+  /** business_yearly: BUX-25's yearly Business (interval "year"), sold
+   * only while business_yearly is on */
+  plans?: Partial<Record<"business" | "studio" | "business_yearly", PlanDef>>;
   free_previews?: {
     enabled?: boolean;
     allowances: Record<string, number>;
