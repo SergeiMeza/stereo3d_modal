@@ -101,9 +101,9 @@ describe("account page (A3)", () => {
         },
       }),
     });
-    expect(await screen.findByTestId("run-amount-r_jpy")).toHaveTextContent("Paid ¥7,480 ($49.72)");
+    expect(await screen.findByTestId("run-amount-r_jpy")).toHaveTextContent("Paid ¥7,480 (USD 49.72)");
     expect(screen.getByTestId("run-amount-r_usd").textContent).toBe("$49.72");
-    expect(screen.getByTestId("charge-amount-ch_jpy")).toHaveTextContent("Paid ¥7,480 ($49.72)");
+    expect(screen.getByTestId("charge-amount-ch_jpy")).toHaveTextContent("Paid ¥7,480 (USD 49.72)");
     expect(screen.getByTestId("charge-amount-ch_usd").textContent).toBe("$49.72");
   });
 

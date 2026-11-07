@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import { buildCsp } from "./csp";
-import { ageHours, formatMoney, money, paidLocal, parseDollars, parseSignedDollars, until } from "./format";
+import { ageHours, formatMoney, formatUsdLabeled, money, paidLocal, parseDollars, parseSignedDollars, until } from "./format";
 import { safeExternalUrl } from "./links";
 import { parseRoute } from "./router";
 import { audioLine, fileQualityLine } from "./fileQuality";
@@ -14,12 +14,18 @@ describe("formatMoney and paidLocal (owner 2026-11-07, Option B)", () => {
     expect(formatMoney(825, "usd")).toBe("$8.25");
   });
 
-  it("\"Paid ¥7,480 ($49.72)\" with a presentment; null for none or US dollars", () => {
-    expect(paidLocal({ amount_minor: 7480, currency: "jpy" }, 4972)).toBe("Paid ¥7,480 ($49.72)");
-    expect(paidLocal({ amount_minor: 4590, currency: "eur" }, 4972)).toBe("Paid €45.90 ($49.72)");
+  it("\"Paid ¥7,480 (USD\u00a049.72)\" with a presentment; null for none or US dollars", () => {
+    expect(paidLocal({ amount_minor: 7480, currency: "jpy" }, 4972)).toBe("Paid ¥7,480 (USD\u00a049.72)");
+    expect(paidLocal({ amount_minor: 4590, currency: "eur" }, 4972)).toBe("Paid €45.90 (USD\u00a049.72)");
     expect(paidLocal(null, 4972)).toBeNull();
     expect(paidLocal(undefined, 4972)).toBeNull();
     expect(paidLocal({ amount_minor: 4972, currency: "usd" }, 4972)).toBeNull();
+  });
+
+  it("the US dollars beside it always say US; alone they stay \"$\"", () => {
+    expect(formatUsdLabeled(4972)).toBe("USD\u00a049.72");
+    expect(formatUsdLabeled(4972, "zh-CN")).toBe("US$49.72");
+    expect(money(4972)).toBe("$49.72");
   });
 });
 

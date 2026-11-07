@@ -9,15 +9,26 @@ export function formatMoney(amountMinor: number, currency: string, locale = "en-
   return f.format(Math.trunc(amountMinor) / 10 ** digits);
 }
 
+/** US dollars beside another currency, never a bare "$" (owner
+ * 2026-11-07): Intl's own US$ where the locale has one, else its code
+ * form ("USD 49.72" in en-US). */
+export function formatUsdLabeled(cents: number | null | undefined, locale = "en-US"): string {
+  const value = Math.trunc(Number(cents ?? 0)) / 100;
+  const symbol = new Intl.NumberFormat(locale, { style: "currency", currency: "USD" });
+  const sign = symbol.formatToParts(value).find((p) => p.type === "currency")?.value ?? "";
+  const f = /US/.test(sign) ? symbol : new Intl.NumberFormat(locale, { style: "currency", currency: "USD", currencyDisplay: "code" });
+  return f.format(value);
+}
+
 /** What a card paid in its own currency (Stripe Adaptive Pricing): "Paid
- * ¥7,480 ($49.72)"; null when it paid US dollars (null presentment or a
+ * ¥7,480 (USD 49.72)"; null when it paid US dollars (null presentment or a
  * USD one), so the caller shows the USD amount as before. */
 export function paidLocal(
   presentment: { amount_minor: number; currency: string } | null | undefined,
   usdCents: number | null | undefined,
 ): string | null {
   if (!presentment?.currency || presentment.currency.toLowerCase() === "usd") return null;
-  return `Paid ${formatMoney(presentment.amount_minor, presentment.currency)} (${money(usdCents)})`;
+  return `Paid ${formatMoney(presentment.amount_minor, presentment.currency)} (${formatUsdLabeled(usdCents)})`;
 }
 
 export function money(cents: number | null | undefined): string {
