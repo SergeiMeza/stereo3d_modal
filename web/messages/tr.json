@@ -55,7 +55,19 @@
       "othersLabel": "Diğer cihazlar",
       "others": "Diğer cihazlar:"
     },
-    "cancel": "Vazgeç"
+    "cancel": "Vazgeç",
+    "format": {
+      "aboutSeconds": "yaklaşık {s} sn",
+      "aboutMinutes": "yaklaşık {m} dk",
+      "aboutHours": "yaklaşık {h} sa",
+      "aboutHoursMinutes": "yaklaşık {h} sa {m} dk",
+      "left": "{duration} kaldı",
+      "seconds": "{s} sn",
+      "minutes": "{m} dk",
+      "minutesSeconds": "{m} dk {s} sn",
+      "hours": "{h} sa",
+      "hoursMinutes": "{h} sa {m} dk"
+    }
   },
   "business": {
     "entry": {

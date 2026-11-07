@@ -55,7 +55,19 @@
       "othersLabel": "Другие устройства",
       "others": "Другие устройства:"
     },
-    "cancel": "Отмена"
+    "cancel": "Отмена",
+    "format": {
+      "aboutSeconds": "около {s} с",
+      "aboutMinutes": "около {m} мин",
+      "aboutHours": "около {h} ч",
+      "aboutHoursMinutes": "около {h} ч {m} мин",
+      "left": "осталось {duration}",
+      "seconds": "{s} с",
+      "minutes": "{m} мин",
+      "minutesSeconds": "{m} мин {s} с",
+      "hours": "{h} ч",
+      "hoursMinutes": "{h} ч {m} мин"
+    }
   },
   "business": {
     "entry": {

@@ -55,7 +55,19 @@
       "othersLabel": "ほかの機器",
       "others": "ほかの機器："
     },
-    "cancel": "キャンセル"
+    "cancel": "キャンセル",
+    "format": {
+      "aboutSeconds": "約{s}秒",
+      "aboutMinutes": "約{m}分",
+      "aboutHours": "約{h}時間",
+      "aboutHoursMinutes": "約{h}時間{m}分",
+      "left": "残り{duration}",
+      "seconds": "{s}秒",
+      "minutes": "{m}分",
+      "minutesSeconds": "{m}分{s}秒",
+      "hours": "{h}時間",
+      "hoursMinutes": "{h}時間{m}分"
+    }
   },
   "business": {
     "entry": {

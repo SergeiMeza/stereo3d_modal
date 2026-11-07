@@ -55,7 +55,19 @@
       "othersLabel": "أجهزة أخرى",
       "others": "أجهزة أخرى:"
     },
-    "cancel": "إلغاء"
+    "cancel": "إلغاء",
+    "format": {
+      "aboutSeconds": "نحو {s} ث",
+      "aboutMinutes": "نحو {m} د",
+      "aboutHours": "نحو {h} س",
+      "aboutHoursMinutes": "نحو {h} س {m} د",
+      "left": "متبقٍّ {duration}",
+      "seconds": "{s} ث",
+      "minutes": "{m} د",
+      "minutesSeconds": "{m} د {s} ث",
+      "hours": "{h} س",
+      "hoursMinutes": "{h} س {m} د"
+    }
   },
   "business": {
     "entry": {

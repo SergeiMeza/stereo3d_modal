@@ -55,7 +55,19 @@
       "othersLabel": "다른 기기",
       "others": "다른 기기:"
     },
-    "cancel": "취소"
+    "cancel": "취소",
+    "format": {
+      "aboutSeconds": "약 {s}초",
+      "aboutMinutes": "약 {m}분",
+      "aboutHours": "약 {h}시간",
+      "aboutHoursMinutes": "약 {h}시간 {m}분",
+      "left": "{duration} 남음",
+      "seconds": "{s}초",
+      "minutes": "{m}분",
+      "minutesSeconds": "{m}분 {s}초",
+      "hours": "{h}시간",
+      "hoursMinutes": "{h}시간 {m}분"
+    }
   },
   "business": {
     "entry": {

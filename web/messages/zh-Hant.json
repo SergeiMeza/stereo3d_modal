@@ -55,7 +55,19 @@
       "othersLabel": "其他裝置",
       "others": "其他裝置："
     },
-    "cancel": "取消"
+    "cancel": "取消",
+    "format": {
+      "aboutSeconds": "約 {s} 秒",
+      "aboutMinutes": "約 {m} 分鐘",
+      "aboutHours": "約 {h} 小時",
+      "aboutHoursMinutes": "約 {h} 小時 {m} 分鐘",
+      "left": "剩餘 {duration}",
+      "seconds": "{s} 秒",
+      "minutes": "{m} 分鐘",
+      "minutesSeconds": "{m} 分 {s} 秒",
+      "hours": "{h} 小時",
+      "hoursMinutes": "{h} 小時 {m} 分鐘"
+    }
   },
   "business": {
     "entry": {

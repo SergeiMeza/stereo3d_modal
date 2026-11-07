@@ -55,7 +55,19 @@
       "othersLabel": "Otros dispositivos",
       "others": "Otros dispositivos:"
     },
-    "cancel": "Cancelar"
+    "cancel": "Cancelar",
+    "format": {
+      "aboutSeconds": "unos {s} s",
+      "aboutMinutes": "unos {m} min",
+      "aboutHours": "unas {h} h",
+      "aboutHoursMinutes": "unas {h} h {m} min",
+      "left": "Quedan {duration}",
+      "seconds": "{s} s",
+      "minutes": "{m} min",
+      "minutesSeconds": "{m} min {s} s",
+      "hours": "{h} h",
+      "hoursMinutes": "{h} h {m} min"
+    }
   },
   "business": {
     "entry": {
