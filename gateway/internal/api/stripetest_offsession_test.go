@@ -20,7 +20,10 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
@@ -445,6 +448,244 @@ func TestStripeTestMakeDefaultRepointsPlan(t *testing.T) {
 	t.Logf("evidence: make default %d; subscription %s now charges %v", code, sub, got.DefaultPaymentMethod.ID)
 	if got.DefaultPaymentMethod == nil || got.DefaultPaymentMethod.ID != ids[1] {
 		t.Fatal("the plan still charges the old method")
+	}
+	_, _ = subscription.Cancel(sub, nil)
+}
+
+// ---------------------------------------------------------------- D2–D7
+
+// stConfirmCheckout pays an open Checkout Session the way Stripe.js does
+// (payment_pages with the publishable key and a test token), so a pay
+// page can be completed without a browser. Skips without STRIPE_TEST_PK.
+func stConfirmCheckout(t *testing.T, sessionID, token string) {
+	t.Helper()
+	pk := strings.TrimSpace(os.Getenv("STRIPE_TEST_PK"))
+	if !strings.HasPrefix(pk, "pk_test_") {
+		t.Skip("needs STRIPE_TEST_PK (pk_test_) to complete a Checkout Session")
+	}
+	post := func(path string, form url.Values) map[string]any {
+		form.Set("key", pk)
+		resp, err := http.PostForm("https://api.stripe.com"+path, form)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer resp.Body.Close()
+		var out map[string]any
+		_ = json.NewDecoder(resp.Body).Decode(&out)
+		if resp.StatusCode != 200 {
+			t.Fatalf("%s: %d %v", path, resp.StatusCode, out["error"])
+		}
+		return out
+	}
+	init := post("/v1/payment_pages/"+sessionID+"/init", url.Values{"browser_locale": {"en-US"}, "eid": {"NA"}})
+	pm := post("/v1/payment_methods", url.Values{"type": {"card"}, "card[token]": {token}, "billing_details[name]": {"Offsession Probe"},
+		"billing_details[address][country]": {"US"}, "billing_details[email]": {fmt.Sprint(init["customer_email"])}})
+	f := url.Values{"eid": {"NA"}, "payment_method": {pm["id"].(string)}, "expected_payment_method_type": {"card"},
+		"init_checksum": {fmt.Sprint(init["init_checksum"])}}
+	if ts, ok := init["total_summary"].(map[string]any); ok {
+		f.Set("expected_amount", fmt.Sprint(int64(ts["due"].(float64))))
+	}
+	out := post("/v1/payment_pages/"+sessionID+"/confirm", f)
+	t.Logf("evidence: checkout %s confirmed: %v / %v", sessionID, out["status"], out["payment_status"])
+}
+
+// D2/D3 on real Stripe: a soft decline (0341) fails the reload with no
+// credit and auto-reload paused; the +24 h retry charges under its own key
+// (still 0341: declined, PI cancelled); the account's card is replaced and
+// the +72 h retry pays — credited once, the pause lifted.
+func TestStripeTestReloadRetry(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	uid, cus, ids := stCustomer(t, s, "reload-retry", "pm_card_chargeCustomerFail")
+	id := stReload(t, s, uid)
+	s.runReload(ctx, id)
+	tp, _ := s.Store.GetTopup(ctx, id)
+	b, _ := s.Store.GetBalance(ctx, uid)
+	if tp.Retry == nil || tp.Retry.State != store.RetryPending || b.BalanceCents != 0 || b.AutoReload.PausedReason != "declined" {
+		t.Fatalf("first failure %+v %+v", tp.Retry, b.AutoReload)
+	}
+	due := func() {
+		past := time.Now().Add(-time.Second)
+		s.Store.UpdateTopup(ctx, id, func(x *store.Topup) error { x.Retry.NextAttemptAt = &past; return nil })
+		s.reloadRetrySweep(ctx, time.Now())
+	}
+	due()
+	tp, _ = s.Store.GetTopup(ctx, id)
+	if tp.Retry.Attempts != 2 || tp.Retry.State != store.RetryPending {
+		t.Fatalf("second try %+v", tp.Retry)
+	}
+	visa, err := paymentmethod.Attach("pm_card_visa", &stripe.PaymentMethodAttachParams{Customer: stripe.String(cus)})
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error { c.DefaultPaymentMethod = visa.ID; return nil })
+	due()
+	tp, _ = s.Store.GetTopup(ctx, id)
+	b, _ = s.Store.GetBalance(ctx, uid)
+	pis := stPIs(t, cus)
+	t.Logf("evidence: topup %s retry %s attempts %d pi %s (first method %s)", id, tp.Retry.State, tp.Retry.Attempts, tp.PaymentIntentID, ids[0])
+	if tp.State != store.TopupPaid || tp.Retry.State != store.RetryPaid || b.BalanceCents != 2000 || b.AutoReload.PausedReason != "" ||
+		countStatus(pis, stripe.PaymentIntentStatusSucceeded) != 1 || len(pis) != 3 {
+		t.Fatalf("after the third try: %s %+v balance %d PIs %d", tp.State, tp.Retry, b.BalanceCents, len(pis))
+	}
+}
+
+// D7 on real Stripe: a failed reload's pay link opens a Checkout Session
+// for exactly its amount (pmc_web, Adaptive Pricing on); paid, the
+// balance is credited once and the link closes.
+func TestStripeTestPayLinkTopup(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	uid, cus, _ := stCustomer(t, s, "paylink-topup", "pm_card_chargeCustomerFail")
+	id := stReload(t, s, uid)
+	s.runReload(ctx, id)
+	tp, _ := s.Store.GetTopup(ctx, id)
+	tok := tp.Retry.PayRequestID
+	code, out := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{"ui":"elements"}`)
+	if code != 200 {
+		t.Fatalf("checkout %d %v", code, out)
+	}
+	pr, _ := s.Store.GetPayRequest(ctx, tok)
+	stConfirmCheckout(t, pr.CheckoutID, "tok_visa")
+	if err := s.applyTopupSessionEvent(ctx, "checkout.session.completed", pr.CheckoutID, pr.TopupID); err != nil {
+		t.Fatal(err)
+	}
+	pr, _ = s.Store.GetPayRequest(ctx, tok)
+	b, _ := s.Store.GetBalance(ctx, uid)
+	stPIs(t, cus)
+	t.Logf("evidence: pay link %s… session %s topup %s state %s balance %d", tok[:10], pr.CheckoutID, pr.TopupID, pr.State, b.BalanceCents)
+	if pr.State != store.PayPaid || b.BalanceCents != 2000 {
+		t.Fatalf("link %s balance %d", pr.State, b.BalanceCents)
+	}
+	if code, _ := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{}`); code != 409 {
+		t.Fatal("a paid link took another payment")
+	}
+}
+
+// #2 on real Stripe: the sweep's dues charge on 0341 fails; the 6-hourly
+// check charges nothing; the retry charges a new settle under a new key.
+func TestStripeTestDeletionDuesRetry(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	uid, cus, _ := stCustomer(t, s, "dues-retry", "pm_card_chargeCustomerFail")
+	stOwedRun(t, s, uid, 1500)
+	now := time.Now().UTC()
+	s.Store.ScheduleAccountDeletion(ctx, &store.AccountDeletion{UID: uid, RequestedAt: now.Add(-49 * time.Hour), DeleteAfter: now.Add(-time.Hour),
+		Email: "probe.offsession+dues-retry@example.com", Source: "web"})
+	run := func(retryDue bool) {
+		past := time.Now().UTC().Add(-time.Second)
+		s.Store.UpdateAccountDeletion(ctx, uid, func(d *store.AccountDeletion) error {
+			d.NextAttemptAt = &past
+			if retryDue && d.DuesRetry != nil && d.DuesRetry.NextAttemptAt != nil {
+				d.DuesRetry.NextAttemptAt = &past
+			}
+			return nil
+		})
+		s.processScheduledDeletion(ctx, uid, "sweep", false)
+	}
+	run(false)
+	run(false)
+	if n := len(stPIs(t, cus)); n != 1 {
+		t.Fatalf("charged between retries: %d PIs", n)
+	}
+	run(true)
+	d, _ := s.Store.GetAccountDeletion(ctx, uid)
+	pis := stPIs(t, cus)
+	t.Logf("evidence: dues retry %s attempts %d", d.DuesRetry.State, d.DuesRetry.Attempts)
+	if len(pis) != 2 || d.DuesRetry.Attempts != 2 || d.State != store.DeletionStatePending {
+		t.Fatalf("PIs %d retry %+v", len(pis), d.DuesRetry)
+	}
+	for _, pi := range pis {
+		if pi.Status != stripe.PaymentIntentStatusCanceled {
+			t.Fatalf("PI %s left %s", pi.ID, pi.Status)
+		}
+	}
+}
+
+// D4 on real Stripe: a step-up on a card that always asks for the bank's
+// check (3184) answers 402 with a pay link; the pay page is paid
+// on-session with another card; the change is made with that payment as
+// its invoice's credit (the invoice settles at $0, nothing charged twice).
+// The same quote's retry after a decline isn't Stripe's cached 402.
+func TestStripeTestStepUpPayLink(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	uid, cus, ids := stCustomer(t, s, "stepup-paylink", "pm_card_authenticationRequired", "pm_card_visa")
+	sub := stPlan(t, s, uid, cus, ids[1])
+	if _, err := subscription.Update(sub, &stripe.SubscriptionParams{DefaultPaymentMethod: stripe.String(ids[0])}); err != nil {
+		t.Fatal(err)
+	}
+	call := func(body string) (int, map[string]any) {
+		return callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandlePlanChange(w, r, &AuthedUser{UID: uid}) }, "POST", body)
+	}
+	code, out := call(`{"to":"studio","confirm":true}`)
+	d, _ := out["details"].(map[string]any)
+	if code != 402 || d["requires_action"] != true || d["pay_url"] == nil {
+		t.Fatalf("step-up %d %v", code, out)
+	}
+	tok := tokenOf(t, d["pay_url"].(string))
+	code, co := payCall(t, s.HandlePayRequestCheckout, "POST", tok, `{}`)
+	if code != 200 {
+		t.Fatalf("pay page %d %v", code, co)
+	}
+	pr, _ := s.Store.GetPayRequest(ctx, tok)
+	stConfirmCheckout(t, pr.CheckoutID, "tok_visa")
+	sess, err := s.Stripe.GetCheckoutSession(pr.CheckoutID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := s.applyStepUpSession(ctx, "checkout.session.completed", pr.CheckoutID, sess.Metadata); err != nil {
+		t.Fatal(err)
+	}
+	got, _ := subscription.Get(sub, &stripe.SubscriptionParams{Params: stripe.Params{Expand: []*string{stripe.String("latest_invoice")}}})
+	c, _ := s.Store.GetCustomer(ctx, uid)
+	pis := stPIs(t, cus)
+	t.Logf("evidence: subscription %s price %s latest invoice %s %s total %d", sub, got.Items.Data[0].Price.ID, got.LatestInvoice.ID, got.LatestInvoice.Status, got.LatestInvoice.Total)
+	if got.Items.Data[0].Price.ID != stPrice(t, "svs_web_studio_yearly") || got.LatestInvoice.Total != 0 || got.LatestInvoice.Status != stripe.InvoiceStatusPaid ||
+		c.Plan.Tier != "studio" || countStatus(pis, stripe.PaymentIntentStatusSucceeded) != 2 { // the plan's first month + the pay page
+		t.Fatalf("after paying: tier %s invoice %d", c.Plan.Tier, got.LatestInvoice.Total)
+	}
+	_, _ = subscription.Cancel(sub, nil)
+}
+
+// D5 on real Stripe: a renewal on 0341 fails at the cycle (test clock);
+// its invoice.payment_failed (read back from Stripe: the TEST gateway gets
+// the webhook, not this test) puts the plan past_due with the hosted
+// invoice as its pay link.
+func TestStripeTestRenewalDunning(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	uid, cus, ids := stCustomer(t, s, "renewal-dunning", "pm_card_visa", "pm_card_chargeCustomerFail")
+	sub := stPlan(t, s, uid, cus, ids[0])
+	if _, err := subscription.Update(sub, &stripe.SubscriptionParams{DefaultPaymentMethod: stripe.String(ids[1])}); err != nil {
+		t.Fatal(err)
+	}
+	cu, _ := customer.Get(cus, nil)
+	clk := cu.TestClock.ID
+	ck, _ := testclock.Get(clk, nil)
+	if _, err := testclock.Advance(clk, &stripe.TestHelpersTestClockAdvanceParams{FrozenTime: stripe.Int64(ck.FrozenTime + 32*86400)}); err != nil {
+		t.Fatal(err)
+	}
+	for i := 0; i < 60; i++ {
+		time.Sleep(3 * time.Second)
+		if ck, _ = testclock.Get(clk, nil); ck.Status == stripe.TestHelpersTestClockStatusReady {
+			break
+		}
+	}
+	got, _ := subscription.Get(sub, &stripe.SubscriptionParams{Params: stripe.Params{Expand: []*string{stripe.String("latest_invoice")}}})
+	inv := got.LatestInvoice
+	raw, _ := json.Marshal(map[string]any{"id": inv.ID, "status": inv.Status, "amount_due": inv.AmountDue, "currency": inv.Currency,
+		"attempt_count": inv.AttemptCount, "next_payment_attempt": inv.NextPaymentAttempt, "hosted_invoice_url": inv.HostedInvoiceURL,
+		"billing_reason": inv.BillingReason, "subscription": sub})
+	s.handlePlanInvoiceFailed(ctx, "invoice.payment_failed", raw)
+	plan := s.planJSON(ctx, uid)
+	t.Logf("evidence: clock %s subscription %s %s invoice %s %s attempts %d next %d", clk, sub, got.Status, inv.ID, inv.Status, inv.AttemptCount, inv.NextPaymentAttempt)
+	if got.Status != stripe.SubscriptionStatusPastDue || plan["past_due"] != true || plan["pay_url"] == nil || plan["active"] != true {
+		t.Fatalf("plan %v", plan)
+	}
+	code, out := payCall(t, s.HandlePayRequestCheckout, "POST", tokenOf(t, plan["pay_url"].(string)), `{}`)
+	if u, _ := out["url"].(string); code != 200 || !strings.HasPrefix(u, "https://invoice.stripe.com/i/") || out["amount_cents"] != float64(inv.AmountDue) {
+		t.Fatalf("pay link %d %v", code, out)
 	}
 	_, _ = subscription.Cancel(sub, nil)
 }
