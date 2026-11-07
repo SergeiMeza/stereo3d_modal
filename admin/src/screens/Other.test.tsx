@@ -107,6 +107,31 @@ describe("account page (A3)", () => {
     expect(screen.getByTestId("charge-amount-ch_usd").textContent).toBe("$49.72");
   });
 
+  it("a past-due plan and payments being retried, with their pay pages (owner 2026-11-07, D)", async () => {
+    const retry = (state: string) => ({ state, reason: "soft_decline", attempts: 2, max_attempts: 4, next_attempt_at: "2026-11-09T09:00:00Z", amount_cents: 2500, pay_url: `https://stereo3d.studio/pay/tok_${state}`, last_error_message: "Your card was declined." });
+    renderApp("/accounts/uid_123", {
+      "GET /v1/admin/accounts/uid_123": () => ({
+        json: {
+          ...account,
+          plan: { plan: "business", name: "Business", status: "past_due", active: true, past_due: true, action_required: true, amount_due_cents: 29900, payment_failed_at: "2026-11-07T09:00:00Z", next_payment_attempt_at: "2026-11-09T09:00:00Z", pay_url: "https://stereo3d.studio/pay/tok_plan" },
+          balance: { balance_cents: 0, held_cents: 0, held_runs: 0, frozen_cents: 0, available_cents: 0, expires_at: null, expired: false, never_topped_up: false, auto_reload: { enabled: true, below_cents: 1000, add_cents: 2500, retry: retry("pending") }, spend_limit_cents: 0, month_spent_cents: 0, low_balance_cents: 500, currency: "usd" },
+          dues_retry: { ...retry("final"), final_at: "2026-11-10T09:00:00Z" },
+        },
+      }),
+    });
+    const due = await screen.findByTestId("plan-past-due");
+    expect(due).toHaveTextContent("past due · bank confirmation");
+    expect(due).toHaveTextContent("$299.00 due · failed Nov 7, 2026 · next try Nov 9, 2026");
+    expect(within(due).getByRole("link", { name: "Pay page ↗" })).toHaveAttribute("href", "https://stereo3d.studio/pay/tok_plan");
+    const reload = screen.getByTestId("reload-retry");
+    expect(reload).toHaveTextContent("pending");
+    expect(reload).toHaveTextContent("$25.00 · soft decline · try 2 of 4 · next");
+    expect(reload).toHaveTextContent("Your card was declined.");
+    const dues = screen.getByTestId("dues-retry");
+    expect(dues).toHaveTextContent("final");
+    expect(within(dues).getByRole("link", { name: "Pay page ↗" })).toHaveAttribute("href", "https://stereo3d.studio/pay/tok_final");
+  });
+
   it("shows the business details on the account's invoices", async () => {
     renderApp("/accounts/uid_123", {
       "GET /v1/admin/accounts/uid_123": () => ({

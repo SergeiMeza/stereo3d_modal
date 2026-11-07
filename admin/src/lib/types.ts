@@ -358,6 +358,20 @@ export interface OpenCaseBody {
   topup_id?: string;
 }
 
+/** owner 2026-11-07 (D): an off-session charge being retried
+ * (auto_reload.retry, dues_retry). */
+export interface PaymentRetry {
+  state: "pending" | "final" | "paid" | "canceled";
+  reason?: "soft_decline" | "authentication_required" | "hard_decline" | "stop_code" | "config";
+  attempts?: number;
+  max_attempts?: number;
+  next_attempt_at?: string | null;
+  final_at?: string | null;
+  amount_cents: number;
+  pay_url?: string | null;
+  last_error_message?: string | null;
+}
+
 export interface BalanceSummary {
   balance_cents: number;
   held_cents: number;
@@ -372,6 +386,7 @@ export interface BalanceSummary {
     below_cents: number;
     add_cents: number;
     paused_reason?: string;
+    retry?: PaymentRetry | null;
   };
   spend_limit_cents: number;
   month_spent_cents: number;
@@ -466,7 +481,16 @@ export interface AccountPage {
     credit_cents?: number;
     credit_left_cents?: number;
     current_period_end?: string;
+    /** owner 2026-11-07 (D): the renewal didn't go through */
+    past_due?: boolean;
+    payment_failed_at?: string | null;
+    next_payment_attempt_at?: string | null;
+    action_required?: boolean;
+    amount_due_cents?: number | null;
+    pay_url?: string | null;
   } | null;
+  /** owner 2026-11-07 (D): what the account owes, being retried */
+  dues_retry?: PaymentRetry | null;
   ledger?: { id: string; kind: string; cents: number; at: string }[] | null;
   /** gateway 00106: Grant Pro records */
   grants?: Grant[] | null;

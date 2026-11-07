@@ -25,7 +25,7 @@ import { Link, paths, useRouter } from "../lib/router";
 import { LiveRunStatus as LiveStatus } from "@/components/LiveRunStatus";
 import { liveAccountRunIdsAtom, liveAdminRunAtom, openAdminRunStream } from "../lib/liveRuns";
 import { useServices } from "../lib/services";
-import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRuns } from "../lib/types";
+import type { AccountAction, AccountActionBody, AccountPage as Page, AccountRuns, PaymentRetry } from "../lib/types";
 import { accountQuery } from "@/state/queries";
 import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
@@ -251,7 +251,20 @@ export function AccountPage({ uid }: { uid: string }) {
                       {p.plan.current_period_end ? ` · ${p.plan.cancel_at_period_end ? "ends" : "renews"} ${dateOnly(p.plan.current_period_end)}` : ""}
                     </span>
                   </span>
-                  <Badge variant={p.plan.status === "active" ? "green" : "plain"} className="self-start">{p.plan.status ?? "—"}</Badge>
+                  <span className="flex flex-col items-end gap-1 self-start">
+                    <Badge variant={p.plan.status === "active" ? "green" : "plain"}>{p.plan.status ?? "—"}</Badge>
+                    {p.plan.past_due ? (
+                      <span data-testid="plan-past-due" className="flex flex-col items-end gap-0.5 text-xs">
+                        <Badge variant="red">past due{p.plan.action_required ? " · bank confirmation" : ""}</Badge>
+                        <span className="text-muted-foreground tabular-nums">
+                          {typeof p.plan.amount_due_cents === "number" ? `${money(p.plan.amount_due_cents)} due` : "due"}
+                          {p.plan.payment_failed_at ? ` · failed ${dateOnly(p.plan.payment_failed_at)}` : ""}
+                          {p.plan.next_payment_attempt_at ? ` · next try ${dateOnly(p.plan.next_payment_attempt_at)}` : ""}
+                        </span>
+                        {p.plan.pay_url ? <PayLink url={p.plan.pay_url} /> : null}
+                      </span>
+                    ) : null}
+                  </span>
                 </li>
               )}
               {activeGrants.map((g) => (
@@ -277,6 +290,12 @@ export function AccountPage({ uid }: { uid: string }) {
             <dt>Last good method</dt><dd className="font-mono">{b.last_good_method || "—"}</dd>
             <dt>Under review</dt><dd>{b.under_review ? "yes" : "no"}</dd>
             <dt>Owed</dt><dd className="tabular-nums">{money(p.owed_cents)}</dd>
+            {p.dues_retry ? (
+              <>
+                <dt>Dues retry</dt>
+                <dd data-testid="dues-retry"><RetryLine r={p.dues_retry} /></dd>
+              </>
+            ) : null}
           </KV>
         </Panel>
         <Panel title="Balance">
@@ -294,6 +313,12 @@ export function AccountPage({ uid }: { uid: string }) {
                   : "off"}
                 {bal.auto_reload.paused_reason ? ` · paused: ${words(bal.auto_reload.paused_reason)}` : ""}
               </dd>
+              {bal.auto_reload.retry ? (
+                <>
+                  <dt>Reload retry</dt>
+                  <dd data-testid="reload-retry"><RetryLine r={bal.auto_reload.retry} /></dd>
+                </>
+              ) : null}
             </KV>
           ) : (
             <EmptyRow>No balance.</EmptyRow>
@@ -783,5 +808,32 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
         </div>
       )}
     </Panel>
+  );
+}
+
+/** owner 2026-11-07 (D): an off-session charge being retried, for support. */
+function RetryLine({ r }: { r: PaymentRetry }) {
+  return (
+    <span className="flex flex-col gap-0.5">
+      <span className="tabular-nums">
+        <Badge variant={r.state === "final" ? "red" : r.state === "pending" ? "amber" : "plain"}>{r.state}</Badge>{" "}
+        {money(r.amount_cents)}
+        {r.reason ? ` · ${words(r.reason)}` : ""}
+        {typeof r.attempts === "number" ? ` · try ${r.attempts}${typeof r.max_attempts === "number" ? ` of ${r.max_attempts}` : ""}` : ""}
+        {r.state === "pending" && r.next_attempt_at ? ` · next ${dateTime(r.next_attempt_at)}` : ""}
+        {r.state === "final" && r.final_at ? ` · final ${dateTime(r.final_at)}` : ""}
+      </span>
+      {r.last_error_message ? <span className="text-xs text-muted-foreground">{r.last_error_message}</span> : null}
+      {r.pay_url ? <PayLink url={r.pay_url} /> : null}
+    </span>
+  );
+}
+
+/** The pay page the customer's mail links to. */
+function PayLink({ url }: { url: string }) {
+  return (
+    <a href={url} target="_blank" rel="noreferrer" className="text-xs text-primary hover:underline">
+      Pay page ↗
+    </a>
   );
 }
