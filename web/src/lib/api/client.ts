@@ -500,6 +500,8 @@ export class GatewayClient {
   ): Promise<{
     checkout?: { client_secret: string; expires_at: string };
     topup_id: string;
+    /** BUX-23 (proposal): the bonus credit this top-up adds once paid */
+    bonus_cents?: number;
     publishable_key?: string;
     redirect_url?: string;
     qr_image_url?: string;

@@ -27,7 +27,7 @@ import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
 import { useBilling } from "@/lib/billing";
-import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
+import { useLocalPriceAtCheckout, usePricing } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { chinaPayments } from "@/lib/paymentRegion";
@@ -38,9 +38,11 @@ import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
   checkoutCurrencyLine,
+  firstBonusTier,
   reloadConsent,
   sheetCurrencyLine,
   topupDayLeft,
+  topupBonusCents,
   topupDone,
   topupMax,
   topupMin,
@@ -138,6 +140,11 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   // Start again opens a new payment for the same amount
   const [attempt, setAttempt] = useState(0);
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bonusRef = useRef<{ amount: number; cents: number } | null>(null);
+  // BUX-23 (proposal, off by default): bonus credit on bigger top-ups
+  const bonusCfg = usePricing()?.topup_bonus ?? null;
+  const bonusHere = amount >= MIN ? topupBonusCents(amount, bonusCfg) : 0;
+  const firstTier = firstBonusTier(bonusCfg);
 
   const invalid =
     chip === "other" && other !== "" && amount < MIN ? topupMin(t) : null;
@@ -149,8 +156,10 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     const timer = setTimeout(() => {
       setSession({ kind: "loading" });
       gateway.topUp(amount).then(
-        (r) =>
-          live &&
+        (r) => {
+          // BUX-23: the bonus the paid top-up adds, as the gateway says
+          bonusRef.current = { amount, cents: r.bonus_cents ?? 0 };
+          if (!live) return;
           setSession(
             r.checkout
               ? {
@@ -161,7 +170,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
                   expiresAt: r.checkout.expires_at,
                 }
               : { kind: "error", error: null },
-          ),
+          );
+        },
         (e: unknown) => {
           if (!live) return;
           setSession({ kind: "error", error: e });
@@ -195,7 +205,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     // switched off; the sheet then stays until the person answers
     const ar = prepaidOf(s)?.auto_reload;
     const offer = !!ar && !ar.enabled && !ar.paused_reason;
-    setSession({ kind: "done", text: topupDone(added, bal, t), offer });
+    const bonus = bonusRef.current?.amount === added ? bonusRef.current.cents : 0;
+    setSession({ kind: "done", text: topupDone(added, bal, t, bonus), offer });
     if (!offer) closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
   }
 
@@ -253,6 +264,15 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         </label>
       ) : null}
       {invalid ? <ErrorLine text={invalid} /> : null}
+      {bonusHere > 0 ? (
+        <p data-testid="topup-bonus" className="text-xs text-chart-2">
+          {t("balance.bonus.adds", { bonus: formatCents(bonusHere, t) })}
+        </p>
+      ) : firstTier && invalid === null ? (
+        <p data-testid="topup-bonus-from" className="text-xs text-fg-muted">
+          {t("balance.bonus.from", { min: formatCentsShort(firstTier.min_cents, t), pct: Math.round(firstTier.pct * 100) })}
+        </p>
+      ) : null}
     </div>
   );
 

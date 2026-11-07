@@ -821,6 +821,10 @@ export interface PublicPricing {
   /** BUX-24 (proposal, owner 2026-11-07): the web doesn't sell Pro Weekly
    * (the app keeps it); missing or false: Weekly is sold as today */
   web_pro_weekly_hidden?: boolean;
+  /** BUX-23 (proposal): bonus usage credit on bigger top-ups (+5% at $50,
+   * +10% at $100), never refunded or paid out; missing, null or no tiers:
+   * off */
+  topup_bonus?: TopupBonus | null;
   methods: {
     lifelike?: {
       presets: Preset[];
@@ -1341,10 +1345,16 @@ export interface UsagePage {
   has_more?: boolean;
 }
 
+/** BUX-23 (proposal): a top-up of at least min_cents gets pct of it as
+ * bonus usage credit (the highest tier that fits). */
+export interface TopupBonus {
+  tiers: { min_cents: number; pct: number }[];
+}
+
 /** spec v7 N1: the ledger, for "Balance history" */
 export interface BalanceEntry {
   id: string;
-  kind: "topup" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
+  kind: "topup" | "topup_bonus" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
   cents: number;
   at: string;
   /** "Visa •••• 4242", "CASE-0062" */

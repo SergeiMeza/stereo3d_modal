@@ -640,7 +640,8 @@
         "adjustment": "Adjustment",
         "dispute_freeze": "On hold while a payment is reviewed",
         "dispute_unfreeze": "Released after review",
-        "dispute_loss": "Removed after a bank dispute"
+        "dispute_loss": "Removed after a bank dispute",
+        "topup_bonus": "Top-up bonus"
       }
     },
     "balance": {
@@ -1402,7 +1403,8 @@
       "topupMax": "You can add up to {amount} at a time.",
       "topupDone": "Added {added}. Your balance is {balance}.",
       "reloadConsent": "We'll charge your default payment method {add} whenever your balance drops below {below}. If it's declined, we try your others.",
-      "reloadConsentWithMethod": "We'll charge your default payment method ({method}) {add} whenever your balance drops below {below}. If it's declined, we try your others."
+      "reloadConsentWithMethod": "We'll charge your default payment method ({method}) {add} whenever your balance drops below {below}. If it's declined, we try your others.",
+      "topupDoneBonus": "Added {added} + {bonus} bonus. Your balance is {balance}."
     },
     "addFunds": {
       "title": "Add funds",
@@ -1438,6 +1440,10 @@
       "question": "Never run out mid-project?",
       "turnOn": "Turn on auto-reload",
       "notNow": "Not now"
+    },
+    "bonus": {
+      "adds": "+{bonus} bonus credit with this top-up. Bonus credit can't be refunded or paid out.",
+      "from": "Add {min} or more and get {pct}% bonus credit."
     }
   },
   "pro": {

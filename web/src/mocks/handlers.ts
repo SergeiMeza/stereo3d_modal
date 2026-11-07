@@ -294,6 +294,15 @@ function balanceQuote(amountCents: number): Record<string, unknown> {
   return { ...out, balance: { available_cents: available, enough: false } };
 }
 
+/** BUX-23 (proposal): the bonus a top-up gets, as the gateway would
+ * (the highest tier it reaches, rounded to the cent); 0 while off. */
+function mockTopupBonus(cents: number): number {
+  const tier = (mockDb.topupBonus?.tiers ?? [])
+    .filter((x) => cents >= x.min_cents && x.pct > 0)
+    .sort((a, b) => b.min_cents - a.min_cents)[0];
+  return tier ? Math.round(cents * tier.pct) : 0;
+}
+
 function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string) {
   const pp = mockDb.billing.prepaid;
   pp.balance_cents += cents;
@@ -423,6 +432,9 @@ interface DB {
   /** GET /v1/pricing web_pro_weekly_hidden (BUX-24 proposal): off
    * everywhere, the mock included; tests turn it on */
   webProWeeklyHidden: boolean;
+  /** GET /v1/pricing topup_bonus (BUX-23 proposal): off (null) everywhere,
+   * the mock included; tests set the tiers */
+  topupBonus: import("@/lib/api/types").TopupBonus | null;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -1041,6 +1053,7 @@ function seed(): DB {
     payRequests: new Map(),
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     webProWeeklyHidden: false,
+    topupBonus: null,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -3348,6 +3361,7 @@ export const handlers = [
       topup_id,
       checkout: { client_secret: secret, expires_at: mockDb.billing.checkouts.get(secret)!.expires_at },
       publishable_key: "pk_test_mock",
+      ...(mockTopupBonus(body.amount_cents) > 0 ? { bonus_cents: mockTopupBonus(body.amount_cents) } : {}),
     });
   }),
 
@@ -4358,6 +4372,12 @@ export const handlers = [
       ch.state = "paid";
       b.topupDayCents += ch.amount_cents;
       addTopup(ch.amount_cents, "topup", "Visa •••• 4242");
+      // BUX-23: the bonus is its own ledger row, usage credit only
+      const bonus = mockTopupBonus(ch.amount_cents);
+      if (bonus > 0) {
+        b.prepaid.balance_cents += bonus;
+        b.prepaid.entries.unshift({ id: `be_${b.prepaid.entries.length + 1}`, kind: "topup_bonus", cents: bonus, at: new Date().toISOString() });
+      }
       b.hasPaymentMethod = true;
       if (b.methods.length === 0) {
         b.card = { ...MOCK_CARD };
@@ -4717,6 +4737,7 @@ export const handlers = [
       adaptive_pricing: mockDb.adaptivePricing,
       china_payments: mockDb.chinaPayments,
       web_pro_weekly_hidden: mockDb.webProWeeklyHidden,
+      topup_bonus: mockDb.topupBonus,
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
       pro_credit: MOCK_PRO_CREDIT,

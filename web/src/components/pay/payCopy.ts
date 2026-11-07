@@ -9,6 +9,7 @@
  */
 
 import { formatCents, formatCentsShort, formatUsdLabeled } from "@/components/steps/money";
+import type { TopupBonus } from "@/lib/api/types";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export const CHARGED_IN_USD = EN("pay.copy.chargedInUsd");
@@ -157,8 +158,32 @@ export function topupMax(maxCents: number, first: boolean, t: Tr = EN): string {
 }
 
 /** "Added $25.00. Your balance is $28.20." */
-export function topupDone(added: number, balance: number, t: Tr = EN): string {
+export function topupDone(added: number, balance: number, t: Tr = EN, bonus = 0): string {
+  // BUX-23: "Added $50.00 + $2.50 bonus. Your balance is $52.50."
+  if (bonus > 0) {
+    return t("balance.copy.topupDoneBonus", {
+      added: formatCents(added, t),
+      bonus: formatCents(bonus, t),
+      balance: formatCents(balance, t),
+    });
+  }
   return t("balance.copy.topupDone", { added: formatCents(added, t), balance: formatCents(balance, t) });
+}
+
+/** BUX-23 (proposal): the bonus a top-up of `amount` would get from GET
+ * /v1/pricing topup_bonus (the highest tier it reaches); 0 when off. The
+ * paid top-up's own bonus_cents is what's credited. */
+export function topupBonusCents(amount: number, bonus: TopupBonus | null | undefined): number {
+  const tier = (bonus?.tiers ?? [])
+    .filter((x) => amount >= x.min_cents && x.pct > 0)
+    .sort((a, b) => b.min_cents - a.min_cents)[0];
+  return tier ? Math.round(amount * tier.pct) : 0;
+}
+
+/** The smallest tier, for "Add $50 or more and get 5% bonus credit." */
+export function firstBonusTier(bonus: TopupBonus | null | undefined): { min_cents: number; pct: number } | null {
+  const tiers = (bonus?.tiers ?? []).filter((x) => x.pct > 0).sort((a, b) => a.min_cents - b.min_cents);
+  return tiers[0] ?? null;
 }
 
 /** P18 consent line */
