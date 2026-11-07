@@ -1477,6 +1477,10 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 	out := map[string]any{
 		"rate_version": rates.RateVersion,
 		"currency":     rates.Currency,
+		// Adaptive Pricing at checkout (config adaptive_pricing_enabled):
+		// the web says "You'll see your local price at checkout" when true,
+		// "Charged in US dollars" when false.
+		"adaptive_pricing": rates.AdaptivePricingEnabled,
 		// Classic 3D is retired for new projects (2026-11-04): the web
 		// hides it; its prices stay for projects that already ran it.
 		"classic_new_projects": false,

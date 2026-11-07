@@ -275,3 +275,12 @@ func TestLifelikeAbove4KPrices(t *testing.T) {
 		}
 	}
 }
+
+// GET /v1/pricing mirrors adaptive_pricing_enabled (test on, prod off).
+func TestPublicAdaptivePricing(t *testing.T) {
+	for env, want := range map[string]bool{"test": true, "prod": false} {
+		if got := NewStatic(DefaultsFor(env)).Public(context.Background())["adaptive_pricing"]; got != want {
+			t.Fatalf("%s: adaptive_pricing %v", env, got)
+		}
+	}
+}
