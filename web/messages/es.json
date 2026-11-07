@@ -139,7 +139,7 @@
       "skip": "Omitir",
       "continue": "Continuar",
       "checkout": {
-        "termsTail": "{terms} Precios en USD, sin impuestos. No se cobra nada hasta que confirmes.",
+        "termsTailNoTax": "{terms} Precios en USD, sin impuestos añadidos. No se cobra nada hasta que confirmes.",
         "asksOnly": "El pago solo pide tu método de pago y tu país. El nombre, la dirección y el ID fiscal de tu empresa pueden ir después.",
         "whatHappensBusiness": "Qué pasa con tu {business}",
         "whatHappensPro": "Qué pasa con tu {pro}",
@@ -276,7 +276,7 @@
       "perMinute": "{quality} cuesta {pro} el minuto en lugar de {list}.",
       "getPro": "Obtener {pro} {plan}",
       "keepPaying": "Seguir pagando por video",
-      "terms": "USD, sin impuestos · cancela cuando quieras en Cuenta",
+      "termsNoTax": "USD · sin impuestos añadidos · cancela cuando quieras en Cuenta",
       "planGroup": "Plan {pro}",
       "includes": "{pro} incluye {credit}.",
       "freePreviewsMonthly": "{count, plural, other {# vistas previas gratis al mes}}",
@@ -303,7 +303,8 @@
         "today": "{pro} {plan}, hoy",
         "thisVideo": "Este video, a precios de {pro}",
         "youSave": "Ahorras en este video",
-        "terms": "Cancela cuando quieras en Cuenta. Precios en USD, sin impuestos."
+        "termsNoTax": "Cancela cuando quieras en Cuenta. Precios en USD, sin impuestos añadidos.",
+        "fromCredit": "De tu crédito Pro de {credit}"
       },
       "note": {
         "highFps": "Las velocidades de fotogramas altas vienen con {business} y {studio}, que además incluyen uso mensual.",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "{pct}% de descuento · uso comercial",
         "seeBusinessSave": "Ver {business} · ahorra {range}"
-      }
+      },
+      "today": "{price} hoy",
+      "coveredByCredit": "Este video ({video}) sale de tu crédito Pro de {credit} · luego {renews}"
     },
     "intro": {
       "share": "{pct}% con {plan}",
@@ -637,7 +640,8 @@
         "adjustment": "Ajuste",
         "dispute_freeze": "En pausa mientras se revisa un pago",
         "dispute_unfreeze": "Liberado tras la revisión",
-        "dispute_loss": "Quitado tras una disputa bancaria"
+        "dispute_loss": "Quitado tras una disputa bancaria",
+        "topup_bonus": "Bono de recarga"
       }
     },
     "balance": {
@@ -697,7 +701,9 @@
       "tryAgain": "Reintentar",
       "chooseAnother": "Elegir otra forma de pago",
       "slow": "Está tardando más de lo normal. Empezaremos en cuanto se confirme el pago.",
-      "startAgain": "Empezar de nuevo"
+      "startAgain": "Empezar de nuevo",
+      "backToBilling": "Volver a Facturación",
+      "slowTopup": "Está tardando más de lo normal. Lo sumaremos a tu saldo en cuanto se confirme el pago."
     },
     "settle": {
       "nothingToPay": "Nada que pagar."
@@ -1214,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "Se cobra en dólares estadounidenses.",
-      "withdrawal": "Empieza de inmediato. Aceptas perder tu derecho de desistimiento una vez que termine.",
+      "withdrawal": "Al pagar, nos pides empezar ahora y aceptas que pierdes el derecho de desistimiento una vez que el servicio se complete.",
       "refundedIfFails": "Reembolso total si falla.",
       "saveLine": "Se guarda para tus próximas conversiones. Puedes quitarlo en Facturación.",
       "orPayAnotherWay": "o paga de otra forma",
@@ -1252,14 +1258,22 @@
       "settleSubtitle": "{count, plural, one {# conversión · cobrada tras terminar} other {# conversiones · cobradas tras terminar}}",
       "personalUse": "Para uso personal. El uso comercial viene con los planes Business y Studio.",
       "localAtCheckout": "Verás el precio en tu moneda al pagar.",
-      "formShowsLocal": "El formulario de pago muestra el precio en tu moneda. Precio base {usd}."
+      "formShowsLocal": "El formulario de pago muestra el precio en tu moneda. Precio base {usd}.",
+      "timedOut": "Este pago expiró. No se cobró nada.",
+      "walletDeclined": "El pago con tu billetera no se completó. Inténtalo de nuevo o paga de otra forma.",
+      "openNetwork": "No pudimos abrir el pago. Revisa tu conexión e inténtalo de nuevo.",
+      "openServer": "No pudimos abrir el pago. Inténtalo de nuevo en un momento.",
+      "notPayable": "Esta conversión no está esperando un pago.",
+      "refundPolicy": "Política de reembolso",
+      "cancelTerms": "Cancela cuando quieras en Plan y facturación. Tu plan sigue hasta el final del periodo pagado."
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "Pagar en otro dispositivo",
       "continueAlipay": "Continuar a Alipay",
       "payHereInstead": "Pagar aquí",
-      "startAgain": "Empezar de nuevo"
+      "startAgain": "Empezar de nuevo",
+      "tryAgain": "Reintentar"
     },
     "checkout": {
       "payWithCard": "Pagar con tarjeta",
@@ -1361,9 +1375,7 @@
       "void": "Este pago ya no es necesario.",
       "expired": "Este enlace de pago venció. Inicia sesión y abre Facturación para pagar.",
       "bad": "Este enlace de pago no es válido.",
-      "confirmWithBank": "Confirma el pago con tu banco.",
-      "bankDidntConfirm": "Tu banco no confirmó el pago.",
-      "payOnInvoice": "Pagar en la página de la factura"
+      "inProgress": "Ya hay un pago en curso. Inténtalo de nuevo en un minuto."
     }
   },
   "balance": {
@@ -1389,14 +1401,16 @@
       "topupMax": "Puedes agregar hasta {amount} a la vez.",
       "topupDone": "Se agregaron {added}. Tu saldo es {balance}.",
       "reloadConsent": "Cobraremos {add} a tu método de pago predeterminado cada vez que tu saldo baje de {below}. Si se rechaza, probamos con los demás.",
-      "reloadConsentWithMethod": "Cobraremos {add} a tu método de pago predeterminado ({method}) cada vez que tu saldo baje de {below}. Si se rechaza, probamos con los demás."
+      "reloadConsentWithMethod": "Cobraremos {add} a tu método de pago predeterminado ({method}) cada vez que tu saldo baje de {below}. Si se rechaza, probamos con los demás.",
+      "topupDoneBonus": "Se agregaron {added} + {bonus} de bono. Tu saldo es {balance}."
     },
     "addFunds": {
       "title": "Agregar fondos",
       "balance": "Saldo",
       "amount": "Monto",
       "other": "Otro",
-      "add": "Agregar {amount}"
+      "add": "Agregar {amount}",
+      "processing": "Tu banco está confirmando este pago. Lo sumaremos a tu saldo en cuanto se complete."
     },
     "autoReload": {
       "title": "Recarga automática",
@@ -1410,8 +1424,7 @@
       "saving": "Guardando…",
       "save": "Guardar",
       "below": "Cuando mi saldo baje de",
-      "add": "Agregar",
-      "localEstimate": "≈ {local} al tipo de cambio de hoy."
+      "add": "Agregar"
     },
     "spending": {
       "title": "Gastos",
@@ -1419,6 +1432,15 @@
       "used": "al mes · {amount} usados",
       "resets": "Las conversiones se detienen cuando el gasto del mes lo alcanza. Se restablece el día 1 (UTC).",
       "alert": "Avísame por correo cuando mi saldo baje de"
+    },
+    "reloadOffer": {
+      "question": "¿Sin quedarte nunca sin saldo a mitad de un proyecto?",
+      "turnOn": "Activar recarga automática",
+      "notNow": "Ahora no"
+    },
+    "bonus": {
+      "adds": "+{bonus} de crédito de bono con esta recarga. El crédito de bono no se reembolsa ni se retira.",
+      "from": "Recarga {min} o más y recibe {pct} % de crédito de bono."
     }
   },
   "pro": {
@@ -1448,9 +1470,9 @@
       "creditShort": "{amount} de crédito para empezar",
       "creditRules": "{days, plural, one {Úsalo en # día.} other {Úsalo en # días.}} No se puede retirar.",
       "creditRulesNoDays": "No se puede retirar.",
-      "terms": "Se renueva hasta que canceles.",
       "loadFailed": "Los planes no se cargaron.",
-      "signIn": "Inicia sesión para obtener Pro."
+      "signIn": "Inicia sesión para obtener Pro.",
+      "termsRenews": "Se renueva a {price} hasta que canceles. Cancela cuando quieras en Plan y facturación."
     },
     "list": {
       "notOnSale": "Pro aún no está a la venta en la web. Consíguelo en {app} en iPhone, iPad, Mac o Vision Pro.",
@@ -1459,7 +1481,9 @@
       "save": "Ahorra {pct}%",
       "creditPlus": "+ {credit}",
       "opening": "Abriendo el pago…",
-      "getPro": "Obtener Pro"
+      "getPro": "Obtener Pro",
+      "bestValue": "Mejor valor",
+      "perMonth": "{price} al mes"
     },
     "screen": {
       "included": "Pro está incluido en tu plan {plan}.",
@@ -1508,7 +1532,8 @@
       "unavailable": "Pro no está disponible ahora. Inténtalo más tarde.",
       "subtitleWithCredit": "{price}, con {credit}",
       "start": "Iniciar Pro · {price}",
-      "success": "Pro está activo. Ahora cada video sale más barato."
+      "success": "Pro está activo. Ahora cada video sale más barato.",
+      "processing": "Tu banco está confirmando este pago. Pro se activa en cuanto se complete."
     }
   },
   "company": {
@@ -1608,7 +1633,7 @@
       "minimumPerRun": "<b>Cargo mínimo de {min}</b> por conversión.",
       "minimumPerPreview": "<b>Cargo mínimo</b> de {previewMin} por vista previa, {min} por las demás conversiones.",
       "paidBefore": "<b>Se paga antes de empezar.</b> Cancela mientras espera en la cola, o en su primer minuto, y te reembolsamos todo. Si falla, se reembolsa por completo.",
-      "currency": "Dólares estadounidenses, sin impuestos. Todos los tipos de archivo están incluidos.",
+      "currencyNoTax": "Dólares estadounidenses, sin impuestos añadidos. Se incluyen todos los tipos de archivo.",
       "startProject": "Empezar un proyecto"
     },
     "plansScreen": {
@@ -1638,7 +1663,13 @@
         "fileQuality": "Calidad de archivo {high} y {master} para revisiones con clientes y edición",
         "fps": "Hasta {fps} fps",
         "invoices": "Facturas"
-      }
+      },
+      "recommended": "Recomendado",
+      "billedYearly": "facturado anualmente ({amount})",
+      "billingPeriod": "Periodo de facturación",
+      "monthly": "Mensual",
+      "yearly": "Anual",
+      "savePct": "ahorra {pct} %"
     },
     "table": {
       "perEye": "{size} por ojo",
@@ -2150,7 +2181,7 @@
       "masterBitrate": "Tasa de bits {master} ({pct})",
       "express": "Express",
       "minimum": "Cargo mínimo {amount}",
-      "total": "Total <note>USD, sin impuestos</note>",
+      "totalNoTax": "Total <note>USD · sin impuestos añadidos</note>",
       "fpsCapped": "Se convierte a {fps}. Más fotogramas por segundo vienen con los planes {business} y {studio}.",
       "estimatedTime": "Tiempo estimado",
       "readyIn": "Listo en"
@@ -2218,7 +2249,9 @@
         "anaglyph": "Rojo/cian",
         "depth": "Profundidad",
         "depth_vis": "Vista de profundidad"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· aprox. +{amount}"
     },
     "fps": {
       "planRequired": "Más de 30 fps vienen con los planes {business} y {studio}.",

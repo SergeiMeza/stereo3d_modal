@@ -139,7 +139,7 @@
       "skip": "건너뛰기",
       "continue": "계속",
       "checkout": {
-        "termsTail": "{terms} 가격은 USD이며 세금 별도예요. 확인하기 전에는 결제되지 않아요.",
+        "termsTailNoTax": "{terms} 가격은 USD이며 세금은 별도로 더해지지 않아요. 확인하기 전에는 결제되지 않아요.",
         "asksOnly": "결제 단계에서는 결제 수단과 국가만 물어봐요. 회사 이름, 주소, 세금 ID는 나중에 입력해도 돼요.",
         "whatHappensBusiness": "내 {business}는 어떻게 되나요",
         "whatHappensPro": "내 {pro}는 어떻게 되나요",
@@ -276,7 +276,7 @@
       "perMinute": "{quality}는 분당 {list} 대신 {pro}예요.",
       "getPro": "{pro} {plan} 시작",
       "keepPaying": "영상당 결제 유지",
-      "terms": "USD, 세금 별도 · 계정에서 언제든 해지",
+      "termsNoTax": "USD · 세금 별도 없음 · 계정에서 언제든 해지",
       "planGroup": "{pro} 플랜",
       "includes": "{pro}에는 {credit}이 포함돼요.",
       "freePreviewsMonthly": "{count, plural, other {매달 무료 미리보기 #회}}",
@@ -303,7 +303,8 @@
         "today": "{pro} {plan}, 오늘",
         "thisVideo": "이 영상, {pro} 가격",
         "youSave": "이 영상에서 절약",
-        "terms": "계정에서 언제든 해지할 수 있어요. 가격은 USD이며 세금 별도예요."
+        "termsNoTax": "계정에서 언제든 해지할 수 있어요. 가격은 USD이며 세금은 별도로 더해지지 않아요.",
+        "fromCredit": "보유한 {credit} Pro 크레딧 사용"
       },
       "note": {
         "highFps": "높은 프레임 레이트는 {business}와 {studio}에서 제공되며, 매월 사용량도 포함돼요.",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "{pct}% 할인 · 상업적 이용",
         "seeBusinessSave": "{business} 보기 · {range} 절약"
-      }
+      },
+      "today": "오늘 {price}",
+      "coveredByCredit": "이 영상({video})은 보유한 {credit} Pro 크레딧으로 처리돼요 · 이후 {renews}"
     },
     "intro": {
       "share": "{plan} {pct}%",
@@ -637,7 +640,8 @@
         "adjustment": "조정",
         "dispute_freeze": "결제 검토 중 보류",
         "dispute_unfreeze": "검토 후 해제됨",
-        "dispute_loss": "은행 이의 제기 후 차감됨"
+        "dispute_loss": "은행 이의 제기 후 차감됨",
+        "topup_bonus": "충전 보너스"
       }
     },
     "balance": {
@@ -697,7 +701,9 @@
       "tryAgain": "다시 시도",
       "chooseAnother": "다른 결제 방법 선택",
       "slow": "평소보다 오래 걸리고 있어요. 결제가 확인되는 대로 시작할게요.",
-      "startAgain": "처음부터 다시"
+      "startAgain": "처음부터 다시",
+      "backToBilling": "결제 내역으로 돌아가기",
+      "slowTopup": "평소보다 오래 걸리고 있어요. 결제가 확인되면 바로 잔액에 추가할게요."
     },
     "settle": {
       "nothingToPay": "결제할 금액이 없어요."
@@ -1214,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "미국 달러로 결제돼요.",
-      "withdrawal": "바로 시작돼요. 완료되면 청약 철회 권리를 잃는 데 동의하는 거예요.",
+      "withdrawal": "결제하면 지금 바로 시작하도록 요청하고, 완료 후에는 철회할 수 없음에 동의하는 것으로 간주돼요.",
       "refundedIfFails": "실패하면 전액 환불돼요.",
       "saveLine": "다음 변환을 위해 저장돼요. 결제 내역에서 삭제할 수 있어요.",
       "orPayAnotherWay": "또는 다른 방법으로 결제",
@@ -1252,14 +1258,22 @@
       "settleSubtitle": "{count, plural, other {변환 #건 · 완료 후 결제}}",
       "personalUse": "개인용이에요. 상업적 이용은 Business와 Studio 플랜에서 가능해요.",
       "localAtCheckout": "결제 화면에서 현지 통화 가격이 표시돼요.",
-      "formShowsLocal": "결제 양식에 현지 통화 가격이 표시돼요. 기본 가격 {usd}."
+      "formShowsLocal": "결제 양식에 현지 통화 가격이 표시돼요. 기본 가격 {usd}.",
+      "timedOut": "결제 시간이 초과됐어요. 청구된 금액은 없어요.",
+      "walletDeclined": "지갑 결제가 완료되지 않았어요. 다시 시도하거나 다른 방법으로 결제해 주세요.",
+      "openNetwork": "결제를 열 수 없었어요. 연결을 확인하고 다시 시도해 주세요.",
+      "openServer": "결제를 열 수 없었어요. 잠시 후 다시 시도해 주세요.",
+      "notPayable": "이 변환은 결제를 기다리고 있지 않아요.",
+      "refundPolicy": "환불 정책",
+      "cancelTerms": "플랜 및 결제에서 언제든 해지할 수 있어요. 플랜은 결제한 기간이 끝날 때까지 유지돼요."
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "다른 기기에서 결제",
       "continueAlipay": "Alipay로 계속",
       "payHereInstead": "여기서 결제",
-      "startAgain": "다시 시작"
+      "startAgain": "다시 시작",
+      "tryAgain": "다시 시도"
     },
     "checkout": {
       "payWithCard": "카드로 결제",
@@ -1361,9 +1375,7 @@
       "void": "이 결제는 더 이상 필요하지 않아요.",
       "expired": "이 결제 링크가 만료됐어요. 로그인한 뒤 결제 내역에서 결제하세요.",
       "bad": "유효하지 않은 결제 링크예요.",
-      "confirmWithBank": "은행에서 결제를 승인해 주세요.",
-      "bankDidntConfirm": "은행에서 결제를 승인하지 않았어요.",
-      "payOnInvoice": "인보이스 페이지에서 결제"
+      "inProgress": "이미 결제가 진행 중이에요. 1분 뒤에 다시 시도해 주세요."
     }
   },
   "balance": {
@@ -1389,14 +1401,16 @@
       "topupMax": "한 번에 {amount}까지 충전할 수 있어요.",
       "topupDone": "{added}을(를) 충전했어요. 잔액은 {balance}예요.",
       "reloadConsent": "잔액이 {below} 아래로 내려갈 때마다 기본 결제 수단으로 {add}을(를) 결제해요. 거절되면 다른 수단을 시도해요.",
-      "reloadConsentWithMethod": "잔액이 {below} 아래로 내려갈 때마다 기본 결제 수단({method})으로 {add}을(를) 결제해요. 거절되면 다른 수단을 시도해요."
+      "reloadConsentWithMethod": "잔액이 {below} 아래로 내려갈 때마다 기본 결제 수단({method})으로 {add}을(를) 결제해요. 거절되면 다른 수단을 시도해요.",
+      "topupDoneBonus": "{added}와 보너스 {bonus}가 추가됐어요. 잔액은 {balance}예요."
     },
     "addFunds": {
       "title": "충전",
       "balance": "잔액",
       "amount": "금액",
       "other": "직접 입력",
-      "add": "{amount} 충전"
+      "add": "{amount} 충전",
+      "processing": "은행에서 이 결제를 확인하고 있어요. 완료되면 바로 잔액에 추가할게요."
     },
     "autoReload": {
       "title": "자동 충전",
@@ -1410,8 +1424,7 @@
       "saving": "저장 중…",
       "save": "저장",
       "below": "잔액이 다음 금액 아래로 내려가면",
-      "add": "충전 금액",
-      "localEstimate": "오늘 환율 기준 약 {local}."
+      "add": "충전 금액"
     },
     "spending": {
       "title": "사용 내역",
@@ -1419,6 +1432,15 @@
       "used": "월 · {amount} 사용",
       "resets": "이번 달 사용액이 한도에 도달하면 변환이 멈춰요. 매월 1일(UTC)에 초기화돼요.",
       "alert": "잔액이 다음 금액 아래로 내려가면 이메일 받기"
+    },
+    "reloadOffer": {
+      "question": "작업 중에 잔액이 떨어지지 않게 할까요?",
+      "turnOn": "자동 충전 켜기",
+      "notNow": "나중에"
+    },
+    "bonus": {
+      "adds": "이번 충전으로 보너스 크레딧 {bonus}를 받아요. 보너스 크레딧은 환불하거나 현금으로 받을 수 없어요.",
+      "from": "{min} 이상 충전하면 보너스 크레딧 {pct}%를 받아요."
     }
   },
   "pro": {
@@ -1448,9 +1470,9 @@
       "creditShort": "시작 크레딧 {amount}",
       "creditRules": "{days, plural, other {#일 안에 사용해 주세요.}} 현금으로 지급되지 않아요.",
       "creditRulesNoDays": "현금으로 지급되지 않아요.",
-      "terms": "해지하기 전까지 갱신돼요.",
       "loadFailed": "플랜을 불러오지 못했어요.",
-      "signIn": "Pro를 이용하려면 로그인해 주세요."
+      "signIn": "Pro를 이용하려면 로그인해 주세요.",
+      "termsRenews": "{price}에 갱신되며 해지할 때까지 이어져요. 플랜 및 결제에서 언제든 해지할 수 있어요."
     },
     "list": {
       "notOnSale": "웹에서는 아직 Pro를 판매하지 않아요. iPhone, iPad, Mac, Vision Pro의 {app}에서 이용해 주세요.",
@@ -1459,7 +1481,9 @@
       "save": "{pct}% 할인",
       "creditPlus": "+ {credit}",
       "opening": "결제 화면을 여는 중…",
-      "getPro": "Pro 시작하기"
+      "getPro": "Pro 시작하기",
+      "bestValue": "최고 가성비",
+      "perMonth": "월 {price}"
     },
     "screen": {
       "included": "{plan} 플랜에 Pro가 포함되어 있어요.",
@@ -1508,7 +1532,8 @@
       "unavailable": "지금은 Pro를 이용할 수 없어요. 나중에 다시 시도해 주세요.",
       "subtitleWithCredit": "{price}, {credit} 포함",
       "start": "Pro 시작 · {price}",
-      "success": "Pro가 시작됐어요. 이제 모든 영상이 더 저렴해요."
+      "success": "Pro가 시작됐어요. 이제 모든 영상이 더 저렴해요.",
+      "processing": "은행에서 이 결제를 확인하고 있어요. 완료되면 바로 Pro가 켜져요."
     }
   },
   "company": {
@@ -1608,7 +1633,7 @@
       "minimumPerRun": "변환당 <b>최소 요금 {min}</b>.",
       "minimumPerPreview": "미리보기당 <b>최소 요금</b> {previewMin}, 그 외 변환은 {min}.",
       "paidBefore": "<b>시작 전에 결제해요.</b> 대기 중이거나 시작 후 첫 1분 안에 취소하면 전액 환불돼요. 실패해도 전액 환불돼요.",
-      "currency": "미국 달러, 세금 별도. 모든 파일 형식이 포함돼요.",
+      "currencyNoTax": "미국 달러, 세금 별도 없음. 모든 파일 형식이 포함돼요.",
       "startProject": "프로젝트 시작"
     },
     "plansScreen": {
@@ -1638,7 +1663,13 @@
         "fileQuality": "고객 검토와 편집용 {high} 및 {master} 파일 품질",
         "fps": "최대 {fps} fps",
         "invoices": "인보이스"
-      }
+      },
+      "recommended": "추천",
+      "billedYearly": "연간 결제({amount})",
+      "billingPeriod": "결제 주기",
+      "monthly": "월간",
+      "yearly": "연간",
+      "savePct": "{pct}% 절약"
     },
     "table": {
       "perEye": "눈당 {size}",
@@ -2150,7 +2181,7 @@
       "masterBitrate": "{master} 비트레이트 ({pct})",
       "express": "Express",
       "minimum": "최소 요금 {amount}",
-      "total": "합계 <note>USD, 세금 별도</note>",
+      "totalNoTax": "합계 <note>USD · 세금 별도 없음</note>",
       "fpsCapped": "{fps}로 변환돼요. 더 높은 프레임 레이트는 {business}와 {studio} 플랜에서 제공돼요.",
       "estimatedTime": "예상 시간",
       "readyIn": "완료까지"
@@ -2218,7 +2249,9 @@
         "anaglyph": "빨강-청록",
         "depth": "깊이",
         "depth_vis": "깊이 보기"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· 약 +{amount}"
     },
     "fps": {
       "planRequired": "30 fps를 넘는 프레임 레이트는 {business}와 {studio} 플랜에서 제공돼요.",

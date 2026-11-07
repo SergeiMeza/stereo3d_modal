@@ -139,7 +139,7 @@
       "skip": "跳过",
       "continue": "继续",
       "checkout": {
-        "termsTail": "{terms} 价格为美元，不含税。确认前不会扣费。",
+        "termsTailNoTax": "{terms} 价格以美元计，未另加税费。确认前不会扣款。",
         "asksOnly": "结账时只需填写付款方式和国家/地区，公司名称、地址和税号可以之后再补。",
         "whatHappensBusiness": "你的 {business} 会怎样",
         "whatHappensPro": "你的 {pro} 会怎样",
@@ -276,7 +276,7 @@
       "perMinute": "{quality} 每分钟 {pro}，原价 {list}。",
       "getPro": "获取 {pro} {plan}",
       "keepPaying": "继续按视频付费",
-      "terms": "美元，不含税 · 可随时在“账户”中取消",
+      "termsNoTax": "美元 · 未另加税费 · 可随时在账户中取消",
       "planGroup": "{pro} 套餐",
       "includes": "{pro} 包含 {credit}。",
       "freePreviewsMonthly": "{count, plural, other {每月 # 次免费预览}}",
@@ -303,7 +303,8 @@
         "today": "{pro} {plan}，今日",
         "thisVideo": "此视频，{pro} 价格",
         "youSave": "此视频为你节省",
-        "terms": "可随时在“账户”中取消。价格为美元，不含税。"
+        "termsNoTax": "可随时在账户中取消。价格以美元计，未另加税费。",
+        "fromCredit": "来自你的 {credit} Pro 额度"
       },
       "note": {
         "highFps": "高帧率包含在 {business} 和 {studio} 中，它们还含每月用量。",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "立减 {pct}% · 可商用",
         "seeBusinessSave": "查看 {business} · 省 {range}"
-      }
+      },
+      "today": "今天 {price}",
+      "coveredByCredit": "此视频（{video}）使用你的 {credit} Pro 额度 · 之后 {renews}"
     },
     "intro": {
       "share": "{plan} 立减 {pct}%",
@@ -637,7 +640,8 @@
         "adjustment": "调整",
         "dispute_freeze": "付款审核期间已冻结",
         "dispute_unfreeze": "审核后已解除",
-        "dispute_loss": "银行争议后已扣除"
+        "dispute_loss": "银行争议后已扣除",
+        "topup_bonus": "充值赠送"
       }
     },
     "balance": {
@@ -697,7 +701,9 @@
       "tryAgain": "重试",
       "chooseAnother": "选择其他付款方式",
       "slow": "比平时慢一些。付款确认后我们会立即开始。",
-      "startAgain": "重新开始"
+      "startAgain": "重新开始",
+      "backToBilling": "返回账单",
+      "slowTopup": "耗时比平时长。付款确认后，我们会立即计入你的余额。"
     },
     "settle": {
       "nothingToPay": "无需付款。"
@@ -1214,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "以美元扣款。",
-      "withdrawal": "将立即开始。你同意：转换完成后，你将不再享有取消的权利。",
+      "withdrawal": "付款即表示你要求我们立即开始，并同意完成后不可撤回。",
       "refundedIfFails": "失败将全额退款。",
       "saveLine": "已保存，下次转换可直接使用。你可以在账单中移除。",
       "orPayAnotherWay": "或使用其他方式支付",
@@ -1252,14 +1258,22 @@
       "settleSubtitle": "{count, plural, other {# 次转换 · 完成后扣款}}",
       "personalUse": "仅限个人使用。商业用途需选择 Business 和 Studio 套餐。",
       "localAtCheckout": "结账时会显示你所在地区的价格。",
-      "formShowsLocal": "付款表单会以你的货币显示价格。基础价格 {usd}。"
+      "formShowsLocal": "付款表单会以你的货币显示价格。基础价格 {usd}。",
+      "timedOut": "此次付款已超时，未扣款。",
+      "walletDeclined": "钱包付款未成功。请重试或换种方式付款。",
+      "openNetwork": "无法打开付款页面。请检查网络后重试。",
+      "openServer": "无法打开付款页面。请稍后重试。",
+      "notPayable": "此次转换无需付款。",
+      "refundPolicy": "退款政策",
+      "cancelTerms": "可随时在套餐与账单中取消。套餐有效期至已付费周期结束。"
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "在其他设备上支付",
       "continueAlipay": "前往支付宝",
       "payHereInstead": "改在此处支付",
-      "startAgain": "重新开始"
+      "startAgain": "重新开始",
+      "tryAgain": "重试"
     },
     "checkout": {
       "payWithCard": "银行卡支付",
@@ -1361,9 +1375,7 @@
       "void": "这笔付款已不再需要。",
       "expired": "此付款链接已过期。请登录并打开“账单”付款。",
       "bad": "此付款链接无效。",
-      "confirmWithBank": "请向银行确认这笔付款。",
-      "bankDidntConfirm": "你的银行未确认这笔付款。",
-      "payOnInvoice": "在发票页面付款"
+      "inProgress": "已有一笔付款正在处理。请一分钟后重试。"
     }
   },
   "balance": {
@@ -1389,14 +1401,16 @@
       "topupMax": "单次最多可充 {amount}。",
       "topupDone": "已充值 {added}。你的余额为 {balance}。",
       "reloadConsent": "每当你的余额低于 {below}，我们会从你的默认支付方式扣款 {add}。若被拒绝，将尝试你的其他支付方式。",
-      "reloadConsentWithMethod": "每当你的余额低于 {below}，我们会从你的默认支付方式（{method}）扣款 {add}。若被拒绝，将尝试你的其他支付方式。"
+      "reloadConsentWithMethod": "每当你的余额低于 {below}，我们会从你的默认支付方式（{method}）扣款 {add}。若被拒绝，将尝试你的其他支付方式。",
+      "topupDoneBonus": "已充入 {added} + 赠送 {bonus}。你的余额为 {balance}。"
     },
     "addFunds": {
       "title": "充值",
       "balance": "余额",
       "amount": "金额",
       "other": "其他",
-      "add": "充值 {amount}"
+      "add": "充值 {amount}",
+      "processing": "银行正在确认这笔付款。付款通过后，我们会立即计入你的余额。"
     },
     "autoReload": {
       "title": "自动充值",
@@ -1410,8 +1424,7 @@
       "saving": "保存中…",
       "save": "保存",
       "below": "当我的余额低于",
-      "add": "充值",
-      "localEstimate": "按今日汇率约为 {local}。"
+      "add": "充值"
     },
     "spending": {
       "title": "消费",
@@ -1419,6 +1432,15 @@
       "used": "每月 · 已用 {amount}",
       "resets": "本月消费达到上限后，转换将停止。每月 1 日（UTC）重置。",
       "alert": "余额低于以下金额时邮件通知我"
+    },
+    "reloadOffer": {
+      "question": "不想做到一半余额用完？",
+      "turnOn": "开启自动充值",
+      "notNow": "暂不"
+    },
+    "bonus": {
+      "adds": "本次充值赠送 {bonus} 额度。赠送额度不可退款或提现。",
+      "from": "充值 {min} 或以上，可获赠 {pct}% 额度。"
     }
   },
   "pro": {
@@ -1448,9 +1470,9 @@
       "creditShort": "开通即送 {amount} 额度",
       "creditRules": "{days, plural, other {请在 # 天内使用。}}不可提现。",
       "creditRulesNoDays": "不可提现。",
-      "terms": "续费直至你取消。",
       "loadFailed": "套餐未能加载。",
-      "signIn": "登录以获取 Pro。"
+      "signIn": "登录以获取 Pro。",
+      "termsRenews": "按 {price} 续费，直到你取消。可随时在套餐与账单中取消。"
     },
     "list": {
       "notOnSale": "网页版暂未销售 Pro。请在 iPhone、iPad、Mac 或 Vision Pro 上的 {app} 中获取。",
@@ -1459,7 +1481,9 @@
       "save": "省 {pct}%",
       "creditPlus": "+ {credit}",
       "opening": "正在打开结账…",
-      "getPro": "获取 Pro"
+      "getPro": "获取 Pro",
+      "bestValue": "最超值",
+      "perMonth": "每月 {price}"
     },
     "screen": {
       "included": "你的{plan}套餐已包含 Pro。",
@@ -1508,7 +1532,8 @@
       "unavailable": "Pro 暂时不可用。请稍后再试。",
       "subtitleWithCredit": "{price}，含 {credit}",
       "start": "开通 Pro · {price}",
-      "success": "Pro 已开通，现在每个视频都更便宜了。"
+      "success": "Pro 已开通，现在每个视频都更便宜了。",
+      "processing": "银行正在确认这笔付款。付款通过后，Pro 会立即开通。"
     }
   },
   "company": {
@@ -1608,7 +1633,7 @@
       "minimumPerRun": "每次转换<b>最低收费 {min}</b>。",
       "minimumPerPreview": "<b>最低收费</b>：每次预览 {previewMin}，其他转换 {min}。",
       "paidBefore": "<b>开始前付款。</b>排队等待期间或开始后第一分钟内取消，可全额退款。失败时也全额退款。",
-      "currency": "美元，不含税。所有文件类型均已包含。",
+      "currencyNoTax": "美元，未另加税费。包含所有文件类型。",
       "startProject": "开始项目"
     },
     "plansScreen": {
@@ -1638,7 +1663,13 @@
         "fileQuality": "{high} 和 {master} 文件画质，适用于客户审片和剪辑",
         "fps": "最高 {fps} fps",
         "invoices": "发票"
-      }
+      },
+      "recommended": "推荐",
+      "billedYearly": "按年付费（{amount}）",
+      "billingPeriod": "计费周期",
+      "monthly": "按月",
+      "yearly": "按年",
+      "savePct": "省 {pct}%"
     },
     "table": {
       "perEye": "每只眼睛 {size}",
@@ -2150,7 +2181,7 @@
       "masterBitrate": "{master} 码率（{pct}）",
       "express": "加急",
       "minimum": "最低收费 {amount}",
-      "total": "合计 <note>美元，不含税</note>",
+      "totalNoTax": "合计 <note>美元 · 未另加税费</note>",
       "fpsCapped": "按 {fps} 转换。更高帧率包含在 {business} 和 {studio} 套餐中。",
       "estimatedTime": "预计用时",
       "readyIn": "完成时间"
@@ -2218,7 +2249,9 @@
         "anaglyph": "红蓝",
         "depth": "深度",
         "depth_vis": "深度视图"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· 约 +{amount}"
     },
     "fps": {
       "planRequired": "30 fps 以上的帧率包含在 {business} 和 {studio} 套餐中。",

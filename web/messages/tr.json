@@ -139,7 +139,7 @@
       "skip": "Atla",
       "continue": "Devam",
       "checkout": {
-        "termsTail": "{terms} Fiyatlar USD cinsindendir, vergi hariç. Siz onaylayana kadar hiçbir şey tahsil edilmez.",
+        "termsTailNoTax": "{terms} Fiyatlar USD cinsindendir, vergi eklenmez. Onaylayana kadar hiçbir şey tahsil edilmez.",
         "asksOnly": "Ödeme adımında yalnızca ödeme yönteminiz ve ülkeniz istenir. Şirket adı, adres ve vergi numaranızı sonra ekleyebilirsiniz.",
         "whatHappensBusiness": "{business} planınıza ne olacak",
         "whatHappensPro": "{pro} planınıza ne olacak",
@@ -276,7 +276,7 @@
       "perMinute": "{quality} dakikası {list} yerine {pro} ile.",
       "getPro": "{pro} {plan} al",
       "keepPaying": "Video başına ödemeye devam et",
-      "terms": "USD, vergi hariç · Hesap’tan istediğiniz zaman iptal edin",
+      "termsNoTax": "USD · vergi eklenmez · Hesap’tan istediğiniz zaman iptal edin",
       "planGroup": "{pro} planı",
       "includes": "{pro} şunu içerir: {credit}.",
       "freePreviewsMonthly": "{count, plural, other {Ayda # ücretsiz önizleme}}",
@@ -303,7 +303,8 @@
         "today": "{pro} {plan}, bugün",
         "thisVideo": "Bu video, {pro} fiyatıyla",
         "youSave": "Bu videoda tasarruf edersiniz",
-        "terms": "Hesap’tan istediğiniz zaman iptal edin. Fiyatlar USD cinsindendir, vergi hariç."
+        "termsNoTax": "Hesap’tan istediğiniz zaman iptal edin. Fiyatlar USD cinsindendir, vergi eklenmez.",
+        "fromCredit": "{credit} tutarındaki Pro kredinizden"
       },
       "note": {
         "highFps": "Yüksek kare hızları {business} ve {studio} ile gelir; bunlar ayrıca aylık kullanım içerir.",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "%{pct} indirim · ticari kullanım",
         "seeBusinessSave": "{business} planına bakın · {range} tasarruf"
-      }
+      },
+      "today": "Bugün {price}",
+      "coveredByCredit": "Bu video ({video}) {credit} tutarındaki Pro kredinizden karşılanır · sonra {renews}"
     },
     "intro": {
       "share": "{plan} ile %{pct}",
@@ -637,7 +640,8 @@
         "adjustment": "Düzeltme",
         "dispute_freeze": "Bir ödeme incelenirken beklemede",
         "dispute_unfreeze": "İncelemeden sonra serbest bırakıldı",
-        "dispute_loss": "Banka uyuşmazlığı sonrası kaldırıldı"
+        "dispute_loss": "Banka uyuşmazlığı sonrası kaldırıldı",
+        "topup_bonus": "Yükleme bonusu"
       }
     },
     "balance": {
@@ -697,7 +701,9 @@
       "tryAgain": "Tekrar dene",
       "chooseAnother": "Başka bir ödeme yolu seç",
       "slow": "Bu her zamankinden uzun sürüyor. Ödeme onaylanır onaylanmaz başlayacağız.",
-      "startAgain": "Baştan başla"
+      "startAgain": "Baştan başla",
+      "backToBilling": "Faturalandırmaya dön",
+      "slowTopup": "Bu her zamankinden uzun sürüyor. Ödeme onaylanır onaylanmaz bakiyenize ekleyeceğiz."
     },
     "settle": {
       "nothingToPay": "Ödenecek bir şey yok."
@@ -1214,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "ABD doları üzerinden tahsil edilir.",
-      "withdrawal": "Hemen başlar. İş tamamlandığında cayma hakkınızı kaybettiğinizi kabul edersiniz.",
+      "withdrawal": "Ödeme yaparak hemen başlamamızı istersiniz ve hizmet tamamlandığında cayma hakkınızın sona ereceğini kabul edersiniz.",
       "refundedIfFails": "Başarısız olursa tamamen iade edilir.",
       "saveLine": "Sonraki dönüştürmeleriniz için kaydedilir. Faturalandırma’dan kaldırabilirsiniz.",
       "orPayAnotherWay": "veya başka bir yolla ödeyin",
@@ -1252,14 +1258,22 @@
       "settleSubtitle": "{count, plural, other {# dönüştürme · tamamlandıktan sonra tahsil edildi}}",
       "personalUse": "Kişisel kullanım içindir. Ticari kullanım Business ve Studio planlarıyla gelir.",
       "localAtCheckout": "Yerel para biriminizdeki fiyatı ödeme sırasında göreceksiniz.",
-      "formShowsLocal": "Ödeme formu fiyatı kendi para biriminizde gösterir. Temel fiyat {usd}."
+      "formShowsLocal": "Ödeme formu fiyatı kendi para biriminizde gösterir. Temel fiyat {usd}.",
+      "timedOut": "Bu ödemenin süresi doldu. Hiçbir şey tahsil edilmedi.",
+      "walletDeclined": "Cüzdan ödemeniz gerçekleşmedi. Tekrar deneyin veya başka bir yolla ödeyin.",
+      "openNetwork": "Ödeme açılamadı. Bağlantınızı kontrol edip tekrar deneyin.",
+      "openServer": "Ödeme açılamadı. Birazdan tekrar deneyin.",
+      "notPayable": "Bu dönüştürme bir ödeme beklemiyor.",
+      "refundPolicy": "İade politikası",
+      "cancelTerms": "Plan ve faturalandırma bölümünden istediğiniz zaman iptal edin. Planınız ödenen dönemin sonuna kadar sürer."
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "Başka bir cihazda öde",
       "continueAlipay": "Alipay ile devam et",
       "payHereInstead": "Bunun yerine burada öde",
-      "startAgain": "Yeniden başla"
+      "startAgain": "Yeniden başla",
+      "tryAgain": "Tekrar dene"
     },
     "checkout": {
       "payWithCard": "Kartla öde",
@@ -1361,9 +1375,7 @@
       "void": "Bu ödemeye artık gerek yok.",
       "expired": "Bu ödeme bağlantısının süresi doldu. Ödemek için oturum açıp Faturalandırma’yı açın.",
       "bad": "Bu ödeme bağlantısı geçerli değil.",
-      "confirmWithBank": "Ödemeyi bankanızla onaylayın.",
-      "bankDidntConfirm": "Bankanız ödemeyi onaylamadı.",
-      "payOnInvoice": "Fatura sayfasında öde"
+      "inProgress": "Bir ödeme zaten sürüyor. Bir dakika sonra tekrar deneyin."
     }
   },
   "balance": {
@@ -1389,14 +1401,16 @@
       "topupMax": "Bir seferde en fazla {amount} ekleyebilirsiniz.",
       "topupDone": "{added} eklendi. Bakiyeniz {balance}.",
       "reloadConsent": "Bakiyeniz {below} altına düştüğünde varsayılan ödeme yönteminizden her seferinde {add} tahsil ederiz. Reddedilirse diğerlerini deneriz.",
-      "reloadConsentWithMethod": "Bakiyeniz {below} altına düştüğünde varsayılan ödeme yönteminizden ({method}) her seferinde {add} tahsil ederiz. Reddedilirse diğerlerini deneriz."
+      "reloadConsentWithMethod": "Bakiyeniz {below} altına düştüğünde varsayılan ödeme yönteminizden ({method}) her seferinde {add} tahsil ederiz. Reddedilirse diğerlerini deneriz.",
+      "topupDoneBonus": "{added} + {bonus} bonus eklendi. Bakiyeniz {balance}."
     },
     "addFunds": {
       "title": "Bakiye ekle",
       "balance": "Bakiye",
       "amount": "Tutar",
       "other": "Diğer",
-      "add": "{amount} ekle"
+      "add": "{amount} ekle",
+      "processing": "Bankanız bu ödemeyi onaylıyor. Tamamlanır tamamlanmaz bakiyenize ekleyeceğiz."
     },
     "autoReload": {
       "title": "Otomatik yükleme",
@@ -1410,8 +1424,7 @@
       "saving": "Kaydediliyor…",
       "save": "Kaydet",
       "below": "Bakiyem şunun altına düştüğünde",
-      "add": "Ekle",
-      "localEstimate": "Bugünkü kurla ≈ {local}."
+      "add": "Ekle"
     },
     "spending": {
       "title": "Harcama",
@@ -1419,6 +1432,15 @@
       "used": "aylık · {amount} kullanıldı",
       "resets": "Bu ayki harcama sınıra ulaşınca dönüştürmeler durur. Ayın 1’inde (UTC) sıfırlanır.",
       "alert": "Bakiyem şunun altına düşünce bana e-posta gönder"
+    },
+    "reloadOffer": {
+      "question": "Proje ortasında bakiyeniz hiç bitmesin mi?",
+      "turnOn": "Otomatik yüklemeyi aç",
+      "notNow": "Şimdi değil"
+    },
+    "bonus": {
+      "adds": "Bu yüklemeyle +{bonus} bonus kredi. Bonus kredi iade edilemez veya çekilemez.",
+      "from": "{min} veya daha fazla yükleyin, %{pct} bonus kredi kazanın."
     }
   },
   "pro": {
@@ -1448,9 +1470,9 @@
       "creditShort": "Başlangıç için {amount} kredi",
       "creditRules": "{days, plural, other {# gün içinde kullanın.}} Nakit olarak ödenmez.",
       "creditRulesNoDays": "Nakit olarak ödenmez.",
-      "terms": "İptal edene kadar yenilenir.",
       "loadFailed": "Planlar yüklenemedi.",
-      "signIn": "Pro almak için giriş yapın."
+      "signIn": "Pro almak için giriş yapın.",
+      "termsRenews": "İptal edene kadar {price} üzerinden yenilenir. Plan ve faturalandırma bölümünden istediğiniz zaman iptal edin."
     },
     "list": {
       "notOnSale": "Pro henüz web’de satışta değil. iPhone, iPad, Mac veya Vision Pro’daki {app} uygulamasından edinin.",
@@ -1459,7 +1481,9 @@
       "save": "%{pct} tasarruf",
       "creditPlus": "+ {credit}",
       "opening": "Ödeme açılıyor…",
-      "getPro": "Pro’yu edin"
+      "getPro": "Pro’yu edin",
+      "bestValue": "En iyi değer",
+      "perMonth": "Aylık {price}"
     },
     "screen": {
       "included": "Pro, {plan} planınıza dahildir.",
@@ -1508,7 +1532,8 @@
       "unavailable": "Pro şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
       "subtitleWithCredit": "{price}, {credit} ile",
       "start": "Pro’yu başlat · {price}",
-      "success": "Pro etkin. Artık her video daha ucuz."
+      "success": "Pro etkin. Artık her video daha ucuz.",
+      "processing": "Bankanız bu ödemeyi onaylıyor. Pro, tamamlanır tamamlanmaz açılır."
     }
   },
   "company": {
@@ -1608,7 +1633,7 @@
       "minimumPerRun": "Dönüştürme başına <b>asgari ücret {min}</b>.",
       "minimumPerPreview": "Önizleme başına <b>asgari ücret</b> {previewMin}, diğer dönüştürmeler için {min}.",
       "paidBefore": "<b>Başlamadan önce ödenir.</b> Sırada beklerken veya ilk dakikasında iptal ederseniz tam iade alırsınız. Başarısız olursa tam iade edilir.",
-      "currency": "ABD doları, vergi hariç. Her dosya türü dahildir.",
+      "currencyNoTax": "ABD doları, vergi eklenmez. Tüm dosya türleri dahildir.",
       "startProject": "Proje başlat"
     },
     "plansScreen": {
@@ -1638,7 +1663,13 @@
         "fileQuality": "Müşteri incelemeleri ve kurgu için {high} ve {master} dosya kalitesi",
         "fps": "{fps} fps’e kadar",
         "invoices": "Faturalar"
-      }
+      },
+      "recommended": "Önerilen",
+      "billedYearly": "yıllık faturalanır ({amount})",
+      "billingPeriod": "Faturalandırma dönemi",
+      "monthly": "Aylık",
+      "yearly": "Yıllık",
+      "savePct": "%{pct} tasarruf"
     },
     "table": {
       "perEye": "Göz başına {size}",
@@ -2150,7 +2181,7 @@
       "masterBitrate": "{master} bit hızı ({pct})",
       "express": "Ekspres",
       "minimum": "Asgari ücret {amount}",
-      "total": "Toplam <note>USD, vergi hariç</note>",
+      "totalNoTax": "Toplam <note>USD · vergi eklenmez</note>",
       "fpsCapped": "{fps} ile dönüştürülür. Daha yüksek kare hızları {business} ve {studio} planlarıyla gelir.",
       "estimatedTime": "Tahmini süre",
       "readyIn": "Hazır olma süresi"
@@ -2218,7 +2249,9 @@
         "anaglyph": "Kırmızı-camgöbeği",
         "depth": "Derinlik",
         "depth_vis": "Derinlik görünümü"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· yaklaşık +{amount}"
     },
     "fps": {
       "planRequired": "30 fps üzeri kare hızları {business} ve {studio} planlarıyla gelir.",

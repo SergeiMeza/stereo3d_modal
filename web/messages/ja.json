@@ -139,7 +139,7 @@
       "skip": "スキップ",
       "continue": "続ける",
       "checkout": {
-        "termsTail": "{terms} 価格は米ドル、税別です。確定するまで請求されません。",
+        "termsTailNoTax": "{terms} 価格は米ドル表示で、税は加算されません。確認するまで請求されません。",
         "asksOnly": "決済で聞かれるのはお支払い方法と国だけです。会社名、住所、税IDは後から追加できます。",
         "whatHappensBusiness": "{business}はどうなるか",
         "whatHappensPro": "{pro}はどうなるか",
@@ -276,7 +276,7 @@
       "perMinute": "{quality}は{list}ではなく1分{pro}です。",
       "getPro": "{pro} {plan}にする",
       "keepPaying": "動画ごとの支払いを続ける",
-      "terms": "米ドル、税別 · アカウントからいつでも解約可",
+      "termsNoTax": "USD · 税は加算されません · アカウントからいつでも解約できます",
       "planGroup": "{pro}プラン",
       "includes": "{pro}には{credit}が含まれます。",
       "freePreviewsMonthly": "{count, plural, other {毎月無料プレビュー#回}}",
@@ -303,7 +303,8 @@
         "today": "{pro} {plan}、本日分",
         "thisVideo": "この動画（{pro}料金）",
         "youSave": "この動画でお得になる額",
-        "terms": "アカウントからいつでも解約できます。価格は米ドル、税別です。"
+        "termsNoTax": "アカウントからいつでも解約できます。価格は米ドル表示で、税は加算されません。",
+        "fromCredit": "{credit}分のProクレジットから"
       },
       "note": {
         "highFps": "高フレームレートは{business}と{studio}に付属し、毎月の利用額も含まれます。",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "{pct}%オフ · 商用利用",
         "seeBusinessSave": "{business}を見る · {range}お得"
-      }
+      },
+      "today": "本日 {price}",
+      "coveredByCredit": "この動画（{video}）には{credit}分のProクレジットが使われます · その後 {renews}"
     },
     "intro": {
       "share": "{plan}で{pct}%",
@@ -637,7 +640,8 @@
         "adjustment": "調整",
         "dispute_freeze": "お支払いの確認中のため保留",
         "dispute_unfreeze": "確認後に解除",
-        "dispute_loss": "カード会社への異議申し立てにより差し引き"
+        "dispute_loss": "カード会社への異議申し立てにより差し引き",
+        "topup_bonus": "チャージボーナス"
       }
     },
     "balance": {
@@ -697,7 +701,9 @@
       "tryAgain": "再試行",
       "chooseAnother": "別のお支払い方法を選ぶ",
       "slow": "通常より時間がかかっています。お支払いが確認でき次第、開始します。",
-      "startAgain": "最初からやり直す"
+      "startAgain": "最初からやり直す",
+      "backToBilling": "請求に戻る",
+      "slowTopup": "いつもより時間がかかっています。お支払いが確認でき次第、残高に追加します。"
     },
     "settle": {
       "nothingToPay": "お支払いはありません。"
@@ -1214,7 +1220,7 @@
   "pay": {
     "copy": {
       "chargedInUsd": "米ドルで請求されます。",
-      "withdrawal": "すぐに開始されます。完了すると、キャンセルする権利がなくなることに同意したものとみなされます。",
+      "withdrawal": "お支払いにより、今すぐ開始するよう依頼し、完了後は撤回できないことに同意したものとします。",
       "refundedIfFails": "失敗した場合は全額返金されます。",
       "saveLine": "次回以降の変換用に保存されます。請求の画面で削除できます。",
       "orPayAnotherWay": "または別の方法で支払う",
@@ -1252,14 +1258,22 @@
       "settleSubtitle": "{count, plural, other {#件の変換 · 完了後に請求}}",
       "personalUse": "個人利用向けです。商用利用はBusinessプランとStudioプランで利用できます。",
       "localAtCheckout": "お支払い画面で現地通貨の価格が表示されます。",
-      "formShowsLocal": "お支払いフォームには現地通貨の価格が表示されます。基本価格 {usd}。"
+      "formShowsLocal": "お支払いフォームには現地通貨の価格が表示されます。基本価格 {usd}。",
+      "timedOut": "お支払いがタイムアウトしました。請求はありません。",
+      "walletDeclined": "ウォレットでのお支払いが完了しませんでした。もう一度試すか、別の方法でお支払いください。",
+      "openNetwork": "お支払いを開けませんでした。接続を確認して、もう一度お試しください。",
+      "openServer": "お支払いを開けませんでした。しばらくしてからもう一度お試しください。",
+      "notPayable": "この変換はお支払い待ちではありません。",
+      "refundPolicy": "返金ポリシー",
+      "cancelTerms": "プランとお支払いからいつでも解約できます。プランは支払い済みの期間の終わりまで続きます。"
     },
     "sheet": {
       "title": "{action} · {amount}",
       "payOtherDevice": "別のデバイスで支払う",
       "continueAlipay": "Alipayに進む",
       "payHereInstead": "ここで支払う",
-      "startAgain": "やり直す"
+      "startAgain": "やり直す",
+      "tryAgain": "もう一度試す"
     },
     "checkout": {
       "payWithCard": "カードで支払う",
@@ -1361,9 +1375,7 @@
       "void": "このお支払いは不要になりました。",
       "expired": "このお支払いリンクは期限切れです。サインインして「お支払い」からお支払いください。",
       "bad": "このお支払いリンクは無効です。",
-      "confirmWithBank": "銀行でお支払いを承認してください。",
-      "bankDidntConfirm": "銀行がお支払いを承認しませんでした。",
-      "payOnInvoice": "請求書ページで支払う"
+      "inProgress": "お支払いがすでに進行中です。1分後にもう一度お試しください。"
     }
   },
   "balance": {
@@ -1389,14 +1401,16 @@
       "topupMax": "1回に{amount}までチャージできます。",
       "topupDone": "{added}をチャージしました。残高は{balance}です。",
       "reloadConsent": "残高が{below}を下回るたびに、既定のお支払い方法に{add}を請求します。承認されない場合は、ほかの方法を試します。",
-      "reloadConsentWithMethod": "残高が{below}を下回るたびに、既定のお支払い方法({method})に{add}を請求します。承認されない場合は、ほかの方法を試します。"
+      "reloadConsentWithMethod": "残高が{below}を下回るたびに、既定のお支払い方法({method})に{add}を請求します。承認されない場合は、ほかの方法を試します。",
+      "topupDoneBonus": "{added}と、ボーナス{bonus}を追加しました。残高は{balance}です。"
     },
     "addFunds": {
       "title": "資金を追加",
       "balance": "残高",
       "amount": "金額",
       "other": "その他",
-      "add": "{amount}を追加"
+      "add": "{amount}を追加",
+      "processing": "銀行がこのお支払いを確認中です。完了し次第、残高に追加します。"
     },
     "autoReload": {
       "title": "自動チャージ",
@@ -1410,8 +1424,7 @@
       "saving": "保存中…",
       "save": "保存",
       "below": "残高がこの額を下回ったら",
-      "add": "チャージ額",
-      "localEstimate": "本日のレートで約{local}。"
+      "add": "チャージ額"
     },
     "spending": {
       "title": "利用額",
@@ -1419,6 +1432,15 @@
       "used": "月あたり · {amount}使用済み",
       "resets": "今月の利用額が上限に達すると、変換が止まります。毎月1日(UTC)にリセットされます。",
       "alert": "残高がこの額を下回ったらメールで知らせる"
+    },
+    "reloadOffer": {
+      "question": "途中で残高が足りなくなるのを防ぎませんか？",
+      "turnOn": "自動チャージをオン",
+      "notNow": "今はしない"
+    },
+    "bonus": {
+      "adds": "今回のチャージでボーナスクレジット{bonus}。ボーナスクレジットは返金・払い戻しできません。",
+      "from": "{min}以上のチャージで{pct}%のボーナスクレジット。"
     }
   },
   "pro": {
@@ -1448,9 +1470,9 @@
       "creditShort": "{amount}のクレジット付き",
       "creditRules": "{days, plural, other {#日以内にお使いください。}}現金での払い戻しはできません。",
       "creditRulesNoDays": "現金での払い戻しはできません。",
-      "terms": "解約するまで更新されます。",
       "loadFailed": "プランを読み込めませんでした。",
-      "signIn": "Proを利用するにはサインインしてください。"
+      "signIn": "Proを利用するにはサインインしてください。",
+      "termsRenews": "{price}で更新、解約するまで続きます。プランとお支払いからいつでも解約できます。"
     },
     "list": {
       "notOnSale": "Proはまだウェブで販売していません。iPhone、iPad、Mac、Vision Proの{app}で入手できます。",
@@ -1459,7 +1481,9 @@
       "save": "{pct}%お得",
       "creditPlus": "+ {credit}",
       "opening": "チェックアウトを開いています…",
-      "getPro": "Proを始める"
+      "getPro": "Proを始める",
+      "bestValue": "いちばんお得",
+      "perMonth": "月{price}"
     },
     "screen": {
       "included": "Proは{plan}プランに含まれています。",
@@ -1508,7 +1532,8 @@
       "unavailable": "現在Proを利用できません。しばらくしてからもう一度お試しください。",
       "subtitleWithCredit": "{price}、{credit}付き",
       "start": "Proを開始 · {price}",
-      "success": "Proが有効になりました。すべての動画がお得になります。"
+      "success": "Proが有効になりました。すべての動画がお得になります。",
+      "processing": "銀行がこのお支払いを確認中です。完了し次第、Proが有効になります。"
     }
   },
   "company": {
@@ -1608,7 +1633,7 @@
       "minimumPerRun": "1回の変換につき<b>最低料金{min}</b>。",
       "minimumPerPreview": "<b>最低料金</b>：プレビューは{previewMin}、その他の変換は{min}。",
       "paidBefore": "<b>開始前にお支払い。</b>順番待ちの間か最初の1分以内なら、全額返金でキャンセルできます。失敗した場合も全額返金されます。",
-      "currency": "米ドル、税別。すべてのファイル形式が含まれます。",
+      "currencyNoTax": "米ドル、税は加算されません。すべてのファイル形式が含まれます。",
       "startProject": "プロジェクトを始める"
     },
     "plansScreen": {
@@ -1638,7 +1663,13 @@
         "fileQuality": "クライアント確認や編集向けの{high}と{master}のファイル品質",
         "fps": "最大{fps} fps",
         "invoices": "請求書"
-      }
+      },
+      "recommended": "おすすめ",
+      "billedYearly": "年払い（{amount}）",
+      "billingPeriod": "請求期間",
+      "monthly": "月払い",
+      "yearly": "年払い",
+      "savePct": "{pct}%お得"
     },
     "table": {
       "perEye": "片目{size}",
@@ -2150,7 +2181,7 @@
       "masterBitrate": "{master}ビットレート（{pct}）",
       "express": "優先",
       "minimum": "最低料金 {amount}",
-      "total": "合計 <note>USD・税別</note>",
+      "totalNoTax": "合計 <note>USD · 税は加算されません</note>",
       "fpsCapped": "{fps}で変換します。これより高いフレームレートは{business}・{studio}プランで使えます。",
       "estimatedTime": "所要時間の目安",
       "readyIn": "完了まで"
@@ -2218,7 +2249,9 @@
         "anaglyph": "赤とシアン",
         "depth": "奥行き",
         "depth_vis": "奥行き表示"
-      }
+      },
+      "adds": "· +{amount}",
+      "addsAbout": "· 約+{amount}"
     },
     "fps": {
       "planRequired": "30 fpsを超えるフレームレートは{business}・{studio}プランで使えます。",
