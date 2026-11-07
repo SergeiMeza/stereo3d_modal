@@ -568,6 +568,8 @@ interface DB {
   accountSettings: {
     lifelike_intro: boolean;
     locale: string | null;
+    /** feat/mail-polish: the mails' language */
+    mail_locale?: string | null;
     headsets: string[] | null;
     hints_seen: string[];
     onboarding: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean; app_pro_welcome_done?: boolean };
@@ -4294,6 +4296,7 @@ export const handlers = [
     const body = (await request.json().catch(() => ({}))) as {
       lifelike_intro?: boolean;
       locale?: string | null;
+      mail_locale?: string;
       headsets?: string[];
       hints_seen_add?: string[];
       onboarding?: { welcome_done?: boolean; checklist_hidden?: boolean; tips_done?: boolean; app_pro_welcome_done?: boolean };
@@ -4336,6 +4339,7 @@ export const handlers = [
       st.lifelike_intro = body.lifelike_intro;
     }
     if (body.locale !== undefined) st.locale = body.locale;
+    if (body.mail_locale !== undefined) st.mail_locale = body.mail_locale;
     return HttpResponse.json(accountSettings());
   }),
 

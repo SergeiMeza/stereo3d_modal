@@ -40,6 +40,7 @@ function merge(s: AccountSettings, patch: AccountSettingsPatch): AccountSettings
     ...s,
     ...(patch.lifelike_intro !== undefined ? { lifelike_intro: patch.lifelike_intro } : {}),
     ...(patch.locale !== undefined ? { locale: patch.locale } : {}),
+    ...(patch.mail_locale !== undefined ? { mail_locale: patch.mail_locale } : {}),
     ...(patch.simulate_app_pro !== undefined ? { simulate_app_pro: patch.simulate_app_pro } : {}),
     ...(patch.business_setup ? { business_setup: { ...s.business_setup, ...patch.business_setup } } : {}),
     ...(patch.headsets !== undefined ? { headsets: patch.headsets } : {}),

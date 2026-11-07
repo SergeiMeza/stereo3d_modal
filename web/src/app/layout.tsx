@@ -5,6 +5,7 @@ import Link from "next/link";
 
 import { Analytics } from "@/components/Analytics";
 import { VercelAnalyticsScrubbed } from "@/components/VercelAnalyticsScrubbed";
+import { MailLocaleSync } from "@/components/auth/MailLocaleSync";
 import { PasskeySuggestion } from "@/components/auth/PasskeySuggestion";
 import { ReauthSheet } from "@/components/auth/ReauthSheet";
 import { DeletionPrompt } from "@/components/auth/DeletionPrompt";
@@ -138,6 +139,7 @@ export default async function RootLayout({
           <main className="mx-auto flex w-full max-w-[1700px] flex-1 flex-col">
             {/* ADR 0136: "Add a passkey" once after a sign-in */}
             <PasskeySuggestion />
+            <MailLocaleSync />
             {/* P2: any "Pay $X" opens the settle sheet */}
             <SettleProvider>
               <BalanceDialogsProvider>{children}</BalanceDialogsProvider>
