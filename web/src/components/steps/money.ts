@@ -82,14 +82,21 @@ export function formatMoney(amountMinor: number, currency: string, locale: strin
 
 /** US dollars that can't pass for local dollars beside another currency
  * (owner 2026-11-07: a bare "$" reads as pesos, AUD, TWD or HKD): the
- * language's own symbol when it already says US ("US$8.25", "8,25 $US"),
- * else Intl's code form ("USD 8.25", "8,25 USD"). */
+ * language's own symbol when it already says US ("US$8.25", "8,25 $US";
+ * English "US$8.25" like the invoices), else Intl's code form ("USD 8.25",
+ * "8,25 USD"). */
 export function formatUsdLabeled(cents: number, locale: string): string {
   const value = Math.trunc(cents) / 100;
-  const symbol = moneyFormat(locale, "USD");
+  // English as on the invoices and receipts ("US$3.75", QA 2026-11-07):
+  // Intl's Canadian English writes US dollars that way
+  const symbol = moneyFormat(isEnglish(locale) ? "en-CA" : locale, "USD");
   const sign = symbol.formatToParts(value).find((p) => p.type === "currency")?.value ?? "";
   const f = /US/.test(sign) ? symbol : moneyFormat(locale, "USD", "code");
   return isolateFor(locale, f.format(value));
+}
+
+function isEnglish(locale: string): boolean {
+  return locale.split("-")[0].toLowerCase() === "en";
 }
 
 function digitsOf(f: Intl.NumberFormat): number {

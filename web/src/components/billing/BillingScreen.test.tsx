@@ -96,9 +96,9 @@ describe("Billing history: what the card paid in its own currency (owner 2026-11
     expect(rows).toHaveLength(2);
     const [jpy, usd] = rows;
     const amount = within(jpy).getByTestId("row-amount");
-    expect(amount.textContent).toBe("¥7,480USD\u00a049.72");
-    expect(within(jpy).getByTestId("row-amount-usd").textContent).toBe("USD\u00a049.72");
-    expect(amount.getAttribute("aria-label")).toBe("Paid ¥7,480 (USD\u00a049.72)");
+    expect(amount.textContent).toBe("¥7,480US$49.72");
+    expect(within(jpy).getByTestId("row-amount-usd").textContent).toBe("US$49.72");
+    expect(amount.getAttribute("aria-label")).toBe("Paid ¥7,480 (US$49.72)");
     // null: US dollars only, as before
     expect(within(usd).getByTestId("row-amount").textContent).toBe("$23.12");
     expect(within(usd).queryByTestId("row-amount-usd")).toBeNull();
@@ -114,7 +114,7 @@ describe("Billing history: what the card paid in its own currency (owner 2026-11
     renderBilling();
     const history = await screen.findByTestId("history");
     const refund = within(history).getByTestId("row-ch_cjpyref00001_refund");
-    expect(within(refund).getByTestId("row-amount").textContent).toBe("−¥2,770−USD\u00a018.38");
+    expect(within(refund).getByTestId("row-amount").textContent).toBe("−¥2,770−US$18.38");
   });
 });
 

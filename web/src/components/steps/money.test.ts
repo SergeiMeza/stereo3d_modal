@@ -60,10 +60,10 @@ describe("formatMoney (owner 2026-11-07, Option B): any currency in its own mino
     expect(formatMoney(825, "usd", "ar-u-nu-latn")).not.toMatch(/[٠-٩]/);
   });
 
-  it("paidLocal: \"Paid ¥1,234 (USD\u00a08.25)\" with a presentment, null for US dollars or none", () => {
-    expect(paidLocal({ amount_minor: 1234, currency: "jpy" }, 825)).toBe("Paid ¥1,234 (USD\u00a08.25)");
-    expect(paidLocal({ amount_minor: 760, currency: "eur" }, 825)).toBe("Paid €7.60 (USD\u00a08.25)");
-    expect(paidLocal({ amount_minor: 11000, currency: "krw" }, 825)).toBe("Paid ₩11,000 (USD\u00a08.25)");
+  it("paidLocal: \"Paid ¥1,234 (US$8.25)\" with a presentment, null for US dollars or none", () => {
+    expect(paidLocal({ amount_minor: 1234, currency: "jpy" }, 825)).toBe("Paid ¥1,234 (US$8.25)");
+    expect(paidLocal({ amount_minor: 760, currency: "eur" }, 825)).toBe("Paid €7.60 (US$8.25)");
+    expect(paidLocal({ amount_minor: 11000, currency: "krw" }, 825)).toBe("Paid ₩11,000 (US$8.25)");
     expect(paidLocal(null, 825)).toBeNull();
     expect(paidLocal(undefined, 825)).toBeNull();
     expect(paidLocal({ amount_minor: 825, currency: "usd" }, 825)).toBeNull();
@@ -84,8 +84,9 @@ describe("formatUsdLabeled: US dollars beside another currency always say US (ow
     expect(formatMoney(825, "usd", intl)).toMatch(/\$|USD/);
   });
 
-  it("the language's own US$ where it has one, Intl's code otherwise", () => {
-    expect(formatUsdLabeled(825, "en-US")).toBe("USD\u00a08.25");
+  it("the language's own US$ where it has one (English like the invoices), Intl's code otherwise", () => {
+    expect(formatUsdLabeled(825, "en-US")).toBe("US$8.25");
+    expect(formatUsdLabeled(123450, "en-US")).toBe("US$1,234.50");
     expect(formatUsdLabeled(825, "ja-JP")).toBe("USD\u00a08.25");
     expect(formatUsdLabeled(825, "zh-CN")).toBe("US$8.25");
     expect(formatUsdLabeled(825, "ko-KR")).toBe("US$8.25");
