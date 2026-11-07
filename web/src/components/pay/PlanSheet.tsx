@@ -181,6 +181,11 @@ export function PlanSheet({
         big={big}
         showSaveLine={false}
         returnQuery={`plan=${plan}`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          setPhase({ kind: "paying", ...s });
+          void result.then((r) => handle(r, s));
+        }}
       >
         {(form, body) => (
           <SheetFrame

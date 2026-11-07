@@ -1253,7 +1253,8 @@
       "personalUse": "For personal use. Commercial use comes with Business and Studio plans.",
       "localAtCheckout": "You'll see your local price at checkout.",
       "formShowsLocal": "The payment form shows the price in your currency. Base price {usd}.",
-      "timedOut": "This payment timed out. Nothing was charged."
+      "timedOut": "This payment timed out. Nothing was charged.",
+      "walletDeclined": "Your wallet payment didn't go through. Try again or pay another way."
     },
     "sheet": {
       "title": "{action} · {amount}",

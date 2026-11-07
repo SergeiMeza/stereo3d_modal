@@ -168,6 +168,11 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
         big={big}
         showSaveLine={false}
         returnQuery="settle=1"
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          setPhase({ kind: "paying", start });
+          void result.then((r) => handle(r, start));
+        }}
       >
         {(form, formBody) => (
           <SheetFrame

@@ -152,6 +152,11 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
         big={big}
         showSaveLine={false}
         returnQuery={`plan=${plan.id}`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          setPhase({ kind: "paying", ...s });
+          void result.then((r) => handle(r, s));
+        }}
       >
         {(form, body) => (
           <SheetFrame
@@ -196,7 +201,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
             >
               {body}
               {phase.kind === "ready" && phase.notice ? (
-                <p data-testid="pay-error" className="text-sm text-red-400">
+                <p data-testid="pay-error" role="alert" className="text-sm text-red-400">
                   {form.message ?? t(phase.notice)}
                 </p>
               ) : null}

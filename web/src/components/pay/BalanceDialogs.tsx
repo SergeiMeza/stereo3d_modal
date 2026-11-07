@@ -386,13 +386,24 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     );
   }
   return (
-    <CheckoutPane clientSecret={ready.secret} publishableKey={ready.publishableKey} big={big} returnQuery="topup=1">
+    <CheckoutPane
+      clientSecret={ready.secret}
+      publishableKey={ready.publishableKey}
+      big={big}
+      returnQuery="topup=1"
+      // BUX-03: a wallet pays through the same paying state and result
+      onWallet={(result) => {
+        const s = { secret: ready.secret, publishableKey: ready.publishableKey, amount: ready.amount, expiresAt: ready.expiresAt };
+        setSession({ kind: "paying", ...s });
+        void result.then((r) => handle(r, s));
+      }}
+    >
       {(form, body) => (
         <SheetFrame open onClose={onClose} locked={paying} testId="add-funds-sheet" title={t("balance.addFunds.title")} footer={footer(form)}>
           <div className={`flex flex-col gap-4 ${paying ? "pointer-events-none opacity-60" : ""}`}>
             {header}
             {body}
-            {session.kind === "ready" && session.notice ? <ErrorLine text={t(session.notice)} /> : null}
+            {session.kind === "ready" && session.notice ? <ErrorLine text={form.message ?? t(session.notice)} /> : null}
           </div>
         </SheetFrame>
       )}

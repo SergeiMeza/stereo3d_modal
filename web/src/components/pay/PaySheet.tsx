@@ -250,6 +250,12 @@ export function PaySheet({
         returnQuery={`conversion=${encodeURIComponent(conversionId)}${
           projectId ? `&project=${encodeURIComponent(projectId)}` : ""
         }`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          const key = phase.publishableKey;
+          setPhase({ kind: "paying", checkout, publishableKey: key });
+          void result.then((r) => handle(r, checkout, key));
+        }}
       >
         {(form, formBody) => {
           const alipay = form.selected === "alipay";
