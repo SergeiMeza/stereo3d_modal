@@ -126,6 +126,12 @@ func (s *Service) retryReload(ctx context.Context, topupID string) {
 	case s.owedCents(ctx, t.UID) > 0:
 		cancel("a debt exists") // R1
 		return
+	case b.BalanceCents-b.FrozenCents >= b.AutoReload.BelowCents && t.Retry.TryingAttempt != t.Retry.Attempts+1:
+		// REV-03: the customer's own rule wouldn't reload now (plan credit,
+		// a grant or a refund lifted the balance): no charge. An attempt
+		// already sent (transient answer) is seen through.
+		cancel("balance recovered")
+		return
 	}
 	if cust.DefaultPaymentMethod == "" {
 		cust = s.refreshCardCache(ctx, t.UID, cust.StripeCustomerID)
@@ -156,6 +162,29 @@ func (s *Service) retryReload(ctx context.Context, topupID string) {
 		}
 	}
 	attempt := t.Retry.Attempts + 1
+	// REV-03: today's reload amount, unless this attempt was sent already
+	// (a transient answer): then the same amount under the same key.
+	amount := b.AutoReload.AddCents
+	if t.Retry.TryingAttempt == attempt && t.Retry.TryingCents > 0 {
+		amount = t.Retry.TryingCents
+	}
+	if amount <= 0 {
+		amount = t.Cents
+	}
+	if amount != t.Cents || t.Retry.TryingAttempt != attempt {
+		updated, uerr := s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error {
+			x.Cents = amount
+			if x.Retry != nil {
+				x.Retry.AmountCents, x.Retry.TryingAttempt, x.Retry.TryingCents = amount, attempt, amount
+			}
+			return nil
+		})
+		if uerr != nil {
+			release(nil)
+			return
+		}
+		t = updated
+	}
 	o := s.chargeReload(ctx, t, cust, attempt)
 	if !o.paid && o.closedPaid == nil && !o.transient { // a transient outcome keeps the claim: the money may be taken
 		s.releaseTopupDebt(ctx, t.Retry.PayRequestID, topupID)

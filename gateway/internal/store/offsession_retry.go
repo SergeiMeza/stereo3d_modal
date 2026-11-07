@@ -30,6 +30,11 @@ type OffSessionRetry struct {
 	LastErrorMessage string `firestore:"last_error_message,omitempty" json:"last_error_message,omitempty"`
 	CloseReason      string `firestore:"close_reason,omitempty" json:"-"`
 	PayRequestID     string `firestore:"pay_request_id,omitempty" json:"-"`
+	// A reload retry's attempt being made (REV-03): its number and
+	// amount, so a transient replay sends the same amount under the
+	// attempt's key even if the reload amount changed since.
+	TryingAttempt int   `firestore:"trying_attempt,omitempty" json:"-"`
+	TryingCents   int64 `firestore:"trying_cents,omitempty" json:"-"`
 }
 
 // Retry states.

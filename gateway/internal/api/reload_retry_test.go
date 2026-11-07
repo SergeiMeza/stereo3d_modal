@@ -156,3 +156,47 @@ func TestReloadRetryCancelledWhenTurnedBackOn(t *testing.T) {
 		t.Fatalf("%+v creates %d", tp.Retry, len(f.creates))
 	}
 }
+
+// REV-03: a retry checks the account's own rule first — a balance lifted
+// above the threshold some other way (plan credit, a grant) closes it
+// with no charge — and charges today's reload amount.
+func TestReloadRetryFollowsTodaysRule(t *testing.T) {
+	ctx := context.Background()
+	t.Run("balance recovered", func(t *testing.T) {
+		s, f := offService(t)
+		uid, _ := offCustomer(t, s, f, [2]string{"pm_1", "decline:generic_decline"})
+		id := offReload(t, s, uid, 2000)
+		s.runReload(ctx, id)
+		s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) { // the plan's month credit: not a top-up
+			exp := time.Now().Add(30 * 24 * time.Hour)
+			return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: 1500, Ref: "in_month", EntryID: "plan_credit_1", ExpiresAt: &exp}}, nil
+		})
+		f.outcome["pm_1"] = ""
+		creates := len(f.creates)
+		dueNow(t, s, id)
+		s.reloadRetrySweep(ctx, time.Now())
+		tp, _ := s.Store.GetTopup(ctx, id)
+		if len(f.creates) != creates || tp.Retry.State != store.RetryCanceled || tp.Retry.CloseReason != "balance recovered" {
+			t.Fatalf("charged a reload the rule wouldn't make: %d creates, %+v", len(f.creates)-creates, tp.Retry)
+		}
+	})
+	t.Run("amount changed", func(t *testing.T) {
+		s, f := offService(t)
+		uid, _ := offCustomer(t, s, f, [2]string{"pm_1", "decline:generic_decline"})
+		id := offReload(t, s, uid, 5000)
+		s.runReload(ctx, id)
+		s.Store.BalanceTx(ctx, uid, func(b *store.Balance) ([]store.BalanceOp, error) {
+			b.AutoReload.AddCents = 2000 // lowered while paused
+			return []store.BalanceOp{{Kind: store.EntryAdjustment, Cents: 0, Note: "settings"}}, nil
+		})
+		f.outcome["pm_1"] = ""
+		dueNow(t, s, id)
+		s.reloadRetrySweep(ctx, time.Now())
+		tp, _ := s.Store.GetTopup(ctx, id)
+		last := f.creates[len(f.creates)-1]
+		b, _ := s.Store.GetBalance(ctx, uid)
+		if last["amount"] != "2000" || tp.State != store.TopupPaid || b.BalanceCents != 2000 || tp.Retry.AmountCents != 2000 {
+			t.Fatalf("retry charged %s, topup %+v balance %d", last["amount"], tp.Retry, b.BalanceCents)
+		}
+	})
+}
