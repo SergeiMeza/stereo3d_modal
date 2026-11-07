@@ -22,6 +22,9 @@
 package stripex
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
@@ -524,8 +527,7 @@ func (c *Client) PrechargeSaved(customerID, paymentMethodID string, amountCents 
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey("precharge_" + c.env + "_" + job.ConversionID)
-	return paymentintent.New(params)
+	return c.newKeyedPI(params, "precharge_"+c.env+"_"+job.ConversionID)
 }
 
 // RefundOrCancel gives a pre-charged run's money back: a settled
@@ -774,8 +776,7 @@ func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents in
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey(c.SettleChargeKey(settleID))
-	return paymentintent.New(params)
+	return c.newKeyedPI(params, c.SettleChargeKey(settleID))
 }
 
 // SettleChargeKey is the idempotency key of a settle's off-session charge.
@@ -840,8 +841,7 @@ func (c *Client) chargeKeyed(customerID, paymentMethodID string, amountCents int
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey(key)
-	return paymentintent.New(params)
+	return c.newKeyedPI(params, key)
 }
 
 // CreateOnSession makes an on-session PaymentIntent for the saved default
@@ -928,8 +928,7 @@ func (c *Client) ChargeTopup(customerID, paymentMethodID string, amountCents int
 	c.stamp(params, job)
 	params.AddMetadata("topup_id", topupID)
 	params.AddMetadata("payment_flow", "topup")
-	params.SetIdempotencyKey("topup_" + c.env + "_" + topupID)
-	return paymentintent.New(params)
+	return c.newKeyedPI(params, "topup_"+c.env+"_"+topupID)
 }
 
 // ChargeTopupWith charges an auto-reload under key
@@ -989,4 +988,74 @@ func USD(currency string) string {
 		return c
 	}
 	return "usd"
+}
+
+// newKeyedPI creates an off-session PaymentIntent under key (REV-09). An
+// idempotency_error means the key was first sent with other parameters —
+// a deploy or a config change (PMC, metadata) between a lost answer and
+// its replay — and would repeat on every replay. It is answered from what
+// the key made: this job's PaymentIntent (same settle, group, top-up or
+// run, amount and method, created within the key's 24 h) when it took or
+// is taking the money; otherwise the first send took nothing, and the
+// request goes again under key_p{hash of these parameters}, itself stable
+// for replays.
+func (c *Client) newKeyedPI(params *stripe.PaymentIntentParams, key string) (*stripe.PaymentIntent, error) {
+	params.SetIdempotencyKey(key)
+	pi, err := paymentintent.New(params)
+	if err == nil || !IsIdempotencyError(err) || params.Customer == nil || params.Amount == nil {
+		return pi, err
+	}
+	field, value := "", ""
+	for _, f := range []string{"settle_id", "batch_id", "topup_id", "conversion_id"} {
+		if v := params.Metadata[f]; v != "" {
+			field, value = f, v
+			break
+		}
+	}
+	if field == "" {
+		return pi, err
+	}
+	prev, ferr := c.findMadeCharge(*params.Customer, field, value, time.Now().Add(-25*time.Hour), *params.Amount, stripe.StringValue(params.PaymentMethod))
+	if ferr != nil {
+		return pi, err // still the idempotency_error: a later replay looks again
+	}
+	if prev != nil {
+		return prev, nil
+	}
+	raw, _ := json.Marshal(params)
+	sum := sha256.Sum256(raw)
+	params.SetIdempotencyKey(key + "_p" + hex.EncodeToString(sum[:6]))
+	return paymentintent.New(params)
+}
+
+// findMadeCharge: the customer's PaymentIntent for field=value of this
+// amount on this method that took or is taking money (succeeded,
+// processing, the bank's check, held), nil when none.
+func (c *Client) findMadeCharge(customerID, field, value string, since time.Time, amount int64, pm string) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
+	params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Unix()}
+	params.AddExpand("data.payment_method")
+	it := paymentintent.List(params)
+	for it.Next() {
+		pi := it.PaymentIntent()
+		if pi.Metadata[field] != value || pi.Metadata["env"] != c.env || pi.Amount != amount {
+			continue
+		}
+		if pm != "" && (pi.PaymentMethod == nil || pi.PaymentMethod.ID != pm) {
+			continue
+		}
+		switch pi.Status {
+		case stripe.PaymentIntentStatusSucceeded, stripe.PaymentIntentStatusProcessing,
+			stripe.PaymentIntentStatusRequiresAction, stripe.PaymentIntentStatusRequiresCapture:
+			return pi, nil
+		}
+	}
+	return nil, it.Err()
+}
+
+// IsIdempotencyError: Stripe refused a key sent again with other
+// parameters.
+func IsIdempotencyError(err error) bool {
+	var se *stripe.Error
+	return errors.As(err, &se) && se.Type == stripe.ErrorTypeIdempotency
 }
