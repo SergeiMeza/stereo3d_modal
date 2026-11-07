@@ -67,7 +67,7 @@ func TestProSourceAndManagement(t *testing.T) {
 
 func TestAppStoreProReceiptAndReminder(t *testing.T) {
 	m := planStartedMail("business", appleSubscriptionsURL, "https://site")
-	if m.Subject != "Spatial Video Studio: your Business plan has started" ||
+	if m.subject() != "Welcome to Business · Spatial Video Studio" ||
 		!strings.Contains(m.text(), "Your Pro is billed by Apple. Business includes everything Pro does, so cancel Pro in your iPhone's Settings → [your name] → Subscriptions to avoid paying for both.") ||
 		!strings.Contains(m.text(), appleSubscriptionsURL) {
 		t.Fatalf("receipt %q", m.text())
@@ -127,10 +127,11 @@ func TestAppStoreProReceiptAndReminder(t *testing.T) {
 // consumers, not for Business or Studio, and never the old withdrawal
 // line.
 func TestOrderConfirmationConsentLine(t *testing.T) {
-	consumer := orderConfirmationMail("Beach · 4K", 1200, "https://site/projects/p1", true).text()
-	business := orderConfirmationMail("Beach · 4K", 1200, "https://site/projects/p1", false).text()
-	if !strings.Contains(consumer, "You asked us to start right away, so this run can't be cancelled once it's done.") ||
-		strings.Contains(business, "start right away") || strings.Contains(consumer+business, "right to cancel") {
+	run := runInfo{Name: "Beach", Res: "4K"}
+	consumer := orderConfirmationMail(run, "$12.00", "https://site/projects/p1", true).text()
+	business := orderConfirmationMail(run, "$12.00", "https://site/projects/p1", false).text()
+	if !strings.Contains(consumer, "You asked us to start right away, so your right to cancel ends when your 3D video is ready.") ||
+		strings.Contains(business, "start right away") || strings.Contains(consumer+business, "14-day") || strings.Contains(consumer, "can't be cancelled") {
 		t.Fatalf("consumer %q business %q", consumer, business)
 	}
 }

@@ -316,11 +316,12 @@ func mailTrap(t *testing.T, s *Service) func() []string {
 func TestDeletionScheduledMailBalanceLine(t *testing.T) {
 	after := time.Date(2026, 11, 10, 9, 30, 0, 0, time.UTC)
 	want := "Your unspent balance of $21.25 will be lost when your account is deleted."
-	if m := deletionScheduledMail(after, "https://example.test", 2125); len(m.Lines) != 5 || m.Lines[2] != want {
-		t.Fatalf("with a balance %q", m.Lines)
+	if m := deletionScheduledMail(after, "https://example.test", 2125).layout("en"); len(m.Paras) != 4 || m.Paras[2] != want ||
+		strings.Contains(m.Text(), "refund") {
+		t.Fatalf("with a balance %q", m.Paras)
 	}
-	if m := deletionScheduledMail(after, "https://example.test", 0); len(m.Lines) != 4 || strings.Contains(strings.Join(m.Lines, " "), "balance") {
-		t.Fatalf("without %q", m.Lines)
+	if m := deletionScheduledMail(after, "https://example.test", 0).layout("en"); len(m.Paras) != 3 || strings.Contains(m.Text(), "balance") {
+		t.Fatalf("without %q", m.Paras)
 	}
 	for _, tc := range []struct {
 		name  string
@@ -337,7 +338,7 @@ func TestDeletionScheduledMailBalanceLine(t *testing.T) {
 			}
 			var dl1 string
 			for _, m := range sent() {
-				if strings.Contains(m, "your account will be deleted on") {
+				if strings.Contains(strings.ToLower(m), "your account will be deleted on") {
 					dl1 = m
 				}
 			}

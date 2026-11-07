@@ -251,13 +251,19 @@ func TestWebGroupReceipt(t *testing.T) {
 }
 
 func TestReceiptMailText(t *testing.T) {
-	m := receiptMail(2250, []string{"A · $1.00", "B · $2.00", "C · $3.00", "D · $4.00", "E · $12.50"}, "https://site.example/billing")
-	if !strings.HasPrefix(m.Subject, "Spatial Video Studio: ") || !strings.Contains(m.Subject, "your last 5 3D videos · $22.50") || len(m.Lines) != 3 ||
-		!strings.Contains(m.Lines[0], "(charged in US dollars)") || m.Lines[1] != "A · $1.00; B · $2.00; C · $3.00; and 2 more." || !m.Receipt {
-		t.Fatalf("%+v", m)
+	var lines []receiptLine
+	for i, a := range []string{"$1.00", "$2.00", "$3.00", "$4.00", "$12.50"} {
+		lines = append(lines, receiptLine{Run: runInfo{Name: string(rune('A' + i)), Lifelike: i == 0}, Amount: a})
 	}
-	if one := receiptMail(450, []string{"A · $4.50"}, ""); !strings.Contains(one.Subject, "your last 3D video · $4.50") || one.Lines[1] != "A · $4.50." {
-		t.Fatalf("%+v", one)
+	m := receiptMail("$22.50", lines, "https://site.example/billing")
+	l := m.layout("en")
+	if !strings.HasSuffix(m.subject(), " · Spatial Video Studio") || !m.Receipt || len(l.Rows) != 5 ||
+		l.Rows[0].Pill != "Lifelike 3D" || l.Rows[1].Label != "B · Classic 3D" || l.Rows[3].Label != "and 2 more" ||
+		l.Rows[4].Value != "$22.50" || !l.Rows[4].Total || !strings.Contains(m.text(), "Charged in US dollars.") {
+		t.Fatalf("%+v", l.Rows)
+	}
+	if one := receiptMail("$4.50", lines[1:2], "").layout("en"); len(one.Rows) != 2 || one.Lifelike {
+		t.Fatalf("%+v", one.Rows)
 	}
 }
 
