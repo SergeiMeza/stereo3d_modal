@@ -1319,7 +1319,8 @@
       "payOtherDevice": "Pay on another device",
       "opening": "Opening…",
       "wechatPhone": "To pay with WeChat, use a computer.",
-      "wechatHeadset": "Pay with WeChat on a computer"
+      "wechatHeadset": "Pay with WeChat on a computer",
+      "comingSoon": "Payments in mainland China are coming soon."
     },
     "handoff": {
       "titleComputer": "Pay on a computer",

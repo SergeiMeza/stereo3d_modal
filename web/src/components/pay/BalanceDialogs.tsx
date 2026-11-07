@@ -44,6 +44,7 @@ import {
   topupMax,
   topupMin,
 } from "./payCopy";
+import { CHINA_COMING_SOON_KEY, ChinaComingSoon, isChinaPaymentsUnavailable, useChinaPaymentsOff } from "./chinaComingSoon";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Which = "funds" | "reload" | "spending" | null;
@@ -84,6 +85,7 @@ const MIN = 1000;
 
 /** P17's error lines from the gateway's top-up refusals. */
 function topupErrorText(e: unknown, amount: number, first: boolean, t: Tr = EN): string {
+  if (isChinaPaymentsUnavailable(e)) return t(CHINA_COMING_SOON_KEY);
   const g = e instanceof GatewayError ? e : null;
   const max = typeof g?.details?.max === "number" ? g.details.max : first ? 10000 : 50000;
   switch (g?.code) {
@@ -108,6 +110,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const billing = useBilling();
   const t = useT();
   const localPrice = useLocalPriceAtCheckout();
+  const chinaOff = useChinaPaymentsOff();
   const big = useSheetFrame() === "headset";
   const prepaid = prepaidOf(billing.status);
   const first = prepaid?.never_topped_up !== false;
@@ -235,6 +238,9 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         testId="add-funds-sheet"
         title={t("balance.addFunds.title")}
         footer={
+          chinaOff ? (
+            <ChinaComingSoon />
+          ) : (
           <div className="flex flex-col gap-2">
             <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
             <Button
@@ -254,6 +260,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             </Button>
             <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
           </div>
+          )
         }
       >
         <div className="flex flex-col gap-4">

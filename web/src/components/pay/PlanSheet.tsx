@@ -26,6 +26,7 @@ import { SITE_NAME } from "@/lib/site";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { checkoutEmailAtom } from "./payAtoms";
+import { CHINA_COMING_SOON_KEY, useChinaPaymentsOff } from "./chinaComingSoon";
 import { checkoutCurrencyLine } from "./payCopy";
 import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
 import { useAppAtomValue } from "@/lib/state/stores";
@@ -103,11 +104,14 @@ export function PlanSheet({
   const pro = useProStatus();
   const proNote = proNoteFor(pro, def.name, t);
   const big = useSheetFrame() === "headset";
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const chinaOff = useChinaPaymentsOff();
+  const [phase, setPhase] = useState<Phase>(chinaOff ? { kind: "error", key: CHINA_COMING_SOON_KEY } : { kind: "loading" });
   const paidEmail = useAppAtomValue(checkoutEmailAtom);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
+    // owner 2026-11-07: China mode with its payments off asks for nothing
+    if (chinaOff) return;
     let live = true;
     gateway.startPlan(plan).then(
       (r) => live && setPhase({ kind: "ready", secret: r.checkout.client_secret, publishableKey: r.publishable_key }),
@@ -117,7 +121,9 @@ export function PlanSheet({
         setPhase({
           kind: "error",
           key:
-            code === "plan_active"
+            code === "china_payments_unavailable"
+              ? CHINA_COMING_SOON_KEY
+              : code === "plan_active"
               ? "pay.plan.errorPlanActive"
               : code === "under_review"
                 ? "pay.plan.errorUnderReview"
@@ -128,7 +134,7 @@ export function PlanSheet({
     return () => {
       live = false;
     };
-  }, [gateway, plan]);
+  }, [gateway, plan, chinaOff]);
 
   useEffect(
     () => () => {

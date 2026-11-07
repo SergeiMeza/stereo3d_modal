@@ -778,6 +778,9 @@ export interface PublicPricing {
   /** owner 2026-11-07 (Option B): checkout offers the customer's local
    * currency (Stripe Adaptive Pricing); missing means off */
   adaptive_pricing?: boolean;
+  /** owner 2026-11-07: China-mode payments (Alipay, WeChat Pay, plans);
+   * missing means off ("coming soon") */
+  china_payments?: boolean;
   methods: {
     lifelike?: {
       presets: Preset[];

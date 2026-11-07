@@ -410,6 +410,9 @@ interface DB {
   /** GET /v1/pricing adaptive_pricing (owner 2026-11-07): off like prod at
    * launch; tests turn it on */
   adaptivePricing: boolean;
+  /** GET /v1/pricing china_payments: off in the dev mock like the gateway
+   * at launch ("coming soon"), on in unit tests (the Alipay paths) */
+  chinaPayments: boolean;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -1024,6 +1027,7 @@ function seed(): DB {
     chargeBeforeCents: 2500,
     deferredPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     adaptivePricing: false,
+    chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -4661,6 +4665,7 @@ export const handlers = [
       ...(mockDb.tierPricing ? publicTiers() : {}),
       campaign: publicCampaign(),
       adaptive_pricing: mockDb.adaptivePricing,
+      china_payments: mockDb.chinaPayments,
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
       pro_credit: MOCK_PRO_CREDIT,

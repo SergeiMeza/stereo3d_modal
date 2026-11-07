@@ -20,6 +20,7 @@ import { useGateway } from "@/lib/api/useGateway";
 import { useLiveRunById } from "@/lib/live/useLive";
 import { useT } from "@/lib/i18n/I18nProvider";
 
+import { ChinaComingSoonSheet, isChinaPaymentsUnavailable } from "./chinaComingSoon";
 import { HandoffSheet } from "./HandoffSheet";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
@@ -54,6 +55,8 @@ export function ChinaPaySheet({
     | { kind: "paid" }
     | { kind: "expired" }
     | { kind: "unavailable" }
+    /** owner 2026-11-07: China payments are off (403 china_payments_unavailable) */
+    | { kind: "soon" }
     | { kind: "handoff" }
   >({ kind: "choose" });
 
@@ -73,8 +76,8 @@ export function ChinaPaySheet({
         return;
       }
       setPhase({ kind: "unavailable" });
-    } catch {
-      setPhase({ kind: "unavailable" });
+    } catch (e) {
+      setPhase({ kind: isChinaPaymentsUnavailable(e) ? "soon" : "unavailable" });
     }
   }
 
@@ -110,6 +113,9 @@ export function ChinaPaySheet({
   const sub = subtitle;
   const textBtn = big ? "py-3 text-xl" : "text-sm";
 
+  if (phase.kind === "soon") {
+    return <ChinaComingSoonSheet testId="china-sheet" title={title} onClose={() => onClose(false)} />;
+  }
   if (phase.kind === "qr") {
     return (
       <SheetFrame open onClose={() => onClose(false)} testId="china-sheet" title={title} subtitle={sub}>

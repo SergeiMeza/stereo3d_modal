@@ -22,6 +22,7 @@ import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { SITE_NAME } from "@/lib/site";
 
+import { ChinaComingSoon, isChinaPaymentsUnavailable, useChinaPaymentsOn } from "./chinaComingSoon";
 import { checkoutCurrencyLine } from "./payCopy";
 import { Success } from "./PaySheet";
 import { useSheetFrame } from "./SheetFrame";
@@ -34,7 +35,8 @@ export function setHandoffNavigateForTests(fn: (url: string) => void): void {
 
 type State =
   | { kind: "loading" }
-  | { kind: "ready"; info: HandoffInfo; opening?: boolean; notFinished?: boolean }
+  /** soon: China payments are off (owner 2026-11-07) */
+  | { kind: "ready"; info: HandoffInfo; opening?: boolean; notFinished?: boolean; soon?: boolean }
   | { kind: "confirming"; info: HandoffInfo }
   | { kind: "qr"; info: HandoffInfo; qr: string }
   | { kind: "paid" }
@@ -47,6 +49,7 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
   const gateway = useGateway();
   const t = useT();
   const localPrice = useLocalPriceAtCheckout();
+  const chinaOn = useChinaPaymentsOn();
   const back = useSearchParams().get("back") === "1";
   const phone = useSheetFrame() === "phone";
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -91,6 +94,7 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
     } catch (e) {
       if (e instanceof GatewayError && e.code === "already_paid") return setState({ kind: "already" });
       if (e instanceof GatewayError && e.code === "expired") return setState({ kind: "expired" });
+      if (isChinaPaymentsUnavailable(e)) return setState({ kind: "ready", info, soon: true });
       setState({ kind: "ready", info, notFinished: true });
     }
   }
@@ -148,7 +152,10 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
           ) : null}
           {state.notFinished ? <p className="text-sm text-fg">{t("pay.handoffPage.notFinished")}</p> : null}
           <div className="sticky bottom-4 flex flex-col gap-2">
-            {state.info.china ? (
+            {state.soon || (state.info.china && !chinaOn) ? (
+              // owner 2026-11-07: Alipay and WeChat Pay are coming soon
+              <ChinaComingSoon />
+            ) : state.info.china ? (
               <>
                 <Button size="lg" className="h-12 w-full" disabled={state.opening} onClick={() => void pay(state.info, "alipay")}>
                   {state.opening ? t("pay.handoffPage.opening") : "Alipay"}

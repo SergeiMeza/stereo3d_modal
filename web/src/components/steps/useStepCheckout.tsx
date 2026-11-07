@@ -34,6 +34,12 @@ import type { JSX, ReactNode } from "react";
 
 import { PayToContinue, supportMailto } from "@/components/billing/BillingBanner";
 import { ChinaPaySheet } from "@/components/pay/ChinaPaySheet";
+import {
+  CHINA_COMING_SOON_KEY,
+  ChinaComingSoonSheet,
+  isChinaPaymentsUnavailable,
+  useChinaPaymentsOff,
+} from "@/components/pay/chinaComingSoon";
 import { PaySheet } from "@/components/pay/PaySheet";
 import { chinaPayments } from "@/lib/paymentRegion";
 import { useBalanceDialogs } from "@/components/pay/BalanceDialogs";
@@ -73,6 +79,8 @@ import { chargeAfterCopy, chargeBeforeCopy, QuoteView, runFacts } from "./QuoteV
 import { formatsText } from "@/lib/glossary";
 
 function messageOf(e: unknown, t: Tr = EN): string {
+  // owner 2026-11-07: a paid China run while China payments are off
+  if (isChinaPaymentsUnavailable(e)) return t(CHINA_COMING_SOON_KEY);
   // spec v7 N12: a run that would pass the monthly spend limit
   if (e instanceof GatewayError && e.code === "spend_limit_reached") return t("balance.copy.spendLimitReached");
   if (e instanceof GatewayError && e.code === "payment_method_blocked") return t("balance.copy.paymentMethodBlocked");
@@ -418,10 +426,16 @@ export function payLine(conv: Conversion, t: Tr = EN): string {
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
   const t = useT();
   const plan = useBilling().status?.plan;
+  const chinaOff = useChinaPaymentsOff();
   const conv = ck.payNow;
   if (conv === null) return null;
   const commercial =
     plan?.active === true && (plan.plan === "business" || plan.plan === "studio");
+  if (chinaOff) {
+    return (
+      <ChinaComingSoonSheet testId="china-sheet" title={t("pay.china.title")} onClose={() => ck.closePayNow(false)} />
+    );
+  }
   if (chinaPayments()) {
     return (
       <ChinaPaySheet

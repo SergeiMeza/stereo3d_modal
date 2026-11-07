@@ -19,6 +19,7 @@ import {
   CheckoutPane,
   type ConfirmResult,
 } from "@/components/pay/CheckoutPane";
+import { CHINA_COMING_SOON_KEY, useChinaPaymentsOff } from "@/components/pay/chinaComingSoon";
 import { checkoutCurrencyLine } from "@/components/pay/payCopy";
 import {
   MainButtonArea,
@@ -65,9 +66,12 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
   const t = useT();
   const localPrice = useLocalPriceAtCheckout();
   const big = useSheetFrame() === "headset";
-  const [phase, setPhase] = useState<Phase>({ kind: "loading" });
+  const chinaOff = useChinaPaymentsOff();
+  const [phase, setPhase] = useState<Phase>(chinaOff ? { kind: "error", key: CHINA_COMING_SOON_KEY } : { kind: "loading" });
 
   useEffect(() => {
+    // owner 2026-11-07: China mode with its payments off asks for nothing
+    if (chinaOff) return;
     let live = true;
     gateway.startPlan(plan.id).then(
       (r) =>
@@ -82,14 +86,19 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
         const code = e instanceof GatewayError ? e.code : "";
         setPhase({
           kind: "error",
-          key: code === "plan_active" ? "pro.checkout.planActive" : "pro.checkout.unavailable",
+          key:
+            code === "china_payments_unavailable"
+              ? CHINA_COMING_SOON_KEY
+              : code === "plan_active"
+                ? "pro.checkout.planActive"
+                : "pro.checkout.unavailable",
         });
       },
     );
     return () => {
       live = false;
     };
-  }, [gateway, plan.id]);
+  }, [gateway, plan.id, chinaOff]);
 
   function handle(
     r: ConfirmResult,
