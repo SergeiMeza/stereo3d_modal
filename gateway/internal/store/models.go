@@ -342,6 +342,9 @@ type Stripe struct {
 	// SettleError records a capture/cancel/charge failure for support
 	// follow-up. Never blocks the job result.
 	SettleError string `firestore:"settle_error,omitempty" json:"-"`
+	// OneTapUntil: a one-tap payment of this run is being made (BUX-20):
+	// a second tap meanwhile is refused, never a second charge.
+	OneTapUntil *time.Time `firestore:"one_tap_until,omitempty" json:"-"`
 	// Presentment: the customer's currency and amount when Stripe's
 	// Adaptive Pricing presented this run's card payment (nil: USD).
 	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
