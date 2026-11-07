@@ -63,9 +63,11 @@ type revPresentment struct {
 	Count       int    `json:"count"`
 }
 
-type revDay struct {
-	Day          string                 `json:"day"`
-	Closed       bool                   `json:"closed"`
+// revAgg is one slice of a day's web money: the day itself, or (TEST)
+// the part of it that is test accounts'. by_product carries every
+// product, the app's included; the totals, methods, counts and
+// presentment are the web's alone.
+type revAgg struct {
 	Gross        int64                  `json:"gross_cents"`
 	Refunds      int64                  `json:"refunds_cents"`
 	DisputesLost int64                  `json:"disputes_lost_cents"`
@@ -74,20 +76,73 @@ type revDay struct {
 	ByMethod     map[string]int64       `json:"by_method"` // card_cents | balance_cents | credit_cents
 	Presentment  []revPresentment       `json:"presentment"`
 	Counts       map[string]int         `json:"counts"` // payments | refunds | disputes | new_paying_accounts
-	App          revTotals              `json:"app"`
-	TestAccounts *revTotals             `json:"test_accounts,omitempty"` // TEST only: included above, left out on prod
 
 	pres map[string]*revPresentment
 }
 
-func newRevDay(day string, closed bool) *revDay {
-	d := &revDay{Day: day, Closed: closed, ByProduct: map[string]*revProduct{}, pres: map[string]*revPresentment{},
+func newRevAgg() revAgg {
+	a := revAgg{ByProduct: map[string]*revProduct{}, pres: map[string]*revPresentment{},
 		ByMethod: map[string]int64{"card_cents": 0, "balance_cents": 0, "credit_cents": 0},
 		Counts:   map[string]int{"payments": 0, "refunds": 0, "disputes": 0, "new_paying_accounts": 0}}
 	for _, p := range revenueProducts {
-		d.ByProduct[p] = &revProduct{}
+		a.ByProduct[p] = &revProduct{}
+	}
+	return a
+}
+
+// revTestAgg: test accounts' share of the day (TEST only). The day less
+// it, field by field, is the non-test figure.
+type revTestAgg struct {
+	revAgg
+	Payments int `json:"payments"` // = counts.payments
+}
+
+// revApp: the mobile app's money, kept out of the web totals; on TEST
+// with test accounts' share of it.
+type revApp struct {
+	revTotals
+	TestAccounts *revTotals `json:"test_accounts,omitempty"`
+}
+
+type revDay struct {
+	Day    string `json:"day"`
+	Closed bool   `json:"closed"`
+	revAgg
+	App          revApp      `json:"app"`
+	TestAccounts *revTestAgg `json:"test_accounts,omitempty"` // TEST only: included above, left out on prod
+}
+
+func newRevDay(day string, closed bool, test bool) *revDay {
+	d := &revDay{Day: day, Closed: closed, revAgg: newRevAgg()}
+	if test {
+		d.TestAccounts = &revTestAgg{revAgg: newRevAgg()}
+		d.App.TestAccounts = &revTotals{}
 	}
 	return d
+}
+
+// aggs: the slices a movement of uid's lands in (the day; on TEST, test
+// accounts' too); none for a test account on prod.
+func (r *revenueReport) aggs(d *revDay, uid string) []*revAgg {
+	if d == nil {
+		return nil
+	}
+	test := r.isTest(uid)
+	switch {
+	case test && r.prod:
+		return nil
+	case test:
+		return []*revAgg{&d.revAgg, &d.TestAccounts.revAgg}
+	}
+	return []*revAgg{&d.revAgg}
+}
+
+func (a *revAgg) finish() {
+	a.Presentment = make([]revPresentment, 0, len(a.pres))
+	for _, x := range a.pres {
+		a.Presentment = append(a.Presentment, *x)
+	}
+	sort.Slice(a.Presentment, func(i, j int) bool { return a.Presentment[i].Currency < a.Presentment[j].Currency })
 }
 
 // testAccountEmail: addresses of our own tests and probes.
@@ -191,21 +246,10 @@ func (r *revenueReport) book(d *revDay, uid, product, kind string, cents int64, 
 	if d == nil || cents == 0 {
 		return
 	}
-	test := r.isTest(uid)
-	if test && r.prod {
+	aggs := r.aggs(d, uid)
+	if len(aggs) == 0 {
 		return
 	}
-	p := d.ByProduct[product]
-	switch kind {
-	case "payment":
-		p.Gross += cents
-		p.Count++
-	case "refund":
-		p.Refunds += cents
-	case "dispute_lost":
-		p.DisputesLost += cents
-	}
-	p.Net = p.Gross - p.Refunds - p.DisputesLost
 	tot := func(t *revTotals) {
 		switch kind {
 		case "payment":
@@ -218,37 +262,48 @@ func (r *revenueReport) book(d *revDay, uid, product, kind string, cents int64, 
 		}
 		t.Net = t.Gross - t.Refunds - t.DisputesLost
 	}
-	if test {
-		if d.TestAccounts == nil {
-			d.TestAccounts = &revTotals{}
+	for i, a := range aggs {
+		p := a.ByProduct[product]
+		switch kind {
+		case "payment":
+			p.Gross += cents
+			p.Count++
+		case "refund":
+			p.Refunds += cents
+		case "dispute_lost":
+			p.DisputesLost += cents
 		}
-		tot(d.TestAccounts)
-	}
-	if isAppProduct(product) {
-		tot(&d.App)
-		return
-	}
-	switch kind {
-	case "payment":
-		d.Gross += cents
-		d.ByMethod["card_cents"] += cents
-		d.Counts["payments"]++
-		if pres != nil {
-			x := d.pres[pres.Currency]
-			if x == nil {
-				x = &revPresentment{Currency: pres.Currency}
-				d.pres[pres.Currency] = x
+		p.Net = p.Gross - p.Refunds - p.DisputesLost
+		if isAppProduct(product) {
+			if i == 0 {
+				tot(&d.App.revTotals)
+			} else {
+				tot(d.App.TestAccounts)
 			}
-			x.AmountMinor += pres.AmountMinor
-			x.Count++
+			continue
 		}
-	case "refund":
-		d.Refunds += cents
-		d.Counts["refunds"]++
-	case "dispute_lost":
-		d.DisputesLost += cents
+		switch kind {
+		case "payment":
+			a.Gross += cents
+			a.ByMethod["card_cents"] += cents
+			a.Counts["payments"]++
+			if pres != nil {
+				x := a.pres[pres.Currency]
+				if x == nil {
+					x = &revPresentment{Currency: pres.Currency}
+					a.pres[pres.Currency] = x
+				}
+				x.AmountMinor += pres.AmountMinor
+				x.Count++
+			}
+		case "refund":
+			a.Refunds += cents
+			a.Counts["refunds"]++
+		case "dispute_lost":
+			a.DisputesLost += cents
+		}
+		a.Net = a.Gross - a.Refunds - a.DisputesLost
 	}
-	d.Net = d.Gross - d.Refunds - d.DisputesLost
 }
 
 func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time.Time) ([]*revDay, error) {
@@ -258,7 +313,7 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 	var order []string
 	for t := from; t.Before(to); t = t.AddDate(0, 0, 1) {
 		k := t.Format(time.DateOnly)
-		r.days[k] = newRevDay(k, !now.Before(t.AddDate(0, 0, 1).Add(revenueCloseLag)))
+		r.days[k] = newRevDay(k, !now.Before(t.AddDate(0, 0, 1).Add(revenueCloseLag)), !r.prod)
 		order = append(order, k)
 	}
 	charges, err := s.Store.ListAllCharges(ctx, revenueScanLimit)
@@ -295,9 +350,9 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 		seen(p.UID, p.PaidAt, planProduct(p.PlanID))
 		r.book(r.day(p.PaidAt), p.UID, planProduct(p.PlanID), "payment", p.AmountCents, p.Presentment)
 	}
-	for _, at := range first {
-		if d := r.day(at); d != nil {
-			d.Counts["new_paying_accounts"]++
+	for uid, at := range first {
+		for _, a := range r.aggs(r.day(at), uid) {
+			a.Counts["new_paying_accounts"]++
 		}
 	}
 	// refunds: refund rows, and plan refunds not already among them
@@ -340,8 +395,8 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 		if r.prod && r.isTest(c.UID) {
 			continue
 		}
-		if d := r.day(c.OpenedAt); d != nil {
-			d.Counts["disputes"]++
+		for _, a := range r.aggs(r.day(c.OpenedAt), c.UID) {
+			a.Counts["disputes"]++
 		}
 		if c.Dispute == nil || c.Dispute.Outcome != "lost" || c.ClosedAt == nil {
 			continue
@@ -376,15 +431,13 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 			if e.Kind != store.EntrySettle && e.Kind != store.EntryDebtPayment {
 				continue
 			}
-			d := r.day(e.At)
-			if d == nil {
-				continue
-			}
-			for _, u := range e.FifoUsed {
-				if u.TopupID == "" {
-					d.ByMethod["credit_cents"] += u.Cents // plan, Pro and grant credit carry no top-up
-				} else {
-					d.ByMethod["balance_cents"] += u.Cents
+			for _, a := range r.aggs(r.day(e.At), uid) {
+				for _, u := range e.FifoUsed {
+					if u.TopupID == "" {
+						a.ByMethod["credit_cents"] += u.Cents // plan, Pro and grant credit carry no top-up
+					} else {
+						a.ByMethod["balance_cents"] += u.Cents
+					}
 				}
 			}
 		}
@@ -392,11 +445,11 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 	out := make([]*revDay, 0, len(order))
 	for _, k := range order {
 		d := r.days[k]
-		d.Presentment = make([]revPresentment, 0, len(d.pres))
-		for _, x := range d.pres {
-			d.Presentment = append(d.Presentment, *x)
+		d.finish()
+		if d.TestAccounts != nil {
+			d.TestAccounts.finish()
+			d.TestAccounts.Payments = d.TestAccounts.Counts["payments"]
 		}
-		sort.Slice(d.Presentment, func(i, j int) bool { return d.Presentment[i].Currency < d.Presentment[j].Currency })
 		out = append(out, d)
 	}
 	return out, nil
