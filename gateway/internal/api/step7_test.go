@@ -105,9 +105,9 @@ func TestBlockListGateAndWebhook(t *testing.T) {
 	}
 }
 
-// N8 step 3 / B12: with cash in the balance, "Delete and refund" opens
-// the closure case and the account stays until it is decided; deciding
-// it deletes the account.
+// N8 step 3 / B12, legacy: an account already waiting for a closure case
+// (opened before the refund policy of 2026-11-08) stays until the case is
+// decided; deciding it deletes the account.
 func TestDeletionWaitsForClosureCase(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
@@ -119,16 +119,13 @@ func TestDeletionWaitsForClosureCase(t *testing.T) {
 		s.HandleDeleteAccount(rec, httptest.NewRequest("POST", "/", strings.NewReader(body)), &AuthedUser{UID: uid})
 		return rec
 	}
-	if rec := del(`{}`); rec.Code != http.StatusConflict || !strings.Contains(rec.Body.String(), "balance_remaining") {
-		t.Fatalf("first: %d %s", rec.Code, rec.Body)
-	}
+	caseID := legacyClosureCase(t, s, uid, false).ID
 	rec := del(`{"balance_confirmed":true}`)
 	var out map[string]any
 	json.Unmarshal(rec.Body.Bytes(), &out)
-	if rec.Code != http.StatusAccepted || out["deletion_pending"] != true || out["case_id"] == "" {
+	if rec.Code != http.StatusAccepted || out["deletion_pending"] != true || out["case_id"] != caseID {
 		t.Fatalf("pending: %d %s", rec.Code, rec.Body)
 	}
-	caseID := out["case_id"].(string)
 	cust, _ := s.Store.GetCustomer(ctx, uid)
 	if !cust.DeletionPending || cust.AccountDeleted || cust.DeletionCaseID != caseID {
 		t.Fatalf("customer %+v", cust)
@@ -136,7 +133,7 @@ func TestDeletionWaitsForClosureCase(t *testing.T) {
 	if _, err := s.requireRunnable(ctx, &AuthedUser{UID: uid}); err == nil || !strings.Contains(err.Error(), "being deleted") {
 		t.Fatalf("gate while pending: %v", err)
 	}
-	if again := del(`{"balance_confirmed":true}`); again.Code != http.StatusAccepted {
+	if again := del(`{}`); again.Code != http.StatusAccepted {
 		t.Fatalf("again: %d", again.Code)
 	}
 	if n := s.finishPendingDeletions(ctx); n != 0 {

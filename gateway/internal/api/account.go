@@ -97,7 +97,10 @@ func (s *Service) closeWaitingRuns(ctx context.Context, uid string) {
 // balance_due (details: amount_cents, plus requires_action/client_secret
 // for a 3DS challenge) when the outstanding charge didn't go through.
 //
-// Body (optional): {balance_confirmed?: bool, keep_sign_in?: bool}.
+// Body (optional): {keep_sign_in?: bool}; balance_confirmed (or
+// balanceConfirmed) from older clients is accepted and ignored. A cash
+// balance never refuses (no 409 balance_remaining since 2026-11-08): it
+// is forfeited when the deletion runs.
 // keep_sign_in (honoured only from svs-backend, with its proxy key) leaves
 // the Firebase user for svs-backend to remove last; the answer says who
 // removed it: {deleted: true, sign_in_removed}. It deletes at once, as
@@ -114,13 +117,17 @@ func (s *Service) closeWaitingRuns(ctx context.Context, uid string) {
 func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var body struct {
-		BalanceConfirmed bool `json:"balance_confirmed"`
-		KeepSignIn       bool `json:"keep_sign_in"`
+		// balance_confirmed / balanceConfirmed: older clients' "Delete
+		// and refund"; accepted and ignored since the refund policy
+		// (2026-11-08), whatever their type.
+		BalanceConfirmed      json.RawMessage `json:"balance_confirmed"`
+		BalanceConfirmedCamel json.RawMessage `json:"balanceConfirmed"`
+		KeepSignIn            bool            `json:"keep_sign_in"`
 	}
 	_ = json.NewDecoder(http.MaxBytesReader(w, r.Body, 4<<10)).Decode(&body)
 	_, _, viaProxy := httpx.TrustedClientIP(ctx)
 	keepSignIn := body.KeepSignIn && viaProxy
-	o := deletionOpts{BalanceConfirmed: body.BalanceConfirmed, KeepSignIn: keepSignIn, Pay: payContextOf(r), By: "request"}
+	o := deletionOpts{KeepSignIn: keepSignIn, Pay: payContextOf(r), By: "request"}
 	if !user.Anonymous { // an anonymous account (no sign-in method) never waits
 		o.Delay = s.accountDeleteDelay(ctx)
 	}
@@ -146,9 +153,8 @@ func (s *Service) HandleDeleteAccount(w http.ResponseWriter, r *http.Request, us
 
 // deletionOpts: how runDeletion runs.
 type deletionOpts struct {
-	BalanceConfirmed bool
-	KeepSignIn       bool
-	Pay              payContext
+	KeepSignIn bool
+	Pay        payContext
 	// Delay > 0 schedules the deletion that far ahead once the checks
 	// pass (the request); 0 runs it now (the sweep, the proxy, prod).
 	Delay  time.Duration
@@ -164,10 +170,11 @@ type deletionOpts struct {
 	Dues *settleResult
 }
 
-// runDeletion is the account deletion (unchanged since 2026-11-06, now
-// shared by the request and the sweep): a renewing plan refuses, dues are
-// collected, a cash balance needs balance_confirmed and waits for its
-// closure case (202), and otherwise the account is soft-deleted (200).
+// runDeletion is the account deletion (shared by the request and the
+// sweep): a renewing plan refuses, dues are collected, and the account is
+// scheduled (202 pending_deletion) or soft-deleted (200), its cash
+// balance forfeited (refund policy 2026-11-08). Only an account already
+// waiting for a legacy closure case answers 202 deletion_pending.
 // Refusals are *httpx.APIError with the plan merged into their details.
 func (s *Service) runDeletion(ctx context.Context, uid string, o deletionOpts) (int, map[string]any, error) {
 	cust, err := s.Store.GetCustomer(ctx, uid)
@@ -257,56 +264,18 @@ func (s *Service) runDeletion(ctx context.Context, uid string, o deletionOpts) (
 		return refuse(s.balanceDueErr(ctx, unpaid, failed, charging, open, minimum))
 	}
 
-	// N8 step 3: money left in the balance is refunded by a closure case;
-	// the web confirms "Delete and refund" ({balance_confirmed: true}).
-	// With cash to pay out, the deletion waits for that case's decision:
-	// 202 {deleted: false, deletion_pending: true, case_id, refund_cents}.
-	// Only cash counts (unspent top-ups): plan credit is never money; a
-	// cancelled plan's credit is kept for Restore Purchases.
-	b, berr := s.Store.GetBalance(ctx, uid)
-	cash := berr == nil && b.Exists() && b.CashCents() > 0
-	if cash && !o.BalanceConfirmed {
-		e := httpx.Err(http.StatusConflict, "balance_remaining",
-			fmt.Sprintf("You have %s left in your balance. We'll refund it to your payment method.", money(b.CashCents())))
-		e.Details = map[string]any{"cents": b.CashCents(), "plan_credit_cents": b.PlanCreditCents()}
-		return refuse(e)
-	}
-
+	// Refund policy (owner 2026-11-08): money left in the balance is
+	// forfeited when the account is deleted (finishAccountDeletionKeeping
+	// writes forfeit_on_deletion), never refunded by a closure case; a
+	// refund is the customer's request, decided case by case. Nothing
+	// asks for a confirmation (balance_confirmed is accepted and ignored).
+	//
 	// The 48-hour wait (owner 2026-11-07): everything above passed, so
 	// the deletion is scheduled; the sweep comes back to this function at
-	// delete_after. The closure case opens then, so a cancel has nothing
-	// to undo.
+	// delete_after, and the forfeit happens then, so a cancel keeps the
+	// balance whole.
 	if o.Delay > 0 {
 		return s.scheduleDeletion(ctx, uid, cust, o)
-	}
-
-	if cash {
-		// N8b: the closure case (manual) refunds the unspent cash top-ups.
-		cs, cerr := s.requestBalanceRefund(ctx, uid, ReasonClosure, "", "system", "customer", "account deletion")
-		if cerr != nil {
-			s.Slack.Alert(ctx, "closure_balance", fmt.Sprintf("account `%s` asked to delete with %s in its balance; case not opened: %v",
-				uid, money(b.CashCents()), cerr))
-			return 0, nil, httpx.Err(http.StatusBadGateway, "delete_failed", "could not delete your account; try again")
-		}
-		now := time.Now().UTC()
-		requested := now
-		if o.RequestedAt != nil {
-			requested = *o.RequestedAt
-		}
-		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
-			c.DeletionPending, c.DeletionCaseID, c.DeletionRequestedAt = true, cs.ID, &requested
-			c.DeletionKeepSignIn = o.KeepSignIn // svs-backend's: call back when the case completes it
-			return nil
-		}); err != nil {
-			return 0, nil, err
-		}
-		s.pauseAutoReload(ctx, uid, "deletion")
-		httpx.Log(ctx).Info("deletion waits for the closure case", "uid", uid, "case_id", cs.ID)
-		if err := s.Store.FinishAccountDeletionRow(ctx, uid, o.By, store.DeletionOutcomeRefundCase, now); err != nil {
-			slog.WarnContext(ctx, "deletion row not marked", "err", err)
-		}
-		after, _ := s.Store.GetCustomer(ctx, uid)
-		return http.StatusAccepted, pendingDeletionBody(cs.ID, cs.RequestedCents, deletionPlan(after)), nil
 	}
 
 	if err := s.finishAccountDeletionKeeping(ctx, uid, o.KeepSignIn); err != nil {
@@ -375,7 +344,10 @@ func (s *Service) balanceDueErr(ctx context.Context, unpaid []*store.Conversion,
 }
 
 func pendingDeletionBody(caseID string, cents int64, plan map[string]any) map[string]any {
+	// a legacy closure case (before 2026-11-08); pending_deletion/state
+	// so every 202 reads as "pending" (the app contract)
 	out := map[string]any{"success": true, "deleted": false, "deletion_pending": true,
+		"pending_deletion": true, "state": "pending_deletion", "sign_in_removed": false,
 		"case_id": caseID, "refund_cents": cents,
 		"message": "We'll delete your account once your refund is decided, within 2 business days."}
 	for k, v := range plan {
@@ -427,6 +399,9 @@ func (s *Service) finishAccountDeletion(ctx context.Context, uid string) error {
 func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, keepSignIn bool) error {
 	// Deletion never detaches payment methods: saved cards stay on the Stripe customer (owner 2026-11-06).
 	now := time.Now().UTC()
+	if err := s.forfeitOnDeletion(ctx, uid); err != nil { // refund policy 2026-11-08: unspent cash is not refunded
+		return err
+	}
 	s.recordPlanRestore(ctx, uid) // a plan still in its period waits for Restore Purchases (before its credit and emails go)
 	if _, err := s.Store.GetCustomer(ctx, uid); err == nil {
 		if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
@@ -456,6 +431,38 @@ func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, 
 		return nil
 	}
 	return s.Auth.DeleteUser(ctx, uid) // a missing user is fine
+}
+
+// forfeitOnDeletion writes forfeit_on_deletion (refund policy, owner
+// 2026-11-08): the unspent cash top-ups leave the balance with the
+// account, the entry naming each top-up (FifoUsed); auto-reload stops.
+// Nothing unspent: no entry. Plan and grant credit go by their own
+// removal.
+func (s *Service) forfeitOnDeletion(ctx context.Context, uid string) error {
+	b, err := s.Store.GetBalance(ctx, uid)
+	if err != nil {
+		return err
+	}
+	if !b.Exists() || b.ForfeitableCents() <= 0 {
+		return nil
+	}
+	var cents int64
+	if _, _, err := s.Store.BalanceTx(ctx, uid, func(x *store.Balance) ([]store.BalanceOp, error) {
+		cents = x.ForfeitableCents()
+		if cents <= 0 {
+			return nil, nil
+		}
+		if x.AutoReload.Enabled {
+			x.AutoReload.PausedReason = "deletion"
+		}
+		return []store.BalanceOp{{Kind: store.EntryForfeitOnDeletion, Ref: "deleted", Note: "account deleted: unspent balance forfeited"}}, nil
+	}); err != nil {
+		return fmt.Errorf("forfeit on deletion: %w", err)
+	}
+	if cents > 0 {
+		slog.InfoContext(ctx, "balance forfeited with the account", "uid", uid, "cents", cents)
+	}
+	return nil
 }
 
 // finishPendingDeletions deletes accounts whose closure case has been

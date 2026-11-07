@@ -255,7 +255,10 @@ func (s *Service) perRun(ctx context.Context, c *store.Case) ([]map[string]any, 
 	} else {
 		max = min(max, sum)
 	}
-	if len(c.Related.ConversionIDs) == 0 && c.Related.TopupID != "" {
+	if len(c.Related.ConversionIDs) == 0 && (c.Related.TopupID != "" || c.Reason == ReasonClosure) {
+		// a withdrawal, or a legacy closure case (none opened since the
+		// refund policy of 2026-11-08; the old ones are still decided):
+		// the unspent cash, at most what is available
 		if b, err := s.Store.GetBalance(ctx, c.UID); err == nil {
 			max = min(b.CashCents(), max0(b.Available()))
 		}

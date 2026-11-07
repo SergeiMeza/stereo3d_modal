@@ -25,10 +25,12 @@ import (
 // adds the customers' own currencies. Booking days, from times written
 // once: a payment on its paid_at, a refund on its refunded_at (rows from
 // before 2026-11-07: created_at), a lost dispute on its case's closed_at,
-// ledger use on the entry's at. A day is closed 48 h after it ends (late
-// webhooks land by then) and never changes after. Mobile app charges
-// (plain app conversions: no step, not made on the web) are reported as
-// app_* products and kept out of the web totals. Test and probe accounts
+// ledger use on the entry's at (by_method.forfeited_cents: a deleted
+// account's unspent top-ups, on its forfeit_on_deletion entry's at). A
+// day is closed 48 h after it ends (late webhooks land by then) and never
+// changes after. Mobile app charges (plain app conversions: no step, not
+// made on the web) are reported as app_* products and kept out of the web
+// totals. Test and probe accounts
 // are left out on prod and counted under test_accounts on TEST.
 
 const (
@@ -73,7 +75,7 @@ type revAgg struct {
 	DisputesLost int64                  `json:"disputes_lost_cents"`
 	Net          int64                  `json:"net_cents"`
 	ByProduct    map[string]*revProduct `json:"by_product"`
-	ByMethod     map[string]int64       `json:"by_method"` // card_cents | balance_cents | credit_cents
+	ByMethod     map[string]int64       `json:"by_method"` // card_cents | balance_cents | credit_cents | forfeited_cents
 	Presentment  []revPresentment       `json:"presentment"`
 	Counts       map[string]int         `json:"counts"` // payments | refunds | disputes | new_paying_accounts
 
@@ -82,7 +84,7 @@ type revAgg struct {
 
 func newRevAgg() revAgg {
 	a := revAgg{ByProduct: map[string]*revProduct{}, pres: map[string]*revPresentment{},
-		ByMethod: map[string]int64{"card_cents": 0, "balance_cents": 0, "credit_cents": 0},
+		ByMethod: map[string]int64{"card_cents": 0, "balance_cents": 0, "credit_cents": 0, "forfeited_cents": 0},
 		Counts:   map[string]int{"payments": 0, "refunds": 0, "disputes": 0, "new_paying_accounts": 0}}
 	for _, p := range revenueProducts {
 		a.ByProduct[p] = &revProduct{}
@@ -428,6 +430,18 @@ func (s *Service) buildRevenue(ctx context.Context, from, to time.Time, now time
 			return nil, err
 		}
 		for _, e := range entries {
+			if e.Kind == store.EntryForfeitOnDeletion {
+				// refund policy 2026-11-08: unspent cash top-ups kept when
+				// the account was deleted (by_method.forfeited_cents)
+				for _, a := range r.aggs(r.day(e.At), uid) {
+					for _, u := range e.FifoUsed {
+						if u.TopupID != "" {
+							a.ByMethod["forfeited_cents"] += u.Cents
+						}
+					}
+				}
+				continue
+			}
 			if e.Kind != store.EntrySettle && e.Kind != store.EntryDebtPayment {
 				continue
 			}

@@ -177,31 +177,6 @@ func TestDeletionSweepAt48Hours(t *testing.T) {
 	}
 }
 
-// A cash balance confirmed at the request: the sweep opens the closure
-// case then (not at the request), and the account waits for it as today.
-func TestDeletionSweepOpensClosureCase(t *testing.T) {
-	f := deletionFixture(t)
-	ctx := context.Background()
-	paidTopup(t, f.s, f.uid, 2000)
-	if code, out := deleteAccount(f, `{}`, false); code != 409 || out["error"] != "balance_remaining" {
-		t.Fatalf("unconfirmed %d %v", code, out)
-	}
-	if code, out := deleteAccount(f, `{"balance_confirmed":true}`, false); code != 202 || out["state"] != "pending_deletion" {
-		t.Fatalf("confirmed %d %v", code, out)
-	}
-	if c, _ := f.s.Store.GetCustomer(ctx, f.uid); c.DeletionPending || c.DeletionCaseID != "" {
-		t.Fatal("closure case opened at the request")
-	}
-	due(t, f)
-	n := f.s.deletionScheduleSweep(ctx)
-	if n["deletions_refund_case"] != 1 {
-		t.Fatalf("sweep %v", n)
-	}
-	if c, _ := f.s.Store.GetCustomer(ctx, f.uid); !c.DeletionPending || c.DeletionCaseID == "" || c.AccountDeleted {
-		t.Fatalf("customer %+v", c)
-	}
-}
-
 // Something in the way at delete_after (here a plan that renews again):
 // the row stays pending, flagged blocked_reason for the console, and is
 // tried again only after the retry spacing.

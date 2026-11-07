@@ -49,7 +49,7 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 		email = cust.Email // the account's own address
 	}
 	d, created, err := s.Store.ScheduleAccountDeletion(ctx, &store.AccountDeletion{UID: uid, RequestedAt: now,
-		DeleteAfter: now.Add(o.Delay), BalanceConfirmed: o.BalanceConfirmed, Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
+		DeleteAfter: now.Add(o.Delay), Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
 	if err != nil {
 		return 0, nil, err
 	}
@@ -199,7 +199,7 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 	noCharge := d.DuesRetry != nil && (d.DuesRetry.State == store.RetryFinal && !configRetryDue(d.DuesRetry, now) ||
 		d.DuesRetry.State == store.RetryPending && !d.DuesRetry.Due(now))
 	var dues settleResult
-	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, KeepSignIn: d.KeepSignIn, By: by,
+	status, _, err := s.runDeletion(ctx, uid, deletionOpts{KeepSignIn: d.KeepSignIn, By: by,
 		RequestedAt: &requested, NoCharge: noCharge, Dues: &dues})
 	if err == nil {
 		outcome := store.DeletionOutcomeDeleted
@@ -392,9 +392,10 @@ func adminDeletionJSON(d *store.AccountDeletion) map[string]any {
 
 // adminRequestDeletion is support's "Delete account" on the person's
 // behalf: the request path's runDeletion with the configured delay (the
-// row's source is admin; the operator is in the audit).
-func (s *Service) adminRequestDeletion(ctx context.Context, a *AdminUser, uid string, balanceConfirmed bool) (int, map[string]any, error) {
-	o := deletionOpts{BalanceConfirmed: balanceConfirmed, By: "admin:" + a.who(), Delay: s.accountDeleteDelay(ctx), Source: "admin"}
+// row's source is admin; the operator is in the audit). balance_confirmed
+// is ignored since the refund policy (2026-11-08): a balance is forfeited.
+func (s *Service) adminRequestDeletion(ctx context.Context, a *AdminUser, uid string, _ bool) (int, map[string]any, error) {
+	o := deletionOpts{By: "admin:" + a.who(), Delay: s.accountDeleteDelay(ctx), Source: "admin"}
 	if o.Delay > 0 {
 		if d := s.Store.PendingAccountDeletion(ctx, uid); d != nil {
 			return http.StatusAccepted, scheduledDeletionBody(d, nil), nil // idempotent

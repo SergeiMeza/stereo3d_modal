@@ -121,20 +121,22 @@ func (s *Service) HandleAccountPlanResume(w http.ResponseWriter, r *http.Request
 //	 current_period_end?, cancel_at_period_end?, active_runs, dues_cents,
 //	 balance_cents, cash_balance_cents, plan_credit_cents,
 //	 balance_confirmation_needed, waits_for_refund_case,
-//	 deletion_pending, case_id?, pending_deletion, delete_after,
-//	 delete_delay_hours}
+//	 balance_lost_cents, deletion_pending, case_id?, pending_deletion,
+//	 delete_after, delete_delay_hours}
 //
 // pending_deletion/delete_after: the 48-hour wait (deletion_schedule.go);
 // deletion_pending is the older wait for a refund case.
 //
-// Only cash_balance_cents (unspent top-ups) is refunded and asks for a
-// confirmation. plan_credit_cents is informational: plan credit is never
+// Refund policy (owner 2026-11-08): nothing is refunded on deletion and
+// nothing asks for a confirmation. balance_lost_cents is the unspent
+// cash (cash_balance_cents, at most what is available) that the deletion
+// forfeits; balance_confirmation_needed is always false and
+// waits_for_refund_case only for an account already waiting for a legacy
+// closure case. plan_credit_cents is informational: plan credit is never
 // money, and a cancelled plan's is kept for Restore Purchases.
 //
 // dues_cents is charged to the card on file when the delete goes ahead
-// (402 balance_due if that charge can't be made); with a balance the
-// delete first answers 409 balance_remaining until {balance_confirmed:
-// true}, and with cash in it waits for the refund case (202).
+// (402 balance_due if that charge can't be made).
 func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	cust, err := s.Store.GetCustomer(ctx, user.UID)
@@ -188,9 +190,9 @@ func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, us
 		dues += open.TotalCents
 	}
 	out["dues_cents"] = dues
-	var balance, cash, planCredit int64
+	var balance, cash, planCredit, lost int64
 	if b, err := s.Store.GetBalance(ctx, user.UID); err == nil && b.Exists() {
-		balance, cash, planCredit = b.Available(), b.CashCents(), b.PlanCreditCents()
+		balance, cash, planCredit, lost = b.Available(), b.CashCents(), b.PlanCreditCents(), b.ForfeitableCents()
 	}
 	out["balance_cents"], out["cash_balance_cents"], out["plan_credit_cents"] = balance, cash, planCredit
 	block := any(nil)
@@ -204,10 +206,11 @@ func (s *Service) HandleDeletePreview(w http.ResponseWriter, r *http.Request, us
 		block = deleteBlockActive
 	}
 	out["block"] = block
-	// not a block: the delete asks {balance_confirmed: true} first, and
-	// with cash in it waits for the refund case (202)
-	out["balance_confirmation_needed"] = cash > 0
-	out["waits_for_refund_case"] = cash > 0
+	// refund policy 2026-11-08: no confirmation, no refund case; the
+	// cash is forfeited (balance_lost_cents, additive)
+	out["balance_confirmation_needed"] = false
+	out["waits_for_refund_case"] = cust != nil && cust.DeletionPending
+	out["balance_lost_cents"] = lost
 	out["can_delete"] = block == nil
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, out)
