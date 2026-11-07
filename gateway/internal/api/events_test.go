@@ -39,6 +39,12 @@ func openStream(t *testing.T, srv *httptest.Server, uid, lastID, query string) *
 	if err != nil {
 		t.Fatal(err)
 	}
+	return readStream(t, resp)
+}
+
+// readStream reads an event stream's messages.
+func readStream(t *testing.T, resp *http.Response) *sseClient {
+	t.Helper()
 	c := &sseClient{t: t, resp: resp, msgs: make(chan sseMsg, 256)}
 	t.Cleanup(func() { resp.Body.Close() })
 	go func() {

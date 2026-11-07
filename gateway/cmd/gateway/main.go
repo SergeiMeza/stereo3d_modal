@@ -3,6 +3,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"net/http"
 	"os"
@@ -51,14 +52,21 @@ func main() {
 	}
 	defer built.Close()
 	svc, verifier, fsClient := built.Svc, built.Verifier, built.FS
-	// Cloud Run sends SIGTERM before stopping an instance: flush the
-	// queued download log (M8) and exit.
+	// Cloud Run sends SIGTERM 10 s before stopping an instance: live
+	// streams get a bye with a jittered 1–3 s retry, 1.5 s for it to flush,
+	// in-flight requests up to 4 s, then the queued download log (M8) is
+	// flushed and the process exits.
+	srv := &http.Server{Addr: ":" + cfg.Port}
+	stopped := make(chan struct{})
 	go func() {
 		sig := make(chan os.Signal, 1)
 		signal.Notify(sig, syscall.SIGTERM, os.Interrupt)
 		<-sig
+		if err := api.Shutdown(srv, svc, 1500*time.Millisecond, 4*time.Second); err != nil {
+			slog.Warn("shutdown", "err", err)
+		}
 		built.Close()
-		os.Exit(0)
+		close(stopped)
 	}()
 
 	mux := http.NewServeMux()
@@ -440,8 +448,11 @@ func main() {
 		return viaRelay
 	})
 	handler := httpx.WithSplitCORS(cfg.CORSOrigins, cfg.AdminOrigins, "/v1/admin/", httpx.WithRequestID(httpx.WithTrustedProxy(cfg.SVSProxyKey, media.Middleware(mux))))
-	if err := http.ListenAndServe(":"+cfg.Port, handler); err != nil {
+	srv.Handler = handler
+	if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		slog.Error("server exited", "err", err)
 		os.Exit(1)
 	}
+	<-stopped  // ListenAndServe returns as Shutdown starts: wait for it to finish
+	os.Exit(0) // built.Close already ran (the deferred one must not run twice)
 }

@@ -87,6 +87,9 @@ type Service struct {
 	// live stream shows (live_jobs.go).
 	liveJobsOnce sync.Once
 	liveJobs     *liveJobs
+	// drain is closed on SIGTERM: streams say bye (drain.go).
+	drainInit, drainClose sync.Once
+	drain                 chan struct{}
 
 	// EventsAuth answers the viewer of GET /v1/events from its request
 	// (tests); nil = the Firebase ID token. EventsTiming shortens the

@@ -30,7 +30,8 @@ import (
 //	event: handoff.state    {type, code, run_id, version, state}
 //	event: billing.updated  {type, kind: settle|balance, version, settle_id?, state?,
 //	                         amount_cents?, balance_cents?, held_cents?}
-//	event: bye              {type, reason: "max_age", retry_ms}
+//	event: bye              {type, reason: max_age|listener|restart, retry_ms}
+//	                        (restart: the instance is stopping, retry_ms 1000–3000)
 //	: hb                    (a comment every 20 s)
 //
 // Run is GET /v1/conversions/{id}'s answer, Project GET /v1/projects/{id}'s
@@ -592,8 +593,12 @@ func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, specs []st
 	defer hb.Stop()
 	fl := time.NewTicker(timing.Flush)
 	defer fl.Stop()
+	drain := s.drainCh()
 	for {
 		select {
+		case <-drain: // SIGTERM: reconnect to the next revision soon, not all at once
+			_ = es.write(sseEvent{name: "bye", id: es.nextID(0), data: map[string]any{"type": "bye", "reason": "restart", "retry_ms": byeRetryMS()}})
+			return
 		case <-ctx.Done():
 			if r.Context().Err() == nil { // our own max age, not the viewer leaving
 				_ = es.write(sseEvent{name: "bye", id: es.nextID(0), data: map[string]any{"type": "bye", "reason": "max_age", "retry_ms": 1000}})
