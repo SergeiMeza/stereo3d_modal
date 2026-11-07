@@ -14,7 +14,7 @@ import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import { PayRequestPage, setPayRequestNavigateForTests } from "./PayRequestPage";
+import { PayRequestPage, setPayRequestNavigateForTests, setPayRequestPollForTests } from "./PayRequestPage";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 
@@ -24,6 +24,8 @@ afterEach(() => {
   server.resetHandlers();
   server.events.removeAllListeners();
   mockDb.reset();
+  setPayRequestPollForTests({});
+  window.history.replaceState(null, "", "/");
 });
 afterAll(() => server.close());
 
@@ -172,5 +174,73 @@ describe("the pay page (D7)", () => {
   it("an unknown link isn't valid", async () => {
     page("tok_nope");
     expect(await screen.findByText("This payment link isn't valid.")).toBeTruthy();
+  });
+});
+
+describe("the pay page after a payment that's still being confirmed (REV-06)", () => {
+  function returnedTo(token: string, query: string): void {
+    window.history.replaceState(null, "", `/pay/${token}?${query}`);
+  }
+
+  it("back with ?done=1 before the webhook: Processing…, no Pay, then Paid once the link closes", async () => {
+    setPayRequestPollForTests({ fastMs: 20 });
+    request("tok_back");
+    returnedTo("tok_back", "done=1&redirect_status=succeeded");
+    page("tok_back");
+    expect((await screen.findByTestId("pay-request-processing")).textContent).toBe("Processing…");
+    expect(screen.queryByTestId("pay-request-pay")).toBeNull();
+    expect(document.body.textContent).not.toContain("Paid. Thank you.");
+    mockDb.payRequests.get("tok_back")!.state = "paid";
+    expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
+  });
+
+  it("a redirect_status of processing waits the same way", async () => {
+    setPayRequestPollForTests({ fastMs: 20 });
+    request("tok_bank");
+    returnedTo("tok_bank", "done=1&redirect_status=processing");
+    page("tok_bank");
+    await screen.findByTestId("pay-request-processing");
+    expect(screen.queryByTestId("pay-request-pay")).toBeNull();
+  });
+
+  it("still open after a while: says it's being confirmed, still with no Pay", async () => {
+    setPayRequestPollForTests({ fastMs: 10, slowAfterMs: 0, slowMs: 10 });
+    request("tok_slow");
+    returnedTo("tok_slow", "done=1");
+    page("tok_slow");
+    expect(await screen.findByText("Your payment is being confirmed. This page updates when it's done.")).toBeTruthy();
+    expect(screen.queryByTestId("pay-request-pay")).toBeNull();
+  });
+
+  it("redirect_status=failed shows the decline beside Pay", async () => {
+    request("tok_failed");
+    returnedTo("tok_failed", "done=1&redirect_status=failed");
+    page("tok_failed");
+    expect((await screen.findByTestId("pay-request-notice")).textContent).toBe(
+      "Your payment method was declined. Try another way to pay.",
+    );
+    expect(screen.getByTestId("pay-request-pay")).toBeTruthy();
+  });
+
+  it("a hosted page's cancel (canceled=1) is the plain page with Pay", async () => {
+    request("tok_cancel");
+    returnedTo("tok_cancel", "done=1&canceled=1");
+    page("tok_cancel");
+    expect(await screen.findByTestId("pay-request-pay")).toBeTruthy();
+    expect(screen.queryByTestId("pay-request-notice")).toBeNull();
+  });
+
+  it("the form answering processing reads Processing…, not Paid", async () => {
+    setPayRequestPollForTests({ fastMs: 20 });
+    request("tok_form_proc");
+    mockDb.billing.nextConfirm = "processing";
+    page("tok_form_proc");
+    fireEvent.click(await screen.findByTestId("pay-request-pay"));
+    fireEvent.click(await screen.findByTestId("pay-request-confirm"));
+    expect(await screen.findByTestId("pay-request-processing")).toBeTruthy();
+    expect(document.body.textContent).not.toContain("Paid. Thank you.");
+    expect(screen.queryByTestId("pay-request-confirm")).toBeNull();
+    mockDb.payRequests.get("tok_form_proc")!.state = "paid";
+    expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
   });
 });

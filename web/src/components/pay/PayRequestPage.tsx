@@ -15,9 +15,15 @@
  * 409 pay_link_closed {state} shows that state; 409 payment_in_progress
  * says a payment is already going; 429 is too many tries. It pays the
  * amount the gateway names, and never shows an email.
+ *
+ * Back from a payment that left the page (`?done=1`, Stripe adds
+ * `redirect_status`), or a payment the form reports as processing, the
+ * page reads "Processing…" and polls the GET until the link closes, with
+ * no Pay button: the webhook may not have closed it yet (REV-06).
+ * `redirect_status=failed` shows the decline beside Pay.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { AppIcon } from "@/components/AppIcon";
@@ -40,10 +46,19 @@ export function setPayRequestNavigateForTests(fn: (url: string) => void): void {
   navigate = fn;
 }
 
+/** How often a processing payment is read again: every 3 s for the
+ * first 2 minutes, then every 15 s with "being confirmed" (tests shorten
+ * them). */
+let poll = { fastMs: 3_000, slowAfterMs: 120_000, slowMs: 15_000 };
+export function setPayRequestPollForTests(p: Partial<typeof poll>): void {
+  poll = { fastMs: 3_000, slowAfterMs: 120_000, slowMs: 15_000, ...p };
+}
+
 type State =
   | { kind: "loading" }
   | { kind: "ready"; info: PayRequest; opening?: boolean; notice?: string }
   | { kind: "form"; info: PayRequest; secret: string; publishableKey?: string; paying?: boolean; notice?: string }
+  | { kind: "processing"; slow?: boolean }
   | { kind: "paid" }
   | { kind: "void" }
   | { kind: "expired" }
@@ -65,8 +80,18 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
 
   useEffect(() => {
     let live = true;
+    const q = new URLSearchParams(window.location.search);
+    // Stripe: succeeded | processing | failed; a hosted page's cancel adds canceled=1
+    const redirect = q.get("redirect_status");
+    const returned = q.get("done") === "1" && q.get("canceled") !== "1" && redirect !== "failed";
     gateway.getPayRequest(token).then(
-      (info) => live && setState(closed(info) ?? { kind: "ready", info }),
+      (info) => {
+        if (!live) return;
+        const shut = closed(info);
+        if (shut) return setState(shut);
+        if (returned) return setState({ kind: "processing" });
+        setState({ kind: "ready", info, ...(redirect === "failed" ? { notice: "pay.copy.declined" } : {}) });
+      },
       (e: unknown) => {
         if (!live) return;
         setState(e instanceof GatewayError && e.status === 429 ? { kind: "limited" } : { kind: "bad" });
@@ -76,6 +101,37 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
       live = false;
     };
   }, [gateway, token]);
+
+  // REV-06: a payment being confirmed is read again until the link closes
+  const processing = state.kind === "processing";
+  const since = useRef(0);
+  useEffect(() => {
+    if (!processing) return;
+    let live = true;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    since.current = Date.now();
+    const next = () => {
+      const slow = Date.now() - since.current >= poll.slowAfterMs;
+      if (slow) setState((s) => (s.kind === "processing" && !s.slow ? { kind: "processing", slow: true } : s));
+      timer = setTimeout(check, slow ? poll.slowMs : poll.fastMs);
+    };
+    const check = () => {
+      gateway.getPayRequest(token).then(
+        (info) => {
+          if (!live) return;
+          const shut = closed(info);
+          if (shut) return setState(shut);
+          next();
+        },
+        () => live && next(),
+      );
+    };
+    next();
+    return () => {
+      live = false;
+      if (timer) clearTimeout(timer);
+    };
+  }, [processing, gateway, token]);
 
   async function pay(info: PayRequest): Promise<void> {
     setState({ kind: "ready", info, opening: true });
@@ -109,7 +165,9 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
   }
 
   function confirmed(r: ConfirmResult, s: Extract<State, { kind: "form" }>): void {
-    if (r === "paid" || r === "already_paid" || r === "processing") return setState({ kind: "paid" });
+    if (r === "paid" || r === "already_paid") return setState({ kind: "paid" });
+    // not paid yet: the bank or the method still has to confirm it
+    if (r === "processing") return setState({ kind: "processing" });
     if (r === "expired") return setState({ kind: "expired" });
     if (r === "redirect") return;
     setState({ ...s, paying: false, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
@@ -139,6 +197,11 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
       </p>
       {state.kind === "loading" ? (
         <div className="h-48 animate-pulse rounded-xl bg-surface-2" />
+      ) : state.kind === "processing" ? (
+        <div data-testid="pay-request-processing" className="flex flex-col gap-2">
+          <p className="text-base font-medium text-fg">{t("pay.request.processing")}</p>
+          {state.slow ? <p className="text-sm text-fg-muted">{t("pay.request.confirming")}</p> : null}
+        </div>
       ) : state.kind === "paid" ? (
         <Success text={t("pay.request.paid")} />
       ) : state.kind === "void" ? (

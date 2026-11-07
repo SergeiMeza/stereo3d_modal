@@ -1376,7 +1376,9 @@
       "void": "This payment isn't needed any more.",
       "expired": "This payment link has expired. Sign in and open Billing to pay.",
       "bad": "This payment link isn't valid.",
-      "inProgress": "A payment is already in progress. Try again in a minute."
+      "inProgress": "A payment is already in progress. Try again in a minute.",
+      "processing": "Processing…",
+      "confirming": "Your payment is being confirmed. This page updates when it's done."
     }
   },
   "balance": {
