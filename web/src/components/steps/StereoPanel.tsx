@@ -127,7 +127,6 @@ import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { CLASSIC_PREVIEW_SECONDS } from "./methods";
 import { useClient } from "./ViewIn3D";
 import { StepCheckoutSection, useStepCheckout } from "./useStepCheckout";
-import { activeIntl } from "@/lib/i18n/t";
 
 export interface StereoPanelProps {
   project: Project;
@@ -587,7 +586,7 @@ export function StereoPanel({
                       {depthRunChoices.map((c) => (
                         <option key={c.conversion_id} value={c.conversion_id}>
                           {c.params.depth_res} px ·{" "}
-                          {new Date(c.created_at).toLocaleDateString(activeIntl())}
+                          {new Date(c.created_at).toLocaleDateString()}
                         </option>
                       ))}
                       {depthUpload !== undefined ? (

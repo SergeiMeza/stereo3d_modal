@@ -31,7 +31,6 @@ import { RunDetails } from "./RunDetails";
 import { RunFiles } from "./RunFiles";
 import { RunProgressCompact } from "./RunProgressCompact";
 import { runStateShort } from "./runStatus";
-import { activeIntl } from "@/lib/i18n/t";
 
 /** One-line settings summary for a run, in customer words. */
 export function paramsSummary(c: Conversion): string {
@@ -57,7 +56,7 @@ export function runMeta(project: Project, c: Conversion): string {
       ? qualityLabelFor(project, c.params.preset)
       : null,
     c.parts && c.parts.length > 1 ? `${c.parts.length} parts` : null,
-    new Date(c.created_at).toLocaleDateString(activeIntl(), {
+    new Date(c.created_at).toLocaleDateString(undefined, {
       month: "short",
       day: "numeric",
     }),

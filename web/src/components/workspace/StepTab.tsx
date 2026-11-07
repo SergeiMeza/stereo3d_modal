@@ -41,7 +41,6 @@ import {
 
 import { PageHeader } from "./PageHeader";
 import type { WorkspaceTabId } from "./PageTabs";
-import { activeIntl } from "@/lib/i18n/t";
 
 interface StepPanelProps {
   project: Project;
@@ -145,7 +144,7 @@ export function StepTab({
                         dateTime={lastRun.created_at}
                         className="text-fg-muted"
                       >
-                        {new Date(lastRun.created_at).toLocaleString(activeIntl())}
+                        {new Date(lastRun.created_at).toLocaleString()}
                       </time>
                       <Button
                         variant="link"

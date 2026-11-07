@@ -19,7 +19,6 @@ import { useGateway } from "@/lib/api/useGateway";
 import { qualityName } from "@/lib/glossary";
 
 import { MethodBadge, badgeKind } from "./MethodBadge";
-import { activeIntl } from "@/lib/i18n/t";
 
 /** "2026-11" for the current month (UTC), and the 11 before it. */
 export function recentMonths(now = new Date()): string[] {
@@ -31,11 +30,11 @@ export function recentMonths(now = new Date()): string[] {
 
 function monthName(m: string): string {
   const [y, mo] = m.split("-").map(Number);
-  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString(activeIntl(), { month: "long", year: "numeric", timeZone: "UTC" });
+  return new Date(Date.UTC(y, mo - 1, 1)).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(activeIntl(), { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
 /** "2:15" from minutes. */

@@ -50,7 +50,7 @@ import { Button } from "@/components/ui/button";
 import { scheduledLine } from "@/lib/accountDeletion";
 import { useProStatus } from "@/lib/pro/usePro";
 import { LanguagePicker } from "@/lib/i18n/LanguagePicker";
-import { t } from "@/lib/i18n/t";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 function CardShell({
   title,
@@ -81,6 +81,7 @@ function deleteErrorMessage(err: unknown): string {
 }
 
 export default function AccountScreen() {
+  const tr = useT();
   const { user, signOutUser, updateDisplayName } = useAuth();
   const gateway = useGateway();
   const billing = useBilling();
@@ -319,7 +320,7 @@ export default function AccountScreen() {
         <AppStoreProLine />
       </CardShell>
 
-      <CardShell title={t("common.language")}>
+      <CardShell title={tr("common.language")}>
         <LanguagePicker />
       </CardShell>
 

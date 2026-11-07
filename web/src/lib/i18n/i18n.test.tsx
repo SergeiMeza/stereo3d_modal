@@ -12,14 +12,16 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { formatCents, formatCentsShort } from "@/components/steps/money";
 import en from "../../../messages/en.json";
 
-import { I18nProvider } from "./I18nProvider";
+import { renderToReadableStream } from "react-dom/server.browser";
+import { Suspense, use } from "react";
+
+import { I18nProvider, useT } from "./I18nProvider";
 import { LanguagePicker } from "./LanguagePicker";
 import { dirOf, fromAcceptLanguage, LOCALES, matchTag, resolveLocale } from "./locales";
-import { activeLocale, hasKey, setActiveLocale, t, translate } from "./t";
+import { EN, hasKey, makeTr, translate } from "./t";
 
 afterEach(() => {
   cleanup();
-  setActiveLocale("en", null);
   document.cookie = "NEXT_LOCALE=; path=/; max-age=0";
 });
 
@@ -81,30 +83,79 @@ describe("messages", () => {
     expect(translate("ja", { common: { language: "{oops" } }, "common.language")).toBe("Language");
   });
 
-  it("the provider sets the language for plain functions too", () => {
-    const Label = () => <span>{t("common.language")}</span>;
+  it("the provider gives its tree its translator; outside one it's English", () => {
+    const Label = () => <span data-testid="l">{useT()("common.language")}</span>;
     render(
-      <I18nProvider locale="ja" messages={{ common: { language: "言語" } }}>
+      <>
+        <I18nProvider locale="ja" messages={{ common: { language: "言語" } }}>
+          <Label />
+        </I18nProvider>
         <Label />
+      </>,
+    );
+    expect(screen.getAllByTestId("l").map((e) => e.textContent)).toEqual(["言語", "Language"]);
+  });
+
+  it("two requests rendered interleaved each keep their own language (no module state)", async () => {
+    // each tree suspends halfway; the other renders while it waits
+    const gate = (): { p: Promise<void>; open: () => void } => {
+      let open!: () => void;
+      const p = new Promise<void>((r) => (open = r));
+      return { p, open };
+    };
+    const ja = gate();
+    const de = gate();
+    const Half = ({ wait }: { wait: Promise<void> }) => {
+      use(wait);
+      return <i>{useT()("common.language")}</i>;
+    };
+    const Page = ({ wait }: { wait: Promise<void> }) => (
+      <p>
+        <b>{useT()("common.language")}</b>
+        <Suspense fallback="…">
+          <Half wait={wait} />
+        </Suspense>
+      </p>
+    );
+    const html = async (s: ReadableStream<Uint8Array>) => new Response(s).text();
+    const a = await renderToReadableStream(
+      <I18nProvider locale="ja" messages={{ common: { language: "言語" } }}>
+        <Page wait={ja.p} />
       </I18nProvider>,
     );
-    expect(screen.getByText("言語")).toBeTruthy();
-    expect(activeLocale()).toBe("ja");
+    const b = await renderToReadableStream(
+      <I18nProvider locale="de" messages={{ common: { language: "Sprache" } }}>
+        <Page wait={de.p} />
+      </I18nProvider>,
+    );
+    const outA = html(a);
+    const outB = html(b);
+    de.open();
+    await new Promise((r) => setTimeout(r, 0));
+    ja.open();
+    const [ha, hb] = await Promise.all([outA, outB]);
+    expect(ha).toContain("<b>言語</b>");
+    expect(ha).toContain("<i>言語</i>");
+    expect(ha).not.toContain("Sprache");
+    expect(hb).toContain("<b>Sprache</b>");
+    expect(hb).toContain("<i>Sprache</i>");
+    expect(hb).not.toContain("言語");
   });
 });
 
 describe("formatters follow the language; USD stays", () => {
-  it("English as before", () => {
+  it("English as before (and without a translator)", () => {
     expect(formatCents(150000)).toBe("$1,500.00");
     expect(formatCents(-50)).toBe("−$0.50");
     expect(formatCentsShort(2500)).toBe("$25");
+    expect(formatCents(150000, EN)).toBe("$1,500.00");
   });
 
   it("German writes USD its own way", () => {
-    setActiveLocale("de", null);
-    expect(formatCents(150000)).toMatch(/^1\.500,00\s\$$/);
-    expect(formatCentsShort(2500)).toMatch(/^25\s\$$/);
-    expect(formatCents(-50)).toMatch(/^−0,50\s\$$/);
+    const de = makeTr("de", null);
+    expect(formatCents(150000, de)).toMatch(/^1\.500,00\s\$$/);
+    expect(formatCentsShort(2500, de)).toMatch(/^25\s\$$/);
+    expect(formatCents(-50, de)).toMatch(/^−0,50\s\$$/);
   });
 });
 

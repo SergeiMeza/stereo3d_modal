@@ -1,5 +1,4 @@
 import type { Metadata } from "next";
-import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
@@ -24,7 +23,8 @@ import { MswProvider } from "@/mocks/MswProvider";
 import { messagesFor } from "@/lib/i18n/catalogs";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { HlParamCleanup } from "@/lib/i18n/HlParamCleanup";
-import { dirOf, LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/locales";
+import { dirOf } from "@/lib/i18n/locales";
+import { getRequestLocale } from "@/lib/i18n/server";
 
 import "./globals.css";
 
@@ -81,7 +81,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   // owner 2026-11-07: NEXT_LOCALE, then Accept-Language, then English
-  const locale = resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value, (await headers()).get("accept-language"));
+  const locale = await getRequestLocale();
   return (
     <html
       lang={locale}

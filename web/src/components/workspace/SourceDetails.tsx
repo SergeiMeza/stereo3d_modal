@@ -28,7 +28,6 @@ import { safeJSONStorage } from "@/lib/state/safeStorage";
 import { useAppAtom } from "@/lib/state/stores";
 
 import { parseCrop } from "./utils";
-import { activeIntl } from "@/lib/i18n/t";
 
 /** Folded or open, per viewer, for every project (localStorage). */
 export const sourceDetailsOpenAtom = atomWithStorage<boolean>(
@@ -148,7 +147,7 @@ export function sourceRows(project: Project): SourceRow[] {
     );
   }
   const frames = v?.frames ?? p?.num_frames;
-  add("Frames", frames && frames > 0 ? frames.toLocaleString(activeIntl()) : null);
+  add("Frames", frames && frames > 0 ? frames.toLocaleString("en-US") : null);
   add("Codec", v?.codec ? [words(CODEC, v.codec), v.profile].filter(Boolean).join(" · ") : null);
   add("Bit depth", v?.bit_depth ? `${v.bit_depth}-bit` : null);
   const bitrate = v?.bitrate_bps ?? p?.bit_rate;

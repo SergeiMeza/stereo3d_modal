@@ -8,7 +8,7 @@
 import type { JSX } from "react";
 
 import { LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, LOCALES, type Locale } from "./locales";
-import { activeLocale, t } from "./t";
+import { useT } from "./I18nProvider";
 
 export function setLocaleCookie(locale: Locale): void {
   const secure = typeof location !== "undefined" && location.protocol === "https:" ? "; secure" : "";
@@ -23,7 +23,8 @@ export function LanguagePicker({
   /** after the cookie is set (tests) */
   onPick?: (locale: Locale) => void;
 }): JSX.Element {
-  const current = activeLocale();
+  const t = useT();
+  const current = t.locale;
   return (
     <label className={`inline-flex items-center gap-2 text-xs text-fg-muted ${className ?? ""}`}>
       <span>{t("common.language")}</span>

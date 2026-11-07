@@ -1,16 +1,20 @@
 "use client";
 
 /**
- * The active language for everything under it (owner 2026-11-07): the
- * root layout passes the language it picked and that language's messages
- * (English is bundled; a key a language lacks reads in English). It is
- * set for the whole page load: the picker reloads the page.
+ * The language for everything under it (owner 2026-11-07), per request:
+ * the root layout passes the language it read from the request and that
+ * language's messages; components read it with useT(). React context on
+ * purpose (an exception to ADR 0138): jotai's default store is one per
+ * server process, and the language must be one per request.
  */
 
-import type { JSX, ReactNode } from "react";
+import { createContext, useContext, useMemo, type JSX, type ReactNode } from "react";
 
 import type { Locale } from "./locales";
-import { activeLocale, setActiveLocale, type Messages } from "./t";
+import { EN, makeTr, type Messages, type Tr } from "./t";
+
+// eslint-disable-next-line no-restricted-syntax -- per-request language (see above)
+const TrContext = createContext<Tr>(EN);
 
 export function I18nProvider({
   locale,
@@ -21,12 +25,11 @@ export function I18nProvider({
   messages: Messages | null;
   children: ReactNode;
 }): JSX.Element {
-  // set during render, before any child reads it (server and client alike)
-  setActiveLocale(locale, messages);
-  return <>{children}</>;
+  const tr = useMemo(() => makeTr(locale, messages), [locale, messages]);
+  return <TrContext.Provider value={tr}>{children}</TrContext.Provider>;
 }
 
-/** The active language. */
-export function useLocale(): Locale {
-  return activeLocale();
+/** The request's translator (call it with a key and values; .locale, .intl). */
+export function useT(): Tr {
+  return useContext(TrContext);
 }

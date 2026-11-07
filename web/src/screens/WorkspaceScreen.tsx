@@ -74,7 +74,6 @@ import { videoFacts } from "@/lib/glossary";
 import { retainOpenProject } from "@/lib/live/hub";
 import { RUN_TERMINAL } from "@/lib/live/liveStore";
 import { useLiveProject } from "@/lib/live/useLive";
-import { activeIntl } from "@/lib/i18n/t";
 
 /** What the live feed says that the page's last read doesn't: a run now
  * finished, or the analysis or profile job in another state ("" when
@@ -387,7 +386,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
               <PageHeader
                 title="Files"
                 description={`Files deleted on ${new Intl.DateTimeFormat(
-                  activeIntl(),
+                  "en-US",
                   {
                     year: "numeric",
                     month: "short",

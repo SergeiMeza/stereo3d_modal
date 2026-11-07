@@ -11,7 +11,6 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
 import type { AccountPlan } from "@/lib/api/types";
-import { activeIntl } from "@/lib/i18n/t";
 
 export const NOTHING_TODAY = "Nothing is charged today.";
 
@@ -27,7 +26,7 @@ export function planEnds(plan: Pick<AccountPlan, "cancel_at_period_end" | "sched
 
 /** "Jan 10, 2027" */
 export function changeDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(activeIntl(), {
+  return new Date(iso).toLocaleDateString("en-US", {
     month: "short",
     day: "numeric",
     year: "numeric",

@@ -1,5 +1,3 @@
-import { activeIntl } from "@/lib/i18n/t";
-
 /**
  * The ONE time and size formatting for customer copy (S3D-34): every
  * estimate reads "about 12 min", every countdown "about 12 min left".
@@ -60,5 +58,5 @@ export function formatShortDay(iso: string): string {
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? ""
-    : d.toLocaleDateString(activeIntl(), { month: "short", day: "numeric" });
+    : d.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
