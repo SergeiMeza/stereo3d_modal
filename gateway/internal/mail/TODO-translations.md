@@ -238,3 +238,7 @@ shipped language and isn't listed here.
 - `ready.fromCredit`: From your credit
 - `ready.keep`: We keep the files until {date}. Download them to keep a copy.
 - `dl1.balanceLost`: Your unspent balance of {amount} will be lost when your account is deleted.
+- `label.videoLifelike`: Lifelike 3D video
+- `e1.bodyLifelike`: Thanks! We've started making your Lifelike 3D video. You'll find it in your project when it's ready.
+- `e1.consentLifelike`: You asked us to start right away, so your right to cancel ends when your Lifelike 3D video is ready.
+- `common.reason.readyLifelike`: You're getting this email because your Lifelike 3D video finished. You can turn these emails off in Account.

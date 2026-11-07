@@ -21,7 +21,7 @@ const (
 	// LogoURL is the app icon the web serves (256 px, shown at 40).
 	LogoURL = "https://www.stereo3d.studio/brand/app-icon.png"
 	// LegalEntity names who makes the app, as the web's footer does.
-	LegalEntity = "Spatial AI Labs Ltd, London, United Kingdom"
+	LegalEntity = "Spatial AI Labs Ltd"
 	// SupportEmail is the help address and every customer mail's reply-to.
 	SupportEmail = "support@spatial-ai-labs.com"
 	// SubjectSuffix ends every customer mail subject (the owner's rule:
@@ -138,8 +138,8 @@ func (l Layout) Text() string {
 	if len(l.Rows) > 0 {
 		for _, r := range l.Rows {
 			b.WriteString(r.Label)
-			if r.Value != "" {
-				b.WriteString(": " + r.Value)
+			if v := strings.Trim(r.Pill+" · "+r.Value, " ·"); v != "" {
+				b.WriteString(": " + v)
 			}
 			if r.Href != "" {
 				b.WriteString(" (" + r.Href + ")")

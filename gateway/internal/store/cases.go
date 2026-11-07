@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/firestore"
@@ -146,7 +147,26 @@ type CaseEvent struct {
 func casesCol(env string) string { return "cases_" + env }
 
 func (s *Store) caseDoc(id string) *firestore.DocumentRef {
-	return s.fs.Collection(casesCol(s.env)).Doc(id)
+	return s.fs.Collection(casesCol(s.env)).Doc(CaseID(id))
+}
+
+// CaseRef is a case id as customers see it: CASE-0042 becomes REF-0042
+// (owner 2026-11-08: "case" is never customer-facing).
+func CaseRef(id string) string {
+	if rest, ok := strings.CutPrefix(id, "CASE-"); ok {
+		return "REF-" + rest
+	}
+	return id
+}
+
+// CaseID turns a customer's reference (REF-0042, ref-0042) back into the
+// stored id, so support can look up whatever the customer quotes.
+func CaseID(ref string) string {
+	ref = strings.TrimSpace(ref)
+	if len(ref) > 4 && strings.EqualFold(ref[:4], "REF-") {
+		return "CASE-" + ref[4:]
+	}
+	return ref
 }
 
 func snapToCase(snap *firestore.DocumentSnapshot) (*Case, error) {
