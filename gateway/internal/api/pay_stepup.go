@@ -25,7 +25,7 @@ import (
 func stepUpSource(subID, to string) string { return subID + ":" + to }
 
 // stepUpFailed adds the pay link to a step-up's 402 (details.pay_url) and
-// mails SU1 once per quote.
+// mails SU1 once per link a day.
 func (s *Service) stepUpFailed(ctx context.Context, uid string, cust *store.Customer, q *planChangeQuote, err error) {
 	var api *httpx.APIError
 	if err == nil || !errors.As(err, &api) || api.Status != http.StatusPaymentRequired || cust == nil || cust.Plan == nil {
@@ -50,7 +50,9 @@ func (s *Service) stepUpFailed(ctx context.Context, uid string, cust *store.Cust
 	if api.Details["requires_action"] == true {
 		why = "Your bank needs you to confirm the payment."
 	}
-	s.mailCustomer(ctx, fmt.Sprintf("SU1_%s_%d", pr.ID, q.QuoteAt.Unix()), uid, s.accountEmail(ctx, uid), customerMail{
+	// once per link a UTC day (REV-18): each in-app retry is a new quote,
+	// and the customer is already looking at the error
+	s.mailCustomer(ctx, "SU1_"+pr.ID+"_"+time.Now().UTC().Format("20060102"), uid, s.accountEmail(ctx, uid), customerMail{
 		Kind: "SU1", Subject: "Spatial Video Studio: your plan change didn't go through",
 		Lines: []string{"We couldn't take " + money(q.TodayCents) + " to move you to " + q.To.Name + ". " + why,
 			"Your plan hasn't changed. You can pay on the page below to finish the change."},

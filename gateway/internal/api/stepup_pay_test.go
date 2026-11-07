@@ -26,7 +26,7 @@ func TestStepUpFailureMailsPayLink(t *testing.T) {
 	if pr.Kind != store.PayKindStepUp || pr.PlanTo != "pro_yearly" || pr.SourceID != f.sub+":pro_yearly" {
 		t.Fatalf("%+v", pr)
 	}
-	if !anyMail(f.s, "SU1_"+tok) {
+	if !mailed(f.s, "SU1_"+tok+"_"+time.Now().UTC().Format("20060102")) {
 		t.Fatal("no SU1")
 	}
 	base := "planchange_" + f.sub + "_pro_yearly_123"
@@ -39,13 +39,37 @@ func TestStepUpFailureMailsPayLink(t *testing.T) {
 	}
 }
 
-func anyMail(s *Service, prefix string) bool {
-	for d := int64(-5); d <= 5; d++ {
-		if mailed(s, prefix+"_"+itoa(int(time.Now().Unix()+d))) {
-			return true
+// REV-18: the customer's in-app retry of the same step-up (a new quote)
+// fails again: SU1 is keyed on the link and the UTC day, so it goes once.
+func TestStepUpRetryMailsSU1Once(t *testing.T) {
+	f := newPlanFixture(t, "pro_monthly", "pro", 499, 10, 30)
+	var toks []string
+	var starts []int64
+	for i := 0; i < 2; i++ {
+		f.fake.failNextChange = true
+		starts = append(starts, time.Now().Unix())
+		_, out := f.post(f.s.HandlePlanChange, `{"to":"pro_yearly","confirm":true}`)
+		toks = append(toks, tokenOf(t, out["details"].(map[string]any)["pay_url"].(string)))
+		time.Sleep(1100 * time.Millisecond) // the next try is a new quote
+	}
+	if toks[0] != toks[1] {
+		t.Fatalf("one debt, two links: %v", toks)
+	}
+	checked := map[int64]bool{} // mailed claims the key: each once
+	for _, at := range starts { // no per-quote mail
+		for d := int64(-1); d <= 2; d++ {
+			if checked[at+d] {
+				continue
+			}
+			checked[at+d] = true
+			if mailed(f.s, "SU1_"+toks[0]+"_"+itoa(int(at+d))) {
+				t.Fatalf("SU1 keyed on the quote (%d)", at+d)
+			}
 		}
 	}
-	return false
+	if !mailed(f.s, "SU1_"+toks[0]+"_"+time.Now().UTC().Format("20060102")) {
+		t.Fatal("no SU1 for the link today")
+	}
 }
 
 // The pay page for a step-up: today's price, paid on-session; the change
