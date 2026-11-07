@@ -4,6 +4,7 @@ import { buildCsp } from "./csp";
 import { ageHours, money, parseDollars, parseSignedDollars, until } from "./format";
 import { safeExternalUrl } from "./links";
 import { parseRoute } from "./router";
+import { audioLine, fileQualityLine } from "./fileQuality";
 
 describe("format", () => {
   it("formats cents", () => {
@@ -77,5 +78,18 @@ describe("vercel.json (repo root: the admin builds from there)", () => {
     const all = cfg.headers.find((h: { source: string }) => h.source === "/(.*)");
     const csp = all.headers.find((h: { key: string }) => h.key === "Content-Security-Policy").value;
     expect(csp).toBe(buildCsp({ gateways: [GATEWAYS.test, GATEWAYS.prod], forHeader: true }));
+  });
+});
+
+describe("File quality (owner 2026-11-07)", () => {
+  it("what was asked, with what the files measure; the asked-for setting alone without measurements; never a guess", () => {
+    expect(fileQualityLine({ quality: "high", outputs_media: { mvhevc: { video_kbps: 41200 } } })).toBe("High (measured 41 Mbit/s)");
+    expect(fileQualityLine({ quality: "master", outputs_media: { mvhevc: { overall_kbps: 82400 } } })).toBe("Master (measured 82 Mbit/s overall)");
+    expect(fileQualityLine({ quality: "standard" })).toBe("Standard");
+    expect(fileQualityLine({ bitrate_requested: "60" })).toBe("60 Mbit/s");
+    expect(fileQualityLine({ bitrate_requested: "match_source" })).toBe("Match source");
+    expect(fileQualityLine({})).toBeNull();
+    expect(audioLine({ outputs_media: { sbs: { video_kbps: 1, audio_codec: "aac", audio_kbps: 255.6 } } })).toBe("AAC 256 kbit/s");
+    expect(audioLine({ outputs_media: { sbs: { video_kbps: 1 } } })).toBeNull();
   });
 });

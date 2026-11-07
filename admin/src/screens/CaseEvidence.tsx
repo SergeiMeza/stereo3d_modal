@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { dateOnly, dateTime, money, time, words } from "../lib/format";
 import { stripeLinkLabel } from "../lib/links";
 import { Link, paths } from "../lib/router";
+import { audioLine, fileQualityLine } from "../lib/fileQuality";
 import type { Evidence, EvidenceRun } from "../lib/types";
 
 function Section({
@@ -68,6 +69,21 @@ function RunTimeline({ run }: { run: EvidenceRun }) {
     });
   } else if (run.quote_cents) {
     steps.push({ at: run.created_at, text: <>Quoted {money(run.quote_cents)}{run.payment_flow ? ` · ${words(run.payment_flow)}` : ""}</> });
+  }
+  // owner 2026-11-07: the File quality asked for, with what the files measure
+  const quality = fileQualityLine(run);
+  const audio = audioLine(run);
+  if (quality || audio) {
+    steps.push({
+      at: run.created_at,
+      text: (
+        <span data-testid="run-quality">
+          {quality ? <>Quality: {quality}</> : null}
+          {quality && audio ? " · " : null}
+          {audio ? <>Audio: {audio}</> : null}
+        </span>
+      ),
+    });
   }
   if (run.submitted_at) steps.push({ at: run.submitted_at, text: `Queued${run.queued_s ? ` · waited ${Math.round(run.queued_s)} s` : ""}` });
   if (run.started_at) steps.push({ at: run.started_at, text: "Started" });

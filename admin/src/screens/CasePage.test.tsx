@@ -30,6 +30,10 @@ describe("case page (A2)", () => {
     // Timeline newest first.
     const items = screen.getAllByRole("listitem").filter((li) => li.closest('[data-testid="timeline"]'));
     expect(items[0]).toHaveTextContent("Part 4 failed.");
+    // owner 2026-11-07: the run's File quality with what its files measure
+    expect(screen.getByTestId("run-quality")).toHaveTextContent(
+      "Quality: High (measured: Spatial 41 Mbit/s · SBS 38 Mbit/s) · Audio: AAC 256 kbit/s",
+    );
   });
 
   it("renders customer text as plain text and drops unsafe links", async () => {

@@ -4,6 +4,8 @@
  * empty slices as null, so every list is optional or nullable here.
  */
 
+import type { QualityFields } from "./fileQuality";
+
 export type CaseType =
   | "refund"
   | "dispute"
@@ -205,7 +207,7 @@ export interface RefundRow {
   updated_at: string;
 }
 
-export interface EvidenceRun {
+export interface EvidenceRun extends QualityFields {
   conversion_id: string;
   project_id?: string;
   step?: string;
@@ -374,7 +376,7 @@ export interface BalanceSummary {
 }
 
 /** BL-29 (gateway rev 00114): the account's runs, newest first, paged. */
-export interface AccountRun {
+export interface AccountRun extends QualityFields {
   id: string;
   project_id?: string | null;
   status: string;

@@ -93,6 +93,12 @@ export function casePage(over: Partial<CasePage> = {}, caseOver: Partial<CasePag
           files_delivered: ["p1.mov", "p2.mov", "p3.mov"],
           job_id: "fc-01",
           gpu_cost_usd: 4.29,
+          quality: "high",
+          bitrate_requested: "auto",
+          outputs_media: {
+            mvhevc_part01: { video_kbps: 41200, audio_codec: "aac", audio_kbps: 256, source: "worker" },
+            sbs_part01: { video_kbps: 38400, audio_codec: "aac", audio_kbps: 256, source: "ffprobe" },
+          },
         },
       ],
       downloads: "not recorded yet: the download and play log (M8) is still to come",
