@@ -36,6 +36,10 @@ type PayRequest struct {
 	CheckoutID string `firestore:"checkout_id,omitempty" json:"-"`
 	// Kind invoice: Stripe's hosted invoice page.
 	HostedURL string `firestore:"hosted_url,omitempty" json:"-"`
+	// Kind topup (REV-07): the top-up that pays the debt, once — the
+	// link's own when one of its sessions is paid, or the failed reload
+	// while its retry charges. Any other payment of the link is refunded.
+	DebtTopupID string `firestore:"debt_topup_id,omitempty" json:"-"`
 	// Kind stepup: the plan the change goes to.
 	PlanTo string `firestore:"plan_to,omitempty" json:"plan_to,omitempty"`
 	// Kind stepup, paid (REV-01): the paying session's quote (plan_to,

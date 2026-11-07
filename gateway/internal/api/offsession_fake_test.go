@@ -49,6 +49,22 @@ type offFake struct {
 	subs        map[string]map[string]any // subscription id → {customer, status, metadata, default_payment_method}
 	subSets     []map[string]string       // POST /v1/subscriptions/{id} forms
 	invoices    map[string]map[string]any // invoice id → {status, amount_due, hosted_invoice_url}
+	paidSess    map[string]string         // Checkout Session id → its paid PaymentIntent (payNowSession)
+	refunds     []string                  // PaymentIntents refunded
+}
+
+// paySession completes Checkout Session id with a payment of cents (the
+// customer finished it in another tab).
+func (f *offFake) paySession(id string, cents int64) string {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.paidSess == nil {
+		f.paidSess = map[string]string{}
+	}
+	pi := "pi_" + id
+	f.paidSess[id] = pi
+	f.pis[pi] = map[string]any{"id": pi, "status": "succeeded", "amount": cents, "amount_received": cents, "currency": "usd", "payment_method": "pm_1"}
+	return pi
 }
 
 func newOffFake(t *testing.T) *offFake {
@@ -258,8 +274,29 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		reply(404, map[string]any{"error": map[string]any{"type": "invalid_request_error", "code": "resource_missing"}})
 	case strings.HasPrefix(p, "/v1/checkout/sessions/") && strings.HasSuffix(p, "/expire"):
 		id := strings.TrimSuffix(strings.TrimPrefix(p, "/v1/checkout/sessions/"), "/expire")
+		if f.paidSess[id] != "" {
+			reply(400, map[string]any{"error": map[string]any{"type": "invalid_request_error", "message": "only open sessions can be expired"}})
+			return
+		}
 		f.expired = append(f.expired, id)
 		reply(200, map[string]any{"id": id, "object": "checkout.session", "status": "expired", "payment_status": "unpaid"})
+	case strings.HasPrefix(p, "/v1/checkout/sessions/") && r.Method == http.MethodGet:
+		id := strings.TrimPrefix(p, "/v1/checkout/sessions/")
+		if pi := f.paidSess[id]; pi != "" {
+			reply(200, map[string]any{"id": id, "object": "checkout.session", "status": "complete", "payment_status": "paid", "payment_intent": pi, "currency": "usd"})
+			return
+		}
+		status := "open"
+		for _, e := range f.expired {
+			if e == id {
+				status = "expired"
+			}
+		}
+		reply(200, map[string]any{"id": id, "object": "checkout.session", "status": status, "payment_status": "unpaid"})
+	case p == "/v1/refunds" && r.Method == http.MethodPost:
+		f.refunds = append(f.refunds, form["payment_intent"])
+		reply(200, map[string]any{"id": "re_" + form["payment_intent"], "object": "refund", "status": "succeeded", "payment_intent": form["payment_intent"],
+			"amount": 0, "created": time.Now().Unix()})
 	case p == "/v1/checkout/sessions" && r.Method == http.MethodPost:
 		f.n++
 		f.sessions = append(f.sessions, form)

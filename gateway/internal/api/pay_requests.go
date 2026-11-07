@@ -287,10 +287,33 @@ func (s *Service) payTopupCheckout(ctx context.Context, r *http.Request, p *stor
 	if s.Cfg.StripePMCWeb == "" {
 		return nil, errSheetUnavailable()
 	}
+	if p.DebtTopupID != "" { // a retry of the reload is charging it right now
+		return nil, errPayInProgress()
+	}
 	if p.TopupID != "" { // the page was opened before: its session if still open
-		if t, terr := s.Store.GetTopup(ctx, p.TopupID); terr == nil && t.State == store.TopupOpen && t.CurrentPayment != nil &&
-			t.CurrentPayment.ExpiresAt != nil && time.Until(*t.CurrentPayment.ExpiresAt) > 5*time.Minute && t.CurrentPayment.UI == ui {
-			return s.topupCheckoutJSON(t, t.CurrentPayment), nil
+		if t, terr := s.Store.GetTopup(ctx, p.TopupID); terr == nil && t.State == store.TopupOpen && t.CurrentPayment != nil {
+			cp := t.CurrentPayment
+			if cp.ExpiresAt != nil && time.Until(*cp.ExpiresAt) > 5*time.Minute && cp.UI == ui {
+				return s.topupCheckoutJSON(t, cp), nil
+			}
+			// REV-07: never two payable sessions for one link — the old one
+			// is closed first (paid meanwhile: that's the payment)
+			out, cerr := s.closePayment(cp)
+			switch {
+			case cerr != nil:
+				return nil, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be opened; try again")
+			case out.Paid:
+				_ = s.applyTopupPayment(ctx, t.ID, out)
+				return map[string]any{"state": store.PayPaid}, nil
+			case out.Processing:
+				return nil, errPayInProgress()
+			}
+			s.Store.UpdateTopup(ctx, t.ID, func(x *store.Topup) error {
+				if x.State == store.TopupOpen {
+					x.State = store.TopupCanceled
+				}
+				return nil
+			})
 		}
 	}
 	t := &store.Topup{ID: "t" + store.NewID(), UID: p.UID, Cents: amount, Currency: "usd", State: store.TopupOpen,
@@ -365,14 +388,107 @@ func (s *Service) paySettleCheckout(ctx context.Context, p *store.PayRequest, pc
 // payRequestsAfterTopup closes links a paid top-up settles: the one it was
 // opened from, and a failed auto-reload's once any auto-reload pays.
 func (s *Service) payRequestsAfterTopup(ctx context.Context, t *store.Topup) {
+	var closing []*store.PayRequest
 	if t.PayRequestID != "" {
 		if p, err := s.Store.GetPayRequest(ctx, t.PayRequestID); err == nil {
 			s.closePay(ctx, p, store.PayPaid, "paid")
+			closing = append(closing, p)
 		}
 	}
 	if t.Auto {
+		if open, err := s.Store.ListPayRequests(ctx, t.UID, store.PayOpen, 50); err == nil {
+			for _, p := range open {
+				if p.Kind == store.PayKindTopup {
+					closing = append(closing, p)
+				}
+			}
+		}
 		_, _ = s.Store.ClosePayRequests(ctx, t.UID, store.PayKindTopup, "", store.PayVoid, "auto-reload paid")
 	}
+	s.expireLinkTopups(ctx, closing, t.ID) // REV-07
+}
+
+// expireLinkTopups closes the Checkout Sessions still open on closed
+// top-up links (all but top-up `paid`, which closed them). One the
+// customer paid meanwhile is refunded (applyTopupPayment: the link's debt
+// is paid already); one still processing is refunded when it settles.
+func (s *Service) expireLinkTopups(ctx context.Context, links []*store.PayRequest, paid string) {
+	for _, p := range links {
+		if p.TopupID == "" || p.TopupID == paid {
+			continue
+		}
+		t, err := s.Store.GetTopup(ctx, p.TopupID)
+		if err != nil || t.State != store.TopupOpen || t.CurrentPayment == nil {
+			continue
+		}
+		out, cerr := s.closePayment(t.CurrentPayment)
+		switch {
+		case cerr != nil:
+			slog.WarnContext(ctx, "pay link session not expired", "topup_id", t.ID, "err", cerr) // the open-top-up sweep closes it later
+		case out.Paid:
+			_ = s.applyTopupPayment(ctx, t.ID, out)
+		case !out.Processing:
+			s.Store.UpdateTopup(ctx, t.ID, func(x *store.Topup) error {
+				if x.State == store.TopupOpen {
+					x.State = store.TopupCanceled
+				}
+				return nil
+			})
+		}
+	}
+}
+
+// claimTopupDebt lets top-up topupID pay the debt of top-up link token
+// (REV-07), once per link: false when it is paid, or being paid, another
+// way (or the link closed). No such link: true (nothing to guard).
+func (s *Service) claimTopupDebt(ctx context.Context, token, topupID string) (bool, error) {
+	ok := false
+	_, err := s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+		ok = false
+		switch {
+		case x.DebtTopupID == topupID:
+			ok = true
+		case x.DebtTopupID == "" && x.State == store.PayOpen:
+			x.DebtTopupID, ok = topupID, true
+		}
+		return nil
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		return true, nil
+	}
+	return ok, err
+}
+
+// releaseTopupDebt gives the claim back (the retry didn't pay).
+func (s *Service) releaseTopupDebt(ctx context.Context, token, topupID string) {
+	if token == "" {
+		return
+	}
+	s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+		if x.DebtTopupID == topupID && x.State == store.PayOpen {
+			x.DebtTopupID = ""
+		}
+		return nil
+	})
+}
+
+// liveLinkSession is when the link's own Checkout Session expires, while
+// one is open (nil when none).
+func (s *Service) liveLinkSession(ctx context.Context, token string, now time.Time) *time.Time {
+	p, err := s.Store.GetPayRequest(ctx, token)
+	if err != nil || p.State != store.PayOpen || p.TopupID == "" {
+		return nil
+	}
+	t, err := s.Store.GetTopup(ctx, p.TopupID)
+	if err != nil || t.State != store.TopupOpen || t.CurrentPayment == nil || t.CurrentPayment.Kind != store.PaymentCheckoutSession ||
+		t.CurrentPayment.ExpiresAt == nil || !now.Before(*t.CurrentPayment.ExpiresAt) {
+		return nil
+	}
+	return t.CurrentPayment.ExpiresAt
+}
+
+func errPayInProgress() error {
+	return httpx.Err(http.StatusConflict, "payment_in_progress", "A payment of this is being confirmed. Check back in a few minutes.")
 }
 
 // payRequestsAfterSettle closes the dues links once nothing is owed.

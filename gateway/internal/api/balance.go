@@ -297,6 +297,25 @@ func (s *Service) applyTopupPayment(ctx context.Context, topupID string, out str
 	if !out.Paid || out.PaymentIntentID == "" {
 		return nil
 	}
+	if tp, gerr := s.Store.GetTopup(ctx, topupID); gerr == nil && tp.PayRequestID != "" && tp.State != store.TopupPaid {
+		// REV-07: a pay link's debt is paid once; another payment of it
+		// (a second session, or after the reload's retry paid) goes back
+		ok, cerr := s.claimTopupDebt(ctx, tp.PayRequestID, topupID)
+		if cerr != nil {
+			return cerr
+		}
+		if !ok {
+			s.refundLatePayment(ctx, &store.Conversion{ID: "topup:" + topupID, UID: tp.UID}, out.PaymentIntentID, out.AmountReceived,
+				"a second payment for the same pay link")
+			s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error {
+				if x.State == store.TopupOpen {
+					x.State = store.TopupCanceled
+				}
+				return nil
+			})
+			return nil
+		}
+	}
 	t, promoted, fx, err := s.Store.ApplyTopupPaid(ctx, topupID, out.PaymentIntentID, out.AmountReceived, out.PaymentMethod)
 	if errors.Is(err, store.ErrDuplicateTopupPayment) {
 		s.refundLatePayment(ctx, &store.Conversion{ID: "topup:" + topupID, UID: t.UID}, out.PaymentIntentID, out.AmountReceived,

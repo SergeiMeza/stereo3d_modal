@@ -134,8 +134,32 @@ func (s *Service) retryReload(ctx context.Context, topupID string) {
 		cancel("no saved method")
 		return
 	}
+	// REV-07: the pay link and the retry never both take the money. The
+	// customer on the pay page now: wait for that session to end; the link
+	// paid (or closing): nothing to retry. The retry holds the link's debt
+	// while it charges.
+	if pr := t.Retry.PayRequestID; pr != "" {
+		if until := s.liveLinkSession(ctx, pr, now); until != nil {
+			next := until.Add(time.Minute)
+			release(func(r *store.OffSessionRetry) { r.NextAttemptAt = &next })
+			slog.InfoContext(ctx, "reload retry waits for the pay page", "topup_id", topupID, "until", next)
+			return
+		}
+		ok, cerr := s.claimTopupDebt(ctx, pr, topupID)
+		if cerr != nil {
+			release(nil)
+			return
+		}
+		if !ok {
+			cancel("paid on the pay link")
+			return
+		}
+	}
 	attempt := t.Retry.Attempts + 1
 	o := s.chargeReload(ctx, t, cust, attempt)
+	if !o.paid && o.closedPaid == nil && !o.transient { // a transient outcome keeps the claim: the money may be taken
+		s.releaseTopupDebt(ctx, t.Retry.PayRequestID, topupID)
+	}
 	switch {
 	case o.transient:
 		release(nil) // the next sweep tries again under the same keys
