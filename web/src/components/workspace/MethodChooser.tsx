@@ -49,24 +49,31 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { formatDuration } from "@/lib/format";
 import { qualitiesFor, qualityChoices, qualityLabelFor } from "@/lib/glossary";
-
-/** The dialog's closing line names Lifelike as the newest. */
-const LIFELIKE_EYEBROW_SENTENCE = "Our newest 3D technology.";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /** What the customer reads when Classic can't take this video. */
-export const TOO_LONG_FOR_CLASSIC =
-  "This video is too long for Classic 3D. Lifelike 3D works with videos of any length, so we kept it.";
+export function tooLongForClassic(t: Tr = EN): string {
+  return t("workspace.method.tooLongForClassic", {
+    classic: METHOD_LABELS.classic,
+    lifelike: METHOD_LABELS.lifelike,
+  });
+}
+export const TOO_LONG_FOR_CLASSIC = tooLongForClassic();
 
-function switchErrorCopy(e: unknown, next: Method, current: Method): string {
+function switchErrorCopy(e: unknown, next: Method, current: Method, t: Tr): string {
   if (e instanceof GatewayError) {
-    if (e.code === "source_too_long_for_method") return TOO_LONG_FOR_CLASSIC;
+    if (e.code === "source_too_long_for_method") return tooLongForClassic(t);
     if (e.code === "method_switch_not_allowed") return SWITCH_NOT_ALLOWED;
     if (e.code === "method_unavailable") {
-      return `${METHOD_LABELS[next]} isn't available right now, so your project keeps ${METHOD_LABELS[current]}.`;
+      return t("workspace.method.unavailable", {
+        next: METHOD_LABELS[next],
+        current: METHOD_LABELS[current],
+      });
     }
     return e.message;
   }
-  return "Couldn't change the method. Please try again.";
+  return t("workspace.method.switchError");
 }
 
 export interface MethodSwitch {
@@ -82,6 +89,7 @@ export function useMethodSwitch(
   onChanged: (p: Project) => void,
 ): MethodSwitch {
   const gateway = useGateway();
+  const t = useT();
   const [switching, setSwitching] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const method = methodOf(project);
@@ -99,7 +107,7 @@ export function useMethodSwitch(
       // value for gateways that answer before storing it
       onChanged({ ...updated, method: updated.method ?? next });
     } catch (e) {
-      setError(switchErrorCopy(e, next, method));
+      setError(switchErrorCopy(e, next, method, t));
     } finally {
       setSwitching(false);
     }
@@ -133,6 +141,7 @@ export function useMethodQuotes(
   /** price a method at this quality instead of its best one */
   presets: Partial<Record<Method, Preset>> = {},
 ): Partial<Record<Method, MethodQuote>> {
+  const t = useT();
   const ready = project.analyze.state === "succeeded" && project.probe;
   // ADR 0138: the shared side-price cache (one quote per request)
   const reqs: Record<string, StepConversionRequest> = {};
@@ -155,8 +164,8 @@ export function useMethodQuotes(
         quote: null,
         error:
           e.code === "source_too_long_for_method"
-            ? "This video is longer than Classic 3D can take."
-            : "Price not available right now.",
+            ? t("workspace.method.longerThanClassic", { classic: METHOD_LABELS.classic })
+            : t("workspace.method.priceUnavailable"),
         qualityLabel,
       };
   }
@@ -164,30 +173,31 @@ export function useMethodQuotes(
 }
 
 /** "$58.50 · about 40 min" for a method quote. */
-export function priceAndTime(q: MethodQuote | undefined): string | null {
+export function priceAndTime(q: MethodQuote | undefined, t: Tr = EN): string | null {
   if (!q?.quote) return null;
   const eta = q.quote.eta_seconds;
-  return `${formatCents(q.quote.quote.amount_cents)}${
+  return `${formatCents(q.quote.quote.amount_cents, t)}${
     eta && eta > 0 ? ` · ${formatDuration(eta)}` : ""
   }`;
 }
 
 /** The comparison row values for a method quote. */
-function quoteCells(q: MethodQuote | undefined): { price: string; time: string } {
+function quoteCells(q: MethodQuote | undefined, t: Tr): { price: string; time: string } {
   if (!q) return { price: "…", time: "…" };
   if (!q.quote) return { price: "—", time: "—" };
   const eta = q.quote.eta_seconds;
   return {
-    price: formatCents(q.quote.quote.amount_cents),
+    price: formatCents(q.quote.quote.amount_cents, t),
     time: eta && eta > 0 ? formatDuration(eta) : "—",
   };
 }
 
 /** The "New" tag beside Lifelike's name (S3D-46). */
 export function NewTag(): JSX.Element {
+  const t = useT();
   return (
     <span data-testid="method-tag-new" className="ll-tag-new">
-      New
+      {t("workspace.method.newTag")}
     </span>
   );
 }
@@ -209,8 +219,9 @@ export function MoveToLifelikeDialog({
   lifelike?: MethodQuote;
   classic?: MethodQuote;
 }): JSX.Element {
-  const l = quoteCells(lifelike);
-  const c = quoteCells(classic);
+  const t = useT();
+  const l = quoteCells(lifelike, t);
+  const c = quoteCells(classic, t);
   const quality = lifelike?.qualityLabel ?? classic?.qualityLabel;
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -227,12 +238,16 @@ export function MoveToLifelikeDialog({
             <thead className="bg-surface-2 text-left text-xs text-fg-muted">
               <tr>
                 <th className="px-3 py-2 font-normal">
-                  For this video{quality ? ` at ${quality}` : ""}
+                  {quality
+                    ? t("workspace.method.compare.forVideoAt", { quality })
+                    : t("workspace.method.compare.forVideo")}
                 </th>
-                <th className="px-3 py-2 font-normal">Classic 3D now</th>
+                <th className="px-3 py-2 font-normal">
+                  {t("workspace.method.compare.methodNow", { method: METHOD_LABELS.classic })}
+                </th>
                 <th className="px-3 py-2 font-normal">
                   <span className="flex items-center gap-1.5">
-                    <span className="text-fg">Lifelike 3D</span>
+                    <span className="text-fg">{METHOD_LABELS.lifelike}</span>
                     <NewTag />
                   </span>
                 </th>
@@ -240,7 +255,7 @@ export function MoveToLifelikeDialog({
             </thead>
             <tbody>
               <tr className="border-t border-edge">
-                <td className="px-3 py-2 text-fg-muted">Price</td>
+                <td className="px-3 py-2 text-fg-muted">{t("workspace.method.compare.price")}</td>
                 <td data-testid="move-classic-price" className="px-3 py-2 font-mono">
                   {c.price}
                 </td>
@@ -252,7 +267,7 @@ export function MoveToLifelikeDialog({
                 </td>
               </tr>
               <tr className="border-t border-edge">
-                <td className="px-3 py-2 text-fg-muted">Ready in</td>
+                <td className="px-3 py-2 text-fg-muted">{t("workspace.method.compare.readyIn")}</td>
                 <td className="px-3 py-2">{c.time}</td>
                 <td className="px-3 py-2">{l.time}</td>
               </tr>
@@ -260,14 +275,14 @@ export function MoveToLifelikeDialog({
           </table>
         ) : null}
         <p className="text-xs text-fg-muted">
-          {LIFELIKE_EYEBROW_SENTENCE} No Depth or 3D look pages to set up.
+          {t("workspace.method.compare.closing")}
         </p>
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>
-            Stay on Classic 3D
+            {t("workspace.method.stayOn", { method: METHOD_LABELS.classic })}
           </Button>
           <Button onClick={onConfirm} disabled={busy}>
-            Convert with Lifelike 3D
+            {t("workspace.method.convertWith", { method: METHOD_LABELS.lifelike })}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -284,6 +299,7 @@ export function MoveToLifelikeOffer({
   project: Project;
   onChanged: (p: Project) => void;
 }): JSX.Element | null {
+  const t = useT();
   const sw = useMethodSwitch(project, onChanged);
   const [confirming, setConfirming] = useState(false);
   // a fair comparison (S3D-14/44): Lifelike at the Classic project's own
@@ -307,18 +323,27 @@ export function MoveToLifelikeOffer({
         ✦
       </span>
       <span className="text-fg">
-        <span className="font-medium">Convert with Lifelike 3D</span>
+        <span className="font-medium">
+          {t("workspace.method.convertWith", { method: METHOD_LABELS.lifelike })}
+        </span>
         {q ? (
           <span data-testid="move-offer-price">
-            : {formatCents(q.quote.amount_cents)}
-            {eta && eta > 0 ? `, ${formatDuration(eta)}` : ""} for this video.
+            {eta && eta > 0
+              ? t("workspace.method.offer.priceTime", {
+                  price: formatCents(q.quote.amount_cents, t),
+                  time: formatDuration(eta),
+                })
+              : t("workspace.method.offer.price", { price: formatCents(q.quote.amount_cents, t) })}
           </span>
         ) : (
-          "."
+          t("workspace.method.offer.noPrice")
         )}
         {best?.quote ? (
           <span data-testid="move-offer-higher" className="block text-xs text-fg-muted">
-            or {best.qualityLabel} for {formatCents(best.quote.quote.amount_cents)}
+            {t("workspace.method.offer.higher", {
+              quality: best.qualityLabel,
+              price: formatCents(best.quote.quote.amount_cents, t),
+            })}
           </span>
         ) : null}
       </span>
@@ -327,7 +352,7 @@ export function MoveToLifelikeOffer({
         className="ml-auto text-xs text-primary hover:underline"
         onClick={() => setConfirming(true)}
       >
-        Move
+        {t("workspace.method.offer.move")}
       </button>
       {sw.error ? (
         <span role="alert" className="w-full text-xs text-amber-400">
@@ -360,6 +385,7 @@ export function MethodBadge({
   /** false when Lifelike can't be chosen right now */
   allowMove?: boolean;
 }): JSX.Element {
+  const t = useT();
   const sw = useMethodSwitch(project, onChanged);
   const [confirming, setConfirming] = useState(false);
   const quotes = useMethodQuotes(project, confirming ? METHOD_ORDER : [], {
@@ -384,7 +410,7 @@ export function MethodBadge({
           onClick={() => setConfirming(true)}
           className="rounded border border-primary/30 px-2 py-0.5 text-primary hover:bg-primary/10"
         >
-          Convert with Lifelike 3D
+          {t("workspace.method.convertWith", { method: METHOD_LABELS.lifelike })}
         </button>
       ) : null}
       {sw.error ? (

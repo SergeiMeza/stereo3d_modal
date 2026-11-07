@@ -10,6 +10,7 @@
 import type { Probe, Project } from "@/lib/api/types";
 import { parseCrop } from "@/components/workspace/utils";
 import { eyeSize, type QualityChoice } from "@/lib/glossary";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export type BarSides = "top_bottom" | "sides" | "all";
 
@@ -34,16 +35,14 @@ export function removesBars(project: Pick<Project, "has_bars" | "remove_bars">):
 }
 
 const WHERE: Record<BarSides, string> = {
-  top_bottom: "at the top and bottom",
-  sides: "on the left and right",
-  all: "on all sides",
+  top_bottom: "topBottom",
+  sides: "sides",
+  all: "all",
 };
 
 /** "Black bars found at the top and bottom of your video. …" */
-export function barsNotice(sides: BarSides, removing: boolean): string {
-  return removing
-    ? `Black bars found ${WHERE[sides]} of your video. We'll remove them so your 3D fills the frame.`
-    : `Black bars found ${WHERE[sides]} of your video. Your 3D keeps them.`;
+export function barsNotice(sides: BarSides, removing: boolean, t: Tr = EN): string {
+  return t(`workspace.bars.notice.${removing ? "removing" : "keeping"}.${WHERE[sides]}`);
 }
 
 /** The picture size once the bars are gone, for a full-frame size
@@ -64,12 +63,12 @@ export function sizeWithoutBars(
 
 /** owner 2026-11-05: with the bars removed, each quality says the size
  * it makes (1920×866), as the bars setting does. */
-export function withoutBars(choices: QualityChoice[], project: Project): QualityChoice[] {
+export function withoutBars(choices: QualityChoice[], project: Project, t: Tr = EN): QualityChoice[] {
   const probe = project.probe;
   if (!probe || !removesBars(project) || barSides(project) === null) return choices;
   return choices.map((q) => {
     const full = q.eyeShort ? eyeSize(probe, q.eyeShort) : null;
     const size = full ? sizeWithoutBars(probe, project.crop, full) : null;
-    return size ? { ...q, hint: `${size.width}×${size.height} per eye` } : q;
+    return size ? { ...q, hint: t("workspace.bars.perEye", { size: `${size.width}×${size.height}` }) } : q;
   });
 }

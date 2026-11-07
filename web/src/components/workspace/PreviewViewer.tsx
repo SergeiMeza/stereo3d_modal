@@ -32,6 +32,7 @@ import { MuteToggle, SpeedSelect } from "@/components/steps/ScenePicker";
 import { Button } from "@/components/ui/button";
 import type { Probe, Thumb } from "@/lib/api/types";
 import { frameLabel, type RationalFPS } from "@/lib/frames";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { blurAfterMouseClick } from "@/lib/interactions";
 import { compactPlayerAtom } from "@/lib/viewerPrefs";
 
@@ -69,6 +70,7 @@ export function PreviewViewer({
   onStep,
   aside,
 }: PreviewViewerProps) {
+  const t = useT();
   const cropRect = parseCrop(crop);
   const fallback = previewUrl ? null : nearestThumb(thumbs, playhead);
   // The proxy's real decoded dimensions, read off the element at
@@ -120,7 +122,7 @@ export function PreviewViewer({
               data-testid="viewer-frame"
               data-thumb-frame={fallback.frame}
               src={fallback.url}
-              alt={`nearest thumbnail, frame ${fallback.frame}`}
+              alt={t("workspace.viewer.thumbAlt", { frame: String(fallback.frame) })}
               draggable={false}
               className="absolute inset-0 h-full w-full select-none object-cover"
             />
@@ -128,9 +130,9 @@ export function PreviewViewer({
           {previewUrl || fallback ? (
             <PlayerBadge
               data-testid="proxy-badge"
-              label={previewUrl ? "Preview Resolution" : "Thumbnail"}
+              label={previewUrl ? t("workspace.viewer.previewResolution") : t("workspace.viewer.thumbnail")}
               dims={previewUrl ? proxyDims : null}
-              title={`Frame-exact preview proxy — conversions always use the full-resolution source (${probe.width}×${probe.height})`}
+              title={t("workspace.viewer.proxyTitle", { size: `${probe.width}×${probe.height}` })}
             />
           ) : null}
           {cropRect ? (
@@ -157,20 +159,20 @@ export function PreviewViewer({
           variant="outline"
           size="xs"
           className="w-20"
-          aria-label={player.playing ? "Pause preview" : "Play preview"}
+          aria-label={player.playing ? t("workspace.viewer.pauseLabel") : t("workspace.viewer.playLabel")}
           disabled={!previewUrl}
           onClick={(e) => {
             blurAfterMouseClick(e);
             player.toggle();
           }}
         >
-          {player.playing ? "❚❚ Pause" : "▶ Play"}
+          {player.playing ? t("workspace.viewer.pause") : t("workspace.viewer.play")}
         </Button>
         <div className="flex items-center gap-1">
           <Button
             variant="outline"
             size="icon-xs"
-            aria-label="Step back one frame"
+            aria-label={t("workspace.viewer.stepBack")}
             onClick={(e) => {
               blurAfterMouseClick(e);
               onStep(-1);
@@ -181,7 +183,7 @@ export function PreviewViewer({
           <Button
             variant="outline"
             size="icon-xs"
-            aria-label="Step forward one frame"
+            aria-label={t("workspace.viewer.stepForward")}
             onClick={(e) => {
               blurAfterMouseClick(e);
               onStep(1);
@@ -205,7 +207,7 @@ export function PreviewViewer({
         </span>
         {cropRect ? (
           <span className="text-xs text-fg-muted">
-            active picture {cropRect.width}×{cropRect.height}
+            {t("workspace.viewer.activePicture", { size: `${cropRect.width}×${cropRect.height}` })}
           </span>
         ) : null}
         <Button
@@ -213,17 +215,15 @@ export function PreviewViewer({
           size="xs"
           className="ml-auto"
           aria-pressed={compact}
-          aria-label={compact ? "Theater player" : "Compact player"}
+          aria-label={compact ? t("workspace.viewer.theaterLabel") : t("workspace.viewer.compactLabel")}
           onClick={(e) => {
             blurAfterMouseClick(e);
             setCompact(!compact);
           }}
         >
-          {compact ? "Theater" : "Compact"}
+          {compact ? t("workspace.viewer.theater") : t("workspace.viewer.compact")}
         </Button>
-        <span className="text-xs text-fg-muted">
-          Space play/pause · ←/→ ±1 frame · Shift ±1 s
-        </span>
+        <span className="text-xs text-fg-muted">{t("workspace.viewer.keysHint")}</span>
       </div>
     </div>
   );

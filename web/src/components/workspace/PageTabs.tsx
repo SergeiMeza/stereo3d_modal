@@ -14,6 +14,8 @@
 import type { JSX } from "react";
 
 import type { Method } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import {
   Tooltip,
@@ -142,6 +144,16 @@ const TAB_IDS: Record<Method, readonly WorkspaceTabId[]> = {
   lifelike: ["overview", "scenes", "preview", "make", "files"],
 };
 
+/** A tab's name in the person's language (TabDef.label is the English). */
+export function tabLabel(id: WorkspaceTabId, t: Tr = EN): string {
+  return t(`workspace.tabs.${id}.label`);
+}
+
+/** A tab's one-line tooltip in the person's language. */
+export function tabHint(id: WorkspaceTabId, t: Tr = EN): string {
+  return t(`workspace.tabs.${id}.hint`);
+}
+
 /** A tab's rail icon (the Overview stepper shows the same ones). */
 export function tabIcon(id: WorkspaceTabId): JSX.Element | null {
   return ALL_TABS.find((t) => t.id === id)?.icon ?? null;
@@ -202,10 +214,11 @@ export function PageTabs({
   onChange,
   locked = {},
 }: PageTabsProps): JSX.Element {
+  const t = useT();
   return (
     <div
       role="tablist"
-      aria-label="Workspace pages"
+      aria-label={t("workspace.tabs.railLabel")}
       // phone (screen 11): a scrolling row of top tabs; wider: the side rail
       className="flex shrink-0 flex-row items-stretch gap-1 overflow-x-auto border-b border-edge bg-surface-1 px-2 sm:flex-col sm:justify-center sm:overflow-visible sm:border-r sm:border-b-0 sm:px-0 sm:py-4"
     >
@@ -242,13 +255,13 @@ export function PageTabs({
                   }`}
                 />
                 {tab.icon}
-                {tab.label}
+                {tabLabel(tab.id, t)}
               </button>
             </TooltipTrigger>
             <TooltipContent side="right" className="flex items-center gap-1.5">
               {lockReason ?? (
                 <>
-                  {tab.hint}
+                  {tabHint(tab.id, t)}
                   <kbd>{i + 1}</kbd>
                 </>
               )}

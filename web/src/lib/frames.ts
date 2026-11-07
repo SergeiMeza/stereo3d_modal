@@ -11,6 +11,8 @@
  * rates — fine for an editing UI where frame identity is what matters).
  */
 
+import { EN, type Tr } from "@/lib/i18n/t";
+
 export interface RationalFPS {
   num: number;
   den: number;
@@ -114,12 +116,12 @@ export function frameToPosition(frame: number, numFrames: number): number {
 
 /** Validate a cut list the way the gateway will (strictly increasing,
  * each in (0, numFrames)) so the UI rejects bad edits before the network. */
-export function validateCuts(cuts: number[], numFrames: number): string | null {
+export function validateCuts(cuts: number[], numFrames: number, t: Tr = EN): string | null {
   for (let i = 0; i < cuts.length; i++) {
     const c = cuts[i];
-    if (!Number.isInteger(c)) return `cut ${c} is not an integer frame`;
-    if (c <= 0 || c >= numFrames) return `cut ${c} outside (0, ${numFrames})`;
-    if (i > 0 && c <= cuts[i - 1]) return `cuts not strictly increasing at ${c}`;
+    if (!Number.isInteger(c)) return t("workspace.cuts.invalid.notInteger", { cut: String(c) });
+    if (c <= 0 || c >= numFrames) return t("workspace.cuts.invalid.outside", { cut: String(c), frames: String(numFrames) });
+    if (i > 0 && c <= cuts[i - 1]) return t("workspace.cuts.invalid.notIncreasing", { cut: String(c) });
   }
   return null;
 }

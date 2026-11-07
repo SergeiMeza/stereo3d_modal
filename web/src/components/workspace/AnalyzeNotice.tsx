@@ -13,11 +13,13 @@ import type { JSX } from "react";
 
 import { supportMailto } from "@/components/billing/BillingBanner";
 import { Button } from "@/components/ui/button";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 
 import { analyzeSlow, type ProjectState } from "./workspaceAtoms";
 
-export const ANALYZE_SLOW = "This is taking longer than usual.";
-export const ANALYZE_FAILED = "We couldn't analyze this video.";
+export const ANALYZE_SLOW = EN("workspace.analyze.slow");
+export const ANALYZE_FAILED = EN("workspace.analyze.failed");
 
 /** The clock, re-read every 15 s while `on`. */
 function useClock(on: boolean): number {
@@ -39,6 +41,7 @@ export function AnalyzeNotice({
   onRefresh: () => void;
   onRetry: () => void;
 }): JSX.Element | null {
+  const t = useT();
   const project = state.project;
   const running = project?.analyze.state === "running";
   const now = useClock(running);
@@ -51,16 +54,16 @@ export function AnalyzeNotice({
         data-testid="analyze-failed"
         className="mb-4 flex flex-col gap-2 rounded-md border border-red-500/40 bg-red-500/10 p-4 text-red-300"
       >
-        <p className="font-medium">{ANALYZE_FAILED}</p>
+        <p className="font-medium">{t("workspace.analyze.failed")}</p>
         <div className="flex flex-wrap items-center gap-3">
           <Button size="sm" variant="outline" disabled={state.retrying} onClick={onRetry}>
-            {state.retrying ? "Trying again…" : "Try again"}
+            {state.retrying ? t("workspace.analyze.retrying") : t("workspace.analyze.retry")}
           </Button>
           <a
             href={supportMailto(`Video analysis · project ${project.project_id}`)}
             className="text-sm text-red-200 underline underline-offset-2 hover:text-red-100"
           >
-            Contact support
+            {t("workspace.analyze.contactSupport")}
           </a>
         </div>
         {state.retryError ? <p className="text-sm">{state.retryError}</p> : null}
@@ -75,9 +78,9 @@ export function AnalyzeNotice({
         data-testid="analyze-slow"
         className="mb-4 flex flex-wrap items-center gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 p-3 text-sm text-amber-200"
       >
-        <span className="min-w-0 flex-1">{ANALYZE_SLOW}</span>
+        <span className="min-w-0 flex-1">{t("workspace.analyze.slow")}</span>
         <Button size="sm" variant="outline" onClick={onRefresh}>
-          Refresh
+          {t("workspace.analyze.refresh")}
         </Button>
       </div>
     );

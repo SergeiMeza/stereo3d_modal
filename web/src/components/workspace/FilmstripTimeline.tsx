@@ -59,6 +59,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import type { Thumb } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import {
   frameLabel,
   frameToPosition,
@@ -94,11 +96,11 @@ export const WHEEL_ZOOM_THRESHOLD = 80;
 
 /** The hover label: the timecode, with the scene number when the strip
  * has cuts (a cut at frame 0 starts nothing new). Exported for tests. */
-export function hoverLabel(frame: number, fps: RationalFPS, cuts: number[]): string {
+export function hoverLabel(frame: number, fps: RationalFPS, cuts: number[], t: Tr = EN): string {
   const tc = frameToTimecode(frame, fps);
   if (cuts.length === 0) return tc;
   const scene = cuts.filter((c) => c > 0 && c <= frame).length + 1;
-  return `Scene ${scene} · ${tc}`;
+  return t("workspace.filmstrip.hoverScene", { scene: String(scene), timecode: tc });
 }
 
 /** A marked span above the thumbnails (a past preview). */
@@ -195,6 +197,7 @@ export function FilmstripTimeline({
   bands = [],
   onSelectBand,
 }: FilmstripTimelineProps) {
+  const t = useT();
   const scrollerRef = useRef<HTMLDivElement | null>(null);
   const dragIndexRef = useRef<number | null>(null);
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -366,7 +369,7 @@ export function FilmstripTimeline({
   const extractionMode =
     !!previewUrl && isExtractionZoom(zoom, thumbs.length, numFrames, fps);
   const wantedFrames = useMemo(
-    () => (extractionMode ? tiles.map((t) => t.frame) : []),
+    () => (extractionMode ? tiles.map((tile) => tile.frame) : []),
     [extractionMode, tiles],
   );
   const extracted = useFrameThumbs(
@@ -413,7 +416,7 @@ export function FilmstripTimeline({
         <Button
           variant="outline"
           size="icon-xs"
-          aria-label="Zoom out"
+          aria-label={t("workspace.filmstrip.zoomOut")}
           disabled={zoomIndex === 0}
           onClick={(e) => {
             blurAfterMouseClick(e);
@@ -423,12 +426,12 @@ export function FilmstripTimeline({
           −
         </Button>
         <span data-testid="zoom-level" className="w-8 text-center font-mono">
-          {zoom === 1 ? "Fit" : `${zoom}×`}
+          {zoom === 1 ? t("workspace.filmstrip.fit") : `${zoom}×`}
         </span>
         <Button
           variant="outline"
           size="icon-xs"
-          aria-label="Zoom in"
+          aria-label={t("workspace.filmstrip.zoomIn")}
           disabled={zoomIndex === levels.length - 1}
           onClick={(e) => {
             blurAfterMouseClick(e);
@@ -437,21 +440,21 @@ export function FilmstripTimeline({
         >
           +
         </Button>
-        <span>⌘/Ctrl + scroll to zoom · scroll to pan</span>
+        <span>{t("workspace.filmstrip.zoomHint")}</span>
         <Button
           variant="outline"
           size="xs"
           className="ml-auto"
           aria-pressed={compact}
           aria-label={
-            compact ? "Full-height timeline" : "Compact timeline"
+            compact ? t("workspace.filmstrip.fullHeightLabel") : t("workspace.filmstrip.compactLabel")
           }
           onClick={(e) => {
             blurAfterMouseClick(e);
             setCompact(!compact);
           }}
         >
-          {compact ? "Full strip" : "Compact strip"}
+          {compact ? t("workspace.filmstrip.fullStrip") : t("workspace.filmstrip.compactStrip")}
         </Button>
       </div>
 
@@ -525,7 +528,7 @@ export function FilmstripTimeline({
                   data-band-state={b.state}
                   data-lane={lanes[i]}
                   aria-pressed={b.selected === true}
-                  aria-label={`Past preview ${b.label}`}
+                  aria-label={t("workspace.filmstrip.pastPreview", { label: b.label })}
                   className={`absolute z-[15] min-w-1.5 cursor-pointer rounded-sm p-0 [--lane-h:12px] pointer-coarse:[--lane-h:22px] ${bandClass(b)}`}
                   style={{
                     left: `${frameToPosition(b.from, numFrames) * 100}%`,
@@ -561,7 +564,7 @@ export function FilmstripTimeline({
                 type="button"
                 data-testid="cut-marker"
                 data-frame={frame}
-                aria-label={`Cut at frame ${frame}`}
+                aria-label={t("workspace.filmstrip.cutAt", { frame: String(frame) })}
                 aria-pressed={selectedIndex === i}
                 className="group absolute inset-y-0 z-10 w-2 -translate-x-1/2 cursor-ew-resize touch-none appearance-none border-0 bg-transparent p-0"
                 style={{ left: `${frameToPosition(frame, numFrames) * 100}%` }}
@@ -625,7 +628,7 @@ export function FilmstripTimeline({
                     : "left-1.5"
                 }`}
               >
-                {hoverLabel(hoverFrame, fps, cuts)}
+                {hoverLabel(hoverFrame, fps, cuts, t)}
               </span>
             </div>
           ) : null}

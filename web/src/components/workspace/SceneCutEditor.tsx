@@ -52,6 +52,7 @@ import {
   parseRational,
   validateCuts,
 } from "@/lib/frames";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 import { FilmstripTimeline } from "./FilmstripTimeline";
@@ -93,6 +94,7 @@ export function SceneCutEditor({
   onProjectChanged,
 }: SceneCutEditorProps) {
   const gateway = useGateway();
+  const t = useT();
   const numFrames = probe.num_frames;
   const fps = useMemo(() => parseRational(probe.fps_rational), [probe.fps_rational]);
   /** Frames in one timecode second — the Shift-arrow step (exact rational). */
@@ -116,7 +118,7 @@ export function SceneCutEditor({
   const [editNote, setEditNote] = useState<string | null>(null);
 
   const dirty = !sameCuts(cuts, serverCuts);
-  const validationError = validateCuts(cuts, numFrames);
+  const validationError = validateCuts(cuts, numFrames, t);
 
   // ------------------------------------------------------------- playback
   const videoRef = useRef<HTMLVideoElement | null>(null);
@@ -189,11 +191,11 @@ export function SceneCutEditor({
   function addCut(frame: number) {
     scrub(frame);
     if (!Number.isInteger(frame) || frame <= 0 || frame >= numFrames) {
-      setEditNote(`Cannot cut at frame ${frame} — cuts must be inside (0, ${numFrames}).`);
+      setEditNote(t("workspace.cuts.note.outside", { frame: String(frame), frames: String(numFrames) }));
       return;
     }
     if (cuts.includes(frame)) {
-      setEditNote(`There is already a cut at frame ${frame}.`);
+      setEditNote(t("workspace.cuts.note.exists", { frame: String(frame) }));
       return;
     }
     const next = [...cuts, frame].sort((a, b) => a - b);
@@ -244,7 +246,7 @@ export function SceneCutEditor({
       setImportPending(parsed);
       setEditNote(null);
     } catch (e) {
-      setEditNote(e instanceof Error ? e.message : "Could not read the cut list.");
+      setEditNote(e instanceof Error ? e.message : t("workspace.cuts.note.unreadable"));
     }
   }
 
@@ -264,9 +266,9 @@ export function SceneCutEditor({
    * user-reachable cases need naming.) */
   const addAtPlayheadReason =
     playhead <= 0
-      ? "Cuts must be after frame 0 — move the playhead first"
+      ? t("workspace.cuts.addReason.atStart")
       : cuts.includes(playhead)
-        ? `There is already a cut at frame ${playhead}`
+        ? t("workspace.cuts.addReason.exists", { frame: String(playhead) })
         : null;
 
   function moveCut(index: number, frame: number) {
@@ -314,7 +316,7 @@ export function SceneCutEditor({
       if (e instanceof GatewayError && e.code === "conflict") {
         setConflict(true);
       } else {
-        setSaveError(e instanceof Error ? e.message : "failed to save cuts");
+        setSaveError(e instanceof Error ? e.message : t("workspace.cuts.saveFailed"));
       }
     } finally {
       setSaving(false);
@@ -339,8 +341,8 @@ export function SceneCutEditor({
   return (
     <div className="space-y-4">
       <PageHeader
-        title="Scene cuts"
-        description="Frame-exact scene boundaries — every later step maps depth per scene. Edits stay local until saved."
+        title={t("workspace.cuts.title")}
+        description={t("workspace.cuts.description")}
         meta={
           <>
             <span
@@ -356,7 +358,7 @@ export function SceneCutEditor({
               {frameToTimecode(numFrames, fps)}
             </span>
             <span className="text-[11px] text-fg-muted">
-              {numFrames} frames · {probe.fps_rational} fps
+              {t("workspace.cuts.framesFps", { frames: String(numFrames), fps: probe.fps_rational })}
             </span>
             {dirty ? (
               <span
@@ -367,7 +369,7 @@ export function SceneCutEditor({
                   aria-hidden
                   className="h-1.5 w-1.5 rounded-full bg-amber-400"
                 />
-                Unsaved changes
+                {t("workspace.cuts.unsaved")}
               </span>
             ) : null}
           </>
@@ -378,7 +380,7 @@ export function SceneCutEditor({
               ref={fileInputRef}
               type="file"
               accept=".csv,.txt"
-              aria-label="Cut list file"
+              aria-label={t("workspace.cuts.fileLabel")}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -394,7 +396,7 @@ export function SceneCutEditor({
                 fileInputRef.current?.click();
               }}
             >
-              Import cuts…
+              {t("workspace.cuts.import")}
             </Button>
             <Button
               variant="outline"
@@ -404,7 +406,7 @@ export function SceneCutEditor({
                 exportCuts();
               }}
             >
-              Export cuts
+              {t("workspace.cuts.export")}
             </Button>
             <Button
               variant="outline"
@@ -415,7 +417,7 @@ export function SceneCutEditor({
                 resetToSaved();
               }}
             >
-              Reset to detected
+              {t("workspace.cuts.reset")}
             </Button>
             <Button
               size="sm"
@@ -425,7 +427,7 @@ export function SceneCutEditor({
                 void save();
               }}
             >
-              {saving ? "Saving…" : "Save cuts"}
+              {saving ? t("workspace.cuts.saving") : t("workspace.cuts.save")}
             </Button>
           </>
         }
@@ -437,17 +439,14 @@ export function SceneCutEditor({
           data-testid="conflict-banner"
           className="flex items-center gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-amber-300"
         >
-          <span>
-            The scene list changed on the server since you loaded it. Reload
-            the latest version and reapply your edits, then save again.
-          </span>
+          <span>{t("workspace.cuts.conflict")}</span>
           <Button
             variant="outline"
             size="sm"
             className="ml-auto shrink-0 border-amber-400/50 text-amber-300 hover:bg-amber-500/20 hover:text-amber-200"
             onClick={() => void reloadAndReapply()}
           >
-            Reload &amp; reapply
+            {t("workspace.cuts.reload")}
           </Button>
         </div>
       ) : null}
@@ -481,14 +480,14 @@ export function SceneCutEditor({
           disabled={addAtPlayheadReason !== null}
           title={
             addAtPlayheadReason ??
-            `Add a scene cut at frame ${playhead} (the playhead)`
+            t("workspace.cuts.addTitle", { frame: String(playhead) })
           }
           onClick={(e) => {
             blurAfterMouseClick(e);
             addCut(playhead);
           }}
         >
-          + Add cut at playhead
+          {t("workspace.cuts.add")}
         </Button>
         <Button
           variant="outline"
@@ -496,25 +495,28 @@ export function SceneCutEditor({
           disabled={selectedIndex === null}
           title={
             selectedIndex === null
-              ? "Select a cut marker on the timeline first"
-              : "Remove the selected cut (Delete)"
+              ? t("workspace.cuts.removeTitleNone")
+              : t("workspace.cuts.removeTitle")
           }
           onClick={(e) => {
             blurAfterMouseClick(e);
             removeSelected();
           }}
         >
-          − Remove cut
+          {t("workspace.cuts.remove")}
         </Button>
         {selectedCut !== null ? (
           <>
             <span data-testid="selected-cut" className="font-mono text-fg">
-              Cut {(selectedIndex ?? 0) + 1} · {frameLabel(selectedCut, fps)}
+              {t("workspace.cuts.selected", {
+                index: String((selectedIndex ?? 0) + 1),
+                frame: frameLabel(selectedCut, fps),
+              })}
             </span>
             <Button
               variant="ghost"
               size="icon-xs"
-              aria-label="Remove selected cut"
+              aria-label={t("workspace.cuts.removeSelectedLabel")}
               className="text-fg-muted hover:text-fg"
               onClick={(e) => {
                 blurAfterMouseClick(e);
@@ -525,10 +527,7 @@ export function SceneCutEditor({
             </Button>
           </>
         ) : (
-          <span className="text-fg-muted">
-            Click the strip to scrub · double-click to add a cut · click a
-            marker to select, drag to move · Delete removes
-          </span>
+          <span className="text-fg-muted">{t("workspace.cuts.hint")}</span>
         )}
         {editNote ? (
           <span data-testid="edit-note" className="text-amber-400">
@@ -557,9 +556,9 @@ export function SceneCutEditor({
         className="flex items-center gap-1.5 text-[11px] text-fg-muted"
       >
         <span aria-hidden className="h-3 w-[2px] shrink-0 bg-amber-400/80" />
-        scene cut — the first frame of a new scene
+        {t("workspace.cuts.legend.cut")}
         <span aria-hidden className="ml-2 h-3 w-[2px] shrink-0 bg-fg" />
-        playhead
+        {t("workspace.cuts.legend.playhead")}
       </p>
 
       <SceneList
@@ -580,15 +579,17 @@ export function SceneCutEditor({
       >
         <DialogContent data-testid="import-cuts-dialog">
           <DialogHeader>
-            <DialogTitle>Import scene cuts</DialogTitle>
+            <DialogTitle>{t("workspace.cuts.importDialog.title")}</DialogTitle>
             <DialogDescription>
-              Replace {cuts.length} cuts with {importPending?.length ?? 0}{" "}
-              imported cuts? The replacement stays local until you save.
+              {t("workspace.cuts.importDialog.body", {
+                current: String(cuts.length),
+                imported: String(importPending?.length ?? 0),
+              })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter showCloseButton>
             <Button type="button" onClick={applyImport}>
-              Replace
+              {t("workspace.cuts.importDialog.replace")}
             </Button>
           </DialogFooter>
         </DialogContent>

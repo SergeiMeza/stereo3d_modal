@@ -17,9 +17,11 @@ import type { JSX } from "react";
 import { analyzePercent } from "@/components/projects/AnalyzeBadge";
 import { formatCents } from "@/components/steps/money";
 import { methodOf, type Project, type Step } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useLiveProject } from "@/lib/live/useLive";
 
-import { tabIcon, type WorkspaceTabId } from "./PageTabs";
+import { tabIcon, tabLabel, type WorkspaceTabId } from "./PageTabs";
 
 export type StepState = "done" | "current" | "upcoming" | "skipped";
 
@@ -36,7 +38,6 @@ export interface StepView {
 
 interface StepDef {
   tab: WorkspaceTabId;
-  label: string;
   optional?: boolean;
   /** an optional step counts as done after a run of this kind */
   run?: Step;
@@ -44,17 +45,17 @@ interface StepDef {
 
 const FLOWS: Record<"lifelike" | "classic", readonly StepDef[]> = {
   lifelike: [
-    { tab: "scenes", label: "Scenes" },
-    { tab: "preview", label: "Preview", optional: true, run: "lifelike_preview" },
-    { tab: "make", label: "Make 3D" },
-    { tab: "files", label: "Files" },
+    { tab: "scenes" },
+    { tab: "preview", optional: true, run: "lifelike_preview" },
+    { tab: "make" },
+    { tab: "files" },
   ],
   classic: [
-    { tab: "scenes", label: "Scenes" },
-    { tab: "depth", label: "Depth", optional: true, run: "depth_preview" },
-    { tab: "look", label: "3D look", optional: true, run: "stereo_preview" },
-    { tab: "make", label: "Make 3D" },
-    { tab: "files", label: "Files" },
+    { tab: "scenes" },
+    { tab: "depth", optional: true, run: "depth_preview" },
+    { tab: "look", optional: true, run: "stereo_preview" },
+    { tab: "make" },
+    { tab: "files" },
   ],
 };
 
@@ -67,7 +68,7 @@ export interface StepsContext {
   previewCents?: number | null;
 }
 
-export function overviewSteps(project: Project, opts: StepsContext = {}): StepView[] {
+export function overviewSteps(project: Project, opts: StepsContext = {}, t: Tr = EN): StepView[] {
   const method = methodOf(project) === "classic" ? "classic" : "lifelike";
   const flow = FLOWS[method];
   const runs = project.conversions ?? [];
@@ -88,30 +89,42 @@ export function overviewSteps(project: Project, opts: StepsContext = {}): StepVi
   const at = flow.findIndex((s) => s.tab === current);
 
   return flow.map((s, i): StepView => {
-    const base = { tab: s.tab, label: s.label, optional: s.optional === true };
+    const base = { tab: s.tab, label: tabLabel(s.tab, t), optional: s.optional === true };
     if (i > at) return { ...base, state: "upcoming" };
     if (i < at) return { ...base, state: s.optional && !ran(s.run) ? "skipped" : "done" };
     switch (s.tab) {
       case "scenes": {
         const pct = analyzePercent(project.analyze);
         return project.analyze.state === "running"
-          ? { ...base, state: "current", status: pct !== null ? `Analyzing… ${pct}%` : "Analyzing…" }
+          ? {
+              ...base,
+              state: "current",
+              status:
+                pct !== null
+                  ? t("workspace.steps.status.analyzingPercent", { percent: String(pct) })
+                  : t("workspace.steps.status.analyzing"),
+            }
           : project.analyze.state === "failed"
-            ? { ...base, state: "current", status: "Couldn't read the video" }
+            ? { ...base, state: "current", status: t("workspace.steps.status.unreadable") }
             : !analyzed
-              ? { ...base, state: "current", status: "Waiting" }
-              : { ...base, state: "current", status: "Ready", action: "Pick scenes" };
+              ? { ...base, state: "current", status: t("workspace.steps.status.waiting") }
+              : {
+                  ...base,
+                  state: "current",
+                  status: t("workspace.steps.status.ready"),
+                  action: t("workspace.steps.action.pickScenes"),
+                };
       }
       case "preview":
         return {
           ...base,
           state: "current",
-          status: "Ready",
+          status: t("workspace.steps.status.ready"),
           action: opts.previewFree
-            ? "Make a free preview"
+            ? t("workspace.steps.action.freePreview")
             : typeof opts.previewCents === "number"
-              ? `Preview a moment · ${formatCents(opts.previewCents)}`
-              : "Preview a moment",
+              ? t("workspace.steps.action.previewPriced", { price: formatCents(opts.previewCents, t) })
+              : t("workspace.steps.action.preview"),
         };
       case "make": {
         if (running && active) {
@@ -120,14 +133,26 @@ export function overviewSteps(project: Project, opts: StepsContext = {}): StepVi
           return {
             ...base,
             state: "current",
-            status: waiting ? "Waiting in line" : `Making… ${pct}%`,
-            action: "See progress",
+            status: waiting
+              ? t("workspace.steps.status.waitingInLine")
+              : t("workspace.steps.status.makingPercent", { percent: String(pct) }),
+            action: t("workspace.steps.action.seeProgress"),
           };
         }
-        return { ...base, state: "current", status: "Ready", action: "Make 3D" };
+        return {
+          ...base,
+          state: "current",
+          status: t("workspace.steps.status.ready"),
+          action: t("workspace.steps.action.make"),
+        };
       }
       default:
-        return { ...base, state: "current", status: "Ready", action: project.sample ? "See the 3D files" : "Download" };
+        return {
+          ...base,
+          state: "current",
+          status: t("workspace.steps.status.ready"),
+          action: project.sample ? t("workspace.steps.action.seeFiles") : t("workspace.steps.action.download"),
+        };
     }
   });
 }
@@ -137,7 +162,8 @@ export function overviewSteps(project: Project, opts: StepsContext = {}): StepVi
  * run while Overview was open), for the stepper and the Overview card
  * alike. */
 export function useOverviewSteps(project: Project, opts: StepsContext = {}): StepView[] {
-  return overviewSteps(useLiveProject(project), opts);
+  const t = useT();
+  return overviewSteps(useLiveProject(project), opts, t);
 }
 
 export interface StepAction {
@@ -153,17 +179,19 @@ export function primaryAction(steps: readonly StepView[]): StepAction | null {
 }
 
 /** The card's one quiet alternative to the main action. */
-export function secondaryAction(steps: readonly StepView[], project: Project): StepAction | null {
+export function secondaryAction(steps: readonly StepView[], project: Project, t: Tr = EN): StepAction | null {
   const cur = steps.find((s) => s.state === "current");
   if (!cur || project.sample) return null;
   const classic = methodOf(project) === "classic";
   switch (cur.tab) {
     case "preview":
-      return { label: "or go straight to Make 3D", tab: "make" };
+      return { label: t("workspace.steps.secondary.straightToMake"), tab: "make" };
     case "make":
-      return cur.action === "Make 3D" && classic ? { label: "or check the 3D look first", tab: "look" } : null;
+      return cur.action === t("workspace.steps.action.make") && classic
+        ? { label: t("workspace.steps.secondary.checkLook"), tab: "look" }
+        : null;
     case "files":
-      return { label: "or make it in 3D again", tab: "make" };
+      return { label: t("workspace.steps.secondary.makeAgain"), tab: "make" };
     default:
       return null;
   }
@@ -176,13 +204,14 @@ export function OverviewSteps({
   steps: readonly StepView[];
   onNavigate: (tab: WorkspaceTabId) => void;
 }): JSX.Element {
+  const t = useT();
   const at = steps.findIndex((s) => s.state === "current");
   const cur = steps[at];
 
   return (
     <section data-testid="overview-steps" aria-labelledby="your-steps" className="flex flex-col gap-3">
       <h2 id="your-steps" className="text-sm font-semibold text-fg">
-        Your steps
+        {t("workspace.steps.title")}
       </h2>
 
       {/* phones: dots and the current step */}
@@ -200,7 +229,7 @@ export function OverviewSteps({
         <div className="flex items-center gap-3">
           <button type="button" onClick={() => onNavigate(cur.tab)} className="min-w-0 flex-1 text-left">
             <span className="block text-xs text-fg-muted">
-              Step {at + 1} of {steps.length}
+              {t("workspace.steps.stepOf", { step: String(at + 1), total: String(steps.length) })}
             </span>
             <span className="block truncate text-sm font-medium text-fg">
               {cur.label}
@@ -257,7 +286,7 @@ export function OverviewSteps({
                   </span>
                   {s.optional ? (
                     <span className="rounded-full border border-edge px-1.5 text-[10px] text-fg-muted">
-                      Optional
+                      {t("workspace.steps.optional")}
                     </span>
                   ) : null}
                 </span>

@@ -27,6 +27,8 @@
  *      value Modal would reject mid-job.
  */
 
+import { EN, type Tr } from "@/lib/i18n/t";
+
 /** The depth model's patch size — every depth_res must be a multiple of it. */
 export const DEPTH_RES_STEP = 14;
 /** Gateway rails, mirrored so the UI never offers a rejectable value. */
@@ -155,6 +157,20 @@ export function clampDepthRes(
 }
 
 /** Dropdown label — quality/name only, NO GPU tier (see module comment). */
-export function depthResLabel(choice: DepthResChoice): string {
-  return choice.name ? `${choice.value} — ${choice.name}` : `${choice.value}`;
+export function depthResLabel(choice: DepthResChoice, t: Tr = EN): string {
+  if (!choice.name) return `${choice.value}`;
+  const key = DEPTH_NAME_KEYS[choice.name];
+  const name = key ? t(`workspace.depthRes.names.${key}`) : choice.name;
+  return t("workspace.depthRes.label", { value: String(choice.value), name });
 }
+
+/** The choice names (English, kept as data) → their message keys. */
+const DEPTH_NAME_KEYS: Record<string, string> = {
+  Draft: "draft",
+  Standard: "standard",
+  High: "high",
+  "Very high": "veryHigh",
+  Maximum: "maximum",
+  "aspect max": "aspectMax",
+  "source native": "sourceNative",
+};

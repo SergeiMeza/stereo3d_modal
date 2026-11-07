@@ -24,6 +24,8 @@ import type { Project } from "@/lib/api/types";
 import { barSides, removesBars } from "@/lib/bars";
 import { formatBytes, formatVideoLength } from "@/lib/format";
 import { resolutionName } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { safeJSONStorage } from "@/lib/state/safeStorage";
 import { useAppAtom } from "@/lib/state/stores";
 
@@ -82,17 +84,26 @@ const PRIMARIES: Record<string, string> = {
   smpte170m: "BT.601",
 };
 
+/** 3D layouts → their message keys. */
 const STEREO: Record<string, string> = {
-  mvhevc: "Spatial video (MV-HEVC)",
-  sbs: "Side by side 3D",
-  tb: "Top and bottom 3D",
+  mvhevc: "mvhevc",
+  sbs: "sbs",
+  tb: "tb",
 };
 
 const words = (map: Record<string, string>, v: string) => map[v.toLowerCase()] ?? v.toUpperCase();
 
 /** "stereo", "5.1", "3 channels". */
-function channelsWord(n: number): string {
-  return n === 1 ? "mono" : n === 2 ? "stereo" : n === 6 ? "5.1" : n === 8 ? "7.1" : `${n} channels`;
+function channelsWord(n: number, t: Tr): string {
+  return n === 1
+    ? t("workspace.source.channels.mono")
+    : n === 2
+      ? t("workspace.source.channels.stereo")
+      : n === 6
+        ? "5.1"
+        : n === 8
+          ? "7.1"
+          : t("workspace.source.channels.many", { count: String(n) });
 }
 
 /** 41_200_000 → "41 Mbit/s"; 256_000 → "256 kbit/s". */
@@ -109,7 +120,7 @@ export interface SourceRow {
  * gateway's source_details (00175) the file, codec, colour, rotation,
  * audio, 3D and camera join the probe's; on projects analyzed before
  * (details_read false) those are unknown and left out. */
-export function sourceRows(project: Project): SourceRow[] {
+export function sourceRows(project: Project, t: Tr = EN): SourceRow[] {
   const rows: SourceRow[] = [];
   const add = (label: string, value: ReactNode | null | undefined | false) => {
     if (value !== null && value !== undefined && value !== false && value !== "") rows.push({ label, value });
@@ -121,94 +132,113 @@ export function sourceRows(project: Project): SourceRow[] {
   const v = d?.video ?? null;
 
   // the file
-  add("File", f?.name);
+  add(t("workspace.source.rows.file"), f?.name);
   const bytes = f?.bytes ?? project.source_bytes;
-  add("Size", bytes && bytes > 0 ? formatBytes(bytes) : null);
-  add("Container", f?.container ? f.container.toUpperCase() : null);
+  add(t("workspace.source.rows.size"), bytes && bytes > 0 ? formatBytes(bytes) : null);
+  add(t("workspace.source.rows.container"), f?.container ? f.container.toUpperCase() : null);
   const duration = f?.duration_s ?? p?.duration_s;
-  add("Length", duration && duration > 0 ? formatVideoLength(duration) : null);
+  add(t("workspace.source.rows.length"), duration && duration > 0 ? formatVideoLength(duration) : null);
 
   // the picture
   const width = v?.width ?? p?.width;
   const height = v?.height ?? p?.height;
-  add("Resolution", width && height ? `${width}×${height} · ${resolutionName({ width, height })}` : null);
+  add(t("workspace.source.rows.resolution"), width && height ? `${width}×${height} · ${resolutionName({ width, height })}` : null);
   const fps = v?.fps ?? p?.fps;
   if (fps) {
     const vfr = v?.vfr ?? p?.vfr ?? false;
     const countedFrames = v?.counted_frames ?? p?.counted_frames;
     const counted = countedFrames && duration ? countedFrames / duration : null;
     add(
-      "Frame rate",
+      t("workspace.source.rows.frameRate"),
       vfr && counted !== null
-        ? `${fpsLabel(fps)} · variable, up to ${fpsLabel(counted)}`
+        ? t("workspace.source.variableUpTo", { fps: fpsLabel(fps), max: fpsLabel(counted) })
         : vfr
-          ? `${fpsLabel(fps)} · variable`
+          ? t("workspace.source.variable", { fps: fpsLabel(fps) })
           : fpsLabel(fps),
     );
   }
   const frames = v?.frames ?? p?.num_frames;
-  add("Frames", frames && frames > 0 ? frames.toLocaleString("en-US") : null);
-  add("Codec", v?.codec ? [words(CODEC, v.codec), v.profile].filter(Boolean).join(" · ") : null);
-  add("Bit depth", v?.bit_depth ? `${v.bit_depth}-bit` : null);
+  add(t("workspace.source.rows.frames"), frames && frames > 0 ? frames.toLocaleString(t.intl) : null);
+  add(t("workspace.source.rows.codec"), v?.codec ? [words(CODEC, v.codec), v.profile].filter(Boolean).join(" · ") : null);
+  add(t("workspace.source.rows.bitDepth"), v?.bit_depth ? t("workspace.source.bitDepth", { bits: String(v.bit_depth) }) : null);
   const bitrate = v?.bitrate_bps ?? p?.bit_rate;
-  add("Video bitrate", bitrate && bitrate > 0 ? rate(bitrate) : null);
+  add(t("workspace.source.rows.videoBitrate"), bitrate && bitrate > 0 ? rate(bitrate) : null);
   // colour: the transfer and primaries while HDR output is on, else the
   // dynamic range alone (also only then)
   const transfer = v?.color_transfer ? words(TRANSFER, v.color_transfer) : project.dynamic_range ? words(RANGE, project.dynamic_range) : null;
   const primaries = v?.color_primaries ? words(PRIMARIES, v.color_primaries) : null;
-  add("Colour", [transfer, primaries].filter(Boolean).join(" · "));
-  if (read && typeof v?.rotation === "number") add("Rotation", v.rotation === 0 ? "None" : `${v.rotation}°`);
+  add(t("workspace.source.rows.colour"), [transfer, primaries].filter(Boolean).join(" · "));
+  if (read && typeof v?.rotation === "number") {
+    add(t("workspace.source.rows.rotation"), v.rotation === 0 ? t("workspace.source.none") : `${v.rotation}°`);
+  }
 
   // the frame
   const crop = d?.source_crop ?? project.crop;
   if (project.has_bars === true && barSides({ ...project, crop: crop ?? undefined }) !== null) {
     const c = parseCrop(crop ?? undefined);
     add(
-      "Black bars",
-      ["Detected", c ? `picture ${c.width}×${c.height}` : null, removesBars(project) ? "removed in your 3D" : "kept in your 3D"]
+      t("workspace.source.rows.bars"),
+      [
+        t("workspace.source.bars.detected"),
+        c ? t("workspace.source.bars.picture", { size: `${c.width}×${c.height}` }) : null,
+        removesBars(project) ? t("workspace.source.bars.removed") : t("workspace.source.bars.kept"),
+      ]
         .filter(Boolean)
         .join(" · "),
     );
   } else if (project.has_bars === false) {
-    add("Black bars", "None");
+    add(t("workspace.source.rows.bars"), t("workspace.source.none"));
   }
 
   // sound, 3D and camera: known only once the file was read
   if (read) {
     const a = d.audio ?? null;
     add(
-      "Audio",
+      t("workspace.source.rows.audio"),
       a
         ? [
             a.codec ? words(CODEC, a.codec) : null,
-            a.channels ? channelsWord(a.channels) : null,
+            a.channels ? channelsWord(a.channels, t) : null,
             a.sample_rate ? `${Math.round(a.sample_rate / 100) / 10} kHz` : null,
             a.bitrate_bps ? rate(a.bitrate_bps) : null,
           ]
             .filter(Boolean)
             .join(" · ")
-        : "None",
+        : t("workspace.source.none"),
     );
     const st = d.stereo ?? null;
-    if (st) add("Spatial or 3D", st.layout ? (STEREO[st.layout] ?? st.layout) : st.spatial ? "Spatial video" : "No, 2D");
+    if (st) {
+      const layout = st.layout ? STEREO[st.layout] : undefined;
+      add(
+        t("workspace.source.rows.stereo"),
+        st.layout
+          ? layout
+            ? t(`workspace.source.stereo.${layout}`)
+            : st.layout
+          : st.spatial
+            ? t("workspace.source.stereo.spatial")
+            : t("workspace.source.stereo.flat"),
+      );
+    }
     const cam = d.camera ?? null;
-    add("Camera", cam ? [cam.make, cam.model].filter(Boolean).join(" ") : null);
+    add(t("workspace.source.rows.camera"), cam ? [cam.make, cam.model].filter(Boolean).join(" ") : null);
   }
   return rows;
 }
 
 export function SourceDetails({ project }: { project: Project }): JSX.Element | null {
+  const t = useT();
   const [open, setOpen] = useAppAtom(sourceDetailsOpenAtom);
-  const rows = sourceRows(project);
+  const rows = sourceRows(project, t);
   if (rows.length === 0) return null;
   return (
-    <section aria-label="Source details" className="min-w-0">
+    <section aria-label={t("workspace.source.title")} className="min-w-0">
       <Collapsible.Root open={open} onOpenChange={setOpen}>
         <Collapsible.Trigger
           data-testid="source-details-toggle"
           className="group inline-flex items-center gap-1 text-sm font-semibold text-fg hover:text-fg"
         >
-          Source details
+          {t("workspace.source.title")}
           <ChevronDown aria-hidden className="size-4 text-fg-muted transition-transform group-data-[state=open]:rotate-180" />
         </Collapsible.Trigger>
         {/* rendered only while open, like Run details */}

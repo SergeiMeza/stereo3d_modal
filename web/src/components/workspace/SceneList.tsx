@@ -25,6 +25,7 @@ import {
   frameToTimecode,
   type RationalFPS,
 } from "@/lib/frames";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { blurAfterMouseClick } from "@/lib/interactions";
 
 export interface SceneListProps {
@@ -80,6 +81,7 @@ export function SceneList({
   onSelectScene,
   onMergeScene,
 }: SceneListProps) {
+  const t = useT();
   const ranges = cutsToRanges(cuts, numFrames);
 
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -89,9 +91,9 @@ export function SceneList({
   useScrollActiveSceneToTop(scrollRef, activeStart);
 
   return (
-    <section aria-label="Scenes" className="space-y-2">
+    <section aria-label={t("workspace.sceneList.label")} className="space-y-2">
       <h2 className="text-xs font-semibold tracking-wide text-fg-muted uppercase">
-        Scenes · {ranges.length}
+        {t("workspace.sceneList.heading", { count: String(ranges.length) })}
       </h2>
       {/* ~2 rows of cards before scrolling. */}
       <div
@@ -101,7 +103,7 @@ export function SceneList({
         {ranges.map(([start, end], i) => {
           const active = playhead >= start && playhead < end;
           const thumb = sceneThumbs.find(
-            (t) => t.frame >= start && t.frame < end,
+            (th) => th.frame >= start && th.frame < end,
           );
           return (
             <div key={`${start}-${end}`} className="relative">
@@ -125,14 +127,16 @@ export function SceneList({
                   {thumb ? (
                     <img
                       src={thumb.url}
-                      alt={`scene ${i + 1} keyframe`}
+                      alt={t("workspace.sceneList.keyframeAlt", { scene: String(i + 1) })}
                       draggable={false}
                       className="h-full w-full object-cover"
                     />
                   ) : null}
                 </div>
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="font-medium text-fg">Scene {i + 1}</span>
+                  <span className="font-medium text-fg">
+                    {t("workspace.sceneList.scene", { scene: String(i + 1) })}
+                  </span>
                   <span className="font-mono text-[11px] text-fg-muted">
                     f{start}–f{end}
                   </span>
@@ -146,15 +150,15 @@ export function SceneList({
                   type="button"
                   data-testid="merge-scene"
                   data-start={start}
-                  aria-label={`Merge scene ${i + 1} into the previous scene`}
-                  title={`Remove the cut at frame ${start}, merging this scene into scene ${i}`}
+                  aria-label={t("workspace.sceneList.mergeLabel", { scene: String(i + 1) })}
+                  title={t("workspace.sceneList.mergeTitle", { frame: String(start), previous: String(i) })}
                   onClick={(e) => {
                     blurAfterMouseClick(e);
                     onMergeScene(start);
                   }}
                   className="absolute top-2.5 right-2.5 z-10 rounded border border-edge bg-black/60 px-1.5 py-0.5 text-[10px] text-fg-muted hover:bg-black/80 hover:text-fg"
                 >
-                  Merge ←
+                  {t("workspace.sceneList.merge")}
                 </button>
               ) : null}
             </div>

@@ -13,6 +13,7 @@ import { atomFamily } from "jotai-family";
 
 import { GatewayError, type GatewayClient } from "@/lib/api/client";
 import type { Project } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { seedRuns } from "@/lib/live/liveStore";
 import { openProjectIdAtom } from "@/lib/state/projectScope";
 import { appStore } from "@/lib/state/stores";
@@ -78,12 +79,10 @@ export const openProjectAtom = atom((get) => {
  * isn't available right now." */
 export const isSampleAtom = atom((get) => get(openProjectAtom)?.sample === true);
 
-const NOT_AVAILABLE = "This project isn't available. It may have been removed.";
-
-/** GET the project again. */
+/** GET the project again (t: the page's translator, default English). */
 export const loadProjectAtom = atom(
   null,
-  async (_get, set, a: { client: Pick<GatewayClient, "getProject">; projectId: string }): Promise<void> => {
+  async (_get, set, a: { client: Pick<GatewayClient, "getProject">; projectId: string; t?: Tr }): Promise<void> => {
     const at = projectAtom(a.projectId);
     try {
       const project = await a.client.getProject(a.projectId);
@@ -91,7 +90,7 @@ export const loadProjectAtom = atom(
       seedRuns(appStore, project.conversions);
       set(at, (s) => ({ ...s, project, loadError: null, analyzeWatch: watchAnalyze(s.analyzeWatch, project) }));
     } catch (e) {
-      set(at, (s) => ({ ...s, loadError: loadErrorText(e, false, NOT_AVAILABLE) }));
+      set(at, (s) => ({ ...s, loadError: loadErrorText(e, false, (a.t ?? EN)("workspace.load.notAvailable")) }));
     }
   },
 );
@@ -108,7 +107,7 @@ export const applyProjectUpdateAtom = atom(null, (_get, set, next: Project) => {
 /** Failed analyses are retryable; success flips analyze back to running. */
 export const retryAnalyzeAtom = atom(
   null,
-  async (_get, set, a: { client: Pick<GatewayClient, "retryAnalyze">; projectId: string }): Promise<void> => {
+  async (_get, set, a: { client: Pick<GatewayClient, "retryAnalyze">; projectId: string; t?: Tr }): Promise<void> => {
     const at = projectAtom(a.projectId);
     set(at, (s) => ({ ...s, retrying: true, retryError: null }));
     try {
@@ -120,7 +119,7 @@ export const retryAnalyzeAtom = atom(
         ...s,
         retrying: false,
         retryError:
-          e instanceof GatewayError ? e.message : "Could not restart the analysis — please try again.",
+          e instanceof GatewayError ? e.message : (a.t ?? EN)("workspace.analyze.restartFailed"),
       }));
     }
   },

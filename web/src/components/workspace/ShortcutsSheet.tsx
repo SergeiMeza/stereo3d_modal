@@ -15,43 +15,47 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-import { WORKSPACE_TABS, type TabDef } from "./PageTabs";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import type { Tr } from "@/lib/i18n/t";
+
+import { tabLabel, WORKSPACE_TABS, type TabDef } from "./PageTabs";
 
 interface Shortcut {
   keys: string[];
   action: string;
 }
 
-const pageGroup = (tabs: readonly TabDef[]) => ({
-  title: "Pages",
-  shortcuts: tabs.map((t, i) => ({
+const pageGroup = (tabs: readonly TabDef[], t: Tr) => ({
+  title: t("workspace.shortcuts.pages.title"),
+  shortcuts: tabs.map((tab, i) => ({
     keys: [String(i + 1)],
-    action: `${t.label} page`,
+    action: t("workspace.shortcuts.pages.page", { page: tabLabel(tab.id, t) }),
   })),
 });
 
-const OTHER_GROUPS: readonly { title: string; shortcuts: Shortcut[] }[] = [
+const otherGroups = (t: Tr): readonly { title: string; shortcuts: Shortcut[] }[] => [
   {
-    title: "Playback (every preview & player)",
+    title: t("workspace.shortcuts.playback.title"),
     shortcuts: [
-      { keys: ["Space"], action: "Play / pause" },
-      { keys: ["←", "→"], action: "Step exactly ±1 frame" },
-      { keys: ["Shift", "←/→"], action: "Step ±1 second" },
+      { keys: [t("workspace.shortcuts.keys.space")], action: t("workspace.shortcuts.playback.playPause") },
+      { keys: ["←", "→"], action: t("workspace.shortcuts.playback.stepFrame") },
+      { keys: ["Shift", "←/→"], action: t("workspace.shortcuts.playback.stepSecond") },
     ],
   },
   {
-    title: "Scene changes (Scenes page)",
+    title: t("workspace.shortcuts.scenes.title"),
     shortcuts: [
-      { keys: ["Click"], action: "Scrub the filmstrip" },
-      { keys: ["2×Click"], action: "Add a cut at the cursor frame" },
-      { keys: ["Drag"], action: "Move a cut marker (snaps to frames)" },
-      { keys: ["Del", "⌫"], action: "Remove the selected cut" },
-      { keys: ["⌘/Ctrl", "Scroll"], action: "Zoom the timeline at the playhead" },
+      { keys: [t("workspace.shortcuts.keys.click")], action: t("workspace.shortcuts.scenes.scrub") },
+      { keys: [t("workspace.shortcuts.keys.doubleClick")], action: t("workspace.shortcuts.scenes.addCut") },
+      { keys: [t("workspace.shortcuts.keys.drag")], action: t("workspace.shortcuts.scenes.moveCut") },
+      { keys: ["Del", "⌫"], action: t("workspace.shortcuts.scenes.removeCut") },
+      { keys: ["⌘/Ctrl", t("workspace.shortcuts.keys.scroll")], action: t("workspace.shortcuts.scenes.zoom") },
     ],
   },
   {
-    title: "Help",
-    shortcuts: [{ keys: ["?"], action: "Toggle this sheet" }],
+    title: t("workspace.shortcuts.help.title"),
+    shortcuts: [{ keys: ["?"], action: t("workspace.shortcuts.help.toggle") }],
   },
 ];
 
@@ -67,12 +71,13 @@ export function ShortcutsSheet({
   onOpenChange,
   tabs = WORKSPACE_TABS,
 }: ShortcutsSheetProps): JSX.Element {
-  const groups = [pageGroup(tabs), ...OTHER_GROUPS];
+  const t = useT();
+  const groups = [pageGroup(tabs, t), ...otherGroups(t)];
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent data-testid="shortcuts-sheet" className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Keyboard shortcuts</DialogTitle>
+          <DialogTitle>{t("workspace.shortcuts.title")}</DialogTitle>
         </DialogHeader>
         <div className="grid gap-5 sm:grid-cols-2">
           {groups.map((g) => (
@@ -99,8 +104,7 @@ export function ShortcutsSheet({
           ))}
         </div>
         <p className="text-[11px] text-fg-muted">
-          Shortcuts are ignored while typing in a field. Press <kbd>Esc</kbd>{" "}
-          to close.
+          {rich(t, "workspace.shortcuts.footer", { kbd: (c) => <kbd>{c}</kbd> })}
         </p>
       </DialogContent>
     </Dialog>

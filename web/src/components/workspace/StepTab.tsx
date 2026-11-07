@@ -38,6 +38,7 @@ import {
   type Project,
   type Step,
 } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { PageHeader } from "./PageHeader";
 import type { WorkspaceTabId } from "./PageTabs";
@@ -71,8 +72,8 @@ function TipsCard({ title, items }: { title: string; items: string[] }) {
       </CardHeader>
       <CardContent>
         <ul className="flex list-disc flex-col gap-1.5 pl-4 text-xs text-fg-muted">
-          {items.map((t) => (
-            <li key={t}>{t}</li>
+          {items.map((item) => (
+            <li key={item}>{item}</li>
           ))}
         </ul>
       </CardContent>
@@ -93,6 +94,7 @@ export function StepTab({
   onProjectChanged,
   onNavigate,
 }: StepTabProps): JSX.Element {
+  const t = useT();
   const method = methodOf(project);
   const def = stepDef(step, method);
   const Panel = PANELS[method][step];
@@ -114,12 +116,12 @@ export function StepTab({
           <Drawer direction="right">
             <DrawerTrigger asChild>
               <Button variant="outline" size="xs" data-testid="step-info-button">
-                ⓘ Tips
+                {t("workspace.stepTab.tips")}
               </Button>
             </DrawerTrigger>
             <DrawerContent
               data-testid="step-info-drawer"
-              aria-label={`${def.title} — what you get and tips`}
+              aria-label={t("workspace.stepTab.drawerLabel", { title: def.title })}
               aria-describedby={undefined}
               className="data-[vaul-drawer-direction=right]:w-96 data-[vaul-drawer-direction=right]:max-w-[90vw] data-[vaul-drawer-direction=right]:sm:max-w-[90vw]"
             >
@@ -128,7 +130,7 @@ export function StepTab({
                   {def.title}
                 </DrawerTitle>
                 <DrawerClose asChild>
-                  <Button variant="ghost" size="xs" aria-label="Close tips">
+                  <Button variant="ghost" size="xs" aria-label={t("workspace.stepTab.close")}>
                     ×
                   </Button>
                 </DrawerClose>
@@ -138,13 +140,13 @@ export function StepTab({
                 {lastRun ? (
                   <Card size="sm">
                     <CardContent className="flex items-center gap-2 text-xs">
-                      <span className="text-fg-muted">Last run</span>
+                      <span className="text-fg-muted">{t("workspace.stepTab.lastRun")}</span>
                       <StateChip conversion={lastRun} />
                       <time
                         dateTime={lastRun.created_at}
                         className="text-fg-muted"
                       >
-                        {new Date(lastRun.created_at).toLocaleString()}
+                        {new Date(lastRun.created_at).toLocaleString(t.intl)}
                       </time>
                       <Button
                         variant="link"
@@ -152,14 +154,14 @@ export function StepTab({
                         className="ml-auto"
                         onClick={() => onNavigate("files")}
                       >
-                        Files →
+                        {t("workspace.stepTab.files")}
                       </Button>
                     </CardContent>
                   </Card>
                 ) : null}
 
-                <TipsCard title="What you get" items={def.outputs} />
-                <TipsCard title="Tips" items={def.tips} />
+                <TipsCard title={t("workspace.stepTab.whatYouGet")} items={def.outputs} />
+                <TipsCard title={t("workspace.stepTab.tipsTitle")} items={def.tips} />
               </div>
             </DrawerContent>
           </Drawer>

@@ -863,7 +863,33 @@
       "full": "Your account has {count} emails. Remove one to add another."
     },
     "passkeys": {
-      "loadFailed": "Couldn't load your passkeys."
+      "loadFailed": "Couldn't load your passkeys.",
+      "never": "never",
+      "title": "Passkeys",
+      "subtitle": "Sign in with Face ID, Touch ID, your phone or a security key.",
+      "addTitle": "Add a passkey",
+      "added": "Added {date}",
+      "lastUsed": "Last used {date}",
+      "renameLabel": "Rename {name}",
+      "rename": "Rename",
+      "removeLabel": "Remove {name}",
+      "remove": "Remove",
+      "empty": "No passkeys yet.",
+      "emptyUnsupported": "No passkeys yet. This browser can't add one.",
+      "addedNotice": "Passkey added.",
+      "renamedNotice": "Passkey renamed.",
+      "removedNotice": "Passkey removed.",
+      "addDescription": "Sign in next time with Face ID, Touch ID, your phone or a security key. Nothing to type.",
+      "name": "Name",
+      "confirmed": "Signed in again. Now add the passkey.",
+      "waiting": "Waiting for your passkey…",
+      "add": "Add passkey",
+      "renameTitle": "Rename passkey",
+      "renameDescription": "A name helps you tell your passkeys apart.",
+      "removeTitle": "Remove \"{name}\"?",
+      "removeDescription": "You won't be able to sign in with this passkey any more. You can still sign in another way.",
+      "removing": "Removing…",
+      "removeButton": "Remove passkey"
     },
     "otherAccount": {
       "line": "Another account uses this email (it signs in with {how})."
@@ -2179,7 +2205,7 @@
         "preprocess": "preparation"
       },
       "listAnd": "{a} and {b}",
-      "reusing": "Reusing your earlier <stages>{stages}</stages>",
+      "reusing": "Reusing your earlier <list>{stages}</list>",
       "minutes": "{minutes} min",
       "yourVideo": "Your video: {length}",
       "atFpsPct": "at {fps} fps ({pct})",

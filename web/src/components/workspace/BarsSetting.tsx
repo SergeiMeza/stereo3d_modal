@@ -18,12 +18,14 @@ import { Button } from "@/components/ui/button";
 import { posterUrl, type Project } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { barSides, barsNotice, removesBars, sizeWithoutBars } from "@/lib/bars";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import { parseCrop } from "./utils";
 
 /** Saves remove_bars at once, showing the new value while it saves. */
 function useRemoveBars(project: Project, onSaved: (p: Project) => void) {
   const gateway = useGateway();
+  const t = useT();
   // the person's choice, shown until the project carries it
   const [chosen, setChosen] = useState<boolean | null>(null);
   const [saving, setSaving] = useState(false);
@@ -41,7 +43,7 @@ function useRemoveBars(project: Project, onSaved: (p: Project) => void) {
       onSaved(saved);
     } catch {
       setChosen(before);
-      setError("Couldn't save that. Try again.");
+      setError(t("workspace.bars.saveError"));
     } finally {
       setSaving(false);
     }
@@ -57,6 +59,7 @@ export function BarsNotice({
   project: Project;
   onProjectChanged: (p: Project) => void;
 }): JSX.Element | null {
+  const t = useT();
   const sides = barSides(project);
   const { value, saving, error, set } = useRemoveBars(project, onProjectChanged);
   if (sides === null) return null;
@@ -67,8 +70,8 @@ export function BarsNotice({
     >
       <BeforeAfter project={project} removing={value} />
       <div className="flex min-w-0 flex-1 flex-col gap-2.5">
-        <p className="text-sm text-fg">{barsNotice(sides, value)}</p>
-        <div role="group" aria-label="Black bars" className="flex flex-wrap gap-2">
+        <p className="text-sm text-fg">{barsNotice(sides, value, t)}</p>
+        <div role="group" aria-label={t("workspace.bars.groupLabel")} className="flex flex-wrap gap-2">
           <Button
             size="sm"
             variant={value ? "default" : "outline"}
@@ -76,7 +79,7 @@ export function BarsNotice({
             disabled={saving}
             onClick={() => void set(true)}
           >
-            Remove bars (recommended)
+            {t("workspace.bars.remove")}
           </Button>
           <Button
             size="sm"
@@ -85,7 +88,7 @@ export function BarsNotice({
             disabled={saving}
             onClick={() => void set(false)}
           >
-            Keep them
+            {t("workspace.bars.keep")}
           </Button>
         </div>
         {error !== null && (
@@ -109,6 +112,7 @@ export function BarsToggle({
   fullSize: { width: number; height: number } | null;
   onProjectChanged: (p: Project) => void;
 }): JSX.Element | null {
+  const t = useT();
   const sides = barSides(project);
   const { value, saving, error, set } = useRemoveBars(project, onProjectChanged);
   if (sides === null || !project.probe) return null;
@@ -126,22 +130,22 @@ export function BarsToggle({
         />
         <span className="flex flex-col gap-0.5">
           <span className="flex flex-wrap items-center gap-2">
-            <span className="font-medium">Remove black bars</span>
+            <span className="font-medium">{t("workspace.bars.toggle.label")}</span>
             <span
               data-testid="bars-recommended"
               className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[11px] text-primary"
             >
-              Recommended
+              {t("workspace.bars.toggle.recommended")}
             </span>
           </span>
           <span data-testid="bars-toggle-help" className="text-xs text-fg-muted">
             {value
               ? without && fullSize
-                ? `Your video has black bars. The 3D fills the frame, so its size changes to fit the picture: ${dims(without)} instead of ${dims(fullSize)}.`
-                : "Your video has black bars. The 3D fills the frame, so its size changes to fit the picture."
+                ? t("workspace.bars.toggle.removingSized", { without: dims(without), full: dims(fullSize) })
+                : t("workspace.bars.toggle.removing")
               : fullSize
-                ? `The 3D keeps the black bars, at ${dims(fullSize)}.`
-                : "The 3D keeps the black bars."}
+                ? t("workspace.bars.toggle.keepingSized", { full: dims(fullSize) })
+                : t("workspace.bars.toggle.keeping")}
           </span>
         </span>
       </label>
@@ -156,6 +160,7 @@ export function BarsToggle({
 
 /** Two small frames: the video now, and what the 3D shows. */
 function BeforeAfter({ project, removing }: { project: Project; removing: boolean }): JSX.Element | null {
+  const t = useT();
   const probe = project.probe;
   const c = parseCrop(project.crop);
   if (!probe || !c) return null;
@@ -193,9 +198,11 @@ function BeforeAfter({ project, removing }: { project: Project; removing: boolea
   };
   return (
     <div data-testid="bars-before-after" className="flex shrink-0 items-end gap-2" aria-hidden="true">
-      {frame(probe.width / probe.height, null, "Your video")}
+      {frame(probe.width / probe.height, null, t("workspace.bars.before"))}
       <span className="pb-5 text-fg-muted">→</span>
-      {removing ? frame(c.width / c.height, croppedImg, "Your 3D") : frame(probe.width / probe.height, null, "Your 3D")}
+      {removing
+        ? frame(c.width / c.height, croppedImg, t("workspace.bars.after"))
+        : frame(probe.width / probe.height, null, t("workspace.bars.after"))}
     </div>
   );
 }

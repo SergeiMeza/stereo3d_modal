@@ -30,6 +30,7 @@ import {
 import { formatClock } from "@/lib/format";
 import { parseRational } from "@/lib/frames";
 import { METHOD_NAMES, qualityChoices, videoFacts } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 import {
   MoveToLifelikeOffer,
@@ -40,9 +41,6 @@ import type { WorkspaceTabId } from "./PageTabs";
 import { BarsNotice } from "./BarsSetting";
 import { OverviewSteps, primaryAction, secondaryAction, useOverviewSteps } from "./OverviewSteps";
 import { SourceDetails } from "./SourceDetails";
-
-/** What the summary says you'll get (the default files of a full run). */
-const YOU_GET = "Vision Pro spatial video + Side by side";
 
 /** A run that cost (or is costing) money: anything but failed, cancelled
  * or never-started runs. The method chooser stays open until one exists
@@ -118,6 +116,7 @@ export function OverviewTab({
   onProjectChanged,
   onProjectUpdated,
 }: OverviewTabProps): JSX.Element {
+  const t = useT();
   const method = methodOf(project);
   const quotes = useMethodQuotes(project, [method]);
   const previewQuote = usePreviewQuote(project, method === "lifelike");
@@ -126,13 +125,13 @@ export function OverviewTab({
   const thumb =
     posterUrl(project);
   const own = quotes[method];
-  const ownPrice = priceAndTime(own);
+  const ownPrice = priceAndTime(own, t);
   const steps = useOverviewSteps(project, {
     previewFree: previewQuote?.payment_flow === "free_preview",
     previewCents: previewQuote ? previewQuote.quote.amount_cents : null,
   });
   const primary = primaryAction(steps);
-  const secondary = secondaryAction(steps, project);
+  const secondary = secondaryAction(steps, project, t);
 
   return (
     <div data-testid="overview-tab" className="mx-auto flex max-w-5xl flex-col gap-5">
@@ -155,7 +154,7 @@ export function OverviewTab({
         <div className="flex min-w-0 flex-col gap-4">
           <div className="min-w-0">
             <h2 className="truncate text-lg font-semibold text-fg">
-              {project.name || "Untitled project"}
+              {project.name || t("workspace.overview.untitled")}
             </h2>
             {probe ? (
               <p data-testid="overview-facts" className="text-sm text-fg-muted">
@@ -168,26 +167,28 @@ export function OverviewTab({
             <>
               <dl className="grid overflow-hidden rounded-lg border border-edge text-sm sm:grid-cols-[0.9fr_1.4fr_1.1fr]">
                 <div className="flex flex-col gap-1.5 px-3.5 py-3">
-                  <dt className="text-xs text-fg-muted">Method</dt>
+                  <dt className="text-xs text-fg-muted">{t("workspace.overview.method")}</dt>
                   <dd>
                     <MethodChip method={method} />
                   </dd>
                 </div>
                 <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-l">
-                  <dt className="text-xs text-fg-muted">You&apos;ll get</dt>
+                  <dt className="text-xs text-fg-muted">{t("workspace.overview.youGet")}</dt>
                   <dd data-testid="overview-you-get" className="text-fg">
-                    {YOU_GET}
+                    {t("workspace.overview.youGetValue")}
                   </dd>
                 </div>
                 <div className="flex flex-col gap-1.5 border-t border-edge px-3.5 py-3 sm:border-t-0 sm:border-l">
                   <dt className="text-xs text-fg-muted">
-                    {project.sample ? "Price" : own ? `At ${own.qualityLabel}` : "Price"}
+                    {project.sample || !own
+                      ? t("workspace.overview.price")
+                      : t("workspace.overview.priceAt", { quality: own.qualityLabel })}
                   </dt>
                   <dd data-testid="overview-price" className={project.sample ? "text-fg" : "font-mono text-fg"}>
                     {project.sample
-                      ? "A sample: already in 3D, never billed"
+                      ? t("workspace.overview.samplePrice")
                       : own === undefined
-                      ? "Pricing this video…"
+                      ? t("workspace.overview.pricing")
                       : (ownPrice ?? own.error)}
                   </dd>
                 </div>
@@ -226,20 +227,14 @@ export function OverviewTab({
                   />
                   <div className="min-w-0 flex-1">
                     <AnalyzeProgress analyze={project.analyze} />
-                    <p className="mt-1 text-sm">
-                      We&apos;re analyzing your video. Prices appear
-                      here when it&apos;s done. Free.
-                    </p>
+                    <p className="mt-1 text-sm">{t("workspace.overview.analyzing")}</p>
                   </div>
                 </>
               ) : project.analyze.state === "failed" ? (
                 // the notice above the page offers Try again and support
-                <p className="text-sm">We couldn&apos;t analyze this video.</p>
+                <p className="text-sm">{t("workspace.analyze.failed")}</p>
               ) : (
-                <p className="text-sm">
-                  Your video is waiting to be looked through. Prices appear
-                  here when it&apos;s done.
-                </p>
+                <p className="text-sm">{t("workspace.overview.waiting")}</p>
               )}
             </div>
           )}
