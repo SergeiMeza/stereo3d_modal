@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -144,6 +145,14 @@ func (s *Service) closePay(ctx context.Context, p *store.PayRequest, state, reas
 	p.State = state
 }
 
+// payClientIP keys the public pay routes' limits (REV-08): the address the
+// load balancer saw, X-Client-IP only from the relay (identity.IPPolicy),
+// never a header any caller can set.
+func (s *Service) payClientIP(r *http.Request) string {
+	ip, _ := identity.NewIPPolicy(s.Cfg.LBIPs, s.Cfg.RelayIPs).ClientIP(r)
+	return ip
+}
+
 // errPayLinkUnknown is every miss alike: no such token, a malformed one.
 func errPayLinkUnknown() error {
 	return httpx.Err(http.StatusNotFound, "pay_link_not_found", "This payment link isn't valid.")
@@ -151,7 +160,7 @@ func errPayLinkUnknown() error {
 
 func (s *Service) payRequestFor(w http.ResponseWriter, r *http.Request, lim *ipLimiter) (*store.PayRequest, bool) {
 	ctx := r.Context()
-	if !lim.allow(clientIP(r), time.Now()) {
+	if !lim.allow(s.payClientIP(r), time.Now()) {
 		httpx.WriteErr(ctx, w, httpx.Err(http.StatusTooManyRequests, "rate_limited", "too many tries; wait a minute"))
 		return nil, false
 	}

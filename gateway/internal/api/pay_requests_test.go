@@ -172,3 +172,41 @@ func TestPayLinkInvoiceAndExpiry(t *testing.T) {
 func stripexPaid(pi string, cents int64) stripex.Outcome {
 	return stripex.Outcome{Paid: true, PaymentIntentID: pi, AmountReceived: cents, PaymentMethod: "pm_1"}
 }
+
+// REV-08: the pay routes' limits key on the address the load balancer
+// saw: a made-up X-Client-IP (or a forged first X-Forwarded-For hop) on
+// every call doesn't get past them; the relay's X-Client-IP still counts
+// per caller.
+func TestPayLinkLimitIgnoresClaimedIPs(t *testing.T) {
+	s, _ := offService(t)
+	s.Cfg.LBIPs, s.Cfg.RelayIPs = "34.117.11.37", "101.47.76.86"
+	call := func(i int, xff, claimed string) int {
+		rec := httptest.NewRecorder()
+		r := httptest.NewRequest("GET", "/v1/pay-requests/pr_x", nil)
+		r.SetPathValue("token", "pr_doesnotexist0000000000000000000000000")
+		r.RemoteAddr = "169.254.1.1:1"
+		r.Header.Set("X-Forwarded-For", xff)
+		if claimed != "" {
+			r.Header.Set("X-Client-IP", claimed)
+		}
+		s.HandleGetPayRequest(rec, r)
+		return rec.Code
+	}
+	limited := false
+	for i := 0; i < 70; i++ {
+		forged := fmt.Sprintf("10.9.%d.%d", i/250, i%250)
+		if call(i, forged+", 203.0.113.77, 34.117.11.37", forged) == http.StatusTooManyRequests {
+			limited = true
+			break
+		}
+	}
+	if !limited {
+		t.Fatal("70 reads with made-up client addresses all got through")
+	}
+	// through the relay: each claimed caller has its own allowance
+	for i := 0; i < 3; i++ {
+		if code := call(i, fmt.Sprintf("198.18.0.%d, 101.47.76.86, 34.117.11.37", i), fmt.Sprintf("198.18.0.%d", i)); code != http.StatusNotFound {
+			t.Fatalf("relay caller %d: %d", i, code)
+		}
+	}
+}
