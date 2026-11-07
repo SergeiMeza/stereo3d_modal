@@ -6,6 +6,18 @@ import { safeExternalUrl } from "./links";
 import { parseRoute } from "./router";
 import { audioLine, fileQualityLine } from "./fileQuality";
 
+describe("formatMoney counts minor units as Stripe does, not Intl (REV-02)", () => {
+  it("HUF, IDR and ISK have two; KWD three; JPY none; USD two", () => {
+    expect(formatMoney(399000, "huf")).toBe("HUF\u00a03,990");
+    expect(formatMoney(399050, "huf")).toBe("HUF\u00a03,990.50");
+    expect(formatMoney(15900000, "idr")).toBe("IDR\u00a0159,000.00");
+    expect(formatMoney(139000, "isk")).toBe("ISK\u00a01,390");
+    expect(formatMoney(3050, "kwd")).toBe("KWD\u00a03.050");
+    expect(formatMoney(1648, "jpy")).toBe("¥1,648");
+    expect(formatMoney(1838, "usd")).toBe("$18.38");
+  });
+});
+
 describe("formatMoney and paidLocal (owner 2026-11-07, Option B)", () => {
   it("each currency in its own minor units: JPY and KRW none, EUR and USD two", () => {
     expect(formatMoney(7480, "jpy")).toBe("¥7,480");

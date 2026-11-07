@@ -41,6 +41,22 @@ describe("formatMoney (owner 2026-11-07, Option B): any currency in its own mino
     expect(formatMoney(825, "usd", "en-US")).toBe("$8.25");
   });
 
+  it("counts minor units as Stripe does, not Intl (REV-02)", () => {
+    // Intl says 0 for these; Stripe sends 2
+    expect(formatMoney(399000, "huf", "en-US")).toBe("HUF\u00a03,990");
+    expect(formatMoney(399050, "huf", "en-US")).toBe("HUF\u00a03,990.50");
+    expect(formatMoney(15900000, "idr", "en-US")).toBe("IDR\u00a0159,000.00");
+    expect(formatMoney(139000, "isk", "en-US")).toBe("ISK\u00a01,390");
+    expect(formatMoney(400000, "cop", "en-US")).toBe("COP\u00a04,000.00");
+    expect(formatMoney(280000, "pkr", "en-US")).toBe("PKR\u00a02,800.00");
+    // three decimals
+    expect(formatMoney(3050, "kwd", "en-US")).toBe("KWD\u00a03.050");
+    expect(formatMoney(3050, "bhd", "en-US")).toBe("BHD\u00a03.050");
+    // whole units
+    expect(formatMoney(1648, "jpy", "en-US")).toBe("¥1,648");
+    expect(formatMoney(1838, "usd", "en-US")).toBe("$18.38");
+  });
+
   it("each language writes them its own way", () => {
     expect(formatMoney(1234, "jpy", "ja-JP")).toBe("￥1,234");
     expect(formatMoney(825, "usd", "ja-JP")).toBe("$8.25");

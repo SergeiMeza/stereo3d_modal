@@ -55,14 +55,43 @@ function usdFormat(tag: string, digits: number): Intl.NumberFormat {
 }
 
 const money = new Map<string, Intl.NumberFormat>();
-function moneyFormat(locale: string, currency: string, display: "symbol" | "code" = "symbol"): Intl.NumberFormat {
-  const id = `${locale}|${currency}|${display}`;
+function moneyFormat(
+  locale: string,
+  currency: string,
+  display: "symbol" | "code" = "symbol",
+  digits?: number,
+): Intl.NumberFormat {
+  const id = `${locale}|${currency}|${display}|${digits ?? ""}`;
   let f = money.get(id);
   if (!f) {
-    f = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: display });
+    f = new Intl.NumberFormat(locale, {
+      style: "currency",
+      currency,
+      currencyDisplay: display,
+      ...(digits === undefined ? {} : { minimumFractionDigits: digits, maximumFractionDigits: digits }),
+    });
     money.set(id, f);
   }
   return f;
+}
+
+/* Stripe's minor units, as the gateway's local_money.go counts them
+ * (REV-02): Intl's own digits differ for HUF, IDR, COP, PKR and ISK (0 in
+ * Intl, 2 in Stripe), which read 100 times too large. */
+const ZERO_DECIMAL = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+const THREE_DECIMAL = new Set(["bhd", "jod", "kwd", "omr", "tnd"]);
+/** two-decimal in Stripe but written whole when there are no cents, as
+ * on the invoices ("HUF 3,990", "NT$317") */
+const WHOLE_SHOWN = new Set(["twd", "huf", "isk"]);
+
+/** How many minor units a currency has in Stripe: 0, 3 or 2. */
+export function minorUnitsOf(currency: string): number {
+  const c = currency.toLowerCase();
+  if (ZERO_DECIMAL.has(c)) return 0;
+  if (THREE_DECIMAL.has(c)) return 3;
+  return 2;
 }
 
 const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
@@ -70,14 +99,17 @@ const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
 /**
  * An amount in any currency, in the currency's own minor units (owner
  * 2026-11-07, Option B): formatMoney(1234, "jpy", "ja-JP") → "￥1,234"
- * (JPY has no minor unit); formatMoney(825, "usd", "en-US") → "$8.25". The minor units come from Intl (JPY and KRW
- * 0, USD and EUR 2, BHD 3); `locale` is the Intl tag (Tr.intl, which keeps
+ * (JPY has no minor unit); formatMoney(825, "usd", "en-US") → "$8.25". The minor units are Stripe's
+ * (minorUnitsOf: JPY and KRW 0, KWD 3, HUF and USD 2), never Intl's; `locale` is the Intl tag (Tr.intl, which keeps
  * Latin digits for Arabic). In a right-to-left language the amount keeps
  * its own order inside a sentence.
  */
 export function formatMoney(amountMinor: number, currency: string, locale: string): string {
-  const f = moneyFormat(locale, currency.toUpperCase());
-  return isolateFor(locale, f.format(Math.trunc(amountMinor) / 10 ** digitsOf(f)));
+  const minor = Math.trunc(amountMinor);
+  const units = minorUnitsOf(currency);
+  const shown = WHOLE_SHOWN.has(currency.toLowerCase()) && minor % 100 === 0 ? 0 : units;
+  const f = moneyFormat(locale, currency.toUpperCase(), "symbol", shown);
+  return isolateFor(locale, f.format(minor / 10 ** units));
 }
 
 /** US dollars that can't pass for local dollars beside another currency
@@ -97,10 +129,6 @@ export function formatUsdLabeled(cents: number, locale: string): string {
 
 function isEnglish(locale: string): boolean {
   return locale.split("-")[0].toLowerCase() === "en";
-}
-
-function digitsOf(f: Intl.NumberFormat): number {
-  return f.resolvedOptions().maximumFractionDigits ?? 2;
 }
 
 function isolateFor(locale: string, text: string): string {

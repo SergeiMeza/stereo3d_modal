@@ -1,12 +1,39 @@
 /** Formatting for amounts and times. Amounts are USD cents. */
 
-/** Any currency in its own minor units, with Intl (owner 2026-11-07,
- * Option B): formatMoney(7480, "jpy") → "¥7,480" (JPY and KRW have none),
- * formatMoney(760, "eur") → "€7.60". */
+/* Stripe's minor units, as the gateway's local_money.go counts them
+ * (REV-02): Intl says 0 for HUF, IDR, COP, PKR and ISK where Stripe sends
+ * 2, which read 100 times too large. */
+const ZERO_DECIMAL = new Set([
+  "bif", "clp", "djf", "gnf", "jpy", "kmf", "krw", "mga", "pyg", "rwf", "ugx", "vnd", "vuv", "xaf", "xof", "xpf",
+]);
+const THREE_DECIMAL = new Set(["bhd", "jod", "kwd", "omr", "tnd"]);
+/** two-decimal in Stripe but written whole when there are no cents, as
+ * on the invoices ("HUF 3,990", "NT$317") */
+const WHOLE_SHOWN = new Set(["twd", "huf", "isk"]);
+
+/** How many minor units a currency has in Stripe: 0, 3 or 2. */
+export function minorUnitsOf(currency: string): number {
+  const c = currency.toLowerCase();
+  if (ZERO_DECIMAL.has(c)) return 0;
+  if (THREE_DECIMAL.has(c)) return 3;
+  return 2;
+}
+
+/** Any currency in its own minor units (owner 2026-11-07, Option B):
+ * formatMoney(7480, "jpy") → "¥7,480", formatMoney(760, "eur") → "€7.60",
+ * formatMoney(3050, "kwd") → "KWD 3.050". The units are Stripe's, never
+ * Intl's. */
 export function formatMoney(amountMinor: number, currency: string, locale = "en-US"): string {
-  const f = new Intl.NumberFormat(locale, { style: "currency", currency: currency.toUpperCase() });
-  const digits = f.resolvedOptions().maximumFractionDigits ?? 2;
-  return f.format(Math.trunc(amountMinor) / 10 ** digits);
+  const minor = Math.trunc(amountMinor);
+  const units = minorUnitsOf(currency);
+  const shown = WHOLE_SHOWN.has(currency.toLowerCase()) && minor % 100 === 0 ? 0 : units;
+  const f = new Intl.NumberFormat(locale, {
+    style: "currency",
+    currency: currency.toUpperCase(),
+    minimumFractionDigits: shown,
+    maximumFractionDigits: shown,
+  });
+  return f.format(minor / 10 ** units);
 }
 
 /** US dollars beside another currency, never a bare "$" (owner
