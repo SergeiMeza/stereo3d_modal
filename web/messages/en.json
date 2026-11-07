@@ -1459,9 +1459,9 @@
       "creditShort": "{amount} credit to start",
       "creditRules": "{days, plural, other {Use it within # days.}} It isn't paid out.",
       "creditRulesNoDays": "It isn't paid out.",
-      "terms": "Renews until you cancel.",
       "loadFailed": "Plans didn't load.",
-      "signIn": "Sign in to get Pro."
+      "signIn": "Sign in to get Pro.",
+      "termsRenews": "Renews at {price} until you cancel. Cancel any time in Plan & billing."
     },
     "list": {
       "notOnSale": "Pro isn't on sale on the web yet. Get it in {app} on iPhone, iPad, Mac or Vision Pro.",
@@ -1470,7 +1470,9 @@
       "save": "Save {pct}%",
       "creditPlus": "+ {credit}",
       "opening": "Opening checkout…",
-      "getPro": "Get Pro"
+      "getPro": "Get Pro",
+      "bestValue": "Best value",
+      "perMonth": "{price} a month"
     },
     "screen": {
       "included": "Pro is included in your {plan} plan.",
