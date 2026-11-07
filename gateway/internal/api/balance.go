@@ -368,6 +368,7 @@ func (s *Service) fallBackToPayNow(ctx context.Context, convID string) {
 // handleBalanceEffects runs what a balance transaction asked for after it
 // committed: a reload charge, a low-balance mail.
 func (s *Service) handleBalanceEffects(ctx context.Context, uid string, fx store.BalanceEffects) {
+	s.rcAttrsTouch(ctx, uid, "balance") // web_credit_balance_usd
 	if fx.LowAlert {
 		s.mailLowBalance(ctx, uid, fx.Available)
 	}

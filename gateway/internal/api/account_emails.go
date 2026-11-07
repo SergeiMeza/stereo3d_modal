@@ -291,6 +291,7 @@ func (s *Service) putEmail(ctx context.Context, uid, rawEmail, code string, make
 // syncMainEmail carries a main switch to Firebase, customers.email and
 // the Stripe customer; a switch superseded meanwhile is done.
 func (s *Service) syncMainEmail(ctx context.Context, sy *store.EmailSync) error {
+	defer s.rcAttrsTouch(ctx, sy.UID, "email") // web_email (and $email where it has none)
 	row, err := s.Store.GetAccountEmail(ctx, sy.Email)
 	if err != nil && !errors.Is(err, store.ErrNotFound) {
 		return err

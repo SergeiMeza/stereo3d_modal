@@ -236,7 +236,13 @@ type Rates struct {
 	// a dry run, logged).
 	AdminCreditGrantCapCents int64    `firestore:"admin_credit_grant_cap_cents"`
 	CreditGrantMailAllowUIDs []string `firestore:"credit_grant_mail_allow_uids"`
-	ProDiscountPct           float64  `firestore:"pro_discount_pct"`
+	// RCAttrSync: the gateway's RevenueCat attributes (rc_attributes.go):
+	// off | dry_run | allowlist | on; "" = allowlist off prod, off on prod
+	// (on at the release, with the owner's yes). RCAttrAllowUIDs: the
+	// accounts allowlist mode writes; every other is a dry run, logged.
+	RCAttrSync      string   `firestore:"rc_attr_sync"`
+	RCAttrAllowUIDs []string `firestore:"rc_attr_allow_uids"`
+	ProDiscountPct  float64  `firestore:"pro_discount_pct"`
 	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
 	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
 	// File keeping (S3D-24), see the accessors: days without use before a
@@ -1597,4 +1603,16 @@ func (r *Rates) AdminCreditGrantCap() int64 {
 		return r.AdminCreditGrantCapCents
 	}
 	return 50000
+}
+
+// RCAttrMode is rc_attr_sync with its env default.
+func (r *Rates) RCAttrMode(env string) string {
+	switch r.RCAttrSync {
+	case "off", "dry_run", "allowlist", "on":
+		return r.RCAttrSync
+	}
+	if env == "prod" {
+		return "off"
+	}
+	return "allowlist"
 }

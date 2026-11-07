@@ -164,6 +164,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 		return
 	}
 	start, end := sub.Period()
+	defer s.rcAttrsTouch(ctx, uid, "plan") // web_plan, web_plan_renews_at
 	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		if c.Plan != nil && c.Plan.SubscriptionID != "" && c.Plan.SubscriptionID != sub.ID && c.Plan.Active(time.Now()) && sub.Status != "active" {
 			return nil // an older or incomplete subscription doesn't replace the live one

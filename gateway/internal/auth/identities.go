@@ -21,11 +21,20 @@ type Identity struct {
 	Subjects map[string]string
 	// LastSignIn: the latest sign-in or token refresh (zero when unknown).
 	LastSignIn time.Time
+	// CreatedAt: the account's creation; DisplayName its profile name.
+	CreatedAt   time.Time
+	DisplayName string
 }
 
 func identityOf(u *fbauth.UserRecord) *Identity {
 	id := &Identity{UID: u.UID, Email: u.Email, EmailVerified: u.EmailVerified, Disabled: u.Disabled}
+	if u.UserInfo != nil {
+		id.DisplayName = u.DisplayName
+	}
 	if m := u.UserMetadata; m != nil {
+		if m.CreationTimestamp > 0 {
+			id.CreatedAt = time.UnixMilli(m.CreationTimestamp).UTC()
+		}
 		if ms := max(m.LastLogInTimestamp, m.LastRefreshTimestamp); ms > 0 {
 			id.LastSignIn = time.UnixMilli(ms).UTC()
 		}

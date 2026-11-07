@@ -272,6 +272,7 @@ func (s *Service) HandleLinkIdentity(w http.ResponseWriter, r *http.Request, use
 		out["session"] = session
 	}
 	s.passkeyEvent(ctx, user.UID, "link_provider", map[string]any{"method": req.Provider})
+	s.rcAttrsTouch(ctx, user.UID, "sign_in") // web_sign_in_methods
 	slog.InfoContext(ctx, "sign-in method linked", "provider", req.Provider)
 	w.Header().Set("Cache-Control", "no-store")
 	httpx.WriteOK(w, out)
@@ -387,6 +388,7 @@ func (s *Service) HandleUnlinkIdentity(w http.ResponseWriter, r *http.Request, u
 		return
 	}
 	s.passkeyEvent(ctx, user.UID, "unlink_provider", map[string]any{"method": provider})
+	s.rcAttrsTouch(ctx, user.UID, "sign_in")
 	out, err := s.identitiesJSON(ctx, user.UID)
 	if err != nil {
 		httpx.WriteErr(ctx, w, identityErr(ctx, "read", err))

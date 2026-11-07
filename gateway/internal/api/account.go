@@ -441,6 +441,7 @@ func (s *Service) finishAccountDeletionKeeping(ctx context.Context, uid string, 
 	s.removeSamples(ctx, uid)                                                                                               // the onboarding sample goes with the account
 	s.planCreditOpAll(ctx, uid, store.EntryPlanCreditRemoval, "deleted", "", "account deleted", "plancredit_deleted", true) // never paid out
 	s.revokePlanEntitlement(ctx, uid, "account deleted")                                                                    // the app's business/studio, never pro
+	s.rcAttrsClear(ctx, uid)                                                                                                // the web_* attributes go; delete_account is svs-backend's
 	if s.Auth == nil || keepSignIn {
 		return nil
 	}

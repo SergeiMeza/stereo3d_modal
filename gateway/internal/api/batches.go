@@ -67,6 +67,7 @@ func (s *Service) creditLifetime(ctx context.Context, uid string, cents int64) {
 	}); err != nil {
 		slog.WarnContext(ctx, "lifetime credit failed", "uid", uid, "cents", cents, "err", err)
 	}
+	s.rcAttrsTouch(ctx, uid, "spend") // web_lifetime_spend_usd
 }
 
 // batchTier is the batch window and cap the account accumulates under

@@ -362,6 +362,7 @@ func (s *Service) HandleCustomerPasskeyRegisterVerify(w http.ResponseWriter, r *
 		return
 	}
 	s.passkeyEvent(ctx, user.UID, "passkey_added", map[string]any{"passkey_id": p.ID, "device_hint": hint, "rp_id": rp.id})
+	s.rcAttrsTouch(ctx, user.UID, "sign_in")
 	s.mailPasskeyChange(ctx, user.UID, user.Email, p, true)
 	writeJSON(w, http.StatusCreated, map[string]any{"passkey": customerPasskeyJSON(p)})
 }
@@ -568,6 +569,7 @@ func (s *Service) HandleCustomerPasskeyDelete(w http.ResponseWriter, r *http.Req
 		return
 	}
 	s.passkeyEvent(ctx, user.UID, "passkey_removed", map[string]any{"passkey_id": id})
+	s.rcAttrsTouch(ctx, user.UID, "sign_in")
 	s.mailPasskeyChange(ctx, user.UID, user.Email, p, false)
 	httpx.WriteOK(w, map[string]any{"removed": id})
 }

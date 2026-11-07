@@ -458,6 +458,7 @@ func (s *Service) HandleEventStream(w http.ResponseWriter, r *http.Request) {
 	}
 	specs := []store.WatchSpec{s.Store.UserRuns(uid, eventsRunWindow), s.Store.UserProjects(uid, eventsProjectWindow),
 		s.Store.UserHandoffs(uid), s.Store.UserSettles(uid), s.Store.UserBalance(uid)}
+	s.rcAttrsActive(r.Context(), r, uid) // web_last_active_at, web_country
 	s.serveStream(w, r, specs, false)
 }
 

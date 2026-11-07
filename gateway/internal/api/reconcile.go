@@ -89,6 +89,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	if n := s.invoiceSweep(ctx); n > 0 {
 		stats["invoices_done"] = n // C6
 	}
+	if n := s.syncRCAttributes(ctx); n > 0 {
+		stats["rc_attributes"] = n // debounced web_* attributes
+	}
 
 	// Settle sweeps: money actions committed (capture_pending/cancel_pending)
 	// whose Stripe call didn't land (crash, transient Stripe error).

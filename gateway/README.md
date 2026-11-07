@@ -955,6 +955,35 @@ processing anywhere, 100 newest; a run that leaves it gets its final
 A viewer's ticket is refused there and an admin ticket on `/v1/events`;
 each open is audited (`events_stream`).
 
+### RevenueCat attributes (owner 2026-11-07)
+
+The gateway writes its own subscriber attributes to RevenueCat (POST
+/v1/subscribers/{uid}/attributes, the RC_API_KEY_V1 secret key):
+`web_email` (main email), `web_display_name`, `web_account_created_at`,
+`web_sign_in_methods` (sorted, comma-joined: apple.com, email,
+google.com, passkey), `web_country` (the edge's country of the last web
+visit, never the IP), `web_locale`, `web_plan` (the web plan's id, or
+none), `web_plan_renews_at`, `web_lifetime_spend_usd`,
+`web_credit_balance_usd`, `web_last_active_at`. `$email` and
+`$displayName` only when the customer has no value yet (read first; the
+app owns them). Never written: newsletter, locale, free_tier_arm,
+svs_simulated, delete_account, any `$` attribution attribute; no IPs,
+tokens or payment details; no consent (the web stores none).
+
+- **When:** debounced (1 min) after a balance change, spend, a plan
+  change, a main-email switch, a sign-in method or passkey change, and a
+  web visit (the live stream's open, at most every 6 h); the reconcile
+  sweep sends only what changed (`rc_attr_sync_{env}/{uid}` keeps hashes
+  of the personal values, never the values).
+- **Deletion:** a completed deletion clears the web_* attributes (null),
+  once; a deleted account never gets them back. delete_account stays
+  svs-backend's.
+- **Who:** `rc_attr_sync` off | dry_run | allowlist | on; the default is
+  allowlist off prod (only `rc_attr_allow_uids` are written; the rest log
+  the attribute names they would send) and off on prod (on at the
+  release, with the owner's yes). RevenueCat is one shared project: no
+  backfill on TEST beyond the allowlisted uid.
+
 ### Grant credit (owner 2026-11-07)
 
 Usage credit an admin adds to an account, on the same ledger as the Pro
