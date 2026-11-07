@@ -121,10 +121,13 @@ describe("RequireBilling", () => {
       </RequireBilling>,
     );
     // delinquent users still reach their work — banner + content together
-    expect(await screen.findByTestId("billing-banner")).toBeTruthy();
+    // QA 2026-11-07: "You have $X to pay…" with Pay now (the settle sheet)
+    expect(await screen.findByTestId("payment-issue-owed")).toBeTruthy();
     expect(screen.getByText("studio content")).toBeTruthy();
-    expect(screen.getByText("There's a problem with your last payment.")).toBeTruthy();
-    expect(screen.getByTestId("billing-pay").textContent).toBe("Pay $1.20");
+    expect(screen.getByTestId("payment-issue-owed").textContent).toContain(
+      "You have $1.20 to pay. Your downloads come back as soon as it's paid.",
+    );
+    expect(screen.getByTestId("payment-issue-pay-owed").textContent).toBe("Pay now");
   });
 });
 
@@ -151,7 +154,7 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
   it("Pay $X opens the settle sheet; paying clears the banner", async () => {
     seedDebt();
     renderShell();
-    fireEvent.click(await screen.findByTestId("billing-pay"));
+    fireEvent.click(await screen.findByTestId("payment-issue-pay-owed"));
     await screen.findByTestId("settle-main");
     const sheet = screen.getByTestId("settle-sheet");
     expect(within(sheet).getByRole("heading").textContent).toBe("Pay for your last runs");
@@ -161,7 +164,7 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
     expect(within(sheet).queryByTestId("pay-save-line")).toBeNull();
     fireEvent.click(within(sheet).getByTestId("settle-main"));
     expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
-    await waitFor(() => expect(screen.queryByTestId("billing-banner")).toBeNull());
+    await waitFor(() => expect(screen.queryByTestId("payment-issue-owed")).toBeNull());
     expect(mockDb.billing.unpaid).toHaveLength(0);
   });
 
@@ -172,7 +175,7 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
     pp.last_topup_at = "2026-11-01T00:00:00Z";
     pp.topups = 1;
     renderShell();
-    fireEvent.click(await screen.findByTestId("billing-pay"));
+    fireEvent.click(await screen.findByTestId("payment-issue-pay-owed"));
     const main = await screen.findByTestId("settle-balance");
     expect(main.textContent).toBe("Pay $7.25 from your balance");
     expect(screen.getAllByText("or pay another way").length).toBeGreaterThan(0);
@@ -186,7 +189,7 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
   it("a payment still in progress: Confirming your payment…, no button", async () => {
     seedDebt();
     renderShell();
-    fireEvent.click(await screen.findByTestId("billing-pay"));
+    fireEvent.click(await screen.findByTestId("payment-issue-pay-owed"));
     await screen.findByTestId("settle-main");
     const sheet = screen.getByTestId("settle-sheet");
     mockDb.billing.nextConfirm = "processing";
@@ -196,13 +199,13 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
     await waitFor(() =>
       expect(screen.getByTestId("billing-banner").textContent).toBe("Confirming your payment…"),
     );
-    expect(screen.queryByTestId("billing-pay")).toBeNull();
+    expect(screen.queryByTestId("payment-issue-pay-owed")).toBeNull();
   });
 
   it("a decline keeps the sheet and the banner", async () => {
     seedDebt();
     renderShell();
-    fireEvent.click(await screen.findByTestId("billing-pay"));
+    fireEvent.click(await screen.findByTestId("payment-issue-pay-owed"));
     await screen.findByTestId("settle-main");
     const sheet = screen.getByTestId("settle-sheet");
     mockDb.billing.nextConfirm = "declined";
@@ -210,7 +213,7 @@ describe("BillingBanner settle flows (P9 → P2)", () => {
     expect((await within(sheet).findByTestId("pay-error")).textContent).toBe(
       "Your payment method was declined. Try another way to pay.",
     );
-    expect(screen.getByTestId("billing-banner")).toBeTruthy();
+    expect(screen.getByTestId("payment-issue-owed")).toBeTruthy();
     expect(mockDb.billing.unpaid).toHaveLength(1);
   });
 

@@ -94,7 +94,9 @@ function OwedBanner(): JSX.Element | null {
   const owed = outstandingCents(status);
   const settling = status.outstanding?.settling === true;
   const review = status.flow_state === "under_review";
-  if (owed <= 0 && !review) return null;
+  // QA 2026-11-07: plain dues read in PaymentIssues ("You have $X to
+  // pay…", on Billing and Account too); this keeps review and Confirming…
+  if (!review && !(owed > 0 && settling)) return null;
 
   return (
     <div

@@ -769,7 +769,8 @@
       "retryOn": "A payment didn't go through. We'll try again on {date}.",
       "retrying": "A payment didn't go through. We'll try again soon.",
       "failed": "Payment failed.",
-      "payNow": "Pay now"
+      "payNow": "Pay now",
+      "owed": "You have {amount} to pay. Your downloads come back as soon as it's paid."
     }
   },
   "auth": {

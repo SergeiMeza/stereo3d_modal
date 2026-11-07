@@ -13,20 +13,30 @@
  *   while pending, "Payment failed." once final, with the gateway's
  *   customer-safe reason under it (last_error_message).
  *
- * Each has Pay now: the pay page its pay_url names (/pay/{token}).
+ * - what the account owes (an open settle, unpaid runs): "You have $3.75
+ *   to pay. Your downloads come back as soon as it's paid." (QA
+ *   2026-11-07: it showed only inside the History row).
+ *
+ * Each has Pay now: the settle sheet for what's owed, else the pay page
+ * its pay_url names (/pay/{token}).
  */
 
 import { AlertCircleIcon } from "lucide-react";
 import type { JSX } from "react";
 
+import { useSettle } from "@/components/pay/SettleSheet";
+import { formatCents } from "@/components/steps/money";
 import { prepaidOf, type BillingStatus, type PaymentRetry } from "@/lib/api/types";
+import { outstandingCents } from "@/lib/billingCopy";
 import { useBilling } from "@/lib/billing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export interface PaymentIssue {
-  id: "past_due" | "reload_retry" | "dues_retry";
+  id: "owed" | "past_due" | "reload_retry" | "dues_retry";
   text: string;
+  /** "owed": Pay now opens the settle sheet (no pay_url) */
+  settle?: boolean;
   /** the gateway's customer-safe reason (last_error_message) */
   detail: string | null;
   payUrl: string | null;
@@ -47,10 +57,18 @@ function retryText(r: PaymentRetry, t: Tr): string | null {
   return null;
 }
 
-/** What to show, in order: the plan first, then retries. */
+/** What to show, in order: what the account owes, the plan, retries. */
 export function paymentIssues(status: BillingStatus | null, t: Tr = EN): PaymentIssue[] {
   if (!status) return [];
   const out: PaymentIssue[] = [];
+  // QA 2026-11-07: an open settle or unpaid runs showed only inside the
+  // History row; now wherever the plan's notice shows. A payment already
+  // confirming says nothing here (the account banner says Confirming…),
+  // and a review has its own line.
+  const owed = outstandingCents(status);
+  if (owed > 0 && status.outstanding?.settling !== true && status.flow_state !== "under_review") {
+    out.push({ id: "owed", text: t("billing.issues.owed", { amount: formatCents(owed, t) }), detail: null, payUrl: null, settle: true });
+  }
   const plan = status.plan;
   if (plan?.past_due) {
     const name = plan.name ?? (plan.plan === "pro" ? "Pro" : plan.plan.charAt(0).toUpperCase() + plan.plan.slice(1));
@@ -74,6 +92,7 @@ export function paymentIssues(status: BillingStatus | null, t: Tr = EN): Payment
 export function PaymentIssues(): JSX.Element | null {
   const t = useT();
   const { status } = useBilling();
+  const { openSettle } = useSettle();
   const issues = paymentIssues(status, t);
   if (issues.length === 0) return null;
   return (
@@ -95,7 +114,16 @@ export function PaymentIssues(): JSX.Element | null {
                 </span>
               ) : null}
             </p>
-            {i.payUrl ? (
+            {i.settle ? (
+              <button
+                type="button"
+                data-testid={`payment-issue-pay-${i.id}`}
+                onClick={() => openSettle()}
+                className="shrink-0 rounded-md bg-amber-300 px-3 py-1.5 text-sm font-medium text-zinc-950 hover:bg-amber-200"
+              >
+                {t("billing.issues.payNow")}
+              </button>
+            ) : i.payUrl ? (
               <a
                 href={i.payUrl}
                 data-testid={`payment-issue-pay-${i.id}`}

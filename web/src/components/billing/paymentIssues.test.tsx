@@ -4,11 +4,12 @@
  * Pay now to its pay page; the plan's benefits are never said to stop,
  * and auto-reload reads as paused while its reload is retried.
  */
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 
 import AccountScreen from "@/components/auth/AccountScreen";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
+import { SettleProvider } from "@/components/pay/SettleSheet";
 import type { AccountPlan } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
@@ -125,6 +126,52 @@ describe("a plan past due", () => {
     banner();
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId("payment-issue-past_due")).toBeNull();
+  });
+});
+
+describe("what the account owes (QA 2026-11-07: it showed only inside the History row)", () => {
+  function owe(cents: number): void {
+    mockDb.billing.unpaid.push({ conversion_id: "cowed0000001", amount_cents: cents, currency: "usd", needs_action: false });
+  }
+
+  it("Billing: You have $3.75 to pay, and Pay now opens the settle sheet", async () => {
+    owe(375);
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <SettleProvider>
+            <BalanceDialogsProvider>
+              <BillingScreen />
+            </BalanceDialogsProvider>
+          </SettleProvider>
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    const issue = await screen.findByTestId("payment-issue-owed");
+    expect(issue.textContent).toContain("You have $3.75 to pay. Your downloads come back as soon as it's paid.");
+    fireEvent.click(within(issue).getByTestId("payment-issue-pay-owed"));
+    expect(await screen.findByTestId("settle-sheet")).toBeTruthy();
+  });
+
+  it("the Account page and the projects pages' banner show it too", async () => {
+    owe(375);
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <AccountScreen />
+        </BillingProvider>
+      </AuthProvider>,
+    );
+    expect((await screen.findByTestId("payment-issue-owed")).textContent).toContain("You have $3.75 to pay.");
+    cleanup();
+    banner();
+    expect((await screen.findByTestId("payment-issue-owed")).textContent).toContain("You have $3.75 to pay.");
+  });
+
+  it("nothing owed: nothing", async () => {
+    banner();
+    await new Promise((r) => setTimeout(r, 50));
+    expect(screen.queryByTestId("payment-issue-owed")).toBeNull();
   });
 });
 
