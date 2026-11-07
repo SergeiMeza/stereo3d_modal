@@ -315,17 +315,16 @@ describe("refund policy 2026-11-07: ask, a person decides, nothing promised", ()
     };
   }
 
-  it("someone with only a balance opens the form from the deletion link and sends it", async () => {
+  it("someone with only a balance can ask about it from Billing's refund line", async () => {
     balanceOption(1250);
     const bodies = captureRequests();
-    window.history.replaceState(null, "", "/account/billing?refund=balance");
     renderBilling();
+    fireEvent.click(await screen.findByTestId("refunds-request"));
     const sheet = await screen.findByTestId("refund-sheet");
     const row = (await within(sheet).findByLabelText(/Unspent balance/)) as HTMLInputElement;
-    expect(row.checked).toBe(true);
+    expect(row.checked).toBe(false);
     expect(sheet.textContent).toContain("$12.50 unspent");
-    // the link is used once
-    expect(window.location.search).toBe("");
+    fireEvent.click(row);
     fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
     expect(await within(sheet).findByText(REVIEW_LINE)).toBeTruthy();
     expect(bodies).toEqual([{ balance: true }]);

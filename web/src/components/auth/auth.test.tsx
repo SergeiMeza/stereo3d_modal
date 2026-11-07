@@ -214,7 +214,7 @@ describe("AccountScreen delete (mock mode)", () => {
   });
 
   // gateway 00081: a cash balance is refunded first, then the account goes
-  it("with a balance: says it's lost and links to the refund form; no Refund and delete (policy 2026-11-07)", async () => {
+  it("with a balance: says only that it's lost; no refund wording, no Refund and delete (policy 2026-11-07)", async () => {
     settleAllRuns();
     mockDb.billing.prepaid.balance_cents = 1250;
     mockDb.billing.prepaid.topups = 1;
@@ -224,8 +224,9 @@ describe("AccountScreen delete (mock mode)", () => {
     });
     renderWithAuth(<AccountScreen />);
     const lost = await screen.findByTestId("delete-balance-lost");
-    expect(lost.textContent).toBe("Your unspent balance of $12.50 will be lost when your account is deleted. Ask for a refund first");
-    expect(within(lost).getByRole("link", { name: "Ask for a refund first" }).getAttribute("href")).toBe("/account/billing?refund=balance");
+    expect(lost.textContent).toBe("Your unspent balance of $12.50 will be lost when your account is deleted.");
+    expect(within(lost).queryByRole("link")).toBeNull();
+    expect(screen.getByText("Danger zone").closest("section")!.textContent).not.toMatch(/refund/i);
     expect(screen.queryByRole("button", { name: /refund/i })).toBeNull();
     expect(document.body.textContent).not.toMatch(/We return|returning your|Refund and delete|Delete and refund/);
     await typeDeleteAndConfirm();

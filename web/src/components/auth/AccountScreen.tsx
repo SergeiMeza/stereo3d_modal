@@ -10,8 +10,8 @@
  * it charges what is owed first and refuses while a balance is unpaid or a
  * run is going; a bank's 3DS challenge is completed here and the delete
  * retried once. Refund policy (owner 2026-11-07): an unspent balance isn't
- * returned at deletion; the danger zone says it will be lost and links to
- * the refund request form for anyone who wants to ask first.
+ * returned at deletion; the danger zone says it will be lost (no refund
+ * wording there, owner).
  */
 
 import { useRouter } from "next/navigation";
@@ -26,7 +26,6 @@ import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
 import { prepaidCents } from "@/components/billing/BalanceCard";
 import { DeleteDues } from "@/components/pay/DeleteDues";
-import { REFUND_REQUEST_HREF } from "@/components/refunds/refundLink";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
 import { prepaidOf } from "@/lib/api/types";
@@ -354,13 +353,7 @@ export default function AccountScreen() {
           <DeletePlanNotice state={planState} />
           {mustCancel || lost <= 0 ? null : (
             <p data-testid="delete-balance-lost" className="text-sm text-fg">
-              {rich(tr, "account.delete.balanceLost", {
-                link: (c) => (
-                  <Link href={REFUND_REQUEST_HREF} className="text-primary underline underline-offset-2 hover:text-primary/80">
-                    {c}
-                  </Link>
-                ),
-              }, { amount: formatCents(lost, tr) })}
+              {tr("account.delete.balanceLost", { amount: formatCents(lost, tr) })}
             </p>
           )}
           {mustCancel ? null : (

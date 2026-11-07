@@ -33,7 +33,7 @@ import {
   replyToRequestAtom,
   supportRequestsAtom,
 } from "./refundAtoms";
-import { REPORT_PROBLEM_SUBJECT, dropRefundParam } from "./refundLink";
+import { REPORT_PROBLEM_SUBJECT } from "./refundLink";
 import { RefundSheet, shortDay } from "./RefundSheet";
 
 export const APPLE_REFUND_URL = "https://reportaproblem.apple.com";
@@ -113,12 +113,6 @@ export function RefundsFooter(): JSX.Element {
   const openSheet = useAppSetAtom(openRefundSheetAtom);
   const pro = useProStatus();
   const appStore = proCase(pro) === "app_store";
-  // the account's danger zone links here (?refund=balance): the form opens
-  // once, the balance picked
-  useEffect(() => {
-    const asked = dropRefundParam();
-    if (asked !== null) openSheet({ balance: asked === "balance" });
-  }, [openSheet]);
 
   return (
     <footer data-testid="refunds" aria-label={t("refunds.section.ariaLabel")} className="flex flex-col gap-3 text-xs text-fg-muted">

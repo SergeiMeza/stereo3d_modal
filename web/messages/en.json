@@ -988,7 +988,7 @@
       "deleting": "Deleting…",
       "button": "Delete account",
       "note": "Anything you still owe is charged to your saved payment method first. Your projects, videos and 3D files are removed from your account at once; billing records are kept for support.",
-      "balanceLost": "Your unspent balance of {amount} will be lost when your account is deleted. <link>Ask for a refund first</link>",
+      "balanceLost": "Your unspent balance of {amount} will be lost when your account is deleted.",
       "paymentNeededAmount": "Payment needed ({amount}): update your payment method on Billing, then delete your account.",
       "paymentNeeded": "Payment needed: update your payment method on Billing, then delete your account.",
       "failed": "Failed to delete account."
