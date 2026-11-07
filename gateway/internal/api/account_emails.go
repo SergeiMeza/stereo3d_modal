@@ -342,17 +342,9 @@ func (s *Service) runEmailSync(ctx context.Context, sy *store.EmailSync) string 
 		slog.WarnContext(ctx, "main email sync not marked done", "err", err)
 	}
 	if sy.Previous != "" && sy.Previous != sy.Email {
-		s.mailCustomer(ctx, "EM1_"+sy.ID, sy.UID, sy.Previous, mainEmailChangedMail(sy.Email))
+		s.mailCustomer(ctx, "EM1_"+sy.ID, sy.UID, sy.Previous, mainEmailChangedMail(sy.Email, s.Cfg.SiteURL+"/account"))
 	}
 	return store.EmailSyncDone
-}
-
-// mainEmailChangedMail goes to the old main address.
-func mainEmailChangedMail(newMain string) customerMail {
-	return customerMail{Kind: "EM1", Subject: "Spatial Video Studio: your account's main email changed",
-		Lines: []string{"Your Spatial Video Studio account now uses " + maskEmail(newMain) + " as its main email.",
-			"This address still signs in until it's removed from the account.",
-			"If you didn't make this change, reply to this email."}}
 }
 
 // emailSyncSweep retries main switches left pending (reconcile).

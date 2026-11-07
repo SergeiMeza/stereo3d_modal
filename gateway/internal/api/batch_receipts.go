@@ -2,8 +2,6 @@ package api
 
 import (
 	"context"
-	"fmt"
-	"strings"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
@@ -65,47 +63,24 @@ func (s *Service) mailReceipt(ctx context.Context, key, uid string, cents int64,
 	if len(runs) == 0 {
 		return
 	}
-	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), receiptMail(cents, s.receiptLabels(ctx, runs), s.Cfg.SiteURL+"/billing"))
+	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), receiptMail(money(cents), s.receiptLines(ctx, runs), s.Cfg.SiteURL+"/billing"))
 }
 
-// receiptLabels: "Kyoto walk · Lifelike 3D render · 4K · 60 fps · 3 min ·
-// $4.50" per run.
-func (s *Service) receiptLabels(ctx context.Context, runs []receiptRun) []string {
-	out := make([]string, 0, len(runs))
+// receiptLines: each paid 3D video (name, Lifelike or Classic) and its
+// amount.
+func (s *Service) receiptLines(ctx context.Context, runs []receiptRun) []receiptLine {
+	out := make([]receiptLine, 0, len(runs))
 	for _, r := range runs {
-		label, cents := r.Fallback, r.Cents
+		line := receiptLine{Run: runInfo{Name: r.Fallback}}
+		cents := r.Cents
 		if c, err := s.Store.GetConversion(ctx, r.ID); err == nil {
-			label = s.invoiceLineLabel(ctx, c)
+			line.Run = s.runMailInfo(ctx, c)
 			if cents == 0 {
 				cents = runCardCents(c)
 			}
 		}
-		if label == "" {
-			label = "3D video"
-		}
-		out = append(out, label+" · "+money(cents))
+		line.Amount = money(cents)
+		out = append(out, line)
 	}
 	return out
-}
-
-// receiptMail is E20: what was charged (in USD: an off-session charge is
-// never presented locally), the runs, and where the invoice is.
-func receiptMail(cents int64, labels []string, link string) customerMail {
-	n := len(labels)
-	what := "your last 3D video"
-	if n > 1 {
-		what = fmt.Sprintf("your last %d 3D videos", n)
-	}
-	shown := labels
-	more := ""
-	if n > receiptRunsShown {
-		shown, more = labels[:receiptRunsShown], fmt.Sprintf("; and %d more", n-receiptRunsShown)
-	}
-	return customerMail{Kind: "E20", Subject: "Spatial Video Studio: receipt for " + what + " · " + money(cents),
-		Lines: []string{
-			"We charged " + money(cents) + usdNote + " for " + what + ".",
-			strings.Join(shown, "; ") + more + ".",
-			"Your invoice listing every run will be in Billing shortly.",
-		},
-		Button: "View billing", Link: link, Receipt: true}
 }

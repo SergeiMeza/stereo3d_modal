@@ -302,7 +302,11 @@ func (s *Service) applyRunPayment(ctx context.Context, convID string, p store.Pa
 		if updated.Stripe.Presentment == nil && updated.Stripe.PaymentIntentID == out.PaymentIntentID {
 			updated.Stripe.Presentment = presentmentOf(out.Presentment) // for the receipt mail (E1)
 		}
-		s.afterRunPaid(ctx, updated, out.PaymentMethod)
+		payCtx := ctx
+		if p.Kind != store.PaymentCheckoutSession && previous != nil && previous.Kind == store.PaymentCheckoutSession && updated.Stripe.Presentment == nil {
+			payCtx = withE1Deferred(ctx) // paid from the PaymentIntent's event: the session will say in which currency (E1 waits)
+		}
+		s.afterRunPaid(payCtx, updated, out.PaymentMethod)
 	}
 	return updated, nil
 }

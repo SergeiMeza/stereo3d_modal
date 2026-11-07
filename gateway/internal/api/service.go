@@ -495,6 +495,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 	if updated.ProjectID != "" && updated.Kind == "video" {
 		s.foldSceneProfile(ctx, updated, job)
 	}
+	s.queueReadyMail(ctx, updated) // "your 3D video is ready", web only, after a short window
 	s.checkFramesOverQuote(ctx, updated)
 	switch updated.Stripe.Mode {
 	case store.BillingModeAuto:

@@ -583,21 +583,13 @@ func (s *Service) mailPasskeyChange(ctx context.Context, uid, email string, p *s
 	if email == "" {
 		email = s.accountEmail(ctx, uid)
 	}
-	what, kind, subject := "added to", "S1", "Spatial Video Studio: a passkey was added to your account"
+	kind := "S1"
 	if !added {
-		what, kind, subject = "removed from", "S2", "Spatial Video Studio: a passkey was removed from your account"
+		kind = "S2"
 	}
-	at := time.Now().UTC().Format("2 January 2006, 15:04 UTC")
-	s.mailCustomer(ctx, fmt.Sprintf("%s_%s_%d", kind, p.ID, time.Now().Unix()), uid, email, customerMail{
-		Kind: kind, Subject: subject,
-		Lines: []string{
-			fmt.Sprintf("A passkey was %s your Spatial Video Studio account on %s.", what, at),
-			fmt.Sprintf("Passkey: %s (%s).", p.Name, p.DeviceHint),
-			"If this was you, there's nothing to do.",
-			"If it wasn't, sign in, remove any passkey you don't recognize under Account, Sign-in and security, and reply to this mail.",
-		},
-		Button: "Sign-in and security", Link: s.Cfg.SiteURL + "/account",
-	})
+	now := time.Now()
+	s.mailCustomer(ctx, fmt.Sprintf("%s_%s_%d", kind, p.ID, now.Unix()), uid, email,
+		passkeyMail(added, p.Name, p.DeviceHint, now, s.Cfg.SiteURL+"/account"))
 }
 
 // GET /v1/admin/passkey-adoption → {accounts_with_passkey, passkeys,

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"strings"
 	"testing"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -53,12 +54,14 @@ func TestReceiptCardLine(t *testing.T) {
 		t.Fatal(got)
 	}
 	jpy := &store.Presentment{AmountMinor: 1648, Currency: "jpy"}
-	m := withCardLine(orderConfirmationMail("Beach · 4K", 1000, "https://site/p", true), jpy, 1000)
-	if len(m.Lines) < 3 || m.Lines[0] != "Beach · 4K · $10.00, charged now." || m.Lines[1] != "Your card was charged ¥1,648 (US$10.00)." {
-		t.Fatalf("%q", m.Lines)
+	// the local amount sits in the amount line itself
+	run := runInfo{Name: "Beach", Res: "4K"}
+	m := orderConfirmationMail(run, amountText(jpy, 1000), "https://site/p", true).layout("en")
+	if paid := m.Rows[len(m.Rows)-1]; paid.Label != "Paid" || paid.Value != "¥1,648 (US$10.00)" || !paid.Total ||
+		strings.Contains(m.Text(), "card") {
+		t.Fatalf("%+v", m.Rows)
 	}
-	plain := orderConfirmationMail("Beach · 4K", 1000, "https://site/p", true)
-	if got := withCardLine(plain, nil, 1000); len(got.Lines) != len(plain.Lines) {
-		t.Fatalf("usd %q", got.Lines)
+	if plain := orderConfirmationMail(run, amountText(nil, 1000), "https://site/p", true).layout("en"); plain.Rows[len(plain.Rows)-1].Value != "$10.00" {
+		t.Fatalf("usd %+v", plain.Rows)
 	}
 }

@@ -46,18 +46,11 @@ func (s *Service) stepUpFailed(ctx context.Context, uid string, cust *store.Cust
 		api.Details = map[string]any{}
 	}
 	api.Details["pay_url"] = link
-	why := "Your bank declined the payment."
-	if api.Details["requires_action"] == true {
-		why = "Your bank needs you to confirm the payment."
-	}
+	auth := api.Details["requires_action"] == true
 	// once per link a UTC day (REV-18): each in-app retry is a new quote,
 	// and the customer is already looking at the error
-	s.mailCustomer(ctx, "SU1_"+pr.ID+"_"+time.Now().UTC().Format("20060102"), uid, s.accountEmail(ctx, uid), customerMail{
-		Kind: "SU1", Subject: "Spatial Video Studio: your plan change didn't go through",
-		Lines: []string{"We couldn't take " + money(q.TodayCents) + " to move you to " + q.To.Name + ". " + why,
-			"Your plan hasn't changed. You can pay on the page below to finish the change."},
-		Button: "Pay " + money(q.TodayCents), Link: link,
-	})
+	s.mailCustomer(ctx, "SU1_"+pr.ID+"_"+time.Now().UTC().Format("20060102"), uid, s.accountEmail(ctx, uid),
+		stepUpFailedMail(money(q.TodayCents), q.To.Name, auth, link))
 }
 
 // stepUpPayLive: open with today's price while the change can still be

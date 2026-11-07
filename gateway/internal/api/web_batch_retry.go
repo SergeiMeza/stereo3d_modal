@@ -141,24 +141,7 @@ func (s *Service) mailWebGroupFailed(ctx context.Context, kind, key, uid string,
 	if owed <= 0 {
 		return // paid meanwhile
 	}
-	m := customerMail{Kind: kind, Button: "Pay " + money(owed), Link: link}
-	if kind == "E2" {
-		m.Subject = "Spatial Video Studio: a payment didn't go through"
-		m.Lines = []string{"We couldn't take " + money(owed) + usdNote + " for your last 3D videos. " + r.LastErrorMessage}
-	} else {
-		m.Subject = "Spatial Video Studio: your payment is still waiting"
-		m.Lines = []string{money(owed) + usdNote + " for your last 3D videos is still unpaid. " + r.LastErrorMessage}
-	}
-	switch {
-	case r.State == store.RetryPending:
-		m.Lines = append(m.Lines, "We'll try again on "+retryDay(r)+". Downloads are paused until it's paid.")
-	case r.Reason == retryAuth:
-		m.Lines = append(m.Lines, "Confirm the payment to download again.")
-		m.Button = "Confirm and pay " + money(owed)
-	default:
-		m.Lines = append(m.Lines, "We won't try again on our own. Pay it to download again.")
-	}
-	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), m)
+	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), webGroupFailedMail(kind, money(owed), r.LastErrorMessage, nextOf(r), link))
 }
 
 // webRetryJSON is the latest failed web group's schedule for Billing's

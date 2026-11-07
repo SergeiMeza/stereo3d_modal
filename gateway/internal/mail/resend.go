@@ -11,7 +11,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"html"
 	"io"
 	"net/http"
 	"strings"
@@ -116,26 +115,21 @@ func (r *Resend) Send(ctx context.Context, m Message) error {
 }
 
 // ResetSubject names the app, as every user mail does.
-const ResetSubject = "Reset your Spatial Video Studio password"
+var ResetSubject = ResetLayout("en", "").FullSubject()
 
-// PasswordReset is the reset email for link. Plain and short; it names
-// only the app and the site.
+// PasswordReset is the reset email for link, in the customer mails'
+// branded layout (English: the request carries no account language).
 func PasswordReset(to, link string) Message {
-	text := "Hi,\n\n" +
-		"We got a request to reset the password for your Spatial Video Studio account.\n" +
-		"To choose a new password, open this link:\n\n" +
-		link + "\n\n" +
-		"The link works once and expires in one hour. If you didn't ask for this, " +
-		"you can ignore this email; your password stays the same.\n\n" +
-		"Spatial Video Studio\n"
-	l := html.EscapeString(link)
-	htmlBody := "<p>Hi,</p>" +
-		"<p>We got a request to reset the password for your Spatial Video Studio account. " +
-		"To choose a new password, open this link:</p>" +
-		`<p><a href="` + l + `">Choose a new password</a></p>` +
-		`<p style="color:#666;font-size:13px">` + l + "</p>" +
-		"<p>The link works once and expires in one hour. If you didn't ask for this, " +
-		"you can ignore this email; your password stays the same.</p>" +
-		"<p>Spatial Video Studio</p>"
-	return Message{To: to, Subject: ResetSubject, Text: text, HTML: htmlBody}
+	l := ResetLayout("en", link)
+	return Message{To: to, Subject: l.FullSubject(), Text: l.Text(), HTML: l.HTML()}
+}
+
+// ResetLayout is the reset email in lang (also the mail previews).
+func ResetLayout(lang, link string) Layout {
+	return Layout{Lang: lang, Subject: T(lang, "reset.subject", nil), Title: T(lang, "reset.title", nil),
+		Preheader: T(lang, "reset.expiry", nil),
+		Paras:     []string{T(lang, "reset.body", nil)},
+		Button:    T(lang, "reset.button", nil), ButtonURL: link,
+		Notes:  []string{T(lang, "reset.expiry", nil)},
+		Reason: T(lang, "reset.reason", nil)}
 }

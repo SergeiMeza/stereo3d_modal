@@ -1139,30 +1139,20 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 // ---------------------------------------------------------------- mails
 
 func (s *Service) mailTopup(ctx context.Context, t *store.Topup) {
-	kind := "Funds added"
-	line := money(t.PaidCents) + " was added to your balance."
-	if t.Auto {
-		kind = "Auto-reload"
-		line = "Auto-reload added " + money(t.PaidCents) + " to your balance. Charged in US dollars." // an off-session charge: never presented locally
+	added := money(t.PaidCents)
+	if !t.Auto {
+		added = amountText(t.Presentment, t.PaidCents) // an off-session reload is never presented locally
 	}
-	b, _ := s.Store.GetBalance(ctx, t.UID)
-	lines := []string{line}
-	if b != nil {
-		lines = append(lines, "Your balance is now "+money(b.Available())+".")
+	now := ""
+	if b, _ := s.Store.GetBalance(ctx, t.UID); b != nil {
+		now = money(b.Available())
 	}
-	lines = append(lines, "Your invoice will be in Billing shortly.")
-	s.mailCustomer(ctx, "E13_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), withCardLine(customerMail{
-		Kind: "E13", Subject: "Spatial Video Studio: " + kind + " · " + money(t.PaidCents), Lines: lines,
-		Button: "View billing", Link: s.Cfg.SiteURL + "/billing", Receipt: true,
-	}, t.Presentment, t.PaidCents))
+	s.mailCustomer(ctx, "E13_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), topupMail(t.Auto, added, now, s.Cfg.SiteURL+"/billing"))
 }
 
 func (s *Service) mailLowBalance(ctx context.Context, uid string, available int64) {
-	s.mailCustomer(ctx, fmt.Sprintf("E14_%s_%d", uid, time.Now().Unix()/3600), uid, s.accountEmail(ctx, uid), customerMail{
-		Kind: "E14", Subject: "Spatial Video Studio: your balance is low",
-		Lines:  []string{"Your balance is " + money(available) + ".", "Add funds to keep making 3D videos from your balance."},
-		Button: "Add funds", Link: s.Cfg.SiteURL + "/billing?add=1",
-	})
+	s.mailCustomer(ctx, fmt.Sprintf("E14_%s_%d", uid, time.Now().Unix()/3600), uid, s.accountEmail(ctx, uid),
+		lowBalanceMail(money(available), s.Cfg.SiteURL+"/billing?add=1"))
 }
 
 func (s *Service) mailBalanceExpiring(ctx context.Context, b *store.Balance, days string) {
@@ -1173,12 +1163,8 @@ func (s *Service) mailBalanceExpiring(ctx context.Context, b *store.Balance, day
 	if ok, err := s.Store.MarkExpiryNotice(ctx, b.UID, key); err != nil || !ok {
 		return
 	}
-	s.mailCustomer(ctx, b.UID+"_"+key, b.UID, s.accountEmail(ctx, b.UID), customerMail{
-		Kind: "E16", Subject: "Spatial Video Studio: your balance expires in " + days + " days",
-		Lines: []string{"Your balance of " + money(max(b.Available(), 0)) + " expires on " + b.ExpiresAt.Format("2 January 2006") + ".",
-			"Any top-up keeps the whole balance for another 12 months."},
-		Button: "Add funds", Link: s.Cfg.SiteURL + "/billing?add=1",
-	})
+	s.mailCustomer(ctx, b.UID+"_"+key, b.UID, s.accountEmail(ctx, b.UID),
+		balanceExpiringMail(days, money(max(b.Available(), 0)), *b.ExpiresAt, s.Cfg.SiteURL+"/billing?add=1"))
 }
 
 func (s *Service) mailBalanceExpired(ctx context.Context, b *store.Balance) {
@@ -1186,11 +1172,7 @@ func (s *Service) mailBalanceExpired(ctx context.Context, b *store.Balance) {
 	if b.ExpiresAt != nil {
 		key += "_" + b.ExpiresAt.Format("20060102")
 	}
-	s.mailCustomer(ctx, key, b.UID, s.accountEmail(ctx, b.UID), customerMail{
-		Kind: "E17", Subject: "Spatial Video Studio: your balance expired",
-		Lines:  []string{"Your balance expired 12 months after your last top-up.", "Questions? Reply to this email."},
-		Button: "Open billing", Link: s.Cfg.SiteURL + "/billing",
-	})
+	s.mailCustomer(ctx, key, b.UID, s.accountEmail(ctx, b.UID), balanceExpiredMail(s.Cfg.SiteURL+"/billing"))
 }
 
 // ------------------------------------------------------------- ledger API

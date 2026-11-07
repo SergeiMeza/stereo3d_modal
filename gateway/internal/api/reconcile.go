@@ -89,6 +89,9 @@ func (s *Service) HandleReconcile(w http.ResponseWriter, r *http.Request) {
 	if n := s.invoiceSweep(ctx); n > 0 {
 		stats["invoices_done"] = n // C6
 	}
+	if n := s.deferredMailSweep(ctx, time.Now().UTC()); n > 0 {
+		stats["deferred_mails"] = n // E1 waiting for its currency, "3D video ready"
+	}
 	if n := s.syncRCAttributes(ctx); n > 0 {
 		stats["rc_attributes"] = n // debounced web_* attributes
 	}

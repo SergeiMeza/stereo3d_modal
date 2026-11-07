@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"errors"
-	"fmt"
 	"log/slog"
 	"net/http"
 	"path"
@@ -421,16 +420,18 @@ func (s *Service) sendFileNotice(ctx context.Context, cust *store.Customer, proj
 		slog.WarnContext(ctx, "file keeping: notice not sendable (no address or mail key)", "projects", len(projects))
 		return false
 	}
-	m := fileNoticeMail(projects, lead, now, s.Cfg.SiteURL, s.rates(ctx).FileKeep())
-	m.To = cust.Email
+	lang := mail.Resolve(mailLangOf(cust))
+	l := fileNoticeLayout(projects, lead, now, s.Cfg.SiteURL, s.rates(ctx).FileKeep(), lang)
+	to := cust.Email
 	if s.Cfg.Env != "prod" {
 		if s.Cfg.OwnerAlertEmail == "" {
 			return false
 		}
-		m.To = s.Cfg.OwnerAlertEmail
-		m.Subject += " (test)"
-		m.Text = "[Test environment: this notice is for " + cust.Email + ".]\n\n" + m.Text
+		to = s.Cfg.OwnerAlertEmail
+		l.Subject += " (test)"
+		l.Banner = mail.T(lang, "common.testBanner", mail.Args{"email": cust.Email})
 	}
+	m := mail.Message{To: to, Subject: l.FullSubject(), Text: l.Text(), HTML: l.HTML(), ReplyTo: supportInbox}
 	if err := s.Mail.Send(ctx, m); err != nil {
 		slog.ErrorContext(ctx, "file keeping: notice mail failed", "err", err)
 		return false
@@ -438,37 +439,40 @@ func (s *Service) sendFileNotice(ctx context.Context, cust *store.Customer, proj
 	return true
 }
 
+// fileNoticeMail is the English notice (tests, admin).
 func fileNoticeMail(projects []*store.Project, lead time.Duration, now time.Time, site string, keep time.Duration) mail.Message {
+	l := fileNoticeLayout(projects, lead, now, site, keep, "en")
+	return mail.Message{Subject: l.FullSubject(), Text: l.Text(), HTML: l.HTML()}
+}
+
+// fileNoticeLayout is FK1 in lang: the projects whose files go soon,
+// soonest first, each linking to itself; the subject names the soonest
+// day.
+func fileNoticeLayout(projects []*store.Project, lead time.Duration, now time.Time, site string, keep time.Duration, lang string) mail.Layout {
 	sorted := slices.Clone(projects)
 	slices.SortFunc(sorted, func(a, b *store.Project) int { return a.FilesDeleteAt.Compare(*b.FilesDeleteAt) })
-	soonest := sorted[0].FilesDeleteAt.Add(0)
-	if earliest := now.Add(lead); soonest.Before(earliest) {
+	earliest := now.Add(lead)
+	soonest := *sorted[0].FilesDeleteAt
+	if soonest.Before(earliest) {
 		soonest = earliest // noticeSent moves it there
 	}
-	var b strings.Builder
-	what := "a project"
-	if len(sorted) > 1 {
-		what = fmt.Sprintf("%d projects", len(sorted))
-	}
-	fmt.Fprintf(&b, "Hello,\n\nSpatial Video Studio keeps a project's files for %d days after you last use it. "+
-		"The files of %s you haven't used for a while will be deleted soon: the original video and every 3D video made from it.\n\n",
-		leadDays(keep), what)
+	l := page(lang, "fk1", mail.Args{"date": mail.FormatDayMonth(lang, soonest)})
+	l.Paras = []string{mail.T(lang, "fk1.body", mail.Args{"days": istr(leadDays(keep))})}
 	for _, p := range sorted {
 		at := *p.FilesDeleteAt
-		if earliest := now.Add(lead); at.Before(earliest) {
+		if at.Before(earliest) {
 			at = earliest
 		}
 		name := strings.TrimSpace(p.Name)
 		if name == "" {
-			name = "Untitled project"
+			name = t(lang, "fk1.untitled")
 		}
-		fmt.Fprintf(&b, "- %s: deleted on %s\n  %s/projects/%s\n", name, at.Format("2 January 2006"), site, p.ID)
+		l.Rows = append(l.Rows, mail.Row{Label: name, Value: mail.FormatDate(lang, at), Href: strings.TrimRight(site, "/") + "/projects/" + p.ID})
 	}
-	b.WriteString("\nTo keep a project's files, open the project before then or choose Keep files. " +
-		"Download anything you want to keep. Your account and billing history stay as they are.\n\n" +
-		"Spatial Video Studio\n")
-	subject := fmt.Sprintf("Spatial Video Studio: files of %s will be deleted on %s", what, soonest.Format("2 January"))
-	return mail.Message{Subject: subject, Text: b.String()}
+	l.After = []string{t(lang, "fk1.keep")}
+	l.Button, l.ButtonURL = t(lang, "fk1.button"), strings.TrimRight(site, "/")+"/projects"
+	l.Reason = t(lang, "common.reason.files")
+	return l
 }
 
 // purgeProjectFiles erases a project's stored files (live) or logs what

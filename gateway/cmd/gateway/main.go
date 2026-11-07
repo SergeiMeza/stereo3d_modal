@@ -139,6 +139,7 @@ func main() {
 			// waits up to an hour, takes the conversion over.
 			ctx, cancel := context.WithTimeout(r.Context(), appRequestBudget)
 			defer cancel()
+			svc.NoteRequestLanguage(ctx, u.UID, r.Header.Get("Accept-Language")) // mails in the account's language; once a day, off the request
 			h(w, r.WithContext(ctx), &api.AuthedUser{UID: u.UID, Email: u.Email, AuthTime: u.AuthTime, Anonymous: u.Anonymous})
 		}
 	}
