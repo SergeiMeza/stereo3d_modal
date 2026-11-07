@@ -150,7 +150,7 @@ func (s *Service) closePay(ctx context.Context, p *store.PayRequest, state, reas
 // never a header any caller can set.
 func (s *Service) payClientIP(r *http.Request) string {
 	ip, _ := identity.NewIPPolicy(s.Cfg.LBIPs, s.Cfg.RelayIPs).ClientIP(r)
-	return ip
+	return ip // the same answer as clientIP (both IPPolicy)
 }
 
 // errPayLinkUnknown is every miss alike: no such token, a malformed one.

@@ -6,12 +6,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"net"
 	"net/http"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
+	"spatial-ai-labs/stereo3d-gateway/internal/identity"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -37,30 +38,27 @@ func clientDevice(r *http.Request) string {
 	return "computer"
 }
 
-// clientIP is the caller's address (the load balancer's X-Forwarded-For
-// first hop; the relay's X-Client-IP when present).
+// clientIP is the caller's address for limits, audit hashes and payment
+// records (2026-11-08 security fix): identity.IPPolicy's answer — the hop
+// that reached the load balancer (or Google's front end), and the relay's
+// X-Client-IP only when that hop is the relay; svs-backend's vouched-for
+// caller first. A header any caller can set never decides it.
 func clientIP(r *http.Request) string {
 	if r == nil {
 		return ""
 	}
-	if ip, _, ok := httpx.TrustedClientIP(r.Context()); ok { // svs-backend's caller
-		return ip
-	}
-	if ip := strings.TrimSpace(r.Header.Get("X-Client-IP")); ip != "" && net.ParseIP(ip) != nil {
-		return ip
-	}
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		first := strings.TrimSpace(strings.Split(xff, ",")[0])
-		if net.ParseIP(first) != nil {
-			return first
-		}
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err == nil {
-		return host
-	}
-	return ""
+	ip, _ := clientIPPolicy.Load().(identity.IPPolicy).ClientIP(r)
+	return ip
 }
+
+// clientIPPolicy is set once at start from LB_IPS / RELAY_IPS
+// (SetClientIPPolicy); until then the defaults.
+var clientIPPolicy atomic.Value
+
+func init() { clientIPPolicy.Store(identity.NewIPPolicy("", "")) }
+
+// SetClientIPPolicy sets the addresses clientIP trusts (app start).
+func SetClientIPPolicy(p identity.IPPolicy) { clientIPPolicy.Store(p) }
 
 // runLabel is the sheet's line item: "{project} · {what} · {quality}".
 func (s *Service) runLabel(ctx context.Context, c *store.Conversion) string {
