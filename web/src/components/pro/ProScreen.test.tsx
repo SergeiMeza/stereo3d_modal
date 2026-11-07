@@ -34,7 +34,7 @@ function Offer() {
 }
 
 describe("/pro (mock mode)", () => {
-  it("shows the plans, Weekly first and chosen", async () => {
+  it("shows the plans, Yearly first and chosen as Best value (owner 2026-11-07, BUX-10)", async () => {
     render(
       <AuthProvider>
         <ProScreen />
@@ -42,8 +42,18 @@ describe("/pro (mock mode)", () => {
     );
     expect(await screen.findByTestId("pro-plans")).toBeTruthy();
     expect(screen.getByRole("heading", { level: 1 }).textContent).toMatch(/% off every 3D video$/);
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((r) => r.getAttribute("data-testid"))).toEqual(["pro-plan-yearly", "pro-plan-monthly", "pro-plan-weekly"]);
+    expect(screen.getByTestId("pro-plan-yearly").getAttribute("aria-checked")).toBe("true");
+    expect(screen.getByTestId("pro-plan-best-yearly").textContent).toBe("Best value");
+    expect(screen.queryByTestId("pro-plan-best-weekly")).toBeNull();
+    // per-month equivalents beside the plans that aren't monthly
+    expect(screen.getByTestId("pro-plan-per-month-yearly").textContent).toBe("$4.17 a month");
+    expect(screen.getByTestId("pro-plan-per-month-weekly").textContent).toBe("$17.29 a month");
+    expect(screen.queryByTestId("pro-plan-per-month-monthly")).toBeNull();
+    expect(screen.getByText("Renews at $49.99 a year until you cancel. Cancel any time in Plan & billing.")).toBeTruthy();
     const weekly = screen.getByTestId("pro-plan-weekly");
-    expect(weekly.getAttribute("aria-checked")).toBe("true");
+    expect(weekly.getAttribute("aria-checked")).toBe("false");
     // owner 2026-11-07: no intro offers; the monthly credit instead
     expect(weekly.textContent).toContain("$3.99");
     expect(weekly.textContent).not.toMatch(/for 4 weeks|first year/);
@@ -205,5 +215,29 @@ describe("Business and Studio include Pro (owner, 2026-11)", () => {
     expect(screen.getByText("Business price")).toBeTruthy();
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId("pro-save-link")).toBeNull();
+  });
+});
+
+describe("/pro with Weekly hidden on the web (BUX-24 proposal)", () => {
+  it("off (the default, mock included): Weekly is there", async () => {
+    expect(mockDb.webProWeeklyHidden).toBe(false);
+    render(
+      <AuthProvider>
+        <ProScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByTestId("pro-plan-weekly")).toBeTruthy();
+  });
+
+  it("on: Monthly and Yearly only", async () => {
+    mockDb.webProWeeklyHidden = true;
+    render(
+      <AuthProvider>
+        <ProScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByTestId("pro-plan-yearly")).toBeTruthy();
+    expect(screen.queryByTestId("pro-plan-weekly")).toBeNull();
+    expect(screen.getByTestId("pro-plan-monthly")).toBeTruthy();
   });
 });

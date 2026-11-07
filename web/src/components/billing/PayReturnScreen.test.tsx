@@ -9,7 +9,7 @@ import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
-import { PayReturnScreen } from "./PayReturnScreen";
+import { PayReturnScreen, TOPUP_WINDOW_MS, topupEntry } from "./PayReturnScreen";
 
 const search = vi.hoisted(() => ({ value: "" }));
 vi.mock("next/navigation", () => ({
@@ -93,5 +93,54 @@ describe("Return page (P4)", () => {
     );
     expect(await screen.findByText("Paid. Your downloads are back.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Back to Spatial Video Studio" })).toBeTruthy();
+  });
+});
+
+describe("Return page: a top-up (BUX-04, China's Alipay)", () => {
+  function renderPage(): void {
+    render(
+      <AuthProvider>
+        <PayReturnScreen />
+      </AuthProvider>,
+    );
+  }
+
+  it("paid: Added $25.00. Your balance is $28.20., back to Billing", async () => {
+    const pp = mockDb.billing.prepaid;
+    pp.balance_cents = 2820;
+    pp.entries.push({ id: "e1", kind: "topup", cents: 2500, at: new Date().toISOString() });
+    search.value = "topup=1&amount=2500&payment_intent=pi_1&redirect_status=succeeded";
+    renderPage();
+    expect(await screen.findByText("Added $25.00. Your balance is $28.20.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Back to Billing" }).getAttribute("href")).toBe("/account/billing");
+    expect(screen.queryByText("The payment didn't go through.")).toBeNull();
+  });
+
+  it("before the ledger has it: still checking, never Not paid", async () => {
+    search.value = "topup=1&amount=2500&redirect_status=succeeded";
+    renderPage();
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.getByTestId("pay-return").getAttribute("data-state")).toBe("checking");
+  });
+
+  it("a refused redirect: The payment didn't go through, back to Billing", () => {
+    search.value = "topup=1&amount=2500&redirect_status=failed";
+    renderPage();
+    expect(screen.getByText("The payment didn't go through.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Try again" }).getAttribute("href")).toBe("/account/billing");
+  });
+
+  it("finds this top-up's row: newest, of this amount, not an old one", () => {
+    const now = Date.parse("2026-11-07T10:00:00Z");
+    const at = (ms: number) => new Date(now + ms).toISOString();
+    const rows = [
+      { id: "old", kind: "topup" as const, cents: 2500, at: at(-TOPUP_WINDOW_MS - 1000) },
+      { id: "auto", kind: "auto_reload" as const, cents: 2500, at: at(5000) },
+      { id: "other", kind: "topup" as const, cents: 5000, at: at(3000) },
+      { id: "this", kind: "topup" as const, cents: 2500, at: at(2000) },
+    ];
+    expect(topupEntry(rows, 2500, now)?.id).toBe("this");
+    expect(topupEntry(rows, null, now)?.id).toBe("other");
+    expect(topupEntry(rows.slice(0, 2), 2500, now)).toBeNull();
   });
 });

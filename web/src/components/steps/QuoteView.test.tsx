@@ -148,3 +148,15 @@ describe("QuoteView frame-rate cap (owner 2026-11-04)", () => {
     expect(screen.getByTestId("quote-breakdown").textContent).not.toContain("rounded up");
   });
 });
+
+describe("QuoteView total line (BUX-06)", () => {
+  afterEach(cleanup);
+
+  it("says USD with no tax added, never that tax comes on top", () => {
+    const { container } = render(<QuoteView result={quoteResponse(null)} />);
+    const line = screen.getByTestId("quote-total").parentElement!.textContent ?? "";
+    expect(line).toContain("Total");
+    expect(line).toContain("USD · no tax added");
+    expect(container.textContent).not.toMatch(/excl\. tax|excluding tax/);
+  });
+});

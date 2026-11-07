@@ -11,7 +11,8 @@
 
 import type { JSX } from "react";
 
-import type { Conversion, OutputQuality, PublicPricing, QuoteQuality } from "@/lib/api/types";
+import { formatCents } from "@/components/steps/money";
+import type { Conversion, OutputQuality, PublicPricing, QuoteQuality, StepQuoteResponse } from "@/lib/api/types";
 import { formatBytes } from "@/lib/format";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
@@ -38,6 +39,33 @@ export function qualityHint(q: OutputQuality, t: Tr = EN): string | null {
 export function qualityPct(pricing: PublicPricing | null | undefined, q: OutputQuality): number {
   if (q === "standard") return 0;
   return pricing?.quality?.[q]?.price_pct ?? pricing?.addons?.[q]?.pct ?? 0;
+}
+
+/** BUX-14: what a step adds to this video, from the quote the page has.
+ * The gateway prices a quality add-on as its share of the list base
+ * (tiers.go composeTier), so that part is exact; a plan discount, bulk or
+ * the launch offer scale it about proportionally (approx). Null when the
+ * quote can't say: no list base, a free preview, or a total at the floor. */
+export function qualityDelta(
+  quote: StepQuoteResponse | null | undefined,
+  pricing: PublicPricing | null | undefined,
+  q: OutputQuality,
+): { cents: number; approx: boolean } | null {
+  const pct = qualityPct(pricing, q);
+  const b = quote?.quote.breakdown;
+  if (!quote || !b || pct <= 0) return null;
+  const listBase = b.list_base_cents;
+  if (typeof listBase !== "number" || listBase <= 0) return null;
+  if (b.free_preview === true || quote.payment_flow === "free_preview") return null;
+  const floor = quote.step === "lifelike_preview" ? (pricing?.preview_minimum_cents ?? pricing?.minimum_cents) : pricing?.minimum_cents;
+  if (typeof floor === "number" && quote.quote.amount_cents <= floor) return null;
+  const raw = (q === "standard" ? undefined : b.addons?.[q]) ?? Math.round(listBase * pct);
+  const discount = quote.discount ?? ((b as Record<string, unknown>).discount as StepQuoteResponse["discount"]) ?? null;
+  const shares = [discount?.pct, b.campaign_pct, quote.pro_discount?.pct ?? b.pro_discount_pct].filter(
+    (x): x is number => typeof x === "number" && x > 0 && x < 1,
+  );
+  const cents = Math.round(shares.reduce((c, s) => c * (1 - s), raw));
+  return { cents, approx: shares.length > 0 };
 }
 
 /** The steps the gateway offers (none: no scale). */
@@ -67,6 +95,7 @@ export function FileQualityScale({
   pricing,
   quality,
   sizeBytes,
+  quote,
 }: {
   value: OutputQuality;
   onChange: (q: OutputQuality) => void;
@@ -75,10 +104,24 @@ export function FileQualityScale({
   quality?: QuoteQuality;
   /** the quote's estimated_size_bytes, when the block doesn't say */
   sizeBytes?: number;
+  /** BUX-14: the quote the page has, for what each step adds in dollars */
+  quote?: StepQuoteResponse | null;
 }): JSX.Element | null {
   const t = useT();
   const steps = qualitySteps(pricing);
   if (steps.length < 2) return null;
+  // BUX-14: "+$3.60" for this video beside the share ("about" when a
+  // discount scales it)
+  const delta = (q: OutputQuality) => {
+    const d = qualityDelta(quote, pricing, q);
+    if (!d || d.cents <= 0) return null;
+    const amount = formatCents(d.cents, t);
+    return (
+      <span data-testid={`file-quality-${q}-delta`} className="ltr">
+        {t(d.approx ? "make.fileQuality.addsAbout" : "make.fileQuality.adds", { amount })}
+      </span>
+    );
+  };
   const hint = qualityHint(value, t);
   const result = qualityResult(quality?.tier === value ? quality : undefined, quality?.tier === value ? sizeBytes : undefined, t);
   return (
@@ -112,8 +155,12 @@ export function FileQualityScale({
               />
               <span className="truncate font-medium">{qualityName(q)}</span>
               {pct > 0 ? (
-                <span className={`ltr text-xs ${on ? "text-primary-foreground/80" : "text-fg-muted"}`}>
-                  +{Math.round(pct * 100)}%
+                <span
+                  data-testid={`file-quality-${q}-price`}
+                  className={`flex flex-wrap justify-center gap-x-1 text-xs ${on ? "text-primary-foreground/80" : "text-fg-muted"}`}
+                >
+                  <span className="ltr">+{Math.round(pct * 100)}%</span>
+                  {delta(q)}
                 </span>
               ) : null}
             </label>

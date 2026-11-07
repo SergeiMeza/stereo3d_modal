@@ -119,7 +119,8 @@ export default function TermsPage() {
           Pro on the web is a Weekly, Monthly or Yearly subscription
           (our own Stripe subscriptions, no passes); Studio bills yearly and its
           usage credit comes each month (gateway 00089). */}
-      <LegalSection title="7. Fees and payment">
+      {/* BUX-19: the pay sheet's "Refund policy" links here */}
+      <LegalSection id="refunds" title="7. Fees and payment">
         <p>
           You <strong>pay per video</strong>. Optional plans lower the
           price: Pro (a weekly, monthly or yearly subscription), Business

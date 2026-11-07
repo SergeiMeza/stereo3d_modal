@@ -90,7 +90,8 @@ export function PlanSheet({
   onClose,
   companyLink = false,
 }: {
-  plan: "business" | "studio";
+  /** business_yearly: BUX-25's yearly Business (proposal, off by default) */
+  plan: "business" | "studio" | "business_yearly";
   def: PlanDef;
   onClose: (started: boolean) => void;
   /** /pricing (owner 2026-11-05): no welcome follows, so the success
@@ -181,6 +182,11 @@ export function PlanSheet({
         big={big}
         showSaveLine={false}
         returnQuery={`plan=${plan}`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          setPhase({ kind: "paying", ...s });
+          void result.then((r) => handle(r, s));
+        }}
       >
         {(form, body) => (
           <SheetFrame
@@ -193,7 +199,8 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[sheetCurrencyLine(localPrice, price.cents, t), renewsLine]}
+                // BUX-13: how it renews and how to cancel, before paying
+                lines={[sheetCurrencyLine(localPrice, price.cents, t), renewsLine, t("pay.copy.cancelTerms")]}
                 button={
                   <Button
                     size="lg"

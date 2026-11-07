@@ -15,11 +15,13 @@
  */
 
 import { CheckIcon, LockIcon } from "lucide-react";
+import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
+import { GatewayError } from "@/lib/api/client";
 import type { CheckoutHandle, Conversion, ConversionBilling } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { versionOf, type LiveRun } from "@/lib/live/events";
@@ -40,7 +42,44 @@ type Phase =
   /** key: the success line's message (pay.copy.*) */
   | { kind: "done"; key: string }
   | { kind: "expired" }
-  | { kind: "unavailable" };
+  /** BUX-05: the payment couldn't be opened, and why */
+  | { kind: "unavailable"; why: PayOpenError };
+
+/** BUX-05: why opening the run's payment failed. */
+export type PayOpenError = "network" | "server" | "declined" | "region" | "china" | "not_payable";
+
+/** Region refusals: only these say "isn't available in this region". */
+const REGION_CODES = new Set(["region_unavailable", "method_unavailable"]);
+
+/** BUX-05: a pay-now refusal or failure, by what the customer can do. */
+export function payOpenError(e: unknown): PayOpenError {
+  // no answer at all (fetch threw): the connection
+  if (!(e instanceof GatewayError)) return "network";
+  if (e.status === 0) return "network";
+  if (e.code === "china_payments_unavailable") return "china";
+  if (REGION_CODES.has(e.code)) return "region";
+  if (e.code === "not_payable") return "not_payable";
+  if (e.code.includes("declin") || e.code === "payment_method_blocked") return "declined";
+  return "server";
+}
+
+/** The line each one shows (pay.copy.*). */
+const OPEN_ERROR_KEY: Record<PayOpenError, string> = {
+  network: "pay.copy.openNetwork",
+  server: "pay.copy.openServer",
+  declined: "pay.copy.declined",
+  region: "pay.copy.unavailable",
+  china: "pay.china.comingSoon",
+  not_payable: "pay.copy.notPayable",
+};
+
+/** BUX-05: the message key for a payment that couldn't be opened. */
+export function payOpenErrorKey(e: unknown): string {
+  return OPEN_ERROR_KEY[payOpenError(e)];
+}
+
+/** BUX-19: where the refund terms are (Terms, Fees and payment). */
+export const REFUND_POLICY_HREF = "/terms#refunds";
 
 /** How long the success check shows before the sheet closes. */
 export const SUCCESS_CLOSE_MS = 1500;
@@ -141,11 +180,14 @@ export function PaySheet({
     gateway
       .payNowCheckout(conversionId)
       .then((s) => live && setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key }))
-      .catch((e: { code?: string }) => {
+      .catch((e: unknown) => {
         if (!live) return;
-        if (e.code === "already_paid") setPhase({ kind: "done", key: "pay.copy.alreadyPaid" });
-        else if (e.code === "expired") setPhase({ kind: "expired" });
-        else setPhase({ kind: "unavailable" });
+        const code = e instanceof GatewayError ? e.code : "";
+        if (code === "already_paid") setPhase({ kind: "done", key: "pay.copy.alreadyPaid" });
+        else if (code === "expired") setPhase({ kind: "expired" });
+        // the bank is confirming a payment for it already
+        else if (code === "payment_in_progress") setPhase({ kind: "waiting" });
+        else setPhase({ kind: "unavailable", why: payOpenError(e) });
       });
     return () => {
       live = false;
@@ -186,8 +228,8 @@ export function PaySheet({
     try {
       const s = await gateway.payNowCheckout(conversionId, true);
       setPhase({ kind: "ready", checkout: s.checkout, publishableKey: s.publishable_key });
-    } catch {
-      setPhase({ kind: "unavailable" });
+    } catch (e) {
+      setPhase({ kind: "unavailable", why: payOpenError(e) });
     }
   }
 
@@ -250,6 +292,12 @@ export function PaySheet({
         returnQuery={`conversion=${encodeURIComponent(conversionId)}${
           projectId ? `&project=${encodeURIComponent(projectId)}` : ""
         }`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          const key = phase.publishableKey;
+          setPhase({ kind: "paying", checkout, publishableKey: key });
+          void result.then((r) => handle(r, checkout, key));
+        }}
       >
         {(form, formBody) => {
           const alipay = form.selected === "alipay";
@@ -311,7 +359,21 @@ export function PaySheet({
                     </Button>
                     )
                   }
-                  foot={t("pay.copy.refundedIfFails")}
+                  foot={
+                    <>
+                      <span>{t("pay.copy.refundedIfFails")}</span>{" "}
+                      {/* BUX-19: the refund terms, in a new tab so the sheet stays */}
+                      <Link
+                        href={REFUND_POLICY_HREF}
+                        target="_blank"
+                        rel="noopener"
+                        data-testid="pay-refund-policy"
+                        className="text-primary underline-offset-2 hover:underline"
+                      >
+                        {t("pay.copy.refundPolicy")}
+                      </Link>
+                    </>
+                  }
                   after={
                     elsewhereFirst ? (
                       <button
@@ -383,7 +445,16 @@ export function PaySheet({
       </Button>
     );
   } else {
-    body = <StateLine testId="pay-unavailable" text={t("pay.copy.unavailable")} />;
+    const why = phase.why;
+    body = <StateLine testId="pay-unavailable" text={t(OPEN_ERROR_KEY[why])} />;
+    // something the customer can retry: Try again opens it again
+    if (why === "network" || why === "server" || why === "declined") {
+      footer = (
+        <Button size="lg" data-testid="pay-try-again" className="h-12 w-full" onClick={() => setPhase({ kind: "loading" })}>
+          {t("pay.sheet.tryAgain")}
+        </Button>
+      );
+    }
   }
   return (
     <SheetFrame
@@ -412,7 +483,7 @@ export function MainButtonArea({
   lines: string[];
   extra?: string;
   button: ReactNode;
-  foot?: string;
+  foot?: ReactNode;
   /** a text button under it (headset: Pay on another device) */
   after?: ReactNode;
   big?: boolean;

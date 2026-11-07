@@ -3,7 +3,11 @@ import { describe, expect, it } from "vitest";
 import {
   anchorLine,
   anchorPlan,
+  bestValuePlan,
   creditLine,
+  defaultPlan,
+  pageOrder,
+  perMonthLine,
   proCreditCents,
   creditRules,
   creditShort,
@@ -71,7 +75,7 @@ describe("Pro plans from /v1/pricing", () => {
     expect(proCreditCents({} as never)).toBeNull();
     expect(planCadence(monthly)).toBe("/ month");
     expect(planName(yearly)).toBe("Yearly");
-    expect(planTerms(weekly)).toBe("Renews until you cancel.");
+    expect(planTerms(weekly)).toBe("Renews at $3.99 a week until you cancel. Cancel any time in Plan & billing.");
   });
 
   it("anchors the quote's sheet on Monthly", () => {
@@ -80,5 +84,47 @@ describe("Pro plans from /v1/pricing", () => {
     const noMonthly = plans.filter((p) => p.kind !== "monthly");
     expect(anchorLine(anchorPlan(noMonthly)!)).toBe("$49.99 a year");
     expect(anchorPlan([])).toBeNull();
+  });
+});
+
+describe("/pro's default and labels (owner 2026-11-07, BUX-10)", () => {
+  const plans = plansFromPricing(DEFS);
+
+  it("Yearly first and chosen; the app's order stays as it was", () => {
+    expect(plans.map((p) => p.kind)).toEqual(["weekly", "monthly", "yearly"]);
+    expect(pageOrder(plans).map((p) => p.kind)).toEqual(["yearly", "monthly", "weekly"]);
+    expect(defaultPlan(plans)?.kind).toBe("yearly");
+    expect(defaultPlan(plans.filter((p) => p.kind !== "yearly"))?.kind).toBe("weekly");
+  });
+
+  it("Best value only on the plan that costs least per month", () => {
+    expect(bestValuePlan(plans)?.kind).toBe("yearly");
+    // a yearly that costs more per month than Monthly isn't the best value
+    const dear = plansFromPricing(DEFS.map((d) => (d.id === "pro_yearly" ? { ...d, price_cents: 9999 } : d)));
+    expect(bestValuePlan(dear)?.kind).toBe("monthly");
+    expect(bestValuePlan(plans.slice(0, 1))).toBeNull();
+  });
+
+  it("per-month equivalents, never for Monthly itself", () => {
+    const by = (k: string) => plans.find((p) => p.kind === k)!;
+    expect(perMonthLine(by("yearly"))).toBe("$4.17 a month");
+    expect(perMonthLine(by("weekly"))).toBe("$17.29 a month");
+    expect(perMonthLine(by("monthly"))).toBeNull();
+  });
+});
+
+describe("Pro Weekly on the web (BUX-24 proposal, off by default)", () => {
+  it("sold as today while the flag is off or missing; hidden only while it's on", async () => {
+    const { webPlansFromPricing } = await import("@/lib/pro/plans");
+    expect(webPlansFromPricing({ pro_plans: DEFS }).map((p) => p.kind)).toEqual(["weekly", "monthly", "yearly"]);
+    expect(webPlansFromPricing({ pro_plans: DEFS, web_pro_weekly_hidden: false }).map((p) => p.kind)).toEqual([
+      "weekly",
+      "monthly",
+      "yearly",
+    ]);
+    expect(webPlansFromPricing({ pro_plans: DEFS, web_pro_weekly_hidden: true }).map((p) => p.kind)).toEqual([
+      "monthly",
+      "yearly",
+    ]);
   });
 });

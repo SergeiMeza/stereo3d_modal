@@ -21,6 +21,7 @@ import {
 } from "@/components/pay/CheckoutPane";
 import { CHINA_COMING_SOON_KEY, useChinaPaymentsOff } from "@/components/pay/chinaComingSoon";
 import { sheetCurrencyLine } from "@/components/pay/payCopy";
+import { useSessionExpiry } from "@/components/pay/sessionExpiry";
 import {
   MainButtonArea,
   StateLine,
@@ -50,9 +51,13 @@ export function ProCheckoutHost(): JSX.Element | null {
 type Phase =
   | { kind: "loading" }
   /** notice: the error line's message key */
-  | { kind: "ready"; secret: string; publishableKey?: string; notice?: string }
-  | { kind: "paying"; secret: string; publishableKey?: string }
+  | { kind: "ready"; secret: string; publishableKey?: string; expiresAt?: string; notice?: string }
+  | { kind: "paying"; secret: string; publishableKey?: string; expiresAt?: string }
   | { kind: "done" }
+  /** BUX-02: the bank is still confirming it; Pro isn't on yet */
+  | { kind: "waiting" }
+  /** BUX-02: the session timed out, nothing was charged */
+  | { kind: "expired" }
   /** key: the error line's message key */
   | { kind: "error"; key: string };
 
@@ -68,6 +73,8 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
   const big = useSheetFrame() === "headset";
   const chinaOff = useChinaPaymentsOff();
   const [phase, setPhase] = useState<Phase>(chinaOff ? { kind: "error", key: CHINA_COMING_SOON_KEY } : { kind: "loading" });
+  // Start again opens a new payment
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     // owner 2026-11-07: China mode with its payments off asks for nothing
@@ -80,6 +87,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
           kind: "ready",
           secret: r.checkout.client_secret,
           publishableKey: r.publishable_key,
+          expiresAt: r.checkout.expires_at,
         }),
       (e: unknown) => {
         if (!live) return;
@@ -98,18 +106,28 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
     return () => {
       live = false;
     };
-  }, [gateway, plan.id, chinaOff]);
+  }, [gateway, plan.id, chinaOff, attempt]);
+
+  // BUX-02: an idle form past its session's end says it timed out
+  useSessionExpiry(
+    phase.kind === "ready" ? phase.expiresAt : undefined,
+    phase.kind === "ready",
+    () => setPhase((p) => (p.kind === "ready" ? { kind: "expired" } : p)),
+  );
 
   function handle(
     r: ConfirmResult,
-    s: { secret: string; publishableKey?: string },
+    s: { secret: string; publishableKey?: string; expiresAt?: string },
   ): void {
-    if (r === "paid" || r === "already_paid" || r === "processing") {
+    if (r === "paid" || r === "already_paid") {
       setPhase({ kind: "done" });
       setTimeout(() => finishProCheckout("purchased"), SUCCESS_CLOSE_MS);
       return;
     }
     if (r === "redirect") return;
+    // BUX-02: neither is a decline
+    if (r === "processing") return setPhase({ kind: "waiting" });
+    if (r === "expired") return setPhase({ kind: "expired" });
     setPhase({
       kind: "ready",
       ...s,
@@ -125,7 +143,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
   const subtitle = credit ? t("pro.checkout.subtitleWithCredit", { price: perPeriod, credit }) : perPeriod;
 
   if (phase.kind === "ready" || phase.kind === "paying") {
-    const s = { secret: phase.secret, publishableKey: phase.publishableKey };
+    const s = { secret: phase.secret, publishableKey: phase.publishableKey, expiresAt: phase.expiresAt };
     const paying = phase.kind === "paying";
     return (
       <CheckoutPane
@@ -134,6 +152,11 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
         big={big}
         showSaveLine={false}
         returnQuery={`plan=${plan.id}`}
+        // BUX-03: a wallet pays through the same paying state and result
+        onWallet={(result) => {
+          setPhase({ kind: "paying", ...s });
+          void result.then((r) => handle(r, s));
+        }}
       >
         {(form, body) => (
           <SheetFrame
@@ -148,7 +171,12 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
                 big={big}
                 // owner 2026-11-07 (Option B): Stripe's own amount, in the
                 // local currency while the gateway offers it
-                lines={[sheetCurrencyLine(localPrice, Math.round(plan.amountMicros / 10_000), t), proRenewsLine(plan, t)]}
+                // BUX-13: how it renews and how to cancel, before paying
+                lines={[
+                  sheetCurrencyLine(localPrice, Math.round(plan.amountMicros / 10_000), t),
+                  proRenewsLine(plan, t),
+                  t("pay.copy.cancelTerms"),
+                ]}
                 button={
                   <Button
                     size="lg"
@@ -178,7 +206,7 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
             >
               {body}
               {phase.kind === "ready" && phase.notice ? (
-                <p data-testid="pay-error" className="text-sm text-red-400">
+                <p data-testid="pay-error" role="alert" className="text-sm text-red-400">
                   {form.message ?? t(phase.notice)}
                 </p>
               ) : null}
@@ -197,9 +225,28 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
       }
       testId="pro-stripe-sheet"
       title={title}
+      footer={
+        phase.kind === "expired" ? (
+          <Button
+            size="lg"
+            data-testid="pro-start-again"
+            className="h-12 w-full"
+            onClick={() => {
+              setPhase({ kind: "loading" });
+              setAttempt((n) => n + 1);
+            }}
+          >
+            {t("pay.sheet.startAgain")}
+          </Button>
+        ) : undefined
+      }
     >
       {phase.kind === "done" ? (
         <Success text={t("pro.checkout.success")} />
+      ) : phase.kind === "waiting" ? (
+        <StateLine testId="pro-stripe-waiting" text={t("pro.checkout.processing")} />
+      ) : phase.kind === "expired" ? (
+        <StateLine testId="pro-stripe-expired" text={t("pay.copy.timedOut")} />
       ) : phase.kind === "error" ? (
         <StateLine testId="pro-stripe-error" text={t(phase.key)} />
       ) : (

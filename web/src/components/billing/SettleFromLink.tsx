@@ -6,6 +6,7 @@
  * billing has answered, the Settle sheet opens once and the parameter is
  * dropped; with nothing owed, "Nothing to pay." Signed-out visitors come
  * back here after signing in (RequireAuth keeps the query in ?next).
+ * The failed-payment mails link with ?pay=1 (BUX-01); both open the sheet.
  */
 
 import { useEffect, useRef, useState } from "react";
@@ -19,14 +20,18 @@ import { useT } from "@/lib/i18n/I18nProvider";
 /** English (tests); the page reads billing.settle.nothingToPay. */
 export const NOTHING_TO_PAY = "Nothing to pay.";
 
+/** The query keys that ask for the Settle sheet: the app's and the mails'. */
+const SETTLE_PARAMS = ["settle", "pay"] as const;
+
 function settleAsked(): boolean {
   if (typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("settle") === "1";
+  const query = new URLSearchParams(window.location.search);
+  return SETTLE_PARAMS.some((key) => query.get(key) === "1");
 }
 
 function dropSettleParam(): void {
   const url = new URL(window.location.href);
-  url.searchParams.delete("settle");
+  for (const key of SETTLE_PARAMS) url.searchParams.delete(key);
   window.history.replaceState(window.history.state, "", url.pathname + url.search + url.hash);
 }
 

@@ -14,8 +14,12 @@ import type { JSX } from "react";
 import { LocalPriceNote } from "@/components/pro/LocalPriceNote";
 import { useT } from "@/lib/i18n/I18nProvider";
 import {
+  bestValuePlan,
   creditShort,
+  defaultPlan,
   monthlyMicros,
+  pageOrder,
+  perMonthLine,
   planCadence,
   planName,
   planTerms,
@@ -65,9 +69,12 @@ export function ProPlans({
     );
   }
 
-  const list = plans.plans;
-  const selected = list.find((p) => p.id === chosen) ?? list[0];
+  // owner 2026-11-07 (BUX-10): Yearly first and chosen, "Best value" on
+  // the plan that costs least per month, per-month prices beside the rest
+  const list = pageOrder(plans.plans);
+  const selected = list.find((p) => p.id === chosen) ?? defaultPlan(list) ?? list[0];
   const saving = yearlySaving(list);
+  const best = bestValuePlan(list);
 
   async function getPro() {
     setBuying(true);
@@ -113,8 +120,13 @@ export function ProPlans({
                 {on && <Check className="size-3" strokeWidth={3} />}
               </span>
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
+                <span className="flex flex-wrap items-center gap-2">
                   <span className="font-medium text-fg">{planName(p, t)}</span>
+                  {best?.id === p.id && (
+                    <span data-testid={`pro-plan-best-${p.kind}`} className="ll-tag-new">
+                      {t("pro.list.bestValue")}
+                    </span>
+                  )}
                   {p.kind === "yearly" && saving !== null && (
                     <span className="ll-tag-new">{t("pro.list.save", { pct: saving })}</span>
                   )}
@@ -131,6 +143,11 @@ export function ProPlans({
                   {p.price}
                 </span>
                 <span className="block text-xs text-fg-muted">{planCadence(p, t)}</span>
+                {perMonthLine(p, t) !== null && (
+                  <span data-testid={`pro-plan-per-month-${p.kind}`} className="block text-xs tabular-nums text-fg-muted">
+                    {perMonthLine(p, t)}
+                  </span>
+                )}
               </span>
             </button>
           );

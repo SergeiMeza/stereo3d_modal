@@ -23,6 +23,11 @@
  * Selector above the wallet row lets them keep US dollars. Adding a
  * method (setup) has no amount, so neither is there.
  *
+ * Wallets (BUX-03): the Express Checkout row confirms with redirect
+ * "if_required", so Apple Pay, Google Pay and Link finish in the sheet;
+ * the sheet gets the result through onWallet and runs it through the same
+ * paying → handle() path as the main button. One confirm at a time.
+ *
  * Test mode: a client secret starting `cs_mock_` (the MSW mock gateway)
  * swaps Stripe for a plain stand-in whose confirm asks the mock what
  * happened — the screens and their states run without Stripe.js.
@@ -38,7 +43,7 @@ import {
   useCheckoutElements,
 } from "@stripe/react-stripe-js/checkout";
 import type { Appearance } from "@stripe/stripe-js";
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { getStripe } from "@/components/billing/stripeLoader";
@@ -55,6 +60,29 @@ export type ConfirmResult =
   | "already_paid"
   /** the browser is on its way to another page (Alipay, a bank) */
   | "redirect";
+
+/** BUX-03: a wallet payment started; the promise is its result. */
+export type WalletHandler = (result: Promise<ConfirmResult>) => void;
+
+/** Shares one confirm at a time: a second call while one runs gets the
+ * same answer instead of confirming again. */
+function useOneConfirm(): {
+  busy: () => boolean;
+  run: (go: () => Promise<ConfirmResult>) => Promise<ConfirmResult>;
+} {
+  const inflight = useRef<Promise<ConfirmResult> | null>(null);
+  return {
+    busy: () => inflight.current !== null,
+    run: (go) => {
+      if (inflight.current) return inflight.current;
+      const p = go().finally(() => {
+        inflight.current = null;
+      });
+      inflight.current = p;
+      return p;
+    },
+  };
+}
 
 export interface PayForm {
   ready: boolean;
@@ -152,10 +180,14 @@ export function CheckoutPane({
   returnQuery,
   setup = false,
   collapseCards = false,
+  onWallet,
   children,
 }: {
   clientSecret: string;
   publishableKey?: string;
+  /** BUX-03: the wallet row's payment, for the sheet's paying state and
+   * result; without it a wallet leaves for the session's return page */
+  onWallet?: WalletHandler;
   /** headset: bigger type and targets */
   big?: boolean;
   /** P2 pays with saved methods: no save line */
@@ -176,6 +208,7 @@ export function CheckoutPane({
         showSaveLine={showSaveLine}
         setup={setup}
         collapseCards={collapseCards}
+        onWallet={onWallet}
       >
         {children}
       </MockPane>
@@ -190,6 +223,7 @@ export function CheckoutPane({
       returnQuery={returnQuery}
       setup={setup}
       collapseCards={collapseCards}
+      onWallet={onWallet}
     >
       {children}
     </StripePane>
@@ -204,6 +238,7 @@ function StripePane({
   returnQuery,
   setup,
   collapseCards,
+  onWallet,
   children,
 }: {
   clientSecret: string;
@@ -213,6 +248,7 @@ function StripePane({
   returnQuery?: string;
   setup: boolean;
   collapseCards: boolean;
+  onWallet?: WalletHandler;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
   const stripe = useMemo(() => getStripe(publishableKey), [publishableKey]);
@@ -233,6 +269,7 @@ function StripePane({
         returnQuery={returnQuery}
         setup={setup}
         collapseCards={collapseCards}
+        onWallet={onWallet}
       >
         {children}
       </StripeForm>
@@ -245,6 +282,7 @@ function StripeForm({
   showSaveLine,
   setup,
   collapseCards,
+  onWallet,
   children,
 }: {
   big: boolean;
@@ -253,9 +291,12 @@ function StripeForm({
   returnQuery?: string;
   setup: boolean;
   collapseCards: boolean;
+  onWallet?: WalletHandler;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
+  const t = useT();
   const result = useCheckoutElements();
+  const one = useOneConfirm();
   const [selected, setSelected] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [wallets, setWallets] = useState<boolean | null>(null);
@@ -271,36 +312,42 @@ function StripeForm({
     wallets,
     cardsOpen,
     openCards: () => setCardsOpen(true),
-    confirm: async () => {
-      if (result.type !== "success") return "declined";
-      setMessage(null);
-      // No returnUrl: the gateway sets return_url on every session, and
-      // Stripe refuses a confirm that passes one too (IntegrationError,
-      // thrown before any request; the sheet hung on "Paying…").
-      let res: Awaited<ReturnType<typeof result.checkout.confirm>>;
-      try {
-        res = await result.checkout.confirm({ redirect: "if_required" });
-      } catch (e) {
-        setMessage(e instanceof Error && e.message ? e.message : null);
-        return "declined";
-      }
-      if (res.type === "error") {
-        let now: SessionStatus | undefined;
-        try {
-          now = (result.checkout as { getSession?: () => { status?: SessionStatus } }).getSession?.()?.status;
-        } catch {
-          now = undefined;
-        }
-        const outcome = confirmErrorResult(res.error, now);
-        if (outcome === "declined") setMessage(res.error.message ?? null);
-        return outcome;
-      }
-      // gateway 00152: the plan's email prompt starts from the session's email
-      const paidEmail = (res.session as { email?: string | null }).email;
-      appStore.set(checkoutEmailAtom, typeof paidEmail === "string" && paidEmail ? paidEmail : null);
-      return confirmSuccessResult((res.session as { status?: SessionStatus }).status);
-    },
+    confirm: () => one.run(() => confirmWith({})),
   };
+
+  type ConfirmArgs = NonNullable<Parameters<Extract<typeof result, { type: "success" }>["checkout"]["confirm"]>[0]>;
+  /** One confirm, card or wallet; a wallet's decline reads as a wallet's. */
+  async function confirmWith(extra: ConfirmArgs, wallet = false): Promise<ConfirmResult> {
+    if (result.type !== "success") return "declined";
+    setMessage(null);
+    // No returnUrl: the gateway sets return_url on every session, and
+    // Stripe refuses a confirm that passes one too (IntegrationError,
+    // thrown before any request; the sheet hung on "Paying…").
+    // redirect "if_required": only a redirect-based method (a bank, Alipay)
+    // leaves the page; cards and wallets answer here.
+    let res: Awaited<ReturnType<typeof result.checkout.confirm>>;
+    try {
+      res = await result.checkout.confirm({ ...extra, redirect: "if_required" });
+    } catch (e) {
+      setMessage(wallet ? t("pay.copy.walletDeclined") : e instanceof Error && e.message ? e.message : null);
+      return "declined";
+    }
+    if (res.type === "error") {
+      let now: SessionStatus | undefined;
+      try {
+        now = (result.checkout as { getSession?: () => { status?: SessionStatus } }).getSession?.()?.status;
+      } catch {
+        now = undefined;
+      }
+      const outcome = confirmErrorResult(res.error, now);
+      if (outcome === "declined") setMessage(wallet ? t("pay.copy.walletDeclined") : (res.error.message ?? null));
+      return outcome;
+    }
+    // gateway 00152: the plan's email prompt starts from the session's email
+    const paidEmail = (res.session as { email?: string | null }).email;
+    appStore.set(checkoutEmailAtom, typeof paidEmail === "string" && paidEmail ? paidEmail : null);
+    return confirmSuccessResult((res.session as { status?: SessionStatus }).status);
+  }
 
   const body = (
     <div className="flex flex-col gap-4">
@@ -324,10 +371,19 @@ function StripeForm({
             }
             // spec B13: the wallet row says whether any wallet shows here
             onReady={(e) => setWallets(e.availablePaymentMethods !== undefined && e.availablePaymentMethods !== null)}
-            onConfirm={async (event) => {
-              if (result.type === "success") {
-                await result.checkout.confirm({ expressCheckoutConfirmEvent: event });
+            onConfirm={(event) => {
+              // BUX-03: one payment at a time; a second wallet tap fails in
+              // the wallet's own sheet
+              if (result.type !== "success" || one.busy()) {
+                event.paymentFailed({ reason: "fail" });
+                return;
               }
+              // no handler: Stripe's default, the session's return page
+              if (!onWallet) {
+                void result.checkout.confirm({ expressCheckoutConfirmEvent: event });
+                return;
+              }
+              onWallet(one.run(() => confirmWith({ expressCheckoutConfirmEvent: event }, true)));
             }}
           />
           {wallets !== false && cardsOpen ? <Divider setup={setup} /> : null}
@@ -353,14 +409,18 @@ function MockPane({
   showSaveLine,
   setup = false,
   collapseCards = false,
+  onWallet,
   children,
 }: {
   clientSecret: string;
   showSaveLine: boolean;
   setup?: boolean;
   collapseCards?: boolean;
+  onWallet?: WalletHandler;
   children: (form: PayForm, body: ReactNode) => ReactNode;
 }): JSX.Element {
+  const t = useT();
+  const one = useOneConfirm();
   const [selected, setSelected] = useState<string>("card");
   const [message, setMessage] = useState<string | null>(null);
   // like Stripe's card form: the country, and a postal code for US and CA
@@ -377,22 +437,33 @@ function MockPane({
     wallets,
     cardsOpen,
     openCards: () => setCardsOpen(true),
-    confirm: async () => {
-      setMessage(null);
-      const res = await fetch(
-        `${GATEWAY}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
-        { method: "POST" },
-      );
-      const { result } = (await res.json()) as { result: ConfirmResult };
-      return result;
-    },
+    confirm: () => one.run(() => mockConfirm(false)),
   };
+  async function mockConfirm(wallet: boolean): Promise<ConfirmResult> {
+    setMessage(null);
+    const res = await fetch(
+      `${GATEWAY}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
+      { method: "POST" },
+    ).catch(() => null);
+    const result = res ? ((await res.json()) as { result: ConfirmResult }).result : "declined";
+    if (wallet && result === "declined") setMessage(t("pay.copy.walletDeclined"));
+    return result;
+  }
   const body = (
     <div data-testid="mock-checkout" className="flex flex-col gap-4">
       {wallets ? (
-        <div className="flex h-12 items-center justify-center rounded-lg bg-black text-sm font-medium text-white">
+        <button
+          type="button"
+          data-testid="mock-wallet"
+          // like the wallet sheet: a second tap while one runs does nothing
+          onClick={() => {
+            if (!onWallet || one.busy()) return;
+            onWallet(one.run(() => mockConfirm(true)));
+          }}
+          className="flex h-12 items-center justify-center rounded-lg bg-black text-sm font-medium text-white"
+        >
           Wallet (test mode)
-        </div>
+        </button>
       ) : null}
       {wallets && cardsOpen ? <Divider setup={setup} /> : null}
       {!cardsOpen ? (

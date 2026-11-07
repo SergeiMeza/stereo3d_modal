@@ -151,7 +151,7 @@ function Line({
  * rate (+25% at 30 fps), reused work, the bulk discount (its share and
  * threshold from /v1/pricing), "Minimum
  * charge $1" when the per-run floor applies (every run, S3D-17), the
- * total in USD excl. tax, and the sentence saying when it is charged. Classic's technical factors (depth
+ * total in USD (no tax added, BUX-06), and the sentence saying when it is charged. Classic's technical factors (depth
  * detail, edge handling) sit under "How we priced this". All amounts come
  * from the gateway — no client price math beyond negating discounts and
  * spotting the minimum.
@@ -441,7 +441,7 @@ export function QuoteView({
       ) : null}
       <div className="mt-1 flex items-baseline justify-between gap-3 border-t border-edge pt-2">
         <span className="font-medium">
-          {rich(t, "quote.view.total", {
+          {rich(t, "quote.view.totalNoTax", {
             note: (c) => <span className="text-xs font-normal text-fg-muted">{c}</span>,
           })}
         </span>

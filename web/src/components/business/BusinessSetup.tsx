@@ -491,7 +491,7 @@ export function BusinessSetup(): JSX.Element {
               <span className="text-lg text-fg">{priceLine(def, t)}</span>
             </div>
             <p className="text-sm text-fg-muted" data-testid="setup-terms">
-              {t("business.setup.checkout.termsTail", { terms: termsLine(def, t) })}
+              {t("business.setup.checkout.termsTailNoTax", { terms: termsLine(def, t) })}
             </p>
             <p className="text-xs text-fg-muted">
               {t("business.setup.checkout.asksOnly")}

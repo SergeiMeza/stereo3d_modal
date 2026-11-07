@@ -27,25 +27,28 @@ import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
 import { useBilling } from "@/lib/billing";
-import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
+import { useLocalPriceAtCheckout, usePricing } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { chinaPayments } from "@/lib/paymentRegion";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
-import { Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
   checkoutCurrencyLine,
+  firstBonusTier,
   reloadConsent,
   sheetCurrencyLine,
   topupDayLeft,
+  topupBonusCents,
   topupDone,
   topupMax,
   topupMin,
 } from "./payCopy";
 import { CHINA_COMING_SOON_KEY, ChinaComingSoon, isChinaPaymentsUnavailable, useChinaPaymentsOff } from "./chinaComingSoon";
+import { useSessionExpiry } from "./sessionExpiry";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Which = "funds" | "reload" | "spending" | null;
@@ -122,14 +125,26 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     | { kind: "none" }
     | { kind: "loading" }
     /** notice: the error line's message key */
-    | { kind: "ready"; secret: string; publishableKey?: string; amount: number; notice?: string }
-    | { kind: "paying"; secret: string; publishableKey?: string; amount: number }
-    | { kind: "done"; text: string }
+    | { kind: "ready"; secret: string; publishableKey?: string; amount: number; expiresAt?: string; notice?: string }
+    | { kind: "paying"; secret: string; publishableKey?: string; amount: number; expiresAt?: string }
+    /** offer: BUX-15, auto-reload is offered (off) under the success */
+    | { kind: "done"; text: string; offer?: boolean }
+    /** BUX-02: the bank is still confirming it (not a decline) */
+    | { kind: "waiting" }
+    /** BUX-02: the session timed out, nothing was charged */
+    | { kind: "expired" }
     /** the top-up's refusal (null: no payment came back) */
     | { kind: "error"; error: unknown }
   >({ kind: "none" });
   const [chinaError, setChinaError] = useState<string | null>(null);
+  // Start again opens a new payment for the same amount
+  const [attempt, setAttempt] = useState(0);
   const closing = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const bonusRef = useRef<{ amount: number; cents: number } | null>(null);
+  // BUX-23 (proposal, off by default): bonus credit on bigger top-ups
+  const bonusCfg = usePricing()?.topup_bonus ?? null;
+  const bonusHere = amount >= MIN ? topupBonusCents(amount, bonusCfg) : 0;
+  const firstTier = firstBonusTier(bonusCfg);
 
   const invalid =
     chip === "other" && other !== "" && amount < MIN ? topupMin(t) : null;
@@ -141,13 +156,22 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     const timer = setTimeout(() => {
       setSession({ kind: "loading" });
       gateway.topUp(amount).then(
-        (r) =>
-          live &&
+        (r) => {
+          // BUX-23: the bonus the paid top-up adds, as the gateway says
+          bonusRef.current = { amount, cents: r.bonus_cents ?? 0 };
+          if (!live) return;
           setSession(
             r.checkout
-              ? { kind: "ready", secret: r.checkout.client_secret, publishableKey: r.publishable_key, amount }
+              ? {
+                  kind: "ready",
+                  secret: r.checkout.client_secret,
+                  publishableKey: r.publishable_key,
+                  amount,
+                  expiresAt: r.checkout.expires_at,
+                }
               : { kind: "error", error: null },
-          ),
+          );
+        },
         (e: unknown) => {
           if (!live) return;
           setSession({ kind: "error", error: e });
@@ -158,7 +182,14 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
       live = false;
       clearTimeout(timer);
     };
-  }, [gateway, amount, invalid, first]);
+  }, [gateway, amount, invalid, first, attempt]);
+
+  // BUX-02: an idle form past its session's end says it timed out
+  useSessionExpiry(
+    session.kind === "ready" ? session.expiresAt : undefined,
+    session.kind === "ready",
+    () => setSession((s) => (s.kind === "ready" ? { kind: "expired" } : s)),
+  );
 
   useEffect(
     () => () => {
@@ -170,13 +201,26 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   async function finish(added: number): Promise<void> {
     const s = await billing.refresh();
     const bal = prepaidOf(s)?.balance_cents ?? (prepaid?.balance_cents ?? 0) + added;
-    setSession({ kind: "done", text: topupDone(added, bal, t) });
-    closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
+    // BUX-15: with auto-reload off (and nothing pausing it), offer it here,
+    // switched off; the sheet then stays until the person answers
+    const ar = prepaidOf(s)?.auto_reload;
+    const offer = !!ar && !ar.enabled && !ar.paused_reason;
+    const bonus = bonusRef.current?.amount === added ? bonusRef.current.cents : 0;
+    setSession({ kind: "done", text: topupDone(added, bal, t, bonus), offer });
+    if (!offer) closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
   }
 
-  function handle(r: ConfirmResult, s: { secret: string; publishableKey?: string; amount: number }): void {
+  function handle(
+    r: ConfirmResult,
+    s: { secret: string; publishableKey?: string; amount: number; expiresAt?: string },
+  ): void {
     if (r === "paid" || r === "already_paid") return void finish(s.amount);
     if (r === "redirect") return;
+    if (r === "processing") {
+      setSession({ kind: "waiting" });
+      return void billing.refresh();
+    }
+    if (r === "expired") return setSession({ kind: "expired" });
     setSession({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
@@ -220,10 +264,20 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         </label>
       ) : null}
       {invalid ? <ErrorLine text={invalid} /> : null}
+      {bonusHere > 0 ? (
+        <p data-testid="topup-bonus" className="text-xs text-chart-2">
+          {t("balance.bonus.adds", { bonus: formatCents(bonusHere, t) })}
+        </p>
+      ) : firstTier && invalid === null ? (
+        <p data-testid="topup-bonus-from" className="text-xs text-fg-muted">
+          {t("balance.bonus.from", { min: formatCentsShort(firstTier.min_cents, t), pct: Math.round(firstTier.pct * 100) })}
+        </p>
+      ) : null}
     </div>
   );
 
   if (session.kind === "done") {
+    if (session.offer) return <ReloadOffer text={session.text} onClose={onClose} />;
     return (
       <SheetFrame open onClose={onClose} testId="add-funds-sheet" title={t("balance.addFunds.title")}>
         <Success text={session.text} />
@@ -287,7 +341,12 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
         disabled={!form?.ready || paying || !ready || ready.amount !== amount || invalid !== null}
         onClick={async () => {
           if (!ready || !form) return;
-          const s = { secret: ready.secret, publishableKey: ready.publishableKey, amount: ready.amount };
+          const s = {
+            secret: ready.secret,
+            publishableKey: ready.publishableKey,
+            amount: ready.amount,
+            expiresAt: ready.expiresAt,
+          };
           setSession({ kind: "paying", ...s });
           handle(await form.confirm(), s);
         }}
@@ -305,6 +364,39 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     </div>
   );
 
+  if (session.kind === "waiting" || session.kind === "expired") {
+    const expired = session.kind === "expired";
+    return (
+      <SheetFrame
+        open
+        onClose={onClose}
+        testId="add-funds-sheet"
+        title={t("balance.addFunds.title")}
+        footer={
+          expired ? (
+            <Button
+              size="lg"
+              data-testid="funds-start-again"
+              className="h-12 w-full"
+              onClick={() => {
+                setSession({ kind: "loading" });
+                setAttempt((n) => n + 1);
+              }}
+            >
+              {t("pay.sheet.startAgain")}
+            </Button>
+          ) : undefined
+        }
+      >
+        {expired ? (
+          <StateLine testId="funds-expired" text={t("pay.copy.timedOut")} />
+        ) : (
+          <StateLine testId="funds-waiting" text={t("balance.addFunds.processing")} />
+        )}
+      </SheetFrame>
+    );
+  }
+
   if (!ready) {
     return (
       <SheetFrame open onClose={onClose} testId="add-funds-sheet" title={t("balance.addFunds.title")} footer={footer()}>
@@ -320,17 +412,134 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     );
   }
   return (
-    <CheckoutPane clientSecret={ready.secret} publishableKey={ready.publishableKey} big={big} returnQuery="topup=1">
+    <CheckoutPane
+      clientSecret={ready.secret}
+      publishableKey={ready.publishableKey}
+      big={big}
+      returnQuery="topup=1"
+      // BUX-03: a wallet pays through the same paying state and result
+      onWallet={(result) => {
+        const s = { secret: ready.secret, publishableKey: ready.publishableKey, amount: ready.amount, expiresAt: ready.expiresAt };
+        setSession({ kind: "paying", ...s });
+        void result.then((r) => handle(r, s));
+      }}
+    >
       {(form, body) => (
         <SheetFrame open onClose={onClose} locked={paying} testId="add-funds-sheet" title={t("balance.addFunds.title")} footer={footer(form)}>
           <div className={`flex flex-col gap-4 ${paying ? "pointer-events-none opacity-60" : ""}`}>
             {header}
             {body}
-            {session.kind === "ready" && session.notice ? <ErrorLine text={t(session.notice)} /> : null}
+            {session.kind === "ready" && session.notice ? <ErrorLine text={form.message ?? t(session.notice)} /> : null}
           </div>
         </SheetFrame>
       )}
     </CheckoutPane>
+  );
+}
+
+/** Auto-reload's save refusals in words. */
+function reloadSaveError(e: unknown, t: Tr): string {
+  const code = e instanceof GatewayError ? e.code : "";
+  const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
+  return code === "auto_reload_blocked"
+    ? autoReloadBlocked(reason, t)
+    : code === "method_needed"
+      ? t("balance.autoReload.methodNeeded")
+      : t("balance.autoReload.saveFailed");
+}
+
+/** BUX-15: after a top-up, auto-reload offered once, opt-in: one line and
+ * a switch that starts off; on, it shows the consent with the saved
+ * method, and only Turn on auto-reload saves it. Not now closes. Without
+ * a saved method there's nothing to offer, and the sheet closes. */
+function ReloadOffer({ text, onClose }: { text: string; onClose: () => void }): JSX.Element {
+  const gateway = useGateway();
+  const billing = useBilling();
+  const t = useT();
+  // read on mount: the top-up has just saved its method
+  const { list } = useBillingMethods();
+  const ar = prepaidOf(billing.status)?.auto_reload ?? { enabled: false, below_cents: 1000, add_cents: 2500 };
+  const [on, setOn] = useState(false);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const methods = list?.methods ?? null;
+  const def = methods?.find((m) => m.is_default) ?? methods?.[0];
+  const none = methods !== null && methods.length === 0;
+  useEffect(() => {
+    if (!none) return;
+    const timer = setTimeout(onClose, SUCCESS_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [none, onClose]);
+
+  async function turnOn(): Promise<void> {
+    setState("saving");
+    setError(null);
+    try {
+      await gateway.saveBalanceSettings({
+        auto_reload: { enabled: true, below_cents: ar.below_cents, add_cents: ar.add_cents },
+      });
+      await billing.refresh();
+      setState("saved");
+      setTimeout(onClose, SUCCESS_CLOSE_MS);
+    } catch (e) {
+      setState("idle");
+      setError(reloadSaveError(e, t));
+    }
+  }
+
+  const offering = !none && def !== undefined;
+  return (
+    <SheetFrame
+      open
+      onClose={onClose}
+      locked={state === "saving"}
+      testId="add-funds-sheet"
+      title={t("balance.addFunds.title")}
+      footer={
+        !offering ? undefined : state === "saved" ? (
+          <SavedLine text={t("balance.autoReload.isOn")} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {on ? (
+              <Button
+                size="lg"
+                data-testid="reload-offer-on"
+                className="h-12 w-full"
+                disabled={state === "saving"}
+                onClick={() => void turnOn()}
+              >
+                {state === "saving" ? t("balance.autoReload.saving") : t("balance.reloadOffer.turnOn")}
+              </Button>
+            ) : null}
+            <button
+              type="button"
+              data-testid="reload-offer-not-now"
+              disabled={state === "saving"}
+              onClick={onClose}
+              className="py-2 text-center text-sm text-primary hover:underline"
+            >
+              {t("balance.reloadOffer.notNow")}
+            </button>
+          </div>
+        )
+      }
+    >
+      <Success text={text} />
+      {offering && state !== "saved" ? (
+        <div data-testid="reload-offer" className="flex flex-col gap-3 border-t border-edge pt-4">
+          <Toggle label={t("balance.reloadOffer.question")} on={on} onChange={setOn} />
+          {on ? (
+            <p data-testid="reload-offer-consent" className="flex gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
+              <RefreshCwIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span>
+                {reloadConsent(methodLabel(def), ar.add_cents, ar.below_cents, t)} {t("pay.copy.chargedInUsd")}
+              </span>
+            </p>
+          ) : null}
+          {error ? <ErrorLine text={error} /> : null}
+        </div>
+      ) : null}
+    </SheetFrame>
   );
 }
 
@@ -446,15 +655,7 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
       setTimeout(onClose, SUCCESS_CLOSE_MS);
     } catch (e) {
       setState("idle");
-      const code = e instanceof GatewayError ? e.code : "";
-      const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
-      setError(
-        code === "auto_reload_blocked"
-          ? autoReloadBlocked(reason, t)
-          : code === "method_needed"
-            ? t("balance.autoReload.methodNeeded")
-            : t("balance.autoReload.saveFailed"),
-      );
+      setError(reloadSaveError(e, t));
     }
   }
 

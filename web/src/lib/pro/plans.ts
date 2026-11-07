@@ -10,7 +10,7 @@
  * must be used within pro_credit.expires_days and is never paid out.
  */
 
-import { formatCentsShort } from "@/components/steps/money";
+import { formatCents, formatCentsShort } from "@/components/steps/money";
 import type { ProPlanDef, PublicPricing } from "@/lib/api/types";
 import { EN, type Tr } from "@/lib/i18n/t";
 
@@ -63,6 +63,13 @@ export function plansFromPricing(
     });
   }
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
+}
+
+/** The Pro plans the web sells: pro_plans, without Weekly while
+ * web_pro_weekly_hidden is on (BUX-24, off by default; the app keeps it). */
+export function webPlansFromPricing(pricing: Pick<PublicPricing, "pro_plans" | "pro_credit" | "web_pro_weekly_hidden">): ProPlan[] {
+  const plans = plansFromPricing(pricing.pro_plans ?? [], pricing.pro_credit);
+  return pricing.web_pro_weekly_hidden === true ? plans.filter((p) => p.kind !== "weekly") : plans;
 }
 
 /** "Weekly" (pro.plans.name.*) */
@@ -126,10 +133,38 @@ export function proCreditDays(pricing: PublicPricing | null | undefined): number
   return pricing?.pro_credit?.expires_days ?? null;
 }
 
-/** What the plan's footnote says it does. */
+/** What the plan's footnote says it does (BUX-10): "Renews at $49.99 a
+ * year until you cancel. Cancel any time in Plan & billing." */
 export function planTerms(p: ProPlan, t: Tr = EN): string {
-  void p;
-  return t("pro.plans.terms");
+  return t("pro.plans.termsRenews", { price: anchorLine(p, t) });
+}
+
+/** /pro's order (owner 2026-11-07, BUX-10): Yearly first, then Monthly,
+ * then Weekly. Only the page's order; plansFromPricing keeps the app's. */
+const PAGE_ORDER: PlanKind[] = ["yearly", "monthly", "weekly"];
+
+export function pageOrder(plans: readonly ProPlan[]): ProPlan[] {
+  return PAGE_ORDER.flatMap((k) => plans.filter((p) => p.kind === k));
+}
+
+/** The plan /pro starts on (owner 2026-11-07, BUX-10): Yearly when it's
+ * sold, else the first. Not a price change, only the default. */
+export function defaultPlan(plans: readonly ProPlan[]): ProPlan | null {
+  return plans.find((p) => p.kind === "yearly") ?? plans[0] ?? null;
+}
+
+/** The plan that costs least per month, when one does strictly (the
+ * "Best value" badge is only true then). */
+export function bestValuePlan(plans: readonly ProPlan[]): ProPlan | null {
+  const sorted = [...plans].sort((a, b) => monthlyMicros(a) - monthlyMicros(b));
+  if (sorted.length < 2 || monthlyMicros(sorted[0]) >= monthlyMicros(sorted[1])) return null;
+  return sorted[0];
+}
+
+/** "$4.17 a month" for a plan that isn't monthly (null for Monthly). */
+export function perMonthLine(p: ProPlan, t: Tr = EN): string | null {
+  if (p.kind === "monthly") return null;
+  return t("pro.list.perMonth", { price: formatCents(Math.round(monthlyMicros(p) / 10_000), t) });
 }
 
 /** Price per month in micros (for "best value"). */

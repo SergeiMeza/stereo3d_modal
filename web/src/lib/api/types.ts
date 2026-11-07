@@ -821,6 +821,16 @@ export interface PublicPricing {
   /** owner 2026-11-07: China-mode payments (Alipay, WeChat Pay, plans);
    * missing means off ("coming soon") */
   china_payments?: boolean;
+  /** BUX-24 (proposal, owner 2026-11-07): the web doesn't sell Pro Weekly
+   * (the app keeps it); missing or false: Weekly is sold as today */
+  web_pro_weekly_hidden?: boolean;
+  /** BUX-23 (proposal): bonus usage credit on bigger top-ups (+5% at $50,
+   * +10% at $100), never refunded or paid out; missing, null or no tiers:
+   * off */
+  topup_bonus?: TopupBonus | null;
+  /** BUX-25 (proposal): Business billed yearly at 10× its month
+   * (plans.business_yearly); missing or false: Business bills monthly only */
+  business_yearly?: boolean;
   methods: {
     lifelike?: {
       presets: Preset[];
@@ -898,7 +908,9 @@ export interface PublicPricing {
     tiers?: OutputQuality[];
     default?: OutputQuality;
   } & Partial<Record<OutputQuality, { price_pct?: number; bit_depth?: number }>>;
-  plans?: Partial<Record<"business" | "studio", PlanDef>>;
+  /** business_yearly: BUX-25's yearly Business (interval "year"), sold
+   * only while business_yearly is on */
+  plans?: Partial<Record<"business" | "studio" | "business_yearly", PlanDef>>;
   free_previews?: {
     enabled?: boolean;
     allowances: Record<string, number>;
@@ -1334,10 +1346,16 @@ export interface UsagePage {
   has_more?: boolean;
 }
 
+/** BUX-23 (proposal): a top-up of at least min_cents gets pct of it as
+ * bonus usage credit (the highest tier that fits). */
+export interface TopupBonus {
+  tiers: { min_cents: number; pct: number }[];
+}
+
 /** spec v7 N1: the ledger, for "Balance history" */
 export interface BalanceEntry {
   id: string;
-  kind: "topup" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
+  kind: "topup" | "topup_bonus" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
   cents: number;
   at: string;
   /** "Visa •••• 4242", "CASE-0062" */

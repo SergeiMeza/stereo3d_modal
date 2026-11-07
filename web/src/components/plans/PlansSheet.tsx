@@ -162,7 +162,7 @@ export function PlansSheet({
             {t("plans.sheet.keepPaying")}
           </button>
           <p className="text-center text-xs text-fg-muted">
-            {t("plans.sheet.terms")}
+            {t("plans.sheet.termsNoTax")}
           </p>
           <LocalPriceNote testId="plans-sheet-local-note" className="text-center" />
         </div>
