@@ -314,6 +314,11 @@ type Rates struct {
 	// makes (sheet or China; never an auto-reload or a pay link's), by the
 	// highest tier its amount reaches. Absent or empty = no bonus.
 	TopupBonus []BonusTier `firestore:"topup_bonus"`
+	// BusinessYearly (BUX-25): Business billed yearly is offered (POST
+	// /v1/billing/plan {plan: business_yearly}, plan changes to it, its
+	// row in /v1/pricing plans). Absent = off in every env; yearly plans
+	// that exist run their year either way.
+	BusinessYearly bool `firestore:"business_yearly"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
 	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
 	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
@@ -1590,6 +1595,8 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		"web_pro_weekly_hidden": rates.WebProWeeklyHidden,
 		// BUX-23: top-up bonus tiers [{min_cents, pct}] ([] = none).
 		"topup_bonus": rates.publicBonusTiers(),
+		// BUX-25: Business billed yearly on offer.
+		"business_yearly": rates.BusinessYearly,
 		// Classic 3D is retired for new projects (2026-11-04): the web
 		// hides it; its prices stay for projects that already ran it.
 		"classic_new_projects": false,

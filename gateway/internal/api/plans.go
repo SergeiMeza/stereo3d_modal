@@ -56,6 +56,10 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, errProWeeklyHidden())
 		return
 	}
+	if req.Plan == pricing.PlanBusinessYearly && !s.rates(ctx).BusinessYearly {
+		httpx.WriteErr(ctx, w, errBusinessYearlyOff())
+		return
+	}
 	customerID, err := s.ensureCustomerID(ctx, user)
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
@@ -71,6 +75,9 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		return
 	}
 	priceID, lookup, tier, planID, coupon := def.StripePriceID, planLookupKey(def, req.Plan), req.Plan, "", ""
+	if req.Plan == pricing.PlanBusinessYearly { // BUX-25: tier business, told apart by its plan id
+		tier, planID = pricing.TierBusiness, pricing.PlanBusinessYearly
+	}
 	if isPro {
 		priceID, lookup, tier, planID = pro.StripePriceID, pro.LookupKey, pricing.TierPro, pro.ID
 		if pro.Intro != nil && pro.Intro.CouponID != "" && (cust == nil || !cust.ProIntroUsed) {
@@ -146,7 +153,7 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 		"renewable": !planNotRenewable(p), "restored_from": planNotRenewable(p)}
 	if pro, ok := s.rates(ctx).ProPlan(p.PlanID); ok && p.Tier == pricing.TierPro {
 		out["name"], out["interval"], out["price_cents"] = "Pro", pro.Interval, pro.PriceCents
-	} else if def, ok := s.rates(ctx).Plan(p.Tier); ok {
+	} else if def, ok := s.rates(ctx).Plan(p.Key()); ok { // Key: business_yearly's own terms
 		out["name"], out["monthly_cents"], out["credit_cents"] = def.Name, def.MonthlyCents, def.CreditCents
 		out["interval"], out["price_cents"], out["credit_interval"] = def.Interval, def.PriceCents, def.CreditInterval
 	}
@@ -468,5 +475,11 @@ func (s *Service) proWeeklyHidden(ctx context.Context, plan string) bool {
 func errProWeeklyHidden() error {
 	e := httpx.Err(http.StatusConflict, "plan_unavailable", "Pro Weekly isn't offered here any more. Choose monthly or yearly.")
 	e.Details = map[string]any{"plan": "pro_weekly"}
+	return e
+}
+
+func errBusinessYearlyOff() *httpx.APIError {
+	e := httpx.Err(http.StatusConflict, "plan_unavailable", "Business billed yearly isn't offered yet.")
+	e.Details = map[string]any{"plan": pricing.PlanBusinessYearly}
 	return e
 }

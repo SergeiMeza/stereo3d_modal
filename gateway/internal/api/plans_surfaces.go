@@ -229,7 +229,7 @@ func (s *Service) planStarts(ctx context.Context, convs []store.PlanConversion, 
 					row["price_cents"] = def.PriceCents
 				}
 			default:
-				if def, ok := rates.Plan(cust.Plan.Tier); ok {
+				if def, ok := rates.Plan(cust.Plan.Key()); ok {
 					row["price_cents"] = def.PriceCents
 				}
 			}

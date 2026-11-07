@@ -27,7 +27,11 @@ const (
 	TierNone     = ""
 	TierPro      = "pro"
 	TierBusiness = "business"
-	TierStudio   = "studio"
+	// PlanBusinessYearly (BUX-25): Business billed once a year, 10 × the
+	// monthly price, its credit and free previews every month like Studio.
+	// Its tier is business; the plan id tells it apart.
+	PlanBusinessYearly = "business_yearly"
+	TierStudio         = "studio"
 )
 
 // Add-on names.
@@ -277,6 +281,12 @@ func (r *Rates) Plan(tier string) (PlanDef, bool) {
 		return PlanDef{}, false
 	}
 	p, ok := r.Plans[tier]
+	if !ok && tier == PlanBusinessYearly { // not in config: Business's terms, yearly at 10 × the month
+		if b, bok := r.Plans[TierBusiness]; bok {
+			p, ok = b, true
+			p.Interval, p.PriceCents, p.StripePriceID, p.LookupKey = "year", 10*b.MonthlyCents, "", "svs_web_business_yearly"
+		}
+	}
 	if p.Interval == "" {
 		p.Interval = "month"
 	}
@@ -291,7 +301,8 @@ func (r *Rates) Plan(tier string) (PlanDef, bool) {
 // FreePreviewPeriods: how often each allowance resets (week | month |
 // year | pass = once per pass).
 var FreePreviewPeriods = map[string]string{"pro_weekly": "week", "pro_monthly": "month", "pro_yearly": "year",
-	"pro_pass_3m": "pass", "pro_pass_6m": "pass", "pro_lifetime": "month", TierBusiness: "month", TierStudio: "month"}
+	"pro_pass_3m": "pass", "pro_pass_6m": "pass", "pro_lifetime": "month", TierBusiness: "month", TierStudio: "month",
+	PlanBusinessYearly: "month"}
 
 // FreePreviewAllowance is the number of free previews for an allowance
 // key (pro_monthly, business, intro, …).
@@ -533,6 +544,11 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 	for _, t := range []string{TierBusiness, TierStudio} {
 		if p, ok := r.Plan(t); ok {
 			plans[t] = p
+		}
+	}
+	if r.BusinessYearly { // BUX-25: offered only while config business_yearly is on
+		if p, ok := r.Plan(PlanBusinessYearly); ok {
+			plans[PlanBusinessYearly] = p
 		}
 	}
 	allow := map[string]int{}

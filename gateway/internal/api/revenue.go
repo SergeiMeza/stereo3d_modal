@@ -39,7 +39,7 @@ const (
 
 // revenueProducts: the web's products, then the app's.
 var revenueProducts = []string{"run_lifelike", "run_classic", "run_preview", "topup", "settle_batch",
-	"pro_weekly", "pro_monthly", "pro_yearly", "business", "studio", "other", "app_run", "app_settle_batch"}
+	"pro_weekly", "pro_monthly", "pro_yearly", "business", "business_yearly", "studio", "other", "app_run", "app_settle_batch"}
 
 type revProduct struct {
 	Gross        int64 `json:"gross_cents"`
@@ -233,7 +233,7 @@ func (r *revenueReport) productOf(ch *store.Charge) string {
 }
 
 func planProduct(id string) string {
-	if slices.Contains([]string{"pro_weekly", "pro_monthly", "pro_yearly", "business", "studio"}, id) {
+	if slices.Contains([]string{"pro_weekly", "pro_monthly", "pro_yearly", "business", "business_yearly", "studio"}, id) {
 		return id
 	}
 	return "other"

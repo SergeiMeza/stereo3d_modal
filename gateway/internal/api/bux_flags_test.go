@@ -174,3 +174,73 @@ func (s *Service) ledgerRowsOf(t *testing.T, uid string) map[string]map[string]a
 	}
 	return out
 }
+
+// BUX-25: Business billed yearly behind config business_yearly (absent =
+// off): 10 × the monthly price a year, Business's credit every month;
+// tier business, plan id business_yearly; checkout and changes to it
+// refused while off.
+func TestBusinessYearly(t *testing.T) {
+	ctx := context.Background()
+	off := pricing.DefaultsFor("test")
+	if pub := pricing.NewStatic(off).Public(ctx); pub["business_yearly"] != false || pub["plans"].(map[string]any)["business_yearly"] != nil {
+		t.Fatalf("default: %v / %v", pub["business_yearly"], pub["plans"])
+	}
+	// not in config: Business's terms, yearly at 10 × the month
+	d, ok := off.Plan(pricing.PlanBusinessYearly)
+	if !ok || d.Interval != "year" || d.PriceCents != 299000 || d.CreditCents != 40000 || d.CreditInterval != "month" || d.LookupKey != "svs_web_business_yearly" {
+		t.Fatalf("derived %+v %v", d, ok)
+	}
+
+	s, fake := e0Service(t)
+	s.Cfg.StripePMCWeb, s.Cfg.SiteURL = "pmc_web", "https://site"
+	s.Pricing = pricing.NewStatic(off)
+	uid := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, uid, &store.Customer{StripeCustomerID: "cus_1"})
+	start := func() (int, map[string]any) {
+		return callJSON(t, func(w http.ResponseWriter, r *http.Request) { s.HandleStartPlan(w, r, &AuthedUser{UID: uid}) },
+			"POST", `{"plan":"business_yearly"}`)
+	}
+	if code, out := start(); code != 409 || out["error"] != "plan_unavailable" {
+		t.Fatalf("while off %d %v", code, out)
+	}
+	on := pricing.DefaultsFor("test")
+	on.BusinessYearly = true
+	by := on.Plans[pricing.TierBusiness]
+	by.Interval, by.PriceCents, by.StripePriceID, by.LookupKey = "year", 299000, "price_test_business_yearly", "svs_web_business_yearly"
+	on.Plans[pricing.PlanBusinessYearly] = by
+	s.Pricing = pricing.NewStatic(on)
+	if p := s.Pricing.Public(ctx)["plans"].(map[string]any)["business_yearly"].(pricing.PlanDef); p.PriceCents != 299000 || p.Interval != "year" {
+		t.Fatalf("public %+v", p)
+	}
+	code, out := start()
+	if code != 200 || out["plan"] != "business_yearly" {
+		t.Fatalf("checkout %d %v", code, out)
+	}
+	form := fake.sessionForms[len(fake.sessionForms)-1]
+	if form["line_items[0][price]"] != "price_test_business_yearly" || form["subscription_data[metadata][plan]"] != "business" ||
+		form["subscription_data[metadata][plan_id]"] != "business_yearly" {
+		t.Fatalf("session %v", form)
+	}
+
+	// a monthly Business plan steps up to yearly (10 months' price less the unused month)
+	f := newPlanFixture(t, "business", "business", 29900, 10, 30)
+	f.s.Pricing = pricing.NewStatic(off)
+	if code, out := f.post(f.s.HandlePreviewPlanChange, `{"to":"business_yearly"}`); code != 409 || out["error"] != "plan_unavailable" {
+		t.Fatalf("change while off %d %v", code, out)
+	}
+	f.s.Pricing = s.Pricing
+	code, out = f.post(f.s.HandlePreviewPlanChange, `{"to":"business_yearly"}`)
+	if code != 200 || out["kind"] != "step_up" || out["new_plan_cents"] != float64(299000) {
+		t.Fatalf("preview %d %v", code, out)
+	}
+	// the synced yearly subscription: tier business, plan id business_yearly, yearly, Business's credit monthly
+	f.s.Store.UpdateCustomer(ctx, f.uid, func(c *store.Customer) error {
+		c.Plan.PlanID, c.Plan.Interval, c.Plan.Tier = "business_yearly", "year", "business"
+		return nil
+	})
+	pj := f.s.planJSON(ctx, f.uid)
+	if pj["plan"] != "business" || pj["plan_id"] != "business_yearly" || pj["interval"] != "year" || pj["price_cents"] != int64(299000) ||
+		pj["credit_cents"] != int64(40000) || pj["credit_interval"] != "month" {
+		t.Fatalf("plan json %v", pj)
+	}
+}

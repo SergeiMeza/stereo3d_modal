@@ -44,7 +44,7 @@ const (
 	quoteValidFor  = 15 * time.Minute
 )
 
-var planOrder = []string{planNone, "pro_weekly", "pro_monthly", "pro_yearly", pricing.TierBusiness, pricing.TierStudio}
+var planOrder = []string{planNone, "pro_weekly", "pro_monthly", "pro_yearly", pricing.TierBusiness, pricing.PlanBusinessYearly, pricing.TierStudio}
 
 func planRank(id string) int { return slices.Index(planOrder, id) }
 
@@ -110,7 +110,11 @@ func (s *Service) planTarget(ctx context.Context, id string) (planTarget, bool) 
 			PriceID: p.StripePriceID, LookupKey: p.LookupKey}, true
 	}
 	if d, ok := r.Plan(id); ok {
-		return planTarget{ID: id, Tier: id, Name: d.Name, Interval: d.Interval, PriceCents: d.PriceCents,
+		tier := id
+		if id == pricing.PlanBusinessYearly {
+			tier = pricing.TierBusiness // BUX-25
+		}
+		return planTarget{ID: id, Tier: tier, Name: d.Name, Interval: d.Interval, PriceCents: d.PriceCents,
 			PriceID: d.StripePriceID, LookupKey: planLookupKey(d, id)}, true
 	}
 	if id == planNone {
@@ -184,6 +188,9 @@ func (s *Service) quotePlanChange(ctx context.Context, uid string, cust *store.C
 	if to != cust.Plan.Key() && s.proWeeklyHidden(ctx, to) {
 		e := errProWeeklyHidden().(*httpx.APIError) // BUX-24: no new weekly plans on the web
 		return nil, e
+	}
+	if to == pricing.PlanBusinessYearly && to != cust.Plan.Key() && !s.rates(ctx).BusinessYearly {
+		return nil, errBusinessYearlyOff() // BUX-25
 	}
 	target, ok := s.planTarget(ctx, to)
 	if !ok {
