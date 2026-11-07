@@ -258,6 +258,9 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 	}
 	params := stripex.Job{Web: true, UID: st.UID, Description: fmt.Sprintf("Your last runs (%d)", st.Runs()),
 		ReceiptEmail: cust.Email, Metadata: map[string]string{"settle_id": st.ID, "payment_flow": "settle"}}
+	if st.Trigger == settleDelete {
+		params.PMC = s.Cfg.StripePMCWeb // B1, web only: a saved Link or PayPal can pay
+	}
 	// B5 (every trigger, D8): the charge is on the record before it goes
 	// out, so a lost answer is found again by the sweep, never charged twice.
 	startedAt := time.Now().UTC()

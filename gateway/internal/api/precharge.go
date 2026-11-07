@@ -164,6 +164,7 @@ func (s *Service) runPrecharge(ctx context.Context, conv *store.Conversion) (*st
 			// from the record alone: a replay must send the same request
 			Metadata:     jobMetadataFromConversion(conv),
 			ReceiptEmail: conv.Stripe.ChargeEmail,
+			PMC:          s.Cfg.StripePMCWeb, // B1: the web sheet's types (Link, PayPal)
 		})
 	paidWith := conv.Stripe.ChargePM
 	if err != nil {

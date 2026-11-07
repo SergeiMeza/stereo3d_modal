@@ -73,7 +73,8 @@ func TestSettleAppTriggersUnchanged(t *testing.T) {
 			if len(f.creates) != 1 || len(f.confirms) != 0 || len(f.cancels) != 0 {
 				t.Fatalf("creates %d confirms %v cancels %v", len(f.creates), f.confirms, f.cancels)
 			}
-			if f.creates[0]["key"] != "settle_test_"+res.Settle.ID || f.creates[0]["off_session"] != "true" || f.creates[0]["payment_method"] != "pm_default" {
+			if f.creates[0]["key"] != "settle_test_"+res.Settle.ID || f.creates[0]["off_session"] != "true" || f.creates[0]["payment_method"] != "pm_default" ||
+				f.creates[0]["payment_method_configuration"] != "" {
 				t.Fatalf("charge %v", f.creates[0])
 			}
 			if f.pis["pi_off_1"]["status"] != "requires_payment_method" {

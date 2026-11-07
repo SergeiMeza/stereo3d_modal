@@ -438,7 +438,7 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 		fail("declined", "no saved method")
 		return
 	}
-	job := stripex.Job{UID: t.UID, Description: "Spatial Video Studio balance auto-reload"}
+	job := stripex.Job{UID: t.UID, Description: "Spatial Video Studio balance auto-reload", PMC: s.Cfg.StripePMCWeb}
 	pi, chErr := s.Stripe.ChargeTopup(cust.StripeCustomerID, cust.DefaultPaymentMethod, t.Cents, t.ID, job)
 	paidWith := cust.DefaultPaymentMethod
 	var f stripex.ChargeFailure

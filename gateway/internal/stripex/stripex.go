@@ -121,6 +121,13 @@ type Job struct {
 	// the SVS app's cloud conversion: picks the statement suffix and
 	// stamps product=svs-web.
 	Web bool
+	// PMC names the payment-method configuration an off-session charge is
+	// made under (B1): the web's pmc_web, which offers every type its
+	// sheet saves (card, Link, PayPal). Without it Stripe uses the
+	// account's Default configuration (card, Apple Pay, BLIK) and refuses
+	// a saved Link or PayPal. "" leaves it out (the app's charges, as
+	// shipped).
+	PMC string
 }
 
 // Statement descriptor suffixes (P4): the account's prefix + "* " +
@@ -207,6 +214,9 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	if job.ReceiptEmail != "" {
 		params.ReceiptEmail = stripe.String(job.ReceiptEmail)
+	}
+	if job.PMC != "" {
+		params.PaymentMethodConfiguration = stripe.String(job.PMC)
 	}
 	for k, v := range job.Metadata {
 		switch k {
