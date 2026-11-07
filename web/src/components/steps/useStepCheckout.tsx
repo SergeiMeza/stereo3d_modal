@@ -72,6 +72,9 @@ import { stepCheckoutAtom, type BillingBlock, type StepCheckoutState } from "./c
 import { invalidateQuoteAtom, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
 import { ConversionTracker, runLine, TERMINAL_STATES } from "./ConversionTracker";
 import { PinnedRun } from "./RunProgressCompact";
+import { applyRun } from "@/lib/live/liveStore";
+import { useLiveRunOrNull } from "@/lib/live/useLive";
+import { appStore } from "@/lib/state/stores";
 import { methodErrorCopy } from "./methods";
 import { formatCents } from "./money";
 import { FPS_PLAN_REQUIRED, PICK_FRAME_RATE } from "./frameRate";
@@ -169,7 +172,10 @@ export function useStepCheckout(
   const [state, setState] = useAtom(
     stepCheckoutAtom(project.project_id, step, method),
   );
-  const { attemptKey, active, settled } = state;
+  const { attemptKey, active: stored, settled } = state;
+  // owner 2026-11-07: the run as the live feed knows it, whichever tab
+  // shows it (the tracker may not be mounted)
+  const active = useLiveRunOrNull(stored);
   // ADR 0138: the price, its request and errors live in the checkout atom
   // (quoteAtoms writes them), so every reader agrees
   const view = quoteView(state);
@@ -274,6 +280,8 @@ export function useStepCheckout(
           : {}),
       });
       upgradeSession("paid-conversion");
+      // the new run joins the live feed at once (every surface shows it)
+      applyRun(appStore, conv);
       setState((s) => ({ ...s, active: conv, settled: false }));
       // the new run shows in the lists (Past previews, Files) and the
       // free previews left are priced again

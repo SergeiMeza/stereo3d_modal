@@ -13,7 +13,9 @@ import { atomFamily } from "jotai-family";
 
 import { GatewayError, type GatewayClient } from "@/lib/api/client";
 import type { Project } from "@/lib/api/types";
+import { seedRuns } from "@/lib/live/liveStore";
 import { openProjectIdAtom } from "@/lib/state/projectScope";
+import { appStore } from "@/lib/state/stores";
 import type { WorkspaceTabId } from "./PageTabs";
 
 import { loadErrorText } from "@/components/steps/loadErrorText";
@@ -85,6 +87,8 @@ export const loadProjectAtom = atom(
     const at = projectAtom(a.projectId);
     try {
       const project = await a.client.getProject(a.projectId);
+      // its runs feed the live atoms (the slow poll knows the going ones)
+      seedRuns(appStore, project.conversions);
       set(at, (s) => ({ ...s, project, loadError: null, analyzeWatch: watchAnalyze(s.analyzeWatch, project) }));
     } catch (e) {
       set(at, (s) => ({ ...s, loadError: loadErrorText(e, false, NOT_AVAILABLE) }));

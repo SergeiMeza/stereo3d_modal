@@ -48,6 +48,9 @@ import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 import WorkspaceScreen from "@/screens/WorkspaceScreen";
 
+// the mock status stream's tick (owner 2026-11-07: the feed moves the
+// analysis; no page timer)
+vi.mock("@/components/steps/polling", () => ({ POLL_INTERVAL_MS: 40 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({
     push: vi.fn(),
@@ -157,11 +160,11 @@ afterAll(() => server.close());
 
 /** Most tests exercise the Cut page editor — open on it via the URL hash
  * (the workspace DEFAULT is now the Media page; a hash always wins). */
-async function renderWorkspace(pollIntervalMs?: number): Promise<HTMLElement> {
+async function renderWorkspace(): Promise<HTMLElement> {
   window.history.replaceState(null, "", "#tab=cut");
   render(
     <AuthProvider>
-      <WorkspaceScreen projectId={PID} pollIntervalMs={pollIntervalMs} />
+      <WorkspaceScreen projectId={PID} />
     </AuthProvider>,
   );
   return screen.findByTestId("filmstrip");
@@ -375,35 +378,30 @@ describe("WorkspaceScreen — fixture rendering", () => {
     }
   });
 
-  it("shows the analyzing state and polls until analysis lands", async () => {
-    const running = structuredClone(projectFixture) as unknown as Project;
-    running.analyze = {
+  it("shows the analyzing state and follows the live feed until analysis lands (no timer)", async () => {
+    // owner 2026-11-07: the analysis moves through project.updated events
+    // (the mock stream advances it), and the page reads the project again
+    // once it's done
+    const p = mockDb.projects.get(PID)!;
+    p.analyze = {
       state: "running",
       error: "",
       credit_cents: 0,
       credit_available: false,
     };
-    delete running.probe;
-    delete running.scenes;
-    delete running.strip_thumbs;
-    delete running.scene_thumbs;
-    server.use(
-      http.get(
-        `${GATEWAY}/v1/projects/:id`,
-        () => HttpResponse.json(running),
-        { once: true },
-      ),
-    );
+    delete p.probe;
+    delete p.scenes;
+    delete p.strip_thumbs;
+    delete p.scene_thumbs;
 
     render(
       <AuthProvider>
-        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+        <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
 
     await screen.findByTestId("analyzing-state");
-    // next poll hits the default handler (analysis succeeded)
-    await screen.findByTestId("overview-price");
+    expect(await screen.findByTestId("overview-price", {}, { timeout: 5000 })).toBeTruthy();
     expect(screen.queryByTestId("analyzing-state")).toBeNull();
   });
 
@@ -428,7 +426,7 @@ describe("WorkspaceScreen — fixture rendering", () => {
 
     render(
       <AuthProvider>
-        <WorkspaceScreen projectId={PID} pollIntervalMs={60_000} />
+        <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
 
@@ -1314,7 +1312,7 @@ describe("WorkspaceScreen — analysis never spins forever (owner bug 2026-11-05
     return p;
   }
 
-  it("an analysis running for over 10 minutes says it's taking longer than usual and keeps polling", async () => {
+  it("an analysis running for over 10 minutes says it's taking longer than usual, and nothing polls", async () => {
     const stuck = analyzing(new Date(Date.now() - 11 * 60_000).toISOString());
     let gets = 0;
     server.use(
@@ -1325,14 +1323,17 @@ describe("WorkspaceScreen — analysis never spins forever (owner bug 2026-11-05
     );
     render(
       <AuthProvider>
-        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+        <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
     const notice = await screen.findByTestId("analyze-slow");
     expect(notice.textContent).toContain("This is taking longer than usual.");
     expect(within(notice).getByRole("button", { name: "Refresh" })).toBeTruthy();
+    // owner 2026-11-07: no timer reads the project; the live feed would
+    // say when the analysis moves
     const seen = gets;
-    await waitFor(() => expect(gets).toBeGreaterThan(seen + 1));
+    await new Promise((r) => setTimeout(r, 300));
+    expect(gets).toBe(seen);
     expect(screen.getByTestId("analyze-slow")).toBeTruthy();
   });
 
@@ -1344,7 +1345,7 @@ describe("WorkspaceScreen — analysis never spins forever (owner bug 2026-11-05
     );
     render(
       <AuthProvider>
-        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+        <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
     await screen.findByTestId("analyzing-state");
@@ -1361,7 +1362,7 @@ describe("WorkspaceScreen — analysis never spins forever (owner bug 2026-11-05
     };
     render(
       <AuthProvider>
-        <WorkspaceScreen projectId={PID} pollIntervalMs={25} />
+        <WorkspaceScreen projectId={PID} />
       </AuthProvider>,
     );
     const notice = await screen.findByTestId("analyze-failed");

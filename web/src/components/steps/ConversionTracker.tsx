@@ -1,8 +1,8 @@
 "use client";
 
 /**
- * Active conversion tracker: polls GET /v1/conversions/{id} until the
- * conversion reaches a terminal state, showing progress/stage/eta with a
+ * Active conversion tracker: follows the run through the live feed
+ * (owner 2026-11-07, lib/live) to a terminal state, showing progress/stage/eta with a
  * cancel button while active. On success it notifies the workspace
  * (onProjectChanged) and fetches the signed download links. A run the
  * gateway marks overdue offers "Report it" instead of an endless bar
@@ -11,7 +11,6 @@
  * that wait is never drawn as progress.
  */
 
-import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
@@ -23,7 +22,6 @@ import { useGateway } from "@/lib/api/useGateway";
 import { RunFiles } from "./RunFiles";
 import { runFacts } from "./QuoteView";
 import { formatCents } from "./money";
-import { POLL_INTERVAL_MS } from "./polling";
 import { FINISH_PAYMENT, WAITING_FOR_PAYMENT } from "@/components/pay/payCopy";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { qualityName, STEP_NAMES } from "@/lib/glossary";
@@ -32,8 +30,9 @@ import { formatDuration, formatTimeLeft } from "@/lib/format";
 import { WAITING_IN_LINE_NOTE } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
-import { conversionAtom } from "./conversionAtoms";
-import { loadErrorText, useIsSample } from "./loadError";
+import { applyRun } from "@/lib/live/liveStore";
+import { useLiveRun } from "@/lib/live/useLive";
+import { appStore } from "@/lib/state/stores";
 
 /** States a conversion never leaves — shared with useStepCheckout, which
  * must not resume trackers for (or poll) conversions already done. */
@@ -191,49 +190,25 @@ export function ConversionTracker({
 }: ConversionTrackerProps): JSX.Element {
   const client = useGateway();
   const { openSettle } = useSettle();
-  // ADR 0138: the run as last polled, in one atom per run, so a remount
-  // (a tab switch) and every reader see the same state
-  const [polled, setConv] = useAtom(conversionAtom(conversion.conversion_id));
-  const conv = polled ?? conversion;
+  // owner 2026-11-07: the run as the live feed knows it (lib/live), the
+  // one source every surface reads; this tracker never polls
+  const conv = useLiveRun(conversion);
   const [error, setError] = useState<string | null>(null);
-  const sample = useIsSample();
   const [canceling, setCanceling] = useState(false);
   const settledRef = useRef(false);
-  // Latest conv for the in-flight poll race check (a local terminal state,
-  // e.g. from cancel, wins over any poll response still in flight).
-  const convRef = useRef(conv);
-  useEffect(() => {
-    convRef.current = conv;
-  }, [conv]);
 
   const terminal = TERMINAL.has(conv.state);
 
-  // Poll until terminal. A local terminal state (e.g. from cancel) wins over
-  // any poll response still in flight.
+  // each newer state goes to the parent once (the checkout keeps its run;
+  // it hands the run back, so compare what changed, not the object)
+  const updateKey = `${conv.updated_at}|${conv.state}|${conv.progress}|${conv.stage ?? ""}|${conv.billing?.status ?? ""}`;
+  const lastUpdate = useRef(updateKey);
   useEffect(() => {
-    if (terminal) return;
-    let inFlight = false;
-    const timer = setInterval(() => {
-      if (inFlight) return;
-      inFlight = true;
-      client
-        .getConversion(conv.conversion_id)
-        .then((next) => {
-          setError(null);
-          if (TERMINAL.has(convRef.current.state)) return;
-          convRef.current = next;
-          setConv(next);
-          onUpdate?.(next);
-        })
-        .catch((e: unknown) => {
-          setError(loadErrorText(e, sample, "Couldn't check on this run. Retrying…"));
-        })
-        .finally(() => {
-          inFlight = false;
-        });
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(timer);
-  }, [client, conv.conversion_id, terminal, onUpdate, sample, setConv]);
+    if (lastUpdate.current === updateKey) return;
+    lastUpdate.current = updateKey;
+    onUpdate?.(conv);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follows updateKey
+  }, [updateKey, onUpdate]);
 
   // Terminal side effects (once): notify parent (RunFiles fetches the files).
   useEffect(() => {
@@ -248,10 +223,8 @@ export function ConversionTracker({
   async function cancel(): Promise<void> {
     setCanceling(true);
     try {
-      const next = await client.cancelConversion(conv.conversion_id);
-      convRef.current = next; // wins over any poll still in flight
-      setConv(next);
-      onUpdate?.(next);
+      // the answer goes into the live atom (newer than any event in flight)
+      applyRun(appStore, await client.cancelConversion(conv.conversion_id));
     } catch (e) {
       setError(e instanceof Error ? e.message : "cancel failed");
     } finally {
@@ -260,11 +233,7 @@ export function ConversionTracker({
   }
 
   async function report(note: string): Promise<void> {
-    const next = await client.reportConversion(conv.conversion_id, note);
-    if (TERMINAL.has(convRef.current.state)) return;
-    convRef.current = next;
-    setConv(next);
-    onUpdate?.(next);
+    applyRun(appStore, await client.reportConversion(conv.conversion_id, note));
   }
 
   const pct = Math.round(Math.min(Math.max(conv.progress, 0), 1) * 100);

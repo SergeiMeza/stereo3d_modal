@@ -28,7 +28,7 @@ import {
   vi,
 } from "vitest";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import type {
   Conversion,
@@ -37,6 +37,7 @@ import type {
   StepConversionRequest,
 } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLiveProject } from "@/lib/live/useLive";
 import { AuthProvider } from "@/lib/auth";
 import {
   cutsToRanges,
@@ -60,7 +61,7 @@ import {
 import { loadStereoDraft, saveStereoDraft, stereoDraftKey } from "./stereoStore";
 import { StereoPanel } from "./StereoPanel";
 
-vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50, PROFILE_POLL_MS: 50 }));
+vi.mock("./polling", () => ({ POLL_INTERVAL_MS: 50 }));
 
 // jsdom's HTMLMediaElement.play/pause are "not implemented"; stub them to
 // dispatch their events — the follower sync listens to exactly these.
@@ -1096,15 +1097,20 @@ describe("StereoPanel scene-profile import/export", () => {
 });
 
 describe("StereoPanel free shot profiling", () => {
-  /** Minimal stand-in for the workspace: holds the project in state and
-   * refetches it from the mock gateway on onProjectChanged — each GET
-   * advances the mock's profile lifecycle one step. */
+  /** Minimal stand-in for the workspace (owner 2026-11-07): the project
+   * with the live feed on top (the mock stream moves the profile job), and
+   * read again once the job changes state, like WorkspaceScreen. */
   function ProfileHarness({ initial }: { initial: Project }) {
     const client = useGateway();
     const [project, setProject] = useState(initial);
+    const live = useLiveProject(project);
+    const changed = live.profile?.state !== project.profile?.state ? (live.profile?.state ?? "none") : "";
+    useEffect(() => {
+      if (changed !== "") void client.getProject(initial.project_id).then(setProject);
+    }, [changed, client, initial.project_id]);
     return (
       <StereoPanel
-        project={project}
+        project={live}
         onProjectChanged={() => {
           void client.getProject(initial.project_id).then(setProject);
         }}
@@ -1139,14 +1145,13 @@ describe("StereoPanel free shot profiling", () => {
 
     await user.click(screen.getByRole("button", { name: "Profile shots (free)" }));
 
-    // POST set profile running; the panel's refetch (project GET #1)
-    // advances the mock's progress
+    // POST set profile running; the live feed moves it on
     const running = await screen.findByTestId("profile-running");
     expect(running.textContent).toContain("Measuring scenes");
-    expect(running.textContent).toContain("60%");
+    await waitFor(() => expect(screen.getByTestId("profile-running").textContent).toContain("60%"));
     expect(screen.queryByRole("button", { name: "Profile shots (free)" })).toBeNull();
 
-    // the 50 ms poll issues project GET #2 → succeeded + scene_profile
+    // the next tick finishes it; the harness reads the project again
     await waitFor(() => expect(screen.queryByTestId("profile-running")).toBeNull());
 
     // rows re-seeded from the profiled shots (mock bucket 0 = standard) —

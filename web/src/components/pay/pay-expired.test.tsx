@@ -10,6 +10,8 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import type { Conversion } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { applyRun } from "@/lib/live/liveStore";
+import { appStore } from "@/lib/state/stores";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -159,17 +161,16 @@ describe("the run pay sheet never spins", () => {
     await waitFor(() => expect(s.onClose).toHaveBeenCalledWith("paid"), { timeout: 3000 });
   });
 
-  it("a confirm with no answer re-checks the run after a minute", async () => {
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+  it("a run the live feed says expired, while the confirm hangs, shows expired (owner 2026-11-07)", async () => {
     hangConfirm();
     const run = waitingRun();
     sheet(run);
     fireEvent.click(await screen.findByTestId("pay-main"));
     await waitFor(() => expect(screen.getByTestId("pay-main").textContent).toContain("Paying"));
-    // the gateway expired the run meanwhile; the sheet's own prop is stale
-    mockDb.conversions.get(run.conversion_id)!.state = "expired";
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(CONFIRM_TIMEOUT_MS + 10);
+    // the gateway expired the run meanwhile; the sheet's own prop is stale,
+    // the live feed isn't
+    act(() => {
+      applyRun(appStore, { ...run, state: "expired", updated_at: "2026-11-05T00:01:00Z" });
     });
     expect(await screen.findByTestId("pay-expired")).toBeTruthy();
   });

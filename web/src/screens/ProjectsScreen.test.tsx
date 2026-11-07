@@ -39,6 +39,7 @@ import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 import { projectCreatedAtom } from "@/components/projects/projectsAtoms";
 import { appStore } from "@/lib/state/stores";
+import { applyLiveEvent } from "@/lib/live/liveStore";
 
 import ProjectsScreen from "./ProjectsScreen";
 
@@ -323,7 +324,7 @@ describe("ProjectsScreen list", () => {
     expect(screen.getByTestId("upload-dropzone").dataset.first).toBe("true");
   });
 
-  it("polls the list every 5s while a project is analyzing, and stops after", async () => {
+  it("a card follows its analysis through the live feed; the list has no timer (owner 2026-11-07)", async () => {
     const p = mockDb.projects.get(FIXTURE_ID);
     if (!p) throw new Error("fixture project missing");
     p.analyze = {
@@ -332,23 +333,29 @@ describe("ProjectsScreen list", () => {
       credit_cents: 0,
       credit_available: false,
     };
-    vi.useFakeTimers({ toFake: ["setInterval", "clearInterval"] });
-    try {
-      renderScreen();
-      expect(await screen.findByText("Getting your video ready")).toBeTruthy();
-      // server-side: analyze finishes
-      p.analyze = {
-        state: "succeeded",
-        error: "",
-        credit_cents: 50,
-        credit_available: true,
-      };
-      await vi.advanceTimersByTimeAsync(5000);
-      expect(await screen.findByText("Ready for 3D")).toBeTruthy();
-      expect(vi.getTimerCount()).toBe(0); // interval cleared once nothing runs
-    } finally {
-      vi.useRealTimers();
-    }
+    // no stream in this test: the event is applied by hand
+    mockDb.eventsDown = true;
+    let lists = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (new URL(request.url).pathname === "/v1/projects") lists += 1;
+    });
+    renderScreen();
+    expect(await screen.findByText("Getting your video ready")).toBeTruthy();
+    const seen = lists;
+    act(() => {
+      applyLiveEvent(appStore, {
+        type: "project.updated",
+        project: {
+          project_id: FIXTURE_ID,
+          analyze: { state: "succeeded", error: "", credit_cents: 50, credit_available: true },
+          version: Date.now() * 1000,
+        },
+      });
+    });
+    expect(await screen.findByText("Ready for 3D")).toBeTruthy();
+    await new Promise((r) => setTimeout(r, 200));
+    expect(lists).toBe(seen);
+    server.events.removeAllListeners();
   });
 });
 

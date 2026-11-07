@@ -1,21 +1,19 @@
 /**
- * Runs as their trackers last polled them (ADR 0138): one atom per run in
- * the project page's store, so a remount (a tab switch) and every reader
- * see the same state. Kept free of UI imports (the test setup loads it).
+ * Runs as the live feed knows them (owner 2026-11-07): the atoms are the
+ * live store's (lib/live/liveStore, app store), fed by the status stream,
+ * its slow poll and the answers to actions. Read them with
+ * lib/live/useLive; kept here for the names older code and tests use.
  */
 
-import { atom } from "jotai";
-import { atomFamily } from "jotai-family";
+import { resetLiveHubForTests } from "@/lib/live/hub";
+import { resetLive, runAtom } from "@/lib/live/liveStore";
+import { appStore } from "@/lib/state/stores";
 
-import type { Conversion } from "@/lib/api/types";
+/** One run as the live feed last knew it (null until it said anything). */
+export const conversionAtom = runAtom;
 
-/** One run as its tracker last polled it (null until the first answer). */
-export const conversionAtom = atomFamily((conversionId: string) => {
-  void conversionId;
-  return atom<Conversion | null>(null);
-});
-
-/** Test hook: forget every polled run. */
+/** Test hook: close the stream and forget every live run and project. */
 export function resetConversionsForTests(): void {
-  for (const id of [...conversionAtom.getParams()]) conversionAtom.remove(id);
+  resetLiveHubForTests();
+  resetLive(appStore);
 }

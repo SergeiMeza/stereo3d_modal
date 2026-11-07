@@ -22,6 +22,8 @@ import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { CheckoutHandle, Conversion, ConversionBilling } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { versionOf, type LiveRun } from "@/lib/live/events";
+import { useLiveRunById } from "@/lib/live/useLive";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { HandoffSheet } from "./HandoffSheet";
@@ -74,6 +76,20 @@ export function runPayOutcome(
   return null;
 }
 
+/** The page's run or the live feed's, whichever is newer (the page's
+ * wins a tie). */
+function newerRun(
+  run: (Pick<Conversion, "state" | "billing"> & Partial<Pick<Conversion, "updated_at">>) | null | undefined,
+  live: LiveRun | null,
+): Pick<Conversion, "state" | "billing"> | null | undefined {
+  if (live?.state === undefined) return run;
+  const fromLive = { state: live.state, billing: live.billing };
+  if (!run) return fromLive;
+  const a = versionOf(run.updated_at);
+  const b = live.version ?? versionOf(live.updated_at);
+  return Number.isFinite(a) && Number.isFinite(b) && b <= a ? run : fromLive;
+}
+
 export function PaySheet({
   conversionId,
   amountCents,
@@ -104,9 +120,9 @@ export function PaySheet({
   note?: string;
   /** paid = the run is on its way; open = closed with the payment open */
   onClose: (outcome: "paid" | "open") => void;
-  /** the run as last polled: while paying, an expired or paid run ends
-   * the wait (staging 2026-11-05) */
-  run?: Pick<Conversion, "state" | "billing"> | null;
+  /** the run as the page has it: while paying, an expired or paid run
+   * ends the wait (staging 2026-11-05); the live feed's is newer */
+  run?: (Pick<Conversion, "state" | "billing"> & Partial<Pick<Conversion, "updated_at">>) | null;
 }): JSX.Element {
   const gateway = useGateway();
   const frame = useSheetFrame();
@@ -156,41 +172,26 @@ export function PaySheet({
   }, [phase.kind]);
 
   // staging 2026-11-05: while paying (or waiting for the processor) the
-  // polled run can end the wait: expired or canceled shows Start again,
-  // paid or processing finishes. Adjusted during render, not in an effect.
-  const watched = phase.kind === "paying" || phase.kind === "waiting" ? runPayOutcome(run) : null;
+  // run can end the wait: expired or canceled shows Start again, paid or
+  // processing finishes. The run comes from the live feed (owner
+  // 2026-11-07), the prop until it says anything. Adjusted during render.
+  const liveRun = useLiveRunById(conversionId);
+  const current = newerRun(run, liveRun);
+  const watched = phase.kind === "paying" || phase.kind === "waiting" ? runPayOutcome(current) : null;
   if (watched === "expired") setPhase({ kind: "expired" });
   else if (watched === "paid") setPhase({ kind: "done", text: PAID_STARTING });
   else if (watched === "waiting" && phase.kind === "paying") setPhase({ kind: "waiting" });
 
-  // and a confirm that never answers re-checks the run after a minute
+  // and a confirm that never answers goes back to the form after a minute
+  // (anything the run said meanwhile has already ended the wait above)
   useEffect(() => {
     if (phase.kind !== "paying") return;
     const back: Phase = { kind: "ready", checkout: phase.checkout, publishableKey: phase.publishableKey };
-    let live = true;
-    const t = setTimeout(() => {
-      gateway
-        .getConversion(conversionId)
-        .then((conv) => runPayOutcome(conv))
-        .catch(() => null)
-        .then((outcome) => {
-          if (!live) return;
-          setPhase((p) => {
-            if (p.kind !== "paying") return p;
-            if (outcome === "expired") return { kind: "expired" };
-            if (outcome === "paid") return { kind: "done", text: PAID_STARTING };
-            if (outcome === "waiting") return { kind: "waiting" };
-            return back;
-          });
-        });
-    }, CONFIRM_TIMEOUT_MS);
-    return () => {
-      live = false;
-      clearTimeout(t);
-    };
+    const t = setTimeout(() => setPhase((p) => (p.kind === "paying" ? back : p)), CONFIRM_TIMEOUT_MS);
+    return () => clearTimeout(t);
     // the phase object changes only with its kind while paying
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase.kind, conversionId, gateway]);
+  }, [phase.kind]);
 
   async function startAgain(): Promise<void> {
     setPhase({ kind: "loading" });

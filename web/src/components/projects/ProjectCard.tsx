@@ -60,6 +60,7 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { formatClock, formatTimeLeft } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
+import { useLiveProject } from "@/lib/live/useLive";
 
 const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
   year: "numeric",
@@ -180,7 +181,7 @@ export const ARCHIVE_BLOCKED =
 const FINISHED = new Set(["succeeded", "failed", "canceled", "expired"]);
 
 export function ProjectCard({
-  project,
+  project: listed,
   onUpdate,
   onDelete,
 }: {
@@ -191,6 +192,9 @@ export function ProjectCard({
    * delete); never the sample. Errors surface in the parent's banner. */
   onDelete?: () => Promise<void>;
 }) {
+  // owner 2026-11-07: the card's analysis and run line from the live feed,
+  // the same moment the project page shows
+  const project = useLiveProject(listed);
   const gateway = useGateway();
   const [kept, setKept] = useState(false);
   const [keeping, setKeeping] = useState(false);

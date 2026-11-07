@@ -8,17 +8,16 @@
  * goes to its tab. The current step's action is the Overview card's main
  * button (primaryAction), so the stepper itself carries none (QA
  * 2026-11-05: no twin Download buttons). Phones get four dots and the
- * current step's name. Everything comes from the project and the run
- * atoms (ADR 0138); nothing is kept here.
+ * current step's name. Everything comes from the project with its runs
+ * live (lib/live); nothing is kept here.
  */
 
-import { useAtomValue } from "jotai";
 import type { JSX } from "react";
 
 import { analyzePercent } from "@/components/projects/AnalyzeBadge";
-import { conversionAtom } from "@/components/steps/conversionAtoms";
 import { formatCents } from "@/components/steps/money";
-import { methodOf, type Conversion, type Project, type Step } from "@/lib/api/types";
+import { methodOf, type Project, type Step } from "@/lib/api/types";
+import { useLiveProject } from "@/lib/live/useLive";
 
 import { tabIcon, type WorkspaceTabId } from "./PageTabs";
 
@@ -61,10 +60,8 @@ const FLOWS: Record<"lifelike" | "classic", readonly StepDef[]> = {
 
 const ACTIVE = new Set(["created", "paid", "processing"]);
 
-/** The steps and their states, from the project (and the active run's
- * latest poll). */
+/** The steps and their states, from the project (with its runs live). */
 export interface StepsContext {
-  live?: Conversion | null;
   previewFree?: boolean;
   /** the Preview page default's price, when known */
   previewCents?: number | null;
@@ -75,9 +72,8 @@ export function overviewSteps(project: Project, opts: StepsContext = {}): StepVi
   const flow = FLOWS[method];
   const runs = project.conversions ?? [];
   const fullRuns = runs.filter((c) => (c.step ?? "production") === "production");
-  const listed = fullRuns.find((c) => ACTIVE.has(c.state)) ?? null;
-  const active = listed && opts.live?.conversion_id === listed.conversion_id ? opts.live : listed;
-  const running = active !== null && ACTIVE.has(active.state);
+  const active = fullRuns.find((c) => ACTIVE.has(c.state)) ?? null;
+  const running = active !== null;
   const made = fullRuns.some((c) => c.state === "succeeded");
   const analyzed = project.analyze.state === "succeeded" && !!project.probe;
   const scenesDone = analyzed && !!project.scenes;
@@ -136,14 +132,12 @@ export function overviewSteps(project: Project, opts: StepsContext = {}): StepVi
   });
 }
 
-/** The steps with the active run's latest poll (ADR 0138), for the
- * stepper and the Overview card alike. */
-export function useOverviewSteps(project: Project, opts: Omit<StepsContext, "live"> = {}): StepView[] {
-  const activeId =
-    (project.conversions ?? []).find((c) => (c.step ?? "production") === "production" && ACTIVE.has(c.state))
-      ?.conversion_id ?? "";
-  const live = useAtomValue(conversionAtom(activeId));
-  return overviewSteps(project, { ...opts, live });
+/** The steps from the project with its runs live (owner bug 2026-11-07:
+ * "Making… 62%" stayed after the run finished, since nothing updated the
+ * run while Overview was open), for the stepper and the Overview card
+ * alike. */
+export function useOverviewSteps(project: Project, opts: StepsContext = {}): StepView[] {
+  return overviewSteps(useLiveProject(project), opts);
 }
 
 export interface StepAction {

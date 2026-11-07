@@ -13,7 +13,7 @@
  * 2026-11-07). Nothing here blocks ordering.
  */
 
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { Collapsible } from "radix-ui";
 import type { JSX } from "react";
 
@@ -23,7 +23,7 @@ import { frameToSeconds, parseRational } from "@/lib/frames";
 import { qualityLabelFor } from "@/lib/glossary";
 import { paymentStatus } from "@/lib/billingCopy";
 
-import { conversionAtom } from "./conversionAtoms";
+import { useLiveRun } from "@/lib/live/useLive";
 import { fpsLabel } from "./frameRate";
 import { formatCents } from "./money";
 import { previousRunsOpenAtom } from "./previousRunsAtoms";
@@ -169,10 +169,9 @@ export function PreviousRuns({
 }
 
 function RunRow({ project, conversion }: { project: Project; conversion: Conversion }): JSX.Element {
-  // the run as last polled (the tracker and the bar write it), so a run
-  // that just finished reads Ready before the project's list is read again
-  const polled = useAtomValue(conversionAtom(conversion.conversion_id));
-  const c = polled ?? conversion;
+  // the run as the live feed knows it (owner 2026-11-07), so a run that
+  // just finished reads Ready before the project is read again
+  const c = useLiveRun(conversion);
   const running = isInProgress(c);
   return (
     <li
@@ -212,7 +211,7 @@ function RunRow({ project, conversion }: { project: Project; conversion: Convers
       {running ? (
         // its one-line step truncates instead of widening the page (390 px)
         <div className="min-w-0 [contain:inline-size]">
-          <RunProgressCompact conversion={c} poll chip={false} />
+          <RunProgressCompact conversion={c} chip={false} />
         </div>
       ) : null}
       {c.state === "succeeded" ? (

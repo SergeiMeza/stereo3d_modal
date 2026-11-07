@@ -62,7 +62,7 @@
 
 /* eslint-disable @next/next/no-img-element -- signed GCS thumbnail URLs. */
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { AnalyzeProgress } from "@/components/projects/AnalyzeBadge";
@@ -110,7 +110,6 @@ import {
   OUTPUT_FORMATS,
   type EdgeMode,
 } from "./outputOptions";
-import { PROFILE_POLL_MS } from "./polling";
 import { PriorRuns } from "./PriorRuns";
 import {
   exportStereoProfile,
@@ -176,23 +175,19 @@ export function StereoPanel({
   const [importPending, setImportPending] = useState<StereoDraft | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
 
-  // Free shot profiling: while the standalone job runs, drive the
-  // workspace's project refetch so project.profile/scene_profile stay live.
+  // Free shot profiling: the job's progress comes with the project from
+  // the live feed (owner 2026-11-07); the workspace reads the project
+  // again when it finishes, so project.scene_profile lands.
   const [profileError, setProfileError] = useState<string | null>(null);
   const [profileStarting, setProfileStarting] = useState(false);
   const profileRunning = project.profile?.state === "running";
-  useEffect(() => {
-    if (!profileRunning) return;
-    const timer = setInterval(() => onProjectChanged(), PROFILE_POLL_MS);
-    return () => clearInterval(timer);
-  }, [profileRunning, onProjectChanged]);
 
   async function startProfile(): Promise<void> {
     setProfileStarting(true);
     setProfileError(null);
     try {
       await client.profileProject(project.project_id);
-      onProjectChanged(); // pick up profile.state=running (and start polling)
+      onProjectChanged(); // pick up profile.state=running
     } catch (e) {
       setProfileError(e instanceof Error ? e.message : "request failed");
     } finally {

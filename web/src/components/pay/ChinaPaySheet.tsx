@@ -17,6 +17,7 @@ import type { JSX } from "react";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLiveRunById } from "@/lib/live/useLive";
 
 import { HandoffSheet } from "./HandoffSheet";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -29,7 +30,6 @@ export function setChinaNavigateForTests(fn: (url: string) => void): void {
   navigate = fn;
 }
 
-const POLL_MS = 2000;
 
 export function ChinaPaySheet({
   conversionId,
@@ -77,23 +77,16 @@ export function ChinaPaySheet({
     }
   }
 
-  // P5: wait for the scan
+  // P5: wait for the scan. The run leaves "created" once it's paid, as
+  // the live feed says (owner 2026-11-07); the code expires on its own.
+  const run = useLiveRunById(conversionId);
+  if (phase.kind === "qr" && run?.state !== undefined && run.state !== "created") setPhase({ kind: "paid" });
   useEffect(() => {
-    if (phase.kind !== "qr") return;
-    const t = setInterval(() => {
-      if (phase.expires && Date.parse(phase.expires) < Date.now()) {
-        setPhase({ kind: "expired" });
-        return;
-      }
-      gateway.getConversion(conversionId).then(
-        (c) => {
-          if (c.state !== "created") setPhase({ kind: "paid" });
-        },
-        () => {},
-      );
-    }, POLL_MS);
-    return () => clearInterval(t);
-  }, [gateway, conversionId, phase]);
+    if (phase.kind !== "qr" || !phase.expires) return;
+    const left = Date.parse(phase.expires) - Date.now();
+    const t = setTimeout(() => setPhase({ kind: "expired" }), Math.max(0, left));
+    return () => clearTimeout(t);
+  }, [phase]);
 
   useEffect(() => {
     if (phase.kind !== "paid") return;

@@ -33,9 +33,8 @@ import {
   projectListAtom,
 } from "@/components/projects/projectsAtoms";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLiveDeletedIds } from "@/lib/live/useLive";
 import { useAccountSettings } from "@/lib/useAccountSettings";
-
-const POLL_INTERVAL_MS = 5000;
 
 /** A modal dialog is open on the page. */
 function modalOpen(): boolean {
@@ -54,8 +53,11 @@ export default function ProjectsScreen() {
   const list = useAppAtomValue(projectListAtom);
   const uid = useAppAtomValue(billingUidAtom);
   const mine = list.uid === uid;
-  const projects = mine ? list.projects : null;
-  const archived = mine ? list.archived : null;
+  // a project the live feed says was deleted (another tab, another
+  // device) leaves the list at once
+  const gone = useLiveDeletedIds([...(list.projects ?? []), ...(list.archived ?? [])].map((p) => p.project_id));
+  const projects = mine ? (list.projects?.filter((p) => !gone.has(p.project_id)) ?? null) : null;
+  const archived = mine ? (list.archived?.filter((p) => !gone.has(p.project_id)) ?? null) : null;
   const loadError = mine ? list.loadError : null;
   const actionError = mine ? list.actionError : null;
   const loadList = useAppSetAtom(loadProjectsAtom);
@@ -104,25 +106,9 @@ export default function ProjectsScreen() {
     if (showArchived) loadArchived();
   }, [showArchived, loadArchived]);
 
-  // poll while anything moves: the free analysis or a 3D run
-  const anyAnalyzing =
-    projects?.some(
-      (p) =>
-        p.analyze.state === "running" ||
-        ["created", "paid", "processing"].includes(
-          p.summary?.latest_state ?? "",
-        ),
-    ) ?? false;
-
-  useEffect(() => {
-    if (!anyAnalyzing) return;
-    // owner bug 2026-11-05: no list reloads under an open dialog (iOS
-    // Safari drops taps on long frames)
-    const id = setInterval(() => {
-      if (!modalOpen()) load();
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(id);
-  }, [anyAnalyzing, load]);
+  // owner 2026-11-07: no list timer; each card follows its analysis and
+  // runs through the live feed (lib/live), and the list is read again
+  // when the page is shown
 
   const update = useCallback(
     async (id: string, req: UpdateProjectRequest) => {

@@ -5,23 +5,19 @@
  * chip, the current step ("Making the 3D video · Rendering in 3D"), a thin
  * bar and the time left. The Make 3D tab pins it to the bottom of the
  * screen while the full tracker is below the fold (PinnedRun); the Files
- * tab shows it in a running row. It reads the run's atom (ADR 0138), so
- * every place shows the same moment; where no tracker polls (Files), it
- * polls the run itself.
+ * tab shows it in a running row. It reads the live run (lib/live), so
+ * every place shows the same moment.
  */
 
-import { useAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
 
 import { Progress } from "@/components/ui/progress";
 import type { Conversion } from "@/lib/api/types";
-import { useGateway } from "@/lib/api/useGateway";
 import { formatTimeLeft } from "@/lib/format";
 
 import { STEP_LINES, stageStep, TERMINAL_STATES } from "./ConversionTracker";
-import { conversionAtom } from "./conversionAtoms";
-import { POLL_INTERVAL_MS } from "./polling";
+import { useLiveRun } from "@/lib/live/useLive";
 import { runStatus } from "./runStatus";
 import { stageLabel } from "./stageLabels";
 import { StateChip } from "./StateChip";
@@ -37,37 +33,16 @@ export function currentStepLine(conv: Conversion): string {
 
 export function RunProgressCompact({
   conversion,
-  poll = false,
   chip = true,
 }: {
   conversion: Conversion;
-  /** poll the run here (no full tracker on this screen) */
-  poll?: boolean;
   /** the state chip (a Files row has its own) */
   chip?: boolean;
 }): JSX.Element | null {
-  const client = useGateway();
-  // the run's atom (ADR 0138), the one the full tracker writes
-  const [polled, storeRun] = useAtom(conversionAtom(conversion.conversion_id));
-  const conv = polled ?? conversion;
+  // the run as the live feed knows it (owner 2026-11-07), like every
+  // other place that shows it
+  const conv = useLiveRun(conversion);
   const terminal = TERMINAL_STATES.has(conv.state);
-
-  useEffect(() => {
-    if (!poll || terminal) return;
-    let busy = false;
-    const t = setInterval(() => {
-      if (busy) return;
-      busy = true;
-      client
-        .getConversion(conv.conversion_id)
-        .then((next) => storeRun(next))
-        .catch(() => undefined)
-        .finally(() => {
-          busy = false;
-        });
-    }, POLL_INTERVAL_MS);
-    return () => clearInterval(t);
-  }, [poll, terminal, client, conv.conversion_id, storeRun]);
 
   if (terminal) return null;
   const working = conv.state === "processing" && conv.waiting_for_gpu !== true;

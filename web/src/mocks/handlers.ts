@@ -42,6 +42,7 @@ import type {
 } from "@/lib/api/types";
 import { depthContentDims } from "@/lib/depthRes";
 import { deriveCnGatewayUrl } from "@/lib/region";
+import { POLL_INTERVAL_MS } from "@/components/steps/polling";
 
 const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
 /** China mode's gateway host (lib/region.ts); the auth routes answer on both. */
@@ -488,6 +489,13 @@ interface DB {
   formatJobPolls: number;
   formatJobsFail: boolean;
   formatServiceDown: boolean;
+  /** GET /v1/events answers 503 (the stream is down; the slow poll fills in) */
+  eventsDown: boolean;
+  /** status streams open now: while one is, the stream advances runs,
+   * analyses and profile jobs, not each GET */
+  openStreams: number;
+  /** the last event id sent */
+  eventSeq: number;
   /** POST /v1/plans/change received */
   planChanges: string[];
   /** the next feedback post fails with this status */
@@ -1023,6 +1031,9 @@ function seed(): DB {
     formatJobPolls: 1,
     formatJobsFail: false,
     formatServiceDown: false,
+    eventsDown: false,
+    openStreams: 0,
+    eventSeq: 0,
     nextFeedbackStatus: null as number | null,
     gpuWaitPolls: 1,
   };
@@ -1031,6 +1042,7 @@ function seed(): DB {
 export const mockDb = {
   ...seed(),
   reset() {
+    closeMockStreams();
     const fresh = seed();
     this.projects = fresh.projects;
     this.conversions = fresh.conversions;
@@ -1073,6 +1085,9 @@ export const mockDb = {
     this.formatJobPolls = fresh.formatJobPolls;
     this.formatJobsFail = fresh.formatJobsFail;
     this.formatServiceDown = fresh.formatServiceDown;
+    this.eventsDown = fresh.eventsDown;
+    this.openStreams = fresh.openStreams;
+    this.eventSeq = fresh.eventSeq;
     this.nextFeedbackStatus = fresh.nextFeedbackStatus;
     this.fpsCap = fresh.fpsCap;
     this.classicNewProjects = fresh.classicNewProjects;
@@ -2453,6 +2468,180 @@ function tickProfile(p: Project) {
   }
 }
 
+/** One analysis step: one lifecycle stage per tick (deterministic for
+ * tests), then the fixture analysis folds in like the gateway's
+ * read-through poll. */
+function tickAnalyze(p: Project) {
+  if (p.analyze.state !== "running") return;
+  const tick = mockDb.analyzeTicks.get(p.project_id) ?? 0;
+  if (tick < ANALYZE_STAGES.length) {
+    const s = ANALYZE_STAGES[tick];
+    p.analyze = {
+      ...p.analyze,
+      progress: s.progress,
+      stage: s.stage,
+      eta_seconds: s.eta,
+    };
+    mockDb.analyzeTicks.set(p.project_id, tick + 1);
+  } else {
+    const t = structuredClone(projectFixture) as unknown as Project;
+    Object.assign(p, {
+      analyze: t.analyze,
+      probe: t.probe,
+      scenes: t.scenes,
+      crop: t.crop,
+      strip_thumbs: t.strip_thumbs,
+      scene_thumbs: t.scene_thumbs,
+      poster: t.poster,
+    });
+    mockDb.analyzeTicks.delete(p.project_id);
+  }
+}
+
+/** A time in the stream's `version` unit (microseconds). */
+function micros(at: string): number {
+  return Date.parse(at) * 1000;
+}
+
+const ACTIVE_RUN = new Set(["created", "paid", "processing"]);
+const encoder = new TextEncoder();
+
+/** One open status stream: send an event to it, or close it. */
+interface MockStream {
+  send: (event: string, data: Record<string, unknown>) => void;
+  close: () => void;
+}
+
+const streams = new Set<MockStream>();
+let streamTicker: ReturnType<typeof setInterval> | null = null;
+
+function runBody(c: Conversion) {
+  return { ...c, project_id: c.project_id };
+}
+
+function projectBody(p: Project) {
+  const { conversions: _c, ...rest } = projectDetail(p);
+  void _c;
+  return { ...rest, summary: projectSummary(p as MockProject) };
+}
+
+function broadcast(event: string, data: Record<string, unknown>) {
+  for (const s of streams) s.send(event, data);
+}
+
+/** One lifecycle step of every going run, analysis and profile job, sent
+ * to every open stream (run.progress while only its progress moves,
+ * run.state on any other change, project.updated). */
+function streamTick() {
+  for (const c of mockDb.conversions.values()) {
+    if (!ACTIVE_RUN.has(c.state)) continue;
+    const before = JSON.stringify({ s: c.state, b: c.billing, o: c.outputs, w: c.waiting_for_gpu });
+    tick(c);
+    c.updated_at = new Date().toISOString();
+    const after = JSON.stringify({ s: c.state, b: c.billing, o: c.outputs, w: c.waiting_for_gpu });
+    if (before !== after) {
+      broadcast("run.state", {
+        run_id: c.conversion_id,
+        project_id: c.project_id,
+        version: micros(c.updated_at),
+        state: c.state,
+        run: runBody(c),
+      });
+    } else {
+      broadcast("run.progress", {
+        run_id: c.conversion_id,
+        project_id: c.project_id,
+        version: micros(c.updated_at),
+        state: c.state,
+        progress: c.progress,
+        stage: c.stage,
+        eta_seconds: c.eta_seconds,
+        waiting_for_gpu: c.waiting_for_gpu === true,
+        queued_s: c.queued_s,
+      });
+    }
+  }
+  for (const p of mockDb.projects.values()) {
+    if ((p as MockProject).deleted) continue;
+    if (p.analyze.state !== "running" && p.profile?.state !== "running") continue;
+    tickAnalyze(p);
+    tickProfile(p);
+    p.updated_at = new Date().toISOString();
+    broadcast("project.updated", {
+      project_id: p.project_id,
+      version: micros(p.updated_at),
+      deleted: false,
+      project: projectBody(p),
+    });
+  }
+}
+
+/** Close every open status stream (mockDb.reset: a test's streams never
+ * tick the next test's runs). */
+export function closeMockStreams() {
+  for (const s of [...streams]) s.close();
+}
+
+/**
+ * GET /v1/events (owner 2026-11-07, the gateway's schema): `retry:`, a
+ * snapshot on connect, then one shared tick every POLL_INTERVAL_MS while
+ * any stream is open (streamTick). mockDb.eventsDown answers 503 instead.
+ */
+function eventStream(request: Request) {
+  if (mockDb.eventsDown) return err(503, "events_unavailable", "the status stream is down");
+  const stream = new ReadableStream<Uint8Array>({
+    start(controller) {
+      let open = true;
+      const me: MockStream = {
+        send(event, data) {
+          if (!open) return;
+          mockDb.eventSeq += 1;
+          const body = JSON.stringify({ type: event, ...data });
+          try {
+            controller.enqueue(encoder.encode(`event: ${event}\nid: ${mockDb.eventSeq}\ndata: ${body}\n\n`));
+          } catch {
+            me.close();
+          }
+        },
+        close() {
+          if (!open) return;
+          open = false;
+          streams.delete(me);
+          mockDb.openStreams = streams.size;
+          if (streams.size === 0 && streamTicker !== null) {
+            clearInterval(streamTicker);
+            streamTicker = null;
+          }
+          try {
+            controller.close();
+          } catch {
+            // already closed
+          }
+        },
+      };
+      streams.add(me);
+      mockDb.openStreams = streams.size;
+      controller.enqueue(encoder.encode("retry: 2000\n\n"));
+      me.send("snapshot", {
+        version: micros(new Date().toISOString()),
+        runs: [...mockDb.conversions.values()]
+          .sort((a, b) => (a.created_at < b.created_at ? 1 : -1))
+          .slice(0, 50)
+          .map(runBody),
+        projects: [...mockDb.projects.values()]
+          .filter((p) => !(p as MockProject).deleted)
+          .slice(0, 100)
+          .map(projectBody),
+      });
+      streamTicker ??= setInterval(streamTick, POLL_INTERVAL_MS);
+      request.signal.addEventListener("abort", () => me.close());
+    },
+  });
+  return new HttpResponse(stream, {
+    headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-store" },
+  });
+}
+
 /** The detail-response shape (GET/PATCH project, POST profile): the project
  * plus its conversions, newest first. */
 function projectDetail(p: Project) {
@@ -2668,6 +2857,9 @@ function methodCapError(p: Project): ReturnType<typeof err> | null {
 export const handlers = [
   ...authHandlers(GATEWAY),
   ...(GATEWAY_CN !== GATEWAY ? authHandlers(GATEWAY_CN) : []),
+
+  // the live status stream (owner 2026-11-07)
+  http.get(`${GATEWAY}/v1/events`, ({ request }) => eventStream(request)),
 
   http.post(`${GATEWAY}/v1/customers`, () => {
     return HttpResponse.json({ customer_id: "cus_mock" });
@@ -4379,34 +4571,11 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/projects/:id`, ({ params }) => {
     const p = mockDb.projects.get(params.id as string);
     if (!p || p.deleted) return err(404, "not_found", "project not found");
-    if (p.analyze.state === "running") {
-      const tick = mockDb.analyzeTicks.get(p.project_id) ?? 0;
-      if (tick < ANALYZE_STAGES.length) {
-        // advance one lifecycle stage per poll (deterministic for tests)
-        const s = ANALYZE_STAGES[tick];
-        p.analyze = {
-          ...p.analyze,
-          progress: s.progress,
-          stage: s.stage,
-          eta_seconds: s.eta,
-        };
-        mockDb.analyzeTicks.set(p.project_id, tick + 1);
-      } else {
-        // fold in the fixture analysis, like the gateway's read-through poll
-        const t = structuredClone(projectFixture) as unknown as Project;
-        Object.assign(p, {
-          analyze: t.analyze,
-          probe: t.probe,
-          scenes: t.scenes,
-          crop: t.crop,
-          strip_thumbs: t.strip_thumbs,
-          scene_thumbs: t.scene_thumbs,
-          poster: t.poster,
-        });
-        mockDb.analyzeTicks.delete(p.project_id);
-      }
+    // while a status stream is open, the stream advances the analysis
+    if (mockDb.openStreams === 0) {
+      tickAnalyze(p);
+      tickProfile(p);
     }
-    tickProfile(p);
     return HttpResponse.json(projectDetail(p));
   }),
 
@@ -4921,8 +5090,11 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/conversions/:id`, ({ params }) => {
     const c = mockDb.conversions.get(params.id as string);
     if (!c) return err(404, "not_found", "conversion not found");
-    tick(c);
-    c.updated_at = new Date().toISOString();
+    // while a status stream is open, the stream advances the run
+    if (mockDb.openStreams === 0) {
+      tick(c);
+      c.updated_at = new Date().toISOString();
+    }
     // 00081: Express runs say so; one waiting for a GPU starts within the cap
     if (c.method === "lifelike" && c.step === "production") {
       const express = c.params?.express === true;
@@ -4950,6 +5122,7 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
       c.state = "canceled";
+      c.updated_at = new Date().toISOString();
       // spec v7 N5: a balance run's hold goes back
       const held = mockDb.billing.prepaid.holds.get(c.conversion_id);
       if (held !== undefined) {
@@ -4974,6 +5147,7 @@ export const handlers = [
     if (!c) return err(404, "not_found", "conversion not found");
     if (!["succeeded", "failed", "canceled", "expired"].includes(c.state)) {
       c.reported_at = new Date().toISOString();
+      c.updated_at = c.reported_at;
     }
     return HttpResponse.json(c);
   }),

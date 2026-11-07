@@ -1047,6 +1047,34 @@ export class GatewayClient {
     });
   }
 
+  // -------------------------------------------------------- live status
+
+  /**
+   * GET /v1/events (owner 2026-11-07): the signed-in user's status stream,
+   * read with fetch so it carries the bearer token (refreshed on every
+   * connect). Resumes after lastEventId. The body once it answered 200;
+   * a GatewayError with the status otherwise (401: a bad token).
+   */
+  async openEvents(lastEventId: string | null, signal: AbortSignal): Promise<ReadableStream<Uint8Array>> {
+    const f = this.opts.fetchFn ?? fetch;
+    const base = typeof this.opts.baseUrl === "function" ? this.opts.baseUrl() : this.opts.baseUrl;
+    const token = await this.opts.getToken();
+    const res = await f(`${base}/v1/events`, {
+      headers: {
+        Accept: "text/event-stream",
+        Authorization: `Bearer ${token}`,
+        ...(lastEventId !== null ? { "Last-Event-ID": lastEventId } : {}),
+      },
+      cache: "no-store",
+      signal,
+    });
+    if (!res.ok || res.body === null) {
+      void res.body?.cancel().catch(() => {});
+      throw new GatewayError("events_unavailable", "The status stream isn't available.", res.status);
+    }
+    return res.body;
+  }
+
   // -------------------------------------------------------- conversions
 
   getConversion(id: string): Promise<Conversion> {

@@ -14,7 +14,7 @@
  * History lists every conversion.
  */
 
-import { useAtom, useAtomValue, useSetAtom } from "jotai";
+import { useAtom, useSetAtom } from "jotai";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -56,6 +56,7 @@ import {
   loadProjectAtom,
   projectAtom,
   retryAnalyzeAtom,
+  watchAnalyze,
   workspaceTabAtom,
 } from "@/components/workspace/workspaceAtoms";
 import { AnalyzeNotice } from "@/components/workspace/AnalyzeNotice";
@@ -70,8 +71,23 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { useLimits } from "@/lib/api/useLimits";
 import { videoFacts } from "@/lib/glossary";
+import { retainOpenProject } from "@/lib/live/hub";
+import { RUN_TERMINAL } from "@/lib/live/liveStore";
+import { useLiveProject } from "@/lib/live/useLive";
 
-const ANALYZE_POLL_MS = 3000;
+/** What the live feed says that the page's last read doesn't: a run now
+ * finished, or the analysis or profile job in another state ("" when
+ * nothing). */
+export function readAgainKey(loaded: Project, live: Project): string {
+  const parts: string[] = [];
+  if (loaded.analyze.state !== live.analyze.state) parts.push(`a:${live.analyze.state}`);
+  if ((loaded.profile?.state ?? "") !== (live.profile?.state ?? "")) parts.push(`p:${live.profile?.state ?? ""}`);
+  const before = new Map((loaded.conversions ?? []).map((c) => [c.conversion_id, c.state]));
+  for (const c of live.conversions ?? []) {
+    if (RUN_TERMINAL.has(c.state) && before.get(c.conversion_id) !== c.state) parts.push(`${c.conversion_id}:${c.state}`);
+  }
+  return parts.join(",");
+}
 
 const STEP_BY_TAB: Partial<Record<WorkspaceTabId, Step>> = {
   depth: "depth_preview",
@@ -90,8 +106,6 @@ function initialTab(): WorkspaceTabId {
 
 export interface WorkspaceScreenProps {
   projectId: string;
-  /** Test hook — polling cadence while analyze.state === "running". */
-  pollIntervalMs?: number;
 }
 
 /** ADR 0138: each project page has its own store, so opening another
@@ -104,15 +118,15 @@ export default function WorkspaceScreen(props: WorkspaceScreenProps) {
   );
 }
 
-function Workspace({
-  projectId,
-  pollIntervalMs = ANALYZE_POLL_MS,
-}: WorkspaceScreenProps) {
+function Workspace({ projectId }: WorkspaceScreenProps) {
   const gateway = useGateway();
   // ADR 0138: the project, its load error and the analysis retry live in
   // the project's atom (workspaceAtoms); the action atoms write them
-  const projectState = useAtomValue(projectAtom(projectId));
-  const { project, loadError, retrying } = projectState;
+  const [projectState, setProjectState] = useAtom(projectAtom(projectId));
+  const { project: loaded, loadError, retrying } = projectState;
+  // owner 2026-11-07: the project with the live feed on top (its analysis,
+  // its profile job, every run), so every tab shows the same moment
+  const project = useLiveProject(loaded);
   const load = useSetAtom(loadProjectAtom);
   const applyUpdate = useSetAtom(applyProjectUpdateAtom);
   const retry = useSetAtom(retryAnalyzeAtom);
@@ -159,12 +173,27 @@ function Workspace({
     return () => clearTimeout(timer);
   }, [refetch]);
 
-  const analyzing = project?.analyze.state === "running";
+  // the slow poll (stream down) reads open project pages again
+  useEffect(() => retainOpenProject(projectId), [projectId]);
+
+  // owner 2026-11-07: no timers here. When the live feed says a run of
+  // this project finished, or its analysis or profile job changed state,
+  // read the project again once (files, probe, scenes, profile).
+  const readAgain = loaded && project ? readAgainKey(loaded, project) : "";
   useEffect(() => {
-    if (!analyzing) return;
-    const timer = setInterval(() => void refetch(), pollIntervalMs);
-    return () => clearInterval(timer);
-  }, [analyzing, pollIntervalMs, refetch]);
+    if (readAgain !== "") void refetch();
+  }, [readAgain, refetch]);
+
+  // the "taking longer than usual" watch follows the live analysis
+  const analyzeKey = project ? `${project.analyze.state}|${project.analyze.stage ?? ""}|${project.analyze.progress ?? ""}` : "";
+  useEffect(() => {
+    if (!project || analyzeKey === "") return;
+    setProjectState((s) => {
+      const w = watchAnalyze(s.analyzeWatch, project);
+      return w === s.analyzeWatch ? s : { ...s, analyzeWatch: w };
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- follows the analysis only
+  }, [analyzeKey, setProjectState]);
 
   // The rail follows the project's method (classic until it has loaded).
   const method = methodOf(project);
@@ -291,7 +320,7 @@ function Workspace({
             onChanged={applyProjectUpdate}
             allowMove={!filesDeleted && canChooseMethod(limits, project)}
           />
-          {analyzing ? (
+          {project.analyze.state === "running" ? (
             <span className="flex items-center gap-1.5 text-[11px] text-fg-muted">
               <span
                 aria-hidden

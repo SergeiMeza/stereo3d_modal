@@ -1,10 +1,7 @@
 /**
- * Poll cadence for active conversions (GET /v1/conversions/{id}); the
- * gateway's read-through poll keeps that endpoint fresh. A module constant
- * so tests can vi.mock a faster cadence.
+ * The mock status stream's tick (src/mocks: one lifecycle step of every
+ * going run, analysis and profile job per tick). A module constant so
+ * tests can vi.mock a faster cadence. The app itself never polls on a
+ * timer: status comes from the live feed (lib/live).
  */
 export const POLL_INTERVAL_MS = 2000;
-
-/** Project refetch cadence while a free shot-profiling job is running
- * (project.profile.state === "running"). */
-export const PROFILE_POLL_MS = 5000;

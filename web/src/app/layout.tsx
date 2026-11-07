@@ -10,6 +10,7 @@ import { ReauthSheet } from "@/components/auth/ReauthSheet";
 import { DeletionPrompt } from "@/components/auth/DeletionPrompt";
 import { UserMenu } from "@/components/auth/UserMenu";
 import { FeedbackLink } from "@/components/FeedbackLink";
+import { LiveEvents } from "@/components/live/LiveEvents";
 import { ProCheckoutHost } from "@/components/pro/ProCheckoutHost";
 import { AppIcon } from "@/components/AppIcon";
 import { HeaderPlans } from "@/components/plans/HeaderPlans";
@@ -132,6 +133,8 @@ export default function RootLayout({
           <ReauthSheet />
           {/* owner 2026-11-07: an account set to be deleted asks first */}
           <DeletionPrompt />
+          {/* owner 2026-11-07: the one live status stream (lib/live) */}
+          <LiveEvents />
           </BillingProvider>
           </MswProvider>
         </AuthProvider>

@@ -27,7 +27,7 @@ function Steps({
   project,
   onNavigate,
   ...opts
-}: Omit<StepsContext, "live"> & { project: Project; onNavigate: (tab: string) => void }) {
+}: StepsContext & { project: Project; onNavigate: (tab: string) => void }) {
   return <OverviewSteps steps={useOverviewSteps(project, opts)} onNavigate={onNavigate} />;
 }
 
@@ -81,9 +81,6 @@ describe("the steps' states", () => {
   it("a full run in progress: Make 3D is current with its progress, the passed preview is skipped", () => {
     const p = lifelike({ conversions: [run("production", "processing")] });
     expect(states(p)).toEqual(["scenes:done", "preview:skipped", "make:current(Making… 40%)[See progress]", "files:upcoming"]);
-    // the tracker's latest poll wins over the listed run
-    const live = run("production", "processing", { progress: 0.85 });
-    expect(overviewSteps(p, { live })[2].status).toBe("Making… 85%");
   });
 
   it("made: Files is current with Download; a preview made earlier is done", () => {
@@ -96,7 +93,11 @@ describe("Your steps", () => {
   it("numbers the steps, shows the current one's action, and goes to a step's tab", () => {
     const onNavigate = vi.fn();
     const p = lifelike({ conversions: [run("production", "processing")] });
-    appStore.set(conversionAtom("c_production_processing"), run("production", "processing", { progress: 0.6 }));
+    // the live feed's newer state wins over the listed run (owner 2026-11-07)
+    appStore.set(
+      conversionAtom("c_production_processing"),
+      run("production", "processing", { progress: 0.6, updated_at: "2026-11-05T09:00:05Z" }),
+    );
     render(<Steps project={p} previewFree onNavigate={onNavigate} />);
     const full = screen.getByTestId("steps-full");
     expect(within(full).getByTestId("step-make").getAttribute("aria-current")).toBe("step");

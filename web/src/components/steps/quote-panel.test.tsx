@@ -144,7 +144,9 @@ describe("a run in progress", () => {
 
   it("still shows the price, says a run is in progress, and keeps Make 3D off", async () => {
     const run = runningRun();
-    // the run stays in progress while we look
+    // the run stays in progress while we look (no status stream moves it;
+    // its slow poll is 15 s away)
+    mockDb.eventsDown = true;
     server.use(http.get(`${GATEWAY}/v1/conversions/:id`, () => HttpResponse.json(run)));
     const p = project();
     panel({ ...p, conversions: [run] });

@@ -18,12 +18,30 @@ import { Success } from "@/components/pay/PaySheet";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { outstandingCents } from "@/lib/billingCopy";
+import type { LiveRun } from "@/lib/live/events";
+import { applyRun } from "@/lib/live/liveStore";
+import { useLiveRunById } from "@/lib/live/useLive";
+import { appStore } from "@/lib/state/stores";
 
+/** how often the billing status is read while settling */
 const POLL_MS = 2000;
 /** "Checking your payment…" for up to this long, then Slow */
 export const CHECK_MS = 30_000;
 
 type State = "checking" | "paid" | "not_paid" | "slow" | "expired";
+
+/** A pay-now payment the run still asks for after this long didn't go through. */
+const LATE_MS = 6000;
+
+/** What the run says about the payment (null: still waiting). */
+function runOutcome(run: LiveRun | null, late: boolean): State | null {
+  if (run?.state === undefined) return null;
+  if (run.state === "expired") return "expired";
+  if (run.state === "canceled" || run.state === "failed") return "not_paid";
+  if (run.state !== "created") return "paid";
+  if (run.billing?.status === "requires_payment" && late) return "not_paid";
+  return null;
+}
 
 export function PayReturnScreen(): JSX.Element {
   const gateway = useGateway();
@@ -31,53 +49,69 @@ export function PayReturnScreen(): JSX.Element {
   // the gateway's session return_url says ?c={run} or ?settle={id}; the
   // web's own links say ?conversion=&project= or ?settle=1
   const id = params.get("conversion") ?? params.get("c");
-  const [runProject, setRunProject] = useState<string | null>(null);
-  const project = params.get("project") ?? runProject;
   const settle = (params.get("settle") ?? "") !== "";
   // a redirect that came back refused says so in the URL
   const refused = params.get("redirect_status") === "failed";
   const [state, setState] = useState<State>(refused ? "not_paid" : "checking");
+  const [late, setLate] = useState(false);
 
+  // owner 2026-11-07: the run's payment comes from the live feed, like
+  // every status. One read puts it there (the stream may not have named
+  // it yet); nothing here polls the run.
+  const run = useLiveRunById(id ?? "");
+  const project = params.get("project") ?? run?.project_id ?? null;
+  useEffect(() => {
+    if (settle || !id || refused) return;
+    gateway.getConversion(id).then(
+      (c) => void applyRun(appStore, c),
+      () => undefined,
+    );
+  }, [gateway, id, settle, refused]);
+  if (state === "checking" && !settle) {
+    const outcome = !id ? "not_paid" : runOutcome(run, late);
+    if (outcome !== null) setState(outcome);
+  }
+
+  // a payment the run still asks for after 6 s didn't go through; after
+  // 30 s the page says it's slow
   useEffect(() => {
     if (state !== "checking") return;
-    const started = Date.now();
+    // the verdict on a run that still asks for payment uses a fresh read
+    // (the stream may be down and the slow poll 15 s apart)
+    const lateTimer = setTimeout(() => {
+      const read = id && !settle ? gateway.getConversion(id).then((c) => void applyRun(appStore, c)) : Promise.resolve();
+      void read.catch(() => undefined).finally(() => setLate(true));
+    }, LATE_MS);
+    const slowTimer = setTimeout(() => setState((s) => (s === "checking" ? "slow" : s)), CHECK_MS);
+    return () => {
+      clearTimeout(lateTimer);
+      clearTimeout(slowTimer);
+    };
+  }, [state, gateway, id, settle]);
+
+  // settling what the account owes: the billing status (not a run, so not
+  // in the live feed) is read until it clears
+  useEffect(() => {
+    if (state !== "checking" || !settle) return;
     let live = true;
     const check = async (): Promise<void> => {
       try {
-        if (settle) {
-          const b = await gateway.getBilling();
-          if (outstandingCents(b) === 0) return setState("paid");
-          if (b.outstanding?.settling) return;
-          return setState("not_paid");
-        }
-        if (!id) return setState("not_paid");
-        const c = await gateway.getConversion(id);
-        if (c.project_id) setRunProject(c.project_id);
-        if (c.state === "expired") return setState("expired");
-        if (c.state === "canceled" || c.state === "failed") return setState("not_paid");
-        if (c.state !== "created") return setState("paid");
-        if (c.billing?.status === "requires_payment" && Date.now() - started > 6000) {
-          return setState("not_paid");
-        }
+        const b = await gateway.getBilling();
+        if (!live) return;
+        if (outstandingCents(b) === 0) return setState("paid");
+        if (b.outstanding?.settling) return;
+        return setState("not_paid");
       } catch {
         /* keep checking */
       }
     };
-    const t = setInterval(() => {
-      if (!live) return;
-      if (Date.now() - started > CHECK_MS) {
-        clearInterval(t);
-        setState((s) => (s === "checking" ? "slow" : s));
-        return;
-      }
-      void check();
-    }, POLL_MS);
+    const t = setInterval(() => void check(), POLL_MS);
     void check();
     return () => {
       live = false;
       clearInterval(t);
     };
-  }, [gateway, id, settle, state]);
+  }, [gateway, settle, state]);
 
   const back = project ? `/projects/${project}#tab=make` : "/projects";
   return (
