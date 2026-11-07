@@ -246,6 +246,10 @@ func (s *Service) HandleHandoffPay(w http.ResponseWriter, r *http.Request) {
 	if strings.HasPrefix(req.ReturnURL, s.Cfg.SiteURL+"/") {
 		returnURL = req.ReturnURL // only our own pages
 	}
+	if (conv.PaymentFlow == store.FlowChina || req.Method != "") && s.chinaPaymentsOff(ctx) {
+		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
+		return
+	}
 	if conv.PaymentFlow == store.FlowChina || req.Method != "" {
 		if req.Method != "alipay" {
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "method_unavailable", "this payment method isn't available yet"))

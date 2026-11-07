@@ -226,6 +226,10 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 	if req.ReturnURL != "" && len(req.ReturnURL) > len(s.Cfg.SiteURL) && req.ReturnURL[:len(s.Cfg.SiteURL)+1] == s.Cfg.SiteURL+"/" {
 		returnURL = req.ReturnURL
 	}
+	if (req.Method != "" || chinaMode(r)) && s.chinaPaymentsOff(ctx) {
+		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
+		return
+	}
 	if req.Method != "" || chinaMode(r) {
 		if req.Method != "alipay" {
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadRequest, "method_unavailable", "this payment method isn't available yet"))

@@ -195,6 +195,10 @@ func (s *Service) HandleRunPayNow(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrNotFound("conversion"))
 		return
 	}
+	if (req.Method != "" || conv.PaymentFlow == store.FlowChina) && s.chinaPaymentsOff(ctx) {
+		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
+		return
+	}
 	if req.Method != "" {
 		s.handleChinaPay(ctx, w, r, user, conv, req.Method)
 		return

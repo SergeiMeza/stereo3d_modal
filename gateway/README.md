@@ -1979,6 +1979,35 @@ no images, fonts or links; same sender (`Spatial Video Studio
 locale; svs-backend sends `language` from the app's locale (and the
 relay header for China requests).
 
+### China payments switch (2026-11-07)
+
+`china_payments_enabled` in config/pricing_{env} (absent = false in every
+env, off at launch) gates China mode's payments. While it's off, each of
+these answers 403 `china_payments_unavailable` ("Payments in mainland China
+are coming soon."): Alipay run pay-now (`{method}`) and pay-now on a China
+run, starting a paid run in China mode (nothing is written), hand-off
+Alipay, the Alipay top-up and plan checkout in China mode. Quotes,
+browsing, sign-up, the sample, free previews and balance or credit runs
+work as before; the Alipay code stays, dark. `GET /v1/pricing` has
+`china_payments: true|false`.
+
+### Adaptive Pricing (Option B, 2026-11-07)
+
+`adaptive_pricing_enabled` (test on, prod off) is sent on every web
+Checkout Session as `adaptive_pricing[enabled]` true or false (never left
+to the Dashboard default): run sheet, hand-off card path, settle, first
+top-up and the Pro, Business and Studio checkouts. The web always passes
+`adaptivePricing: {allowed: true}`; `GET /v1/pricing` says
+`adaptive_pricing`. Everything we keep stays USD. What the customer paid in
+their currency is `presentment {amount_minor, currency} | null` on the run
+read (and project runs and the event stream), every billing history row,
+admin runs and charges, and refund rows (negative on a history refund
+row). Our USD invoice's memo reads "Paid ¥1,648 (US$10.00)", a refund's
+credit note "Refunded ¥659 (US$4.00)", and the E1 and E13 receipts add
+"Your card was charged ¥1,648 (US$10.00)." Off-session charges, batch
+settles, auto-reload, Alipay and app holds stay USD and write no
+presentment.
+
 ### QA sign-in codes in the TEST log (TEST only, 2026-11-07)
 
 TEST-only: QA sign-in codes logged for qa-agent+…@lpp.pw; never on prod.

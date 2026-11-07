@@ -287,6 +287,12 @@ type Rates struct {
 	// local currency (owner 2026-11-07, Option B). Our amounts stay USD.
 	// Test on; prod off until the owner says.
 	AdaptivePricingEnabled bool `firestore:"adaptive_pricing_enabled"`
+	// ChinaPaymentsEnabled: China mode's own payments (Alipay run pay-now,
+	// hand-off Alipay, Alipay top-up) and plan checkout in China mode
+	// (owner 2026-11-07: off at launch; "Payments in mainland China are
+	// coming soon"). Absent = false in every env. Browsing, sign-up, the
+	// sample, free previews and balance or credit runs work either way.
+	ChinaPaymentsEnabled bool `firestore:"china_payments_enabled"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
 	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
 	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
@@ -1481,6 +1487,9 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 		// the web says "You'll see your local price at checkout" when true,
 		// "Charged in US dollars" when false.
 		"adaptive_pricing": rates.AdaptivePricingEnabled,
+		// China mode's payments: false → the web says "Payments in
+		// mainland China are coming soon".
+		"china_payments": rates.ChinaPaymentsEnabled,
 		// Classic 3D is retired for new projects (2026-11-04): the web
 		// hides it; its prices stay for projects that already ran it.
 		"classic_new_projects": false,

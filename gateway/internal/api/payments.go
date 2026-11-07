@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 	"spatial-ai-labs/stereo3d-gateway/internal/stripex"
 )
@@ -434,4 +435,16 @@ func (s *Service) releaseBatchLease(ctx context.Context, id string) {
 // Alipay / WeChat Pay) and says so with X-Client-Mode: china.
 func chinaMode(r *http.Request) bool {
 	return r != nil && strings.EqualFold(strings.TrimSpace(r.Header.Get("X-Client-Mode")), "china")
+}
+
+// errChinaPaymentsUnavailable answers a China-mode payment while config
+// china_payments_enabled is off (owner 2026-11-07): 403
+// china_payments_unavailable. The Alipay code stays, dark.
+func errChinaPaymentsUnavailable() error {
+	return httpx.Err(http.StatusForbidden, "china_payments_unavailable", "Payments in mainland China are coming soon.")
+}
+
+// chinaPaymentsOff: China-mode payments are switched off.
+func (s *Service) chinaPaymentsOff(ctx context.Context) bool {
+	return !s.rates(ctx).ChinaPaymentsEnabled
 }

@@ -56,6 +56,11 @@ func (s *Service) finalizeStepBilled(ctx context.Context, w http.ResponseWriter,
 	if hold := s.partialHoldCents(ctx, user.UID, cust, conv.Quote.AmountCents, flow); hold > 0 {
 		conv.RunBalance = &store.RunBalance{HoldCents: hold, State: store.HoldHeld, Partial: true}
 	}
+	if flow == store.FlowChina && s.chinaPaymentsOff(ctx) {
+		restore()
+		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
+		return
+	}
 	if flow == store.FlowPayNow || flow == store.FlowChina {
 		s.startPayNowRun(ctx, w, user, cust, conv, restore, pc)
 		return

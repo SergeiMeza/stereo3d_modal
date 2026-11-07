@@ -42,6 +42,10 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, httpx.ErrInvalid("malformed JSON body"))
 		return
 	}
+	if chinaMode(r) && s.chinaPaymentsOff(ctx) {
+		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
+		return
+	}
 	def, ok := s.rates(ctx).Plan(req.Plan)
 	pro, isPro := s.rates(ctx).ProPlan(req.Plan)
 	if !ok && !isPro {
