@@ -303,7 +303,8 @@
         "today": "{pro} {plan}, today",
         "thisVideo": "This video, at {pro} prices",
         "youSave": "You save on this video",
-        "termsNoTax": "Cancel any time in Account. Prices in USD, no tax added."
+        "termsNoTax": "Cancel any time in Account. Prices in USD, no tax added.",
+        "fromCredit": "From your {credit} Pro credit"
       },
       "note": {
         "highFps": "High frame rates come with {business} and {studio}, which also include monthly usage.",
@@ -319,7 +320,9 @@
       "cinema": {
         "share": "{pct}% off · commercial use",
         "seeBusinessSave": "See {business} · save {range}"
-      }
+      },
+      "today": "{price} today",
+      "coveredByCredit": "This video ({video}) comes from your {credit} Pro credit · then {renews}"
     },
     "intro": {
       "share": "{pct}% with {plan}",

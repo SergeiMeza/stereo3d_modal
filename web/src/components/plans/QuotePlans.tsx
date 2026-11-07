@@ -31,8 +31,19 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import type { Probe, StepQuoteResponse } from "@/lib/api/types";
 import { usePricing } from "@/lib/api/usePricing";
+import { useBilling } from "@/lib/billing";
 import { useT } from "@/lib/i18n/I18nProvider";
-import { creditLine, creditRules, creditShort, planCadence, planName, proCreditCents, proCreditDays } from "@/lib/pro/plans";
+import {
+  anchorLine,
+  creditAmount,
+  creditLine,
+  creditRules,
+  creditShort,
+  planCadence,
+  planName,
+  proCreditCents,
+  proCreditDays,
+} from "@/lib/pro/plans";
 import type { ProPlan } from "@/lib/pro/plans";
 import { useBuyPro, useProPlans } from "@/lib/pro/usePro";
 import { SheetFrame } from "@/components/pay/SheetFrame";
@@ -82,6 +93,28 @@ export function useQuoteProChoice(quote: StepQuoteResponse | null): {
   const list = quote.quote.amount_cents;
   if (pro === null || pro >= list) return null;
   return { list, pro };
+}
+
+/** BUX-09: joining Pro today, when its one-time credit covers this video
+ * at Pro prices: what's paid today (the plan) and the credit. Null when it
+ * doesn't cover it, or the account isn't known to get the credit (GET
+ * /v1/billing pro_credit null: never granted). Every number is the
+ * gateway's: alt_prices.pro, the plan's price and its credit_cents. */
+export function proTodayOffer(
+  proCents: number,
+  plan: ProPlan | undefined,
+  creditCents: number | null | undefined,
+  eligible: boolean,
+): { todayCents: number; creditCents: number } | null {
+  if (!plan || !eligible || !creditCents || creditCents < proCents) return null;
+  return { todayCents: Math.round(plan.amountMicros / 10_000), creditCents };
+}
+
+/** BUX-09: the account gets Pro's credit when it joins: billing says it
+ * has none (null), not just that it didn't say. */
+function useProCreditEligible(): boolean {
+  const status = useBilling().status;
+  return !!status && "pro_credit" in status && status.pro_credit === null;
 }
 
 function Option({
@@ -140,6 +173,7 @@ export function QuoteProChoice({
   const pricing = usePricing();
   const choice = useQuoteProChoice(quote);
   const plans = useProPlans();
+  const eligible = useProCreditEligible();
   const { dismiss } = useDismissal("quote", 7);
   useViewEvent("quote", tier, choice !== null, {
     variant: "choice",
@@ -156,6 +190,9 @@ export function QuoteProChoice({
     plans.state === "ready"
       ? plans.plans.find((p) => p.kind === "monthly")
       : undefined;
+  // BUX-09: the real offer when the credit covers this video: "$4.99
+  // today", the video from the credit
+  const offer = proTodayOffer(choice.pro, monthly, monthly?.creditCents ?? credit, eligible);
   return (
     <div
       data-testid="quote-pro-choice"
@@ -178,15 +215,23 @@ export function QuoteProChoice({
           onMode("pro");
         }}
         title={t("plans.quote.withPlan", { plan: "Pro" })}
-        sub={[
-          pct ? t("plans.quote.pctOff", { pct }) : null,
-          // owner 2026-11-07: the credit joining Pro gives
-          creditShort(credit, t),
-          monthly ? t("plans.quote.fromMonthly", { price: monthly.price }) : null,
-        ]
-          .filter(Boolean)
-          .join(" · ")}
-        price={formatCents(choice.pro, t)}
+        sub={
+          offer && monthly
+            ? t("plans.quote.coveredByCredit", {
+                video: formatCents(choice.pro, t),
+                credit: creditAmount(offer.creditCents, t),
+                renews: anchorLine(monthly, t),
+              })
+            : [
+                pct ? t("plans.quote.pctOff", { pct }) : null,
+                // owner 2026-11-07: the credit joining Pro gives
+                creditShort(credit, t),
+                monthly ? t("plans.quote.fromMonthly", { price: monthly.price }) : null,
+              ]
+                .filter(Boolean)
+                .join(" · ")
+        }
+        price={offer ? t("plans.quote.today", { price: formatCents(offer.todayCents, t) }) : formatCents(choice.pro, t)}
       />
       <button
         type="button"
@@ -223,6 +268,7 @@ export function ProCheckoutSheet({
   const plans = useProPlans();
   const buy = useBuyPro();
   const choice = useQuoteProChoice(quote);
+  const eligible = useProCreditEligible();
   const [picked, setPicked] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -247,6 +293,8 @@ export function ProCheckoutSheet({
   const today = (p: ProPlan) => p.price;
   const note = (p: ProPlan) => `${p.price} ${planCadence(p, t)}`;
   const credit = creditLine(proCreditCents(pricing), t);
+  // BUX-09: this plan's credit covers the video: it's paid from it
+  const offer = plan ? proTodayOffer(proCents, plan, plan.creditCents ?? proCreditCents(pricing), eligible) : null;
 
   async function go(): Promise<void> {
     if (!plan) return;
@@ -343,6 +391,14 @@ export function ProCheckoutSheet({
               <dt className="text-fg-muted">{t("plans.quote.checkout.thisVideo", { pro: "Pro" })}</dt>
               <dd className="font-mono">{formatCents(proCents, t)}</dd>
             </div>
+            {offer ? (
+              <div data-testid="pro-checkout-from-credit" className="flex justify-between">
+                <dt className="text-fg-muted">
+                  {t("plans.quote.checkout.fromCredit", { credit: creditAmount(offer.creditCents, t) })}
+                </dt>
+                <dd className="font-mono">{formatCents(-proCents, t)}</dd>
+              </div>
+            ) : null}
             <div className="flex justify-between text-emerald-400">
               <dt>{t("plans.quote.checkout.youSave")}</dt>
               <dd className="font-mono">

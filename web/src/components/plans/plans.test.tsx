@@ -30,7 +30,7 @@ import { AuthProvider } from "@/lib/auth";
 import { BillingProvider, resetBillingForTests } from "@/lib/billing";
 import { resetProForTests } from "@/lib/pro/usePro";
 import { resetAccountSettingsCache } from "@/lib/useAccountSettings";
-import { mockDb } from "@/mocks/handlers";
+import { MOCK_PRO_PLANS, mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import projectFixture from "../../../fixtures/project.json";
@@ -41,7 +41,8 @@ import { HeaderPlans } from "./HeaderPlans";
 import { PlansBanner } from "./PlansBanner";
 import { TalkToUs } from "./TalkToUs";
 import { ProSavingsCard } from "./ProSavingsCard";
-import { BusinessNote, CinemaTierPrices } from "./QuotePlans";
+import { BusinessNote, CinemaTierPrices, proTodayOffer } from "./QuotePlans";
+import { plansFromPricing } from "@/lib/pro/plans";
 import { SourceBusinessLine } from "./SourceBusinessLine";
 import {
   clearLocalProjectDismissals,
@@ -376,6 +377,46 @@ describe("quote A and the Business note", () => {
       <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
     );
     expect(await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 })).toBeTruthy();
+  });
+
+  it("With Pro shows what's paid today when Pro's credit covers the video (BUX-09)", async () => {
+    mockDb.altPricesFixed = { pro: 1020 };
+    wrap(
+      <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
+    );
+    const pro = await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 });
+    await waitFor(() =>
+      expect(pro.textContent).toBe(
+        "With ProThis video ($10.20) comes from your $20 Pro credit · then $4.99 a month$4.99 today",
+      ),
+    );
+    // Pay once keeps its price and stays selected
+    const once = screen.getByTestId("pay-once");
+    expect(once.getAttribute("aria-checked")).toBe("true");
+    expect(once.textContent).not.toContain("today");
+    // the Pro sheet says the video comes from the credit
+    fireEvent.click(pro);
+    fireEvent.click(screen.getByTestId("checkout-main"));
+    const row = await screen.findByTestId("pro-checkout-from-credit");
+    expect(row.textContent).toBe("From your $20 Pro credit−$10.20");
+  });
+
+  it("no today offer when the credit doesn't cover it, or the account had it already (BUX-09)", async () => {
+    // already granted once: joining again gives no credit
+    mockDb.altPricesFixed = { pro: 1020 };
+    mockDb.proCredit = {
+      cents: 2000, kind: "pro_monthly", source: "web", trial: false, granted: true,
+      granted_at: "2026-10-01T00:00:00Z", expires_at: "2026-10-31T00:00:00Z", left_cents: 0,
+    };
+    wrap(
+      <LifelikeDeliverPanel project={project()} onProjectChanged={() => {}} />,
+    );
+    const pro = await screen.findByTestId("pay-with-pro", undefined, { timeout: 4000 });
+    await waitFor(() => expect(pro.textContent).toContain("$10.20"));
+    expect(pro.textContent).not.toContain("today");
+    expect(proTodayOffer(2500, plansFromPricing(MOCK_PRO_PLANS)[1], 2000, true)).toBeNull();
+    expect(proTodayOffer(1020, plansFromPricing(MOCK_PRO_PLANS)[1], 2000, true)).toEqual({ todayCents: 499, creditCents: 2000 });
+    expect(proTodayOffer(1020, plansFromPricing(MOCK_PRO_PLANS)[1], 2000, false)).toBeNull();
   });
 
   it("a $50+ quote carries the Business note", async () => {
