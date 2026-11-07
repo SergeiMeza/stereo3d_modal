@@ -350,7 +350,7 @@ function StripeForm({
   }
 
   const body = (
-    <div className="flex flex-col gap-4">
+    <div className="flex flex-col gap-4 cramped:gap-3">
       {result.type === "loading" ? <FormSkeleton /> : null}
       {result.type === "error" ? (
         <p className="text-sm text-red-400">{result.error.message}</p>
@@ -450,7 +450,7 @@ function MockPane({
     return result;
   }
   const body = (
-    <div data-testid="mock-checkout" className="flex flex-col gap-4">
+    <div data-testid="mock-checkout" className="flex flex-col gap-4 cramped:gap-3">
       {wallets ? (
         <button
           type="button"

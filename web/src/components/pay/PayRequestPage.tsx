@@ -258,12 +258,10 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
               {state.notice ? <StateLine testId="pay-request-notice" text={t(state.notice)} /> : null}
               {form.message ? <StateLine text={form.message} /> : null}
               <p className="text-xs text-fg-muted">{sheetCurrencyLine(localPrice, state.info.amount_cents, t)}</p>
-              {/* owner 2026-11-07 (foldable): Pay stays pinned at the bottom of
-                  the screen while the form scrolls under it */}
-              <div
-                data-testid="pay-request-footer"
-                className="sticky bottom-0 z-10 -mx-4 border-t border-edge/60 bg-surface-0 px-4 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]"
-              >
+              {/* owner 2026-11-07 (foldable, real Safari): this is a page, not a
+                  sheet, so Pay is the last item in the flow and never pinned:
+                  nothing scrolls under it, and it clears the home indicator */}
+              <div data-testid="pay-request-footer" className="pb-[env(safe-area-inset-bottom)]">
               <Button
                 size="lg"
                 data-testid="pay-request-confirm"

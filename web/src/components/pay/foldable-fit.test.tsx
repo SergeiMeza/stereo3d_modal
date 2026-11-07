@@ -3,7 +3,7 @@
  * height you can see. The sheet is capped at svh/dvh less the safe areas,
  * its body and footer scroll together with the footer pinned, and on
  * cramped heights only the main button stays pinned (footers marked
- * data-pin-main dissolve). The pay link page pins Pay too.
+ * data-pin-main dissolve). The pay link page is a page: Pay ends the flow.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -102,13 +102,16 @@ describe("payment sheets on short screens", () => {
     expect(area).toBeTruthy();
     expect(area.className).toContain("cramped:sticky");
     expect(area.closest("[data-pin-main]")).toBeTruthy();
+    // short screens: a slim balance line and smaller chips leave room for the form
+    expect(screen.getByTestId("funds-balance-row").className).toContain("cramped:py-0");
+    for (const chip of screen.getAllByRole("radio")) expect(chip.className).toContain("cramped:h-9");
   });
 });
 
 describe("the pay link page on short screens", () => {
   afterEach(() => window.history.replaceState(null, "", "/"));
 
-  it("pins Pay at the bottom while the form scrolls", async () => {
+  it("keeps Pay as the last item in the flow, never pinned over the form (real Safari)", async () => {
     mockDb.payRequests.set("tok_fold", {
       amount_cents: 2500,
       currency: "usd",
@@ -125,7 +128,9 @@ describe("the pay link page on short screens", () => {
     const confirm = await screen.findByTestId("pay-request-confirm");
     const footer = confirm.closest('[data-testid="pay-request-footer"]') as HTMLElement;
     expect(footer).toBeTruthy();
-    expect(footer.className).toMatch(/\bsticky bottom-0\b/);
+    expect(footer.className).not.toMatch(/\b(sticky|fixed)\b/);
     expect(footer.className).toContain("env(safe-area-inset-bottom)");
+    // nothing of the form comes after it
+    expect(footer.nextElementSibling).toBeNull();
   });
 });

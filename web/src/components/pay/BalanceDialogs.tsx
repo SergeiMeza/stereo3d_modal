@@ -224,15 +224,20 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     setSession({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
+  // short screens (cramped, Duo folded): one slim line of balance and
+  // smaller chips, so the payment form's tabs and card field show above Add
   const header = (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 text-sm">
+    <div className="flex flex-col gap-3 cramped:gap-2">
+      <div
+        data-testid="funds-balance-row"
+        className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 text-sm cramped:border-0 cramped:px-0 cramped:py-0 cramped:text-xs"
+      >
         <span className="text-fg-muted">{t("balance.addFunds.balance")}</span>
         <span data-testid="funds-balance" className="font-semibold tabular-nums text-fg">
           {formatCents(prepaid?.balance_cents ?? 0)}
         </span>
       </div>
-      <div role="radiogroup" aria-label={t("balance.addFunds.amount")} className="grid grid-cols-5 gap-2">
+      <div role="radiogroup" aria-label={t("balance.addFunds.amount")} className="grid grid-cols-5 gap-2 cramped:gap-1.5">
         {[...CHIPS, "other" as const].map((c) => (
           <button
             key={c}
@@ -240,7 +245,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             role="radio"
             aria-checked={chip === c}
             onClick={() => setChip(c)}
-            className={`h-12 rounded-lg border text-sm font-semibold tabular-nums transition-colors ${
+            className={`h-12 rounded-lg border text-sm font-semibold tabular-nums transition-colors cramped:h-9 cramped:text-xs ${
               chip === c ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted hover:text-fg"
             }`}
           >
