@@ -38,6 +38,10 @@ type SessionSpec struct {
 	Metadata     map[string]string // session and PaymentIntent metadata
 	IdemKey      string
 	ExpiresIn    time.Duration // ≥ 30 min (Stripe's minimum)
+	// AdaptivePricing lets Stripe present the amount in the customer's
+	// local currency (config adaptive_pricing_enabled). It is always sent,
+	// false too, so the Dashboard default never decides it.
+	AdaptivePricing bool
 }
 
 // CreateWebSession creates a payment-mode Checkout Session per D2.
@@ -50,6 +54,7 @@ func (c *Client) CreateWebSession(spec SessionSpec) (*Session, error) {
 	f.Set("line_items[0][price_data][currency]", USD(spec.Currency))
 	f.Set("line_items[0][price_data][unit_amount]", strconv.FormatInt(spec.AmountCents, 10))
 	f.Set("line_items[0][price_data][product_data][name]", spec.Label)
+	setAdaptivePricing(f, spec.AdaptivePricing)
 	if spec.PMC != "" {
 		f.Set("payment_method_configuration", spec.PMC)
 	}
@@ -109,6 +114,13 @@ func (c *Client) CreateWebSession(spec SessionSpec) (*Session, error) {
 		f.Set("payment_intent_data[metadata]["+k+"]", v)
 	}
 	return c.CreateCheckoutSession(f, spec.IdemKey)
+}
+
+// setAdaptivePricing sets adaptive_pricing[enabled] on a session form.
+// The amount and every number we keep stay USD; Stripe only presents and
+// charges the converted amount (the PaymentIntent's presentment_details).
+func setAdaptivePricing(f url.Values, on bool) {
+	f.Set("adaptive_pricing[enabled]", strconv.FormatBool(on))
 }
 
 // CreateSetupSession creates a setup-mode session to save a method in

@@ -47,6 +47,8 @@ type PlanSessionSpec struct {
 	// Coupon (a Pro intro, on the first invoice).
 	PlanID string
 	Coupon string
+	// AdaptivePricing: see SessionSpec.AdaptivePricing.
+	AdaptivePricing bool
 }
 
 // CreatePlanSession opens a subscription-mode Checkout Session.
@@ -57,6 +59,7 @@ func (c *Client) CreatePlanSession(spec PlanSessionSpec) (*Session, error) {
 	f.Set("customer", spec.CustomerID)
 	f.Set("line_items[0][price]", spec.PriceID)
 	f.Set("line_items[0][quantity]", "1")
+	setAdaptivePricing(f, spec.AdaptivePricing)
 	if spec.PMC != "" {
 		f.Set("payment_method_configuration", spec.PMC)
 	}

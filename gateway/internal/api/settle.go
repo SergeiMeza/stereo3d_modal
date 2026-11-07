@@ -200,9 +200,10 @@ func (s *Service) openSettleSession(ctx context.Context, st *store.Settle, pc pa
 		AmountCents: st.AmountCents, Currency: st.Currency, Label: "Your last runs",
 		ReturnURL: s.Cfg.SiteURL + "/pay/return?settle=" + st.ID, NoWeChat: pc.Device != "computer",
 		NoKlarna: len(s.rates(ctx).KlarnaMarkets) == 0, SaveMethod: true, SavedOnce: s.savedOnceTypes(cust.StripeCustomerID), ReceiptEmail: cust.Email,
-		Description: fmt.Sprintf("Your last runs (%d)", st.Runs()),
-		Metadata:    map[string]string{"kind": "settle", "settle_id": st.ID, "user_id": st.UID, "payment_flow": "settle", "attempt": fmt.Sprint(attempt)},
-		IdemKey:     fmt.Sprintf("settle_%s_%s_%d", s.Cfg.Env, st.ID, attempt),
+		Description:     fmt.Sprintf("Your last runs (%d)", st.Runs()),
+		Metadata:        map[string]string{"kind": "settle", "settle_id": st.ID, "user_id": st.UID, "payment_flow": "settle", "attempt": fmt.Sprint(attempt)},
+		IdemKey:         fmt.Sprintf("settle_%s_%s_%d", s.Cfg.Env, st.ID, attempt),
+		AdaptivePricing: s.rates(ctx).AdaptivePricingEnabled,
 	})
 	if err != nil {
 		return settleResult{Settle: st}, err

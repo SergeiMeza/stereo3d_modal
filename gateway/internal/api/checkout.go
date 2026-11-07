@@ -114,7 +114,8 @@ func (s *Service) openRunSessionTo(ctx context.Context, conv *store.Conversion, 
 				"kind": "run", "conversion_id": conv.ID, "user_id": conv.UID,
 				"payment_flow": store.FlowPayNow, "attempt": fmt.Sprint(attempt),
 			},
-			IdemKey: fmt.Sprintf("run_%s_%s_%d", s.Cfg.Env, conv.ID, attempt),
+			IdemKey:         fmt.Sprintf("run_%s_%s_%d", s.Cfg.Env, conv.ID, attempt),
+			AdaptivePricing: s.rates(ctx).AdaptivePricingEnabled,
 		})
 		if err != nil {
 			return nil, err

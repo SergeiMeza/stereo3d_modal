@@ -83,8 +83,9 @@ func (s *Service) HandleStartPlan(w http.ResponseWriter, r *http.Request, user *
 	sess, err := s.Stripe.CreatePlanSession(stripex.PlanSessionSpec{
 		CustomerID: customerID, PMC: s.Cfg.StripePMCWeb, PriceID: priceID, UI: ui, Tier: tier, UID: user.UID,
 		PlanID: planID, Coupon: coupon,
-		ReturnURL: s.Cfg.SiteURL + "/account/billing?plan=" + req.Plan, // the web keeps /billing redirecting there
-		IdemKey:   fmt.Sprintf("plan_%s_%s_%s_%d", s.Cfg.Env, user.UID, req.Plan, time.Now().Unix()/60),
+		ReturnURL:       s.Cfg.SiteURL + "/account/billing?plan=" + req.Plan, // the web keeps /billing redirecting there
+		IdemKey:         fmt.Sprintf("plan_%s_%s_%s_%d", s.Cfg.Env, user.UID, req.Plan, time.Now().Unix()/60),
+		AdaptivePricing: s.rates(ctx).AdaptivePricingEnabled,
 	})
 	if err != nil {
 		httpx.Log(ctx).Error("plan session failed", append([]any{"plan", req.Plan}, stripex.FactsOf(err).LogArgs()...)...)

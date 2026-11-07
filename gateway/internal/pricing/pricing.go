@@ -282,6 +282,11 @@ type Rates struct {
 	// (owner 2026-11-07, until BL-32 after the release): the card pays in
 	// the sheet before the run starts. Only an explicit true turns it on.
 	DeferredPaymentsEnabled bool `firestore:"deferred_payments_enabled"`
+	// AdaptivePricingEnabled: every web Checkout Session (run, settle,
+	// top-up, hand-off, plans) lets Stripe show and charge the customer's
+	// local currency (owner 2026-11-07, Option B). Our amounts stay USD.
+	// Test on; prod off until the owner says.
+	AdaptivePricingEnabled bool `firestore:"adaptive_pricing_enabled"`
 	// ProCreditExpiryDaysOverride: config pro_credit_expiry_days (0 = 30).
 	ProCreditExpiryDaysOverride int `firestore:"pro_credit_expiry_days"`
 	// Output quality tiers (owner 2026-11-07, web Lifelike): Mbit/s
@@ -861,6 +866,7 @@ func DefaultsFor(env string) *Rates {
 		r.LifelikeIntroEnabled = true      // BL-25, live on lifelike3d-test
 		applyTestTierDefaults(r)           // 2026-11 pricing, test only
 		r.AccountDeleteDelayHours = 48     // the 48-hour wait (owner 2026-11-07), test first
+		r.AdaptivePricingEnabled = true    // Option B (owner 2026-11-07), test first
 	}
 	return r
 }
