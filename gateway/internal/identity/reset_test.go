@@ -164,7 +164,8 @@ func TestResetMailWording(t *testing.T) {
 			}
 		}
 	}
-	if m.Subject != "Reset your Spatial Video Studio password" {
+	if m.Subject != "Reset your password · Spatial Video Studio" || !strings.Contains(m.HTML, "https://www.stereo3d.studio/reset-password?oob=x") ||
+		!strings.Contains(m.Text, "Choose a new password: https://www.stereo3d.studio/reset-password?oob=x") {
 		t.Errorf("subject: %q", m.Subject)
 	}
 }
