@@ -937,6 +937,24 @@ every stream. Relay browsers: the media rewriter streams `/v1/events`
 write by write instead of buffering. `GET /v1/events/probe?seconds=N`
 (public, ≤ 90) is a heartbeat-only stream for checking a path.
 
+Also on the viewer's stream (same version rules): `run.formats {run_id,
+project_id, version, formats, outputs}` when a run's "another format" jobs
+or outputs change (`formats` = `GET /v1/runs/{id}/formats`' answer,
+`outputs` the output names), `handoff.state {code, run_id, version,
+state}` (waiting | paying; `closed` when the code is gone), and
+`billing.updated {kind: settle, settle_id, state, amount_cents, version}`
+or `{kind: balance, balance_cents (available), held_cents, version}`. The
+snapshot carries `run_formats {run_id: formats}`, `handoffs`, `settles`
+and `billing` (null without a balance), so a resync is a reconnect.
+
+The console's stream: `POST /v1/admin/events/ticket` (admin, passkey
+session) → `{ticket, expires_at, url}`; `GET /v1/admin/events?ticket=` with
+one of `uid=`, `run_id=` or `feed=active` (runs created, paid or
+processing anywhere, 100 newest; a run that leaves it gets its final
+`run.state`). Snapshot (runs only), `run.state`, `run.progress`, `bye`.
+A viewer's ticket is refused there and an admin ticket on `/v1/events`;
+each open is audited (`events_stream`).
+
 ### Black bars (BL-03, owner 2026-11-03)
 
 Lifelike runs take letterbox and pillarbox bars off by default; the user

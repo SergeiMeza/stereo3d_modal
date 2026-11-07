@@ -300,3 +300,221 @@ func TestEventsHeartbeatAndClose(t *testing.T) {
 		t.Fatal("the stream didn't end")
 	}
 }
+
+// The snapshot carries handoffs, settles and the balance; a code's state
+// change is handoff.state, a balance change billing.updated.
+func TestEventsHandoffAndBalance(t *testing.T) {
+	s, srv := eventsService(t, nil)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	c := openStream(t, srv, uid, "", "")
+	_, snap := c.next("snapshot", 5*time.Second)
+	if hs, ok := snap["handoffs"].([]any); !ok || len(hs) != 0 || snap["billing"] != nil || snap["settles"] == nil || snap["run_formats"] == nil {
+		t.Fatalf("snapshot %v", snap)
+	}
+	code := "H" + store.NewID()[:7]
+	if err := s.Store.CreateHandoff(ctx, &store.Handoff{Code: code, ConversionID: "r1", UID: uid, State: "waiting"}); err != nil {
+		t.Fatal(err)
+	}
+	if _, d := c.next("handoff.state", 5*time.Second); d["code"] != code || d["state"] != "waiting" || d["run_id"] != "r1" || d["version"] == nil {
+		t.Fatalf("handoff %v", d)
+	}
+	s.Store.SetHandoffState(ctx, code, "paying")
+	if _, d := c.next("handoff.state", 5*time.Second); d["state"] != "paying" {
+		t.Fatalf("handoff %v", d)
+	}
+	exp := time.Now().Add(24 * time.Hour)
+	if _, _, err := s.Store.BalanceTx(ctx, uid, func(*store.Balance) ([]store.BalanceOp, error) {
+		return []store.BalanceOp{{Kind: store.EntryPlanCredit, Cents: 2000, EntryID: "pc_" + store.NewID(), Ref: "test", ExpiresAt: &exp, Additive: true}}, nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, d := c.next("billing.updated", 5*time.Second); d["kind"] != "balance" || d["balance_cents"] != float64(2000) || d["held_cents"] != float64(0) {
+		t.Fatalf("billing %v", d)
+	}
+	c2 := openStream(t, srv, uid, "", "")
+	_, snap = c2.next("snapshot", 5*time.Second)
+	hs, _ := snap["handoffs"].([]any)
+	b, _ := snap["billing"].(map[string]any)
+	if len(hs) != 1 || hs[0].(map[string]any)["state"] != "paying" || b["balance_cents"] != float64(2000) {
+		t.Fatalf("snapshot %v", snap)
+	}
+}
+
+// A settle's change is billing.updated {kind: settle}; duplicates dropped.
+func TestEventsSettle(t *testing.T) {
+	s, _ := e0Service(t)
+	var out strings.Builder
+	es := newEventStream(s, &out, func() error { return nil })
+	now := time.Now()
+	d := store.WatchedDoc{Kind: "settle", ID: "st1", Version: now, Settle: &store.Settle{ID: "st1", State: store.SettleSettling, AmountCents: 1234}}
+	es.handle(d, now)
+	es.handle(d, now)
+	d2 := d
+	d2.Version, d2.Settle = now.Add(time.Second), &store.Settle{ID: "st1", State: store.SettlePaid, AmountCents: 1234}
+	es.handle(d2, now)
+	got := out.String()
+	if strings.Count(got, "event: billing.updated") != 2 || !strings.Contains(got, `"state":"paid"`) || !strings.Contains(got, `"kind":"settle"`) ||
+		!strings.Contains(got, `"settle_id":"st1"`) || !strings.Contains(got, `"amount_cents":1234`) {
+		t.Fatal(got)
+	}
+}
+
+// A format job starting or finishing is run.formats with the run's formats
+// and outputs; the snapshot has run_formats for runs with format jobs.
+func TestEventsRunFormats(t *testing.T) {
+	s, srv := eventsService(t, nil)
+	ctx := context.Background()
+	uid := "u" + store.NewID()
+	run := finishedRun(t, s, uid, "4k", "sbs", "half_sbs")
+	c := openStream(t, srv, uid, "", "")
+	c.next("snapshot", 5*time.Second)
+	if _, err := s.Store.Transition(ctx, run.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Repacks = map[string]*store.Repack{"mvhevc": {Format: "mvhevc", Source: "sbs", Status: "processing", RequestedAt: time.Now()}}
+		x.RepackPending = true
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, d := c.next("run.formats", 5*time.Second)
+	f, _ := d["formats"].(map[string]any)
+	if d["run_id"] != run.ID || strings.Join(strs(f["pending"]), ",") != "mvhevc" || strings.Join(strs(d["outputs"]), ",") != "half_sbs,sbs" {
+		t.Fatalf("formats %v", d)
+	}
+	if _, err := s.Store.Transition(ctx, run.ID, []string{store.StateSucceeded}, func(x *store.Conversion) error {
+		x.Repacks["mvhevc"].Status = "succeeded"
+		x.Outputs["mvhevc"] = "stereo3d/test/outputs/x/repack_mvhevc.mov"
+		x.RepackPending = false
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	_, d = c.next("run.formats", 5*time.Second)
+	f, _ = d["formats"].(map[string]any)
+	if !strings.Contains(strings.Join(strs(f["have"]), ","), "mvhevc") || strings.Join(strs(d["outputs"]), ",") != "half_sbs,mvhevc,sbs" {
+		t.Fatalf("formats %v", d)
+	}
+	c2 := openStream(t, srv, uid, "", "")
+	_, snap := c2.next("snapshot", 5*time.Second)
+	if rf, _ := snap["run_formats"].(map[string]any); rf[run.ID] == nil {
+		t.Fatalf("snapshot %v", snap["run_formats"])
+	}
+}
+
+func adminStream(t *testing.T, srv *httptest.Server, ticket, query string) (*sseClient, int) {
+	t.Helper()
+	resp, err := http.Get(srv.URL + "/v1/admin/events?ticket=" + ticket + query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { resp.Body.Close() })
+	if resp.StatusCode != 200 {
+		return nil, resp.StatusCode
+	}
+	c := &sseClient{t: t, resp: resp, msgs: make(chan sseMsg, 256)}
+	go func() {
+		defer close(c.msgs)
+		sc := bufio.NewScanner(resp.Body)
+		sc.Buffer(make([]byte, 1<<20), 1<<20)
+		var m sseMsg
+		for sc.Scan() {
+			line := sc.Text()
+			switch {
+			case line == "":
+				if m != (sseMsg{}) {
+					c.msgs <- m
+				}
+				m = sseMsg{}
+			case strings.HasPrefix(line, "event: "):
+				m.Event = line[7:]
+			case strings.HasPrefix(line, "data: "):
+				m.Data = line[6:]
+			}
+		}
+	}()
+	return c, 200
+}
+
+// The console's stream: an admin-scoped ticket only (a viewer's is
+// refused, and an admin ticket doesn't open a viewer stream); one run, one
+// account's runs, or the active feed; runs only; the open is audited.
+func TestAdminEvents(t *testing.T) {
+	s, _ := eventsService(t, nil)
+	ctx := context.Background()
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /v1/admin/events", s.HandleAdminEventStream)
+	mux.HandleFunc("GET /v1/events", s.HandleEventStream)
+	asrv := httptest.NewServer(mux)
+	t.Cleanup(asrv.Close)
+	ticketOf := func(h func(w http.ResponseWriter)) string {
+		rec := httptest.NewRecorder()
+		h(rec)
+		var out map[string]any
+		json.Unmarshal(rec.Body.Bytes(), &out)
+		tk, _ := out["ticket"].(string)
+		if tk == "" {
+			t.Fatalf("ticket %d %s", rec.Code, rec.Body.String())
+		}
+		return tk
+	}
+	uid, other := "u"+store.NewID(), "u"+store.NewID()
+	userTicket := ticketOf(func(w http.ResponseWriter) {
+		s.HandleEventsTicket(w, httptest.NewRequest(http.MethodPost, "/v1/events/ticket", nil), &AuthedUser{UID: uid})
+	})
+	adminTicket := ticketOf(func(w http.ResponseWriter) {
+		s.HandleAdminEventsTicket(w, httptest.NewRequest(http.MethodPost, "/v1/admin/events/ticket", nil), &AdminUser{UID: "admin1", Email: "ops@example.test"})
+	})
+	if _, code := adminStream(t, asrv, userTicket, "&feed=active"); code != 401 {
+		t.Fatalf("viewer ticket %d", code)
+	}
+	if _, code := adminStream(t, asrv, "nope", "&feed=active"); code != 401 {
+		t.Fatalf("bad ticket %d", code)
+	}
+	if resp, _ := http.Get(asrv.URL + "/v1/events?ticket=" + adminTicket); resp.StatusCode != 401 {
+		t.Fatalf("admin ticket on the viewer stream %d", resp.StatusCode)
+	}
+	if _, code := adminStream(t, asrv, adminTicket, ""); code != 400 {
+		t.Fatalf("no filter %d", code)
+	}
+	r1 := eventsRun(t, s, uid, "")
+	r2 := eventsRun(t, s, other, "")
+
+	one, _ := adminStream(t, asrv, adminTicket, "&run_id="+r1.ID)
+	_, snap := one.next("snapshot", 5*time.Second)
+	if runs, _ := snap["runs"].([]any); len(runs) != 1 || snap["projects"] != nil || snap["billing"] != nil {
+		t.Fatalf("run_id snapshot %v", snap)
+	}
+	setProgress(t, s, r1.ID, 0.4)
+	if _, d := one.next("run.progress", 5*time.Second); d["run_id"] != r1.ID || d["progress"] != 0.4 {
+		t.Fatalf("progress %v", d)
+	}
+
+	byUID, _ := adminStream(t, asrv, adminTicket, "&uid="+other)
+	_, snap = byUID.next("snapshot", 5*time.Second)
+	if runs, _ := snap["runs"].([]any); len(runs) != 1 || runs[0].(map[string]any)["conversion_id"] != r2.ID {
+		t.Fatalf("uid snapshot %v", snap)
+	}
+
+	feed, _ := adminStream(t, asrv, adminTicket, "&feed=active")
+	_, snap = feed.next("snapshot", 5*time.Second)
+	ids := map[string]bool{}
+	for _, r := range snap["runs"].([]any) {
+		ids[r.(map[string]any)["conversion_id"].(string)] = true
+	}
+	if !ids[r1.ID] || !ids[r2.ID] {
+		t.Fatalf("feed %v", ids)
+	}
+	var err error
+	for range 3 { // the emulator sometimes cancels a transaction beside many listeners
+		if _, err = s.Store.Transition(ctx, r2.ID, []string{store.StateProcessing}, func(c *store.Conversion) error { c.State = store.StateSucceeded; return nil }); err == nil {
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if got, _ := s.Store.GetConversion(ctx, r2.ID); err != nil && (got == nil || got.State != store.StateSucceeded) {
+		t.Fatal(err) // (a cancelled reply can still have committed)
+	}
+	if _, d := feed.next("run.state", 5*time.Second); d["run_id"] != r2.ID || d["state"] != store.StateSucceeded {
+		t.Fatalf("feed state %v", d)
+	}
+}

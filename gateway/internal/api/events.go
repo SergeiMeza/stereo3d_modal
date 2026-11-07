@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"slices"
 	"strconv"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -25,11 +26,20 @@ import (
 //	event: run.progress     {type, run_id, project_id, version, state, progress, stage,
 //	                         eta_seconds, waiting_for_gpu, queued_s}
 //	event: project.updated  {type, project_id, version, deleted, project: Project}
+//	event: run.formats      {type, run_id, project_id, version, formats: Formats, outputs: [name]}
+//	event: handoff.state    {type, code, run_id, version, state}
+//	event: billing.updated  {type, kind: settle|balance, version, settle_id?, state?,
+//	                         amount_cents?, balance_cents?, held_cents?}
 //	event: bye              {type, reason: "max_age", retry_ms}
 //	: hb                    (a comment every 20 s)
 //
 // Run is GET /v1/conversions/{id}'s answer, Project GET /v1/projects/{id}'s
-// without its conversions. version is the document's update time in
+// without its conversions, Formats GET /v1/runs/{id}/formats'. The
+// snapshot also carries run_formats {run_id: Formats} (runs with format
+// jobs), handoffs [{code, run_id, state, version}], settles [{settle_id,
+// state, amount_cents, version}] and billing {balance_cents, held_cents,
+// version} (null without a balance). The console's stream (GET
+// /v1/admin/events) carries runs only. version is the document's update time in
 // microseconds: apply an event only when its version is above the one
 // held for that run or project (duplicates and late arrivals are then
 // harmless). Every event has an id (monotonic within the stream); on
@@ -81,7 +91,7 @@ func (s *Service) HandleEventsTicket(w http.ResponseWriter, r *http.Request, use
 	}
 	ticket := hex.EncodeToString(b)
 	exp := time.Now().UTC().Add(eventsTicketTTL)
-	if err := s.Store.PutStreamTicket(ctx, ticket, user.UID, exp); err != nil {
+	if err := s.Store.PutStreamTicket(ctx, ticket, &store.StreamTicket{UID: user.UID, ExpiresAt: exp}); err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
@@ -132,11 +142,16 @@ type eventStream struct {
 	// latest held back.
 	progressAt map[string]time.Time
 	pending    map[string]*store.WatchedDoc
+	// lastProgress / lastFormats: a run's last sent progress and formats.
+	lastProgress map[string]string
+	lastFormats  map[string]string
+	runsOnly     bool // the console's stream
 }
 
 func newEventStream(s *Service, w io.Writer, flush func() error) *eventStream {
 	return &eventStream{s: s, w: w, flush: flush, sent: map[string]int64{}, lastFull: map[string]string{},
-		lastState: map[string]string{}, progressAt: map[string]time.Time{}, pending: map[string]*store.WatchedDoc{}}
+		lastState: map[string]string{}, progressAt: map[string]time.Time{}, pending: map[string]*store.WatchedDoc{},
+		lastProgress: map[string]string{}, lastFormats: map[string]string{}}
 }
 
 func (e *eventStream) write(ev sseEvent) error {
@@ -165,6 +180,35 @@ var progressFields = []string{"progress", "stage", "eta_seconds", "eta_source", 
 func runKey(id string) string     { return "run:" + id }
 func projectKey(id string) string { return "project:" + id }
 
+func hashOf(v any) string {
+	b, _ := json.Marshal(v)
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:8])
+}
+
+// progressOf is what a run.progress event carries.
+func progressOf(full map[string]any) map[string]any {
+	return map[string]any{"progress": full["progress"], "stage": full["stage"], "eta_seconds": full["eta_seconds"],
+		"waiting_for_gpu": full["waiting_for_gpu"], "queued_s": full["queued_s"]}
+}
+
+// formatsOf is the run's "another format" jobs (nil without any).
+func (e *eventStream) formatsOf(c *store.Conversion) map[string]any {
+	if len(c.Repacks) == 0 {
+		return nil
+	}
+	return e.s.runFormatsOf(context.Background(), c).json(c)
+}
+
+func outputNames(c *store.Conversion) []string {
+	names := make([]string, 0, len(c.Outputs))
+	for n := range c.Outputs {
+		names = append(names, n)
+	}
+	slices.Sort(names)
+	return names
+}
+
 func (e *eventStream) runJSON(c *store.Conversion) (map[string]any, string) {
 	full := e.s.conversionResponse(c, nil)
 	rest := make(map[string]any, len(full))
@@ -189,13 +233,41 @@ func (e *eventStream) handle(d store.WatchedDoc, now time.Time) error {
 	switch d.Kind {
 	case "run":
 		key := runKey(d.ID)
+		if d.Removed && e.runsOnly && e.sent[key] > 0 {
+			// left the console's feed (finished, failed): its last state
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			got, ok := e.s.Store.GetRun(ctx, d.ID)
+			cancel()
+			if !ok || got.Removed {
+				return nil
+			}
+			d, ver = got, got.Version.UnixMicro()
+		}
 		if d.Removed || d.Conversion == nil || ver <= e.sent[key] {
 			return nil // left the window, a duplicate, or older than what was sent
 		}
 		c := d.Conversion
 		full, restHash := e.runJSON(c)
-		prev, seen := e.lastFull[key]
-		if seen && prev == restHash && e.lastState[key] == c.State {
+		_, seen := e.lastFull[key]
+		if !e.runsOnly {
+			if f := e.formatsOf(c); f != nil || e.lastFormats[key] != "" {
+				if h := hashOf([]any{f, outputNames(c)}); h != e.lastFormats[key] {
+					e.lastFormats[key] = h
+					if seen {
+						if err := e.write(sseEvent{name: "run.formats", id: e.nextID(ver), data: map[string]any{"type": "run.formats",
+							"run_id": c.ID, "project_id": c.ProjectID, "version": ver, "formats": f, "outputs": outputNames(c)}}); err != nil {
+							return err
+						}
+					}
+				}
+			}
+		}
+		if seen && e.lastFull[key] == restHash && e.lastState[key] == c.State {
+			ph := hashOf(progressOf(full))
+			if ph == e.lastProgress[key] {
+				e.sent[key] = ver // nothing a client shows changed
+				return nil
+			}
 			if now.Sub(e.progressAt[key]) < eventsProgressGap {
 				dd := d
 				e.pending[key] = &dd // the latest wins
@@ -205,6 +277,7 @@ func (e *eventStream) handle(d store.WatchedDoc, now time.Time) error {
 		}
 		delete(e.pending, key)
 		e.sent[key], e.lastFull[key], e.lastState[key] = ver, restHash, c.State
+		e.lastProgress[key] = hashOf(progressOf(full))
 		return e.write(sseEvent{name: "run.state", id: e.nextID(ver), data: map[string]any{"type": "run.state", "run_id": c.ID,
 			"project_id": c.ProjectID, "version": ver, "state": c.State, "run": full}})
 	case "project":
@@ -215,12 +288,63 @@ func (e *eventStream) handle(d store.WatchedDoc, now time.Time) error {
 		e.sent[key] = ver
 		return e.write(sseEvent{name: "project.updated", id: e.nextID(ver), data: map[string]any{"type": "project.updated",
 			"project_id": d.Project.ID, "version": ver, "deleted": d.Project.Deleted, "project": e.projectJSON(d.Project)}})
+	case "handoff":
+		key := "handoff:" + d.ID
+		if d.Removed && e.sent[key] > 0 { // used or expired: gone
+			v := max(time.Now().UnixMicro(), e.sent[key]+1)
+			delete(e.sent, key)
+			return e.write(sseEvent{name: "handoff.state", id: e.nextID(v), data: map[string]any{"type": "handoff.state", "code": d.ID,
+				"version": v, "state": "closed"}})
+		}
+		if d.Removed || d.Handoff == nil || ver <= e.sent[key] {
+			return nil
+		}
+		e.sent[key] = ver
+		return e.write(sseEvent{name: "handoff.state", id: e.nextID(ver), data: handoffJSON(d.Handoff, ver, "handoff.state")})
+	case "settle":
+		key := "settle:" + d.ID
+		if d.Removed || d.Settle == nil || ver <= e.sent[key] {
+			return nil
+		}
+		e.sent[key] = ver
+		return e.write(sseEvent{name: "billing.updated", id: e.nextID(ver), data: settleJSON(d.Settle, ver, "billing.updated")})
+	case "balance":
+		if d.Removed || d.Balance == nil || ver <= e.sent["balance"] {
+			return nil
+		}
+		e.sent["balance"] = ver
+		return e.write(sseEvent{name: "billing.updated", id: e.nextID(ver), data: balanceJSON(d.Balance, ver, "billing.updated")})
 	}
 	return nil
 }
 
+func handoffJSON(h *store.Handoff, ver int64, typ string) map[string]any {
+	out := map[string]any{"code": h.Code, "run_id": h.ConversionID, "state": h.State, "version": ver}
+	if typ != "" {
+		out["type"] = typ
+	}
+	return out
+}
+
+func settleJSON(st *store.Settle, ver int64, typ string) map[string]any {
+	out := map[string]any{"settle_id": st.ID, "state": st.State, "amount_cents": st.AmountCents, "version": ver}
+	if typ != "" {
+		out["type"], out["kind"] = typ, "settle"
+	}
+	return out
+}
+
+func balanceJSON(b *store.Balance, ver int64, typ string) map[string]any {
+	out := map[string]any{"balance_cents": max(b.Available(), 0), "held_cents": b.HeldCents, "version": ver}
+	if typ != "" {
+		out["type"], out["kind"] = typ, "balance"
+	}
+	return out
+}
+
 func (e *eventStream) sendProgress(key string, c *store.Conversion, full map[string]any, ver int64, now time.Time) error {
 	e.sent[key], e.progressAt[key] = ver, now
+	e.lastProgress[key] = hashOf(progressOf(full))
 	return e.write(sseEvent{name: "run.progress", id: e.nextID(ver), data: map[string]any{"type": "run.progress", "run_id": c.ID,
 		"project_id": c.ProjectID, "version": ver, "state": c.State, "progress": full["progress"], "stage": full["stage"],
 		"eta_seconds": full["eta_seconds"], "waiting_for_gpu": full["waiting_for_gpu"], "queued_s": full["queued_s"]}})
@@ -266,22 +390,38 @@ func (e *eventStream) start(initial []store.WatchedDoc, lastEventID int64, now t
 		return nil
 	}
 	runs, projects := []map[string]any{}, []map[string]any{}
+	handoffs, settles := []map[string]any{}, []map[string]any{}
+	formats := map[string]any{}
+	var billing map[string]any
 	var top int64
 	for _, d := range initial {
-		top = max(top, d.Version.UnixMicro())
+		ver := d.Version.UnixMicro()
+		top = max(top, ver)
 		switch {
 		case d.Kind == "run" && d.Conversion != nil:
 			full, _ := e.runJSON(d.Conversion)
 			runs = append(runs, full)
+			if f := e.formatsOf(d.Conversion); f != nil && !e.runsOnly {
+				formats[d.Conversion.ID] = f
+			}
 		case d.Kind == "project" && d.Project != nil:
 			projects = append(projects, e.projectJSON(d.Project))
+		case d.Kind == "handoff" && d.Handoff != nil:
+			handoffs = append(handoffs, handoffJSON(d.Handoff, ver, ""))
+		case d.Kind == "settle" && d.Settle != nil:
+			settles = append(settles, settleJSON(d.Settle, ver, ""))
+		case d.Kind == "balance" && d.Balance != nil:
+			billing = balanceJSON(d.Balance, ver, "")
 		}
 		e.remember(d)
 	}
 	slices.Reverse(runs) // newest first, as the lists
 	slices.Reverse(projects)
-	return e.write(sseEvent{name: "snapshot", id: e.nextID(top), data: map[string]any{"type": "snapshot", "version": top,
-		"runs": runs, "projects": projects}})
+	data := map[string]any{"type": "snapshot", "version": top, "runs": runs}
+	if !e.runsOnly {
+		data["projects"], data["run_formats"], data["handoffs"], data["settles"], data["billing"] = projects, formats, handoffs, settles, billing
+	}
+	return e.write(sseEvent{name: "snapshot", id: e.nextID(top), data: data})
 }
 
 // remember marks a document as already known to the client.
@@ -290,10 +430,20 @@ func (e *eventStream) remember(d store.WatchedDoc) {
 	switch {
 	case d.Kind == "run" && d.Conversion != nil:
 		key := runKey(d.ID)
-		_, h := e.runJSON(d.Conversion)
+		full, h := e.runJSON(d.Conversion)
 		e.sent[key], e.lastFull[key], e.lastState[key] = ver, h, d.Conversion.State
+		e.lastProgress[key] = hashOf(progressOf(full))
+		if f := e.formatsOf(d.Conversion); f != nil {
+			e.lastFormats[key] = hashOf([]any{f, outputNames(d.Conversion)})
+		}
 	case d.Kind == "project":
 		e.sent[projectKey(d.ID)] = ver
+	case d.Kind == "handoff":
+		e.sent["handoff:"+d.ID] = ver
+	case d.Kind == "settle":
+		e.sent["settle:"+d.ID] = ver
+	case d.Kind == "balance":
+		e.sent["balance"] = ver
 	}
 }
 
@@ -306,6 +456,67 @@ func (s *Service) HandleEventStream(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteErr(r.Context(), w, httpx.ErrUnauthorized())
 		return
 	}
+	specs := []store.WatchSpec{s.Store.UserRuns(uid, eventsRunWindow), s.Store.UserProjects(uid, eventsProjectWindow),
+		s.Store.UserHandoffs(uid), s.Store.UserSettles(uid), s.Store.UserBalance(uid)}
+	s.serveStream(w, r, specs, false)
+}
+
+// POST /v1/admin/events/ticket (admin session) → {ticket, expires_at,
+// url}: the console's EventSource ticket, 2 minutes.
+func (s *Service) HandleAdminEventsTicket(w http.ResponseWriter, r *http.Request, a *AdminUser) {
+	ctx := r.Context()
+	b := make([]byte, 24)
+	if _, err := rand.Read(b); err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	ticket := hex.EncodeToString(b)
+	exp := time.Now().UTC().Add(eventsTicketTTL)
+	if err := s.Store.PutStreamTicket(ctx, ticket, &store.StreamTicket{UID: a.UID, Admin: a.who(), Scope: "admin", ExpiresAt: exp}); err != nil {
+		httpx.WriteErr(ctx, w, err)
+		return
+	}
+	w.Header().Set("Cache-Control", "no-store")
+	httpx.WriteOK(w, map[string]any{"ticket": ticket, "expires_at": exp.Format(time.RFC3339), "url": "/v1/admin/events?ticket=" + ticket})
+}
+
+// GET /v1/admin/events?ticket=&(uid=|run_id=|feed=active) — the
+// console's stream: snapshot, run.state, run.progress and bye for one
+// account's newest runs, one run, or the runs created, paid or processing
+// anywhere (at most 100). The ticket comes from POST
+// /v1/admin/events/ticket under a passkey session; each open is audited.
+func (s *Service) HandleAdminEventStream(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	var t *store.StreamTicket
+	if s.AdminEventsAuth != nil {
+		t = s.AdminEventsAuth(r)
+	} else {
+		t = s.Store.GetStreamTicket(ctx, r.URL.Query().Get("ticket"), time.Now())
+	}
+	if t == nil || t.Scope != "admin" {
+		httpx.WriteErr(ctx, w, httpx.ErrUnauthorized())
+		return
+	}
+	q := r.URL.Query()
+	var spec store.WatchSpec
+	filter := map[string]any{}
+	switch {
+	case q.Get("run_id") != "" && len(q.Get("run_id")) <= 64 && !strings.Contains(q.Get("run_id"), "/"):
+		spec, filter["run_id"] = s.Store.OneRun(q.Get("run_id")), q.Get("run_id")
+	case q.Get("uid") != "" && len(q.Get("uid")) <= 128:
+		spec, filter["uid"] = s.Store.UserRuns(q.Get("uid"), eventsRunWindow), q.Get("uid")
+	case q.Get("feed") == "active":
+		spec, filter["feed"] = s.Store.ActiveRuns(100), "active"
+	default:
+		httpx.WriteErr(ctx, w, httpx.ErrInvalid("name a uid, a run_id or feed=active"))
+		return
+	}
+	s.audit(ctx, &AdminUser{UID: t.UID, Email: t.Admin}, "events_stream", filter)
+	s.serveStream(w, r, []store.WatchSpec{spec}, true)
+}
+
+// serveStream runs one SSE stream over the listeners.
+func (s *Service) serveStream(w http.ResponseWriter, r *http.Request, specs []store.WatchSpec, runsOnly bool) {
 	timing := s.eventsTiming()
 	ctx, cancel := context.WithTimeout(r.Context(), timing.MaxAge)
 	defer cancel()
@@ -328,23 +539,24 @@ func (s *Service) HandleEventStream(w http.ResponseWriter, r *http.Request) {
 
 	type batch struct {
 		docs    []store.WatchedDoc
-		kind    string
+		spec    int
 		initial bool
 	}
 	batches := make(chan batch, 64)
 	watchErr := make(chan error, 1)
 	go func() {
-		watchErr <- s.Store.WatchUser(ctx, uid, eventsRunWindow, eventsProjectWindow, func(docs []store.WatchedDoc, kind string, initial bool) {
+		watchErr <- s.Store.Watch(ctx, specs, func(docs []store.WatchedDoc, spec int, initial bool) {
 			select {
-			case batches <- batch{docs, kind, initial}:
+			case batches <- batch{docs, spec, initial}:
 			case <-ctx.Done():
 			}
 		})
 	}()
 	es := newEventStream(s, w, rc.Flush)
+	es.runsOnly = runsOnly
 	var initial []store.WatchedDoc
-	ready := map[string]bool{}
-	var early []store.WatchedDoc // changes before both first batches
+	ready := map[int]bool{}
+	var early []store.WatchedDoc // changes before every first batch
 	hb := time.NewTicker(timing.Heartbeat)
 	defer hb.Stop()
 	fl := time.NewTicker(timing.Flush)
@@ -363,14 +575,14 @@ func (s *Service) HandleEventStream(w http.ResponseWriter, r *http.Request) {
 			}
 			return
 		case b := <-batches:
-			if len(ready) < 2 {
-				if b.initial && !ready[b.kind] {
-					ready[b.kind] = true
+			if len(ready) < len(specs) {
+				if b.initial && !ready[b.spec] {
+					ready[b.spec] = true
 					initial = append(initial, b.docs...)
 				} else {
 					early = append(early, b.docs...)
 				}
-				if len(ready) == 2 {
+				if len(ready) == len(specs) {
 					if es.start(initial, lastEventID, time.Now()) != nil {
 						return
 					}
@@ -389,7 +601,7 @@ func (s *Service) HandleEventStream(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 		case <-fl.C:
-			if len(ready) == 2 && es.flushPending(time.Now()) != nil {
+			if len(ready) == len(specs) && es.flushPending(time.Now()) != nil {
 				return
 			}
 		case <-hb.C:

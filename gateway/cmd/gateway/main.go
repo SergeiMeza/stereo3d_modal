@@ -337,6 +337,8 @@ func main() {
 	mux.HandleFunc("GET /v1/events", svc.HandleEventStream)
 	mux.HandleFunc("POST /v1/events/ticket", authed(svc.HandleEventsTicket))
 	mux.HandleFunc("GET /v1/events/probe", svc.HandleEventsProbe)
+	mux.HandleFunc("POST /v1/admin/events/ticket", admin(svc.HandleAdminEventsTicket))        // passkey session
+	mux.HandleFunc("GET /v1/admin/events", svc.HandleAdminEventStream)                        // its ticket, no request budget
 	mux.HandleFunc("POST /internal/deletion-callback-probe", svc.HandleDeletionCallbackProbe) // test only, an unknown uid only
 	mux.HandleFunc("GET /v1/account/delete", authed(svc.HandleDeletePreview))                 // what a delete would do
 	mux.HandleFunc("POST /v1/account/plan/cancel", authed(api.Fresh(svc.HandleAccountPlanCancel)))
