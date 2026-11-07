@@ -35,11 +35,25 @@ describe("case page (A2)", () => {
       "Quality: High (measured: Spatial 41 Mbit/s · SBS 38 Mbit/s) · Audio: AAC 256 kbit/s",
     );
     // owner 2026-11-07: the run's source video, as the web's Overview shows it
-    expect(screen.getByTestId("run-source").textContent).toBe(
-      "Size1.5 GBLength5 min 12 sResolution3840×2160 · 4KFrame rate29.97 fps · variable, up to 31.01 fps" +
-        "Frames9,363Video bitrate41 Mbit/sDynamic rangeHDR (HLG)Black barsDetected · picture 3840×1600 · removed in 3D",
-    );
-  });
+    const src = [...screen.getByTestId("run-source").querySelectorAll("div")].map((d) => `${d.querySelector("dt")?.textContent}: ${d.querySelector("dd")?.textContent}`);
+    expect(src).toEqual([
+      "File: synthetic-clip.mov",
+      "Size: 1.5 GB",
+      "Container: MOV",
+      "Length: 5 min 12 s",
+      "Resolution: 3840×2160 · 4K",
+      "Frame rate: 29.97 fps · variable, up to 31.01 fps",
+      "Frames: 9,363",
+      "Codec: HEVC (H.265) · Main 10",
+      "Bit depth: 10-bit",
+      "Video bitrate: 41 Mbit/s",
+      "Colour: HDR (HLG) · BT.2020",
+      "Rotation: None",
+      "Black bars: Detected · picture 3840×1600 · removed in 3D",
+      "Audio: AAC · stereo · 48 kHz · 256 kbit/s",
+      "Spatial or 3D: No, 2D",
+      "Camera: Example Camera One",
+    ]);  });
 
   it("renders customer text as plain text and drops unsafe links", async () => {
     const { container } = renderApp("/cases/CASE-0042", base());
