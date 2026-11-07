@@ -63,6 +63,7 @@ type State =
   | { kind: "void" }
   | { kind: "expired" }
   | { kind: "bad" }
+  | { kind: "loadFailed" }
   | { kind: "limited" };
 
 function closed(info: PayRequest): State | null {
@@ -78,6 +79,8 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
   const localPrice = useLocalPriceAtCheckout();
   const [state, setState] = useState<State>({ kind: "loading" });
 
+  // REV-12: a failed read can be tried again (a deploy, the network)
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
     const q = new URLSearchParams(window.location.search);
@@ -94,13 +97,17 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
       },
       (e: unknown) => {
         if (!live) return;
-        setState(e instanceof GatewayError && e.status === 429 ? { kind: "limited" } : { kind: "bad" });
+        const g = e instanceof GatewayError ? e : null;
+        if (g?.status === 429) return setState({ kind: "limited" });
+        // only an unknown link isn't valid; anything else can be tried again
+        if (g?.status === 404 && g.code === "pay_link_not_found") return setState({ kind: "bad" });
+        setState({ kind: "loadFailed" });
       },
     );
     return () => {
       live = false;
     };
-  }, [gateway, token]);
+  }, [gateway, token, attempt]);
 
   // REV-06: a payment being confirmed is read again until the link closes
   const processing = state.kind === "processing";
@@ -210,6 +217,20 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
         <p className="text-base text-fg">{t("pay.request.expired")}</p>
       ) : state.kind === "bad" ? (
         <p className="text-base text-fg">{t("pay.request.bad")}</p>
+      ) : state.kind === "loadFailed" ? (
+        <div data-testid="pay-request-load-failed" className="flex flex-col items-start gap-3">
+          <p className="text-base text-fg">{t("pay.request.loadFailed")}</p>
+          <Button
+            variant="outline"
+            data-testid="pay-request-retry"
+            onClick={() => {
+              setState({ kind: "loading" });
+              setAttempt((n) => n + 1);
+            }}
+          >
+            {t("pay.request.tryAgain")}
+          </Button>
+        </div>
       ) : state.kind === "limited" ? (
         <p className="text-base text-fg">{t("pay.handoffPage.limited")}</p>
       ) : state.kind === "form" ? (

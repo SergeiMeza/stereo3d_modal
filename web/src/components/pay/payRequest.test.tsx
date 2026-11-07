@@ -174,6 +174,28 @@ describe("the pay page (D7)", () => {
   it("an unknown link isn't valid", async () => {
     page("tok_nope");
     expect(await screen.findByText("This payment link isn't valid.")).toBeTruthy();
+    expect(screen.queryByTestId("pay-request-retry")).toBeNull();
+  });
+
+  it.each([
+    ["a 5xx", 503, "unavailable"],
+    ["a 404 that isn't pay_link_not_found", 404, "not_found"],
+  ] as const)("%s isn't 'not valid': it can be tried again (REV-12)", async (_name, status, code) => {
+    request("tok_flaky");
+    let fail = true;
+    server.use(
+      http.get(`${GATEWAY}/v1/pay-requests/:token`, () =>
+        fail ? HttpResponse.json({ error: code, message: "try later" }, { status }) : undefined,
+      ),
+    );
+    page("tok_flaky");
+    expect((await screen.findByTestId("pay-request-load-failed")).textContent).toContain(
+      "We couldn't load this payment. Try again in a moment.",
+    );
+    expect(document.body.textContent).not.toContain("isn't valid");
+    fail = false;
+    fireEvent.click(screen.getByTestId("pay-request-retry"));
+    expect(await screen.findByTestId("pay-request-pay")).toBeTruthy();
   });
 });
 
