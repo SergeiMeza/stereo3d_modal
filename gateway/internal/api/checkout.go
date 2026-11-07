@@ -306,6 +306,8 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		return s.applySettleSessionEvent(ctx, eventType, sess.ID, sess.Metadata["settle_id"])
 	case "topup":
 		return s.applyTopupSessionEvent(ctx, eventType, sess.ID, sess.Metadata["topup_id"])
+	case "stepup": // D4: a step-up paid on its pay page
+		return s.applyStepUpSession(ctx, eventType, sess.ID, sess.Metadata)
 	case "plan": // the plan itself comes with invoice.paid; its company details here
 		if eventType == "checkout.session.completed" {
 			s.applyCheckoutCompany(ctx, sess.Metadata["user_id"], sess.Customer, sess.Metadata["plan"], sess.Details)

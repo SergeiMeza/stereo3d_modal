@@ -59,6 +59,9 @@ type AccountDeletion struct {
 	ProcessedAt   *time.Time `firestore:"processed_at,omitempty"`
 	ProcessedBy   string     `firestore:"processed_by,omitempty"` // sweep | admin:<who> | request
 	Outcome       string     `firestore:"outcome,omitempty"`
+	// DuesRetry: the dues the sweep couldn't collect, on the retry
+	// schedule (D2, #2): charged only at its times, never every sweep.
+	DuesRetry *OffSessionRetry `firestore:"dues_retry,omitempty" json:"dues_retry,omitempty"`
 }
 
 // Pending: the deletion is scheduled and hasn't run.

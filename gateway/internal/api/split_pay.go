@@ -53,10 +53,7 @@ func runCardCents(c *store.Conversion) int64 {
 	if c == nil {
 		return 0
 	}
-	if rb := c.RunBalance; rb != nil && rb.Partial {
-		return max(c.Quote.AmountCents-rb.HoldCents, 0)
-	}
-	return c.Quote.AmountCents
+	return c.CardCents()
 }
 
 // createRunRecord writes a run: with its partial hold in one transaction

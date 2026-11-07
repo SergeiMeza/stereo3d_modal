@@ -47,6 +47,7 @@ func (s *Service) balanceSummary(ctx context.Context, uid string, b *store.Balan
 	if b.AutoReload.PausedReason != "" {
 		ar["paused_reason"] = b.AutoReload.PausedReason
 	}
+	ar["retry"] = s.reloadRetryJSON(ctx, uid) // D2: a failed reload's retry and pay link, null when none
 	out := map[string]any{
 		"balance_cents":     b.BalanceCents,
 		"held_cents":        b.HeldCents,
@@ -320,6 +321,8 @@ func (s *Service) applyTopupPayment(ctx context.Context, topupID string, out str
 // debts paid from the balance (N9).
 func (s *Service) afterTopup(ctx context.Context, t *store.Topup, promoted []string, fx store.BalanceEffects) {
 	s.notePaidOnce(ctx, t.UID)
+	s.payRequestsAfterTopup(ctx, t)                    // D7: its pay link, a failed reload's links
+	s.cancelReloadRetries(ctx, t.UID, "a top-up paid") // D2: nothing more to retry
 	if t.PaidWith != "" {
 		if cust, err := s.Store.GetCustomer(ctx, t.UID); err == nil && cust.DefaultPaymentMethod == t.PaidWith {
 			s.noteMethodPaid(ctx, t.UID, t.PaidWith) // T24
@@ -390,7 +393,9 @@ func (s *Service) handleBalanceEffects(ctx context.Context, uid string, fx store
 // runReload charges an auto-reload off-session: the default, then the
 // backups in the customer's order (C5), under a lease; key
 // topup_{env}_{topup_id}. Never while a debt exists, under review or
-// sheet_only (the reload is abandoned with a pause).
+// sheet_only (the reload is abandoned with a pause). A card's refusal
+// fails it (auto-reload paused, no credit) and starts its retry schedule
+// and pay link (D2, D7).
 func (s *Service) runReload(ctx context.Context, topupID string) {
 	t, err := s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error {
 		if x.State != store.TopupCharging || x.Lease.Held(time.Now()) {
@@ -402,7 +407,7 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 	if err != nil {
 		return
 	}
-	fail := func(reason, msg string) {
+	fail := func(reason, msg string, f *stripex.ChargeFailure) {
 		_, released, ferr := s.Store.FailTopup(ctx, topupID, reason, msg)
 		if ferr != nil {
 			slog.WarnContext(ctx, "reload failure not recorded", "topup_id", topupID, "err", ferr)
@@ -411,94 +416,129 @@ func (s *Service) runReload(ctx context.Context, topupID string) {
 		for _, id := range released {
 			s.fallBackToPayNow(ctx, id)
 		}
-		if reason == "declined" || reason == "stop_code" {
-			s.mailReloadFailed(ctx, t)
+		if f != nil {
+			s.startReloadRetry(ctx, t, *f)
 		}
 	}
 	cust, err := s.Store.GetCustomer(ctx, t.UID)
 	if err != nil {
-		fail("", "no account")
+		fail("", "no account", nil)
 		return
 	}
 	switch {
 	case cust.UnderReview:
-		fail("review", "under review")
+		fail("review", "under review", nil)
 		return
 	case cust.SheetOnly:
-		fail("sheet_only", "sheet only")
+		fail("sheet_only", "sheet only", nil)
 		return
 	case s.owedCents(ctx, t.UID) > 0:
-		fail("", "a debt exists") // R1: never while a pay-as-you-go debt exists
+		fail("", "a debt exists", nil) // R1: never while a pay-as-you-go debt exists
 		return
 	}
 	if cust.DefaultPaymentMethod == "" {
 		cust = s.refreshCardCache(ctx, t.UID, cust.StripeCustomerID)
 	}
 	if cust.DefaultPaymentMethod == "" {
-		fail("declined", "no saved method")
+		fail("declined", "no saved method", &stripex.ChargeFailure{Code: "no_payment_method"})
 		return
 	}
-	job := stripex.Job{UID: t.UID, Description: "Spatial Video Studio balance auto-reload"}
-	pi, chErr := s.Stripe.ChargeTopup(cust.StripeCustomerID, cust.DefaultPaymentMethod, t.Cents, t.ID, job)
-	paidWith := cust.DefaultPaymentMethod
+	o := s.chargeReload(ctx, t, cust, 1)
+	switch {
+	case o.transient:
+		return // the lease lapses; the sweep replays the keys
+	case o.closedPaid != nil:
+		_ = s.applyTopupPayment(ctx, topupID, *o.closedPaid)
+		return
+	case !o.paid:
+		reason := "declined" // a bank check off-session counts as declined (N4)
+		switch {
+		case o.fail.Stop:
+			reason = "stop_code"
+			s.setSheetOnly(ctx, t.UID, "stop code "+o.fail.DeclineCode)
+		case !o.cardDecision:
+			reason = "config" // B2: paused, no "didn't go through" mail; the owner was alerted
+		}
+		fail(reason, "reload declined: "+o.fail.Code, &o.fail)
+		return
+	}
+	s.reloadPaid(ctx, topupID, o)
+}
+
+// reloadOutcome is one auto-reload charge attempt.
+type reloadOutcome struct {
+	paid, transient, cardDecision bool
+	pi                            *stripe.PaymentIntent
+	paidWith                      string
+	fail                          stripex.ChargeFailure
+	closedPaid                    *stripex.Outcome // the final cancel found it paid after all
+}
+
+// chargeReload charges t once: the default, then the backups. Try n > 1
+// (a retry, D2) has its own keys: topup_{env}_{id}_r{n}[_{pm}].
+func (s *Service) chargeReload(ctx context.Context, t *store.Topup, cust *store.Customer, attempt int) reloadOutcome {
+	job := stripex.Job{UID: t.UID, Description: "Spatial Video Studio balance auto-reload", PMC: s.Cfg.StripePMCWeb}
+	suffix := ""
+	if attempt > 1 {
+		suffix = fmt.Sprintf("_r%d", attempt)
+	}
+	var pi *stripe.PaymentIntent
+	var chErr error
+	if attempt > 1 {
+		pi, chErr = s.Stripe.ChargeTopupWith(cust.StripeCustomerID, cust.DefaultPaymentMethod, t.Cents, t.ID, suffix, job)
+	} else {
+		pi, chErr = s.Stripe.ChargeTopup(cust.StripeCustomerID, cust.DefaultPaymentMethod, t.Cents, t.ID, job)
+	}
+	o := reloadOutcome{pi: pi, paidWith: cust.DefaultPaymentMethod, cardDecision: true}
 	var f stripex.ChargeFailure
 	switch {
 	case chErr != nil:
 		f = stripex.ClassifyChargeError(chErr)
 	case pi.Status == stripe.PaymentIntentStatusSucceeded || pi.Status == stripe.PaymentIntentStatusProcessing:
+		o.paid = true
+		return o
 	default:
 		f = stripex.ChargeFailure{PaymentIntentID: pi.ID, Code: string(pi.Status), NeedsAction: true}
 	}
 	if f.Transient {
-		return // the lease lapses; the sweep replays the key
+		o.transient = true
+		return o
 	}
-	if chErr != nil || f.Code != "" || f.NeedsAction {
-		piID := f.PaymentIntentID
-		paid := false
-		if !f.Stop && !f.NeedsAction && piID != "" {
-			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
-			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
-				if m.PaymentMethodID == cust.DefaultPaymentMethod {
-					continue
-				}
-				pi2, err2 := s.Stripe.ConfirmWithMethod(piID, m.PaymentMethodID, 1, false)
-				if err2 == nil && (pi2.Status == stripe.PaymentIntentStatusSucceeded || pi2.Status == stripe.PaymentIntentStatusProcessing) {
-					pi, paidWith, paid = pi2, m.PaymentMethodID, true
-					break
-				}
-				if err2 != nil {
-					if f2 := stripex.ClassifyChargeError(err2); f2.Transient {
-						return
-					} else if f2.Stop {
-						f = f2
-						break
-					}
-				}
-			}
+	if f.Config {
+		s.alertConfigError(ctx, "auto-reload", t.ID, t.UID, f)
+	}
+	r := s.webBackups(ctx, cust, f, func(pm string) (*stripe.PaymentIntent, error) {
+		return s.Stripe.ChargeTopupWith(cust.StripeCustomerID, pm, t.Cents, t.ID, suffix+"_"+pm, job)
+	})
+	o.transient, o.cardDecision, o.fail = r.Transient, r.CardDecision, r.Fail
+	if r.Transient {
+		return o
+	}
+	if r.Paid {
+		o.paid, o.pi, o.paidWith = true, r.PI, r.PaidWith
+		return o
+	}
+	if r.PIID != "" {
+		out, cerr := s.Stripe.ClosePaymentIntent(r.PIID)
+		if cerr != nil {
+			o.transient = true
+			return o
 		}
-		if !paid {
-			if piID != "" {
-				if out, cerr := s.Stripe.ClosePaymentIntent(piID); cerr == nil && out.Paid {
-					_ = s.applyTopupPayment(ctx, topupID, out)
-					return
-				} else if cerr != nil {
-					return
-				}
-			}
-			reason := "declined" // a bank check off-session counts as declined (N4)
-			if f.Stop {
-				reason = "stop_code"
-				s.setSheetOnly(ctx, t.UID, "stop code "+f.DeclineCode)
-			}
-			fail(reason, "reload declined: "+f.Code)
-			return
+		if out.Paid {
+			o.closedPaid = &out
 		}
 	}
-	s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error { x.PaymentIntentID = pi.ID; return nil })
-	if pi.Status == stripe.PaymentIntentStatusProcessing {
+	return o
+}
+
+// reloadPaid credits a reload whose charge went through (a processing one
+// waits for its succeeded webhook).
+func (s *Service) reloadPaid(ctx context.Context, topupID string, o reloadOutcome) {
+	s.Store.UpdateTopup(ctx, topupID, func(x *store.Topup) error { x.PaymentIntentID = o.pi.ID; return nil })
+	if o.pi.Status == stripe.PaymentIntentStatusProcessing {
 		return // the succeeded webhook credits it
 	}
-	_ = s.applyTopupPayment(ctx, topupID, stripex.Outcome{PaymentIntentID: pi.ID, AmountReceived: pi.AmountReceived, PaymentMethod: paidWith, Paid: true})
+	_ = s.applyTopupPayment(ctx, topupID, stripex.Outcome{PaymentIntentID: o.pi.ID, AmountReceived: o.pi.AmountReceived, PaymentMethod: o.paidWith, Paid: true})
 }
 
 // handleTopupPI routes a PaymentIntent event of a top-up (China, auto-reload).
@@ -517,7 +557,9 @@ func (s *Service) handleTopupPI(ctx context.Context, eventType, topupID, piID, p
 				for _, id := range released {
 					s.fallBackToPayNow(ctx, id)
 				}
-				s.mailReloadFailed(ctx, t)
+				if t.Retry == nil {
+					s.startReloadRetry(ctx, t, stripex.ChargeFailure{Code: "payment_failed"})
+				}
 			}
 		}
 	}
@@ -667,6 +709,11 @@ func (s *Service) HandlePutBalanceSettings(w http.ResponseWriter, r *http.Reques
 	if err != nil {
 		httpx.WriteErr(ctx, w, err)
 		return
+	}
+	if ar != nil && (!ar.Enabled || turningOn) {
+		// D2: turned back on (normal reloads resume) or off — a pending
+		// retry would charge on top
+		s.cancelReloadRetries(ctx, user.UID, "auto-reload turned "+map[bool]string{true: "on", false: "off"}[ar.Enabled])
 	}
 	s.handleBalanceEffects(ctx, user.UID, fx)
 	httpx.WriteOK(w, s.balanceSummary(ctx, user.UID, b))
@@ -917,6 +964,9 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 			}
 		}
 	}
+	if n := s.reloadRetrySweep(ctx, now); n > 0 { // D2: failed reloads due again
+		stats["reload_retries"] = n
+	}
 	if charging, err := s.Store.ListTopupsByState(ctx, store.TopupCharging, 50); err == nil {
 		for _, t := range charging {
 			if !t.Lease.Held(now) && now.Sub(t.CreatedAt) > 30*time.Second {
@@ -1007,7 +1057,7 @@ func (s *Service) mailTopup(ctx context.Context, t *store.Topup) {
 	line := money(t.PaidCents) + " was added to your balance."
 	if t.Auto {
 		kind = "Auto-reload"
-		line = "Auto-reload added " + money(t.PaidCents) + " to your balance."
+		line = "Auto-reload added " + money(t.PaidCents) + " to your balance. Charged in US dollars." // an off-session charge: never presented locally
 	}
 	b, _ := s.Store.GetBalance(ctx, t.UID)
 	lines := []string{line}
@@ -1026,14 +1076,6 @@ func (s *Service) mailLowBalance(ctx context.Context, uid string, available int6
 		Kind: "E14", Subject: "Spatial Video Studio: your balance is low",
 		Lines:  []string{"Your balance is " + money(available) + ".", "Add funds to keep making 3D videos from your balance."},
 		Button: "Add funds", Link: s.Cfg.SiteURL + "/billing?add=1",
-	})
-}
-
-func (s *Service) mailReloadFailed(ctx context.Context, t *store.Topup) {
-	s.mailCustomer(ctx, "E15_"+t.ID, t.UID, s.accountEmail(ctx, t.UID), customerMail{
-		Kind: "E15", Subject: "Spatial Video Studio: auto-reload didn't go through",
-		Lines:  []string{"We couldn't add " + money(t.Cents) + " to your balance.", "Auto-reload is paused until you turn it back on."},
-		Button: "Check billing", Link: s.Cfg.SiteURL + "/billing",
 	})
 }
 

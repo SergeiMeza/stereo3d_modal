@@ -347,6 +347,16 @@ type Stripe struct {
 	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
 }
 
+// CardCents is what the card pays of a run: the quote, less the balance's
+// part when a partial hold pays some of it (split pay). The same as the
+// quote for every run without a partial hold (the app's included).
+func (c *Conversion) CardCents() int64 {
+	if rb := c.RunBalance; rb != nil && rb.Partial {
+		return max(c.Quote.AmountCents-rb.HoldCents, 0)
+	}
+	return c.Quote.AmountCents
+}
+
 type Modal struct {
 	JobID        string     `firestore:"job_id,omitempty" json:"job_id,omitempty"`
 	SubmittedAt  *time.Time `firestore:"submitted_at,omitempty" json:"submitted_at,omitempty"`
@@ -750,8 +760,11 @@ type Batch struct {
 	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
 	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
 	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
-	CreatedAt    time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `firestore:"updated_at" json:"updated_at"`
+	// ChargePM: the method a web group's first charge went to (B6),
+	// recorded before it is sent: a re-drive replays that same request.
+	ChargePM  string    `firestore:"charge_pm,omitempty" json:"-"`
+	CreatedAt time.Time `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects

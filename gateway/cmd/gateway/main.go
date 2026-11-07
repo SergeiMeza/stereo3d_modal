@@ -269,7 +269,8 @@ func main() {
 		svc.HandleAdminRun(w, r, a, id)
 	}))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
-	mux.HandleFunc("GET /v1/admin/deletions", admin(svc.HandleAdminDeletions)) // ?state=pending|cancelled|done
+	mux.HandleFunc("GET /v1/admin/deletions", admin(svc.HandleAdminDeletions))      // ?state=pending|cancelled|done
+	mux.HandleFunc("GET /v1/admin/pay-requests", admin(svc.HandleAdminPayRequests)) // D7: ?state=open|paid|void&uid=
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
 	// Grant credit (owner 2026-11-07): usage credit on the balance, fresh sign-in for the writes
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants/preview", admin(adminID(svc.HandleAdminCreditGrantPreview, "uid")))
@@ -423,6 +424,8 @@ func main() {
 	mux.HandleFunc("POST /v1/conversions/{id}/handoff", authed(svc.FrozenWhileDeleting(withID(svc.HandleCreateHandoff)))) // B17
 	mux.HandleFunc("GET /v1/handoff/{code}", svc.HandleGetHandoff)                                                        // public, read-only
 	mux.HandleFunc("POST /v1/handoff/{code}/pay", svc.HandleHandoffPay)                                                   // public
+	mux.HandleFunc("GET /v1/pay-requests/{token}", svc.HandleGetPayRequest)                                               // D7: public, read-only
+	mux.HandleFunc("POST /v1/pay-requests/{token}/checkout", svc.HandlePayRequestCheckout)                                // D7: public
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))

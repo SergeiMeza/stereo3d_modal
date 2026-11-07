@@ -43,8 +43,9 @@ func (s *Service) HandleAdminAccount(w http.ResponseWriter, r *http.Request, a *
 		out["promo_regrants"] = recs
 	}
 	out["grants"] = s.adminGrantsJSON(ctx, uid)
+	out["pay_requests"] = s.adminPayRequests(ctx, uid)              // D7
 	if d, err := s.Store.GetAccountDeletion(ctx, uid); err == nil { // the 48-hour wait
-		out["deletion"] = adminDeletionJSON(d)
+		out["deletion"] = s.adminDeletionView(d)
 	}
 	passkeys := 0
 	if ps, err := s.Store.ListCustomerPasskeys(ctx, uid); err == nil { // ADR 0136
@@ -120,7 +121,7 @@ func (s *Service) HandleAdminAccountAction(w http.ResponseWriter, r *http.Reques
 		}
 		if _, err := s.Store.GetCustomer(ctx, uid); err != nil {
 			d, _ := s.Store.GetAccountDeletion(ctx, uid)
-			httpx.WriteOK(w, map[string]any{"deletion": adminDeletionJSON(d)})
+			httpx.WriteOK(w, map[string]any{"deletion": s.adminDeletionView(d)})
 			return
 		}
 		s.HandleAdminAccount(w, r, a, uid)

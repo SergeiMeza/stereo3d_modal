@@ -64,9 +64,15 @@ type Settle struct {
 	// Pricing; nil: USD).
 	Presentment *Presentment `firestore:"presentment,omitempty" json:"-"`
 	Error       string       `firestore:"error,omitempty" json:"-"`
-	CreatedAt   time.Time    `firestore:"created_at" json:"created_at"`
-	UpdatedAt   time.Time    `firestore:"updated_at" json:"-"`
-	PaidAt      *time.Time   `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
+	// The off-session charge, recorded before it is sent (B5): a lost
+	// answer is found again by the sweep instead of charged a second time.
+	ChargeKey        string     `firestore:"charge_key,omitempty" json:"-"`
+	ChargePM         string     `firestore:"charge_pm,omitempty" json:"-"`
+	ChargeCustomerID string     `firestore:"charge_customer_id,omitempty" json:"-"`
+	ChargeStartedAt  *time.Time `firestore:"charge_started_at,omitempty" json:"-"`
+	CreatedAt        time.Time  `firestore:"created_at" json:"created_at"`
+	UpdatedAt        time.Time  `firestore:"updated_at" json:"-"`
+	PaidAt           *time.Time `firestore:"paid_at,omitempty" json:"paid_at,omitempty"`
 }
 
 // Runs counts the runs a settle pays for.
@@ -234,8 +240,8 @@ func (s *Store) OpenSettle(ctx context.Context, uid, trigger string, lease Lease
 			if c.Stripe.BatchID != "" {
 				continue // part of a group above
 			}
-			st.Items = append(st.Items, SettleItem{Kind: "run", ID: c.ID, AmountCents: c.Quote.AmountCents, PaymentIntentID: c.Stripe.PaymentIntentID})
-			st.AmountCents += c.Quote.AmountCents
+			st.Items = append(st.Items, SettleItem{Kind: "run", ID: c.ID, AmountCents: c.CardCents(), PaymentIntentID: c.Stripe.PaymentIntentID})
+			st.AmountCents += c.CardCents() // B9: the card's part, never the balance's
 			runs = append(runs, c)
 		}
 		if len(st.Items) == 0 {
@@ -400,7 +406,7 @@ func (s *Store) FinishSettle(ctx context.Context, id string, out SettleOutcome, 
 			switch {
 			case out.Paid:
 				c.Stripe.PIStatus, c.Stripe.PaymentIntentID = PISucceeded, out.PaymentIntentID
-				c.Stripe.CapturedCents, c.Stripe.CapturedAt, c.Stripe.SettleError = c.Quote.AmountCents, &now, ""
+				c.Stripe.CapturedCents, c.Stripe.CapturedAt, c.Stripe.SettleError = c.CardCents(), &now, "" // B9
 				c.Stripe.SettleID = id
 			case own:
 				c.Stripe.PIStatus = PIChargeFailed

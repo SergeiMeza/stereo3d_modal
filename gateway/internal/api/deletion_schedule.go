@@ -83,9 +83,10 @@ func writeScheduledDeletion(w http.ResponseWriter, d *store.AccountDeletion, pla
 // deletionState is what account reads carry: {pending_deletion,
 // delete_after (RFC 3339 or null)}.
 func (s *Service) deletionState(ctx context.Context, uid string) map[string]any {
-	out := map[string]any{"pending_deletion": false, "delete_after": nil}
+	out := map[string]any{"pending_deletion": false, "delete_after": nil, "dues_retry": nil}
 	if d := s.Store.PendingAccountDeletion(ctx, uid); d != nil {
 		out["pending_deletion"], out["delete_after"] = true, d.DeleteAfter.UTC().Format(time.RFC3339)
+		out["dues_retry"] = s.retryJSON(d.DuesRetry) // D2: dues the sweep couldn't collect
 	}
 	return out
 }
@@ -189,8 +190,14 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 		return "", err
 	}
 	requested := d.RequestedAt
+	// #2 (D2): unpaid dues are charged only at their retry times (+24 h,
+	// +72 h), never on every sweep; in between, and after the last, the
+	// sweep only checks whether they were paid (the pay link, the balance).
+	noCharge := d.DuesRetry != nil && (d.DuesRetry.State == store.RetryFinal ||
+		d.DuesRetry.State == store.RetryPending && !d.DuesRetry.Due(now))
+	var dues settleResult
 	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, KeepSignIn: d.KeepSignIn, By: by,
-		RequestedAt: &requested})
+		RequestedAt: &requested, NoCharge: noCharge, Dues: &dues})
 	if err == nil {
 		outcome := store.DeletionOutcomeDeleted
 		if status == http.StatusAccepted {
@@ -222,22 +229,71 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 		}
 	}
 	first := d.BlockedAt == nil
-	if _, uerr := s.Store.UpdateAccountDeletion(ctx, uid, func(d *store.AccountDeletion) error {
-		next := time.Now().UTC().Add(retry)
+	declined := !noCharge && reason == deleteBlockOwed && dues.Declined && dues.Failure != nil
+	var duesRetry *store.OffSessionRetry
+	updated, uerr := s.Store.UpdateAccountDeletion(ctx, uid, func(d *store.AccountDeletion) error {
+		at := time.Now().UTC()
+		next := at.Add(retry)
+		if declined {
+			if d.DuesRetry == nil || d.DuesRetry.State != store.RetryPending {
+				d.DuesRetry = startRetry(*dues.Failure, s.owedCents(ctx, uid), at)
+			} else {
+				recordFailure(d.DuesRetry, *dues.Failure, at)
+				d.DuesRetry.AmountCents = s.owedCents(ctx, uid)
+			}
+		}
+		if r := d.DuesRetry; r != nil && r.State == store.RetryPending && r.NextAttemptAt != nil && r.NextAttemptAt.Before(next) {
+			next = *r.NextAttemptAt // the next charge's time, if sooner than the next check
+		}
 		d.BlockedReason, d.NextAttemptAt = reason, &next
 		if d.BlockedAt == nil {
-			at := time.Now().UTC()
 			d.BlockedAt = &at
 		}
+		duesRetry = d.DuesRetry
 		return nil
-	}); uerr != nil {
+	})
+	if uerr != nil {
 		slog.WarnContext(ctx, "blocked deletion not flagged", "err", uerr)
+	} else if declined && duesRetry != nil {
+		s.mailDuesFailed(ctx, updated, duesRetry)
 	}
 	slog.WarnContext(ctx, "scheduled deletion blocked", "uid", uid, "reason", reason, "by", by)
 	if first {
 		s.Slack.Alert(ctx, "deletion_blocked", fmt.Sprintf("account `%s`'s scheduled deletion is blocked (%s); it stays pending and is tried again", uid, reason))
 	}
 	return "", err
+}
+
+// mailDuesFailed is DL3: the deletion waits for dues the sweep couldn't
+// collect — what happens next, and the pay link (D2, D7). Sent to the
+// account's own address, like the other deletion mails.
+func (s *Service) mailDuesFailed(ctx context.Context, d *store.AccountDeletion, r *store.OffSessionRetry) {
+	if r.Reason == retryConfig {
+		return // B2: ours to fix, the owner was alerted
+	}
+	link, pr := s.payLink(ctx, d.UID, store.PayKindSettle, "deletion", r.AmountCents, "Your last runs")
+	if pr != nil && r.PayRequestID == "" {
+		s.Store.UpdateAccountDeletion(ctx, d.UID, func(x *store.AccountDeletion) error {
+			if x.DuesRetry != nil {
+				x.DuesRetry.PayRequestID = pr.ID
+			}
+			return nil
+		})
+	}
+	lines := []string{"Before we delete your account we need to collect " + money(r.AmountCents) + usdNote + " for your last runs. " + r.LastErrorMessage}
+	if r.State == store.RetryPending {
+		lines = append(lines, "We'll try again on "+retryDay(r)+". Your account will be deleted once it's paid.")
+	} else {
+		lines = append(lines, "We won't try again. Your account will be deleted once it's paid, or sign in to keep it.")
+	}
+	button := "Pay " + money(r.AmountCents)
+	if r.Reason == retryAuth {
+		button = "Confirm and pay " + money(r.AmountCents)
+	}
+	s.mailCustomer(ctx, fmt.Sprintf("DL3_%s_%d_%d", d.UID, d.RequestedAt.Unix(), r.Attempts), d.UID, d.Email, customerMail{
+		Kind: "DL3", Subject: "Spatial Video Studio: your account deletion is waiting for a payment", Lines: lines,
+		Button: button, Link: link, OwnAddress: true,
+	})
 }
 
 // deletionDate is the day a deletion runs, in mails and messages (UTC).
@@ -287,13 +343,22 @@ func (s *Service) HandleAdminDeletions(w http.ResponseWriter, r *http.Request, a
 	s.audit(ctx, a, "deletions_view", map[string]any{"state": state})
 	out := make([]map[string]any, 0, len(rows))
 	for _, d := range rows {
-		out = append(out, adminDeletionJSON(d))
+		out = append(out, s.adminDeletionView(d))
 	}
 	httpx.WriteOK(w, map[string]any{"deletions": out})
 }
 
 // adminDeletionJSON is a deletion row for the console (no email: the
 // account page has it).
+// adminDeletionView is adminDeletionJSON with the dues' retry (D2).
+func (s *Service) adminDeletionView(d *store.AccountDeletion) map[string]any {
+	out := adminDeletionJSON(d)
+	if out != nil {
+		out["dues_retry"] = s.retryJSON(d.DuesRetry)
+	}
+	return out
+}
+
 func adminDeletionJSON(d *store.AccountDeletion) map[string]any {
 	if d == nil {
 		return nil

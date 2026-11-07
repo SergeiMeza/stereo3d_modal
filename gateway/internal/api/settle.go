@@ -28,6 +28,10 @@ const (
 	settleIOS      = "ios_settle"
 	settleSoftRety = "soft_retry"
 	settleDelete   = "delete"
+	// settleWebRetry is the 24 h retry of a failed WEB group (charge-after
+	// runs of web projects): the web's charge rules (pmc_web, the web
+	// backups), where the app's groups keep soft_retry (D1).
+	settleWebRetry = "web_retry"
 
 	iosBankCheckLease = 30 * time.Minute
 )
@@ -41,6 +45,9 @@ type settleResult struct {
 	ClientSecret   string
 	Declined       bool
 	Live           bool // an existing live settle was returned
+	// Failure: why a declined off-session charge failed (informational:
+	// the deletion's retry schedule reads it, D2).
+	Failure *stripex.ChargeFailure
 }
 
 func settleItemRuns(st *store.Settle) []string {
@@ -54,6 +61,10 @@ func settleItemRuns(st *store.Settle) []string {
 	}
 	return ids
 }
+
+// webSettle: a settle trigger charged under the web's rules (D1): the
+// deletion's dues and a web group's retry.
+func webSettle(trigger string) bool { return trigger == settleDelete || trigger == settleWebRetry }
 
 // collectOutstanding is C11. opts carry the sheet's device and IP.
 func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, pc payContext) (settleResult, error) {
@@ -254,10 +265,26 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 	}
 	if cust.DefaultPaymentMethod == "" {
 		closed, ferr := s.Store.FinishSettle(ctx, st.ID, store.SettleOutcome{}, dropped)
-		return settleResult{Settle: closed, Declined: true}, ferr
+		return settleResult{Settle: closed, Declined: true, Failure: &stripex.ChargeFailure{Code: "no_payment_method"}}, ferr
 	}
 	params := stripex.Job{Web: true, UID: st.UID, Description: fmt.Sprintf("Your last runs (%d)", st.Runs()),
 		ReceiptEmail: cust.Email, Metadata: map[string]string{"settle_id": st.ID, "payment_flow": "settle"}}
+	if webSettle(st.Trigger) {
+		params.PMC = s.Cfg.StripePMCWeb // B1, web only: a saved Link or PayPal can pay
+	}
+	// B5 (every trigger, D8): the charge is on the record before it goes
+	// out, so a lost answer is found again by the sweep, never charged twice.
+	startedAt := time.Now().UTC()
+	if _, uerr := s.Store.UpdateSettle(ctx, st.ID, func(x *store.Settle) error {
+		if x.State != store.SettleSettling {
+			return store.ErrStateConflict
+		}
+		x.ChargeKey, x.ChargePM, x.ChargeCustomerID, x.ChargeStartedAt = s.Stripe.SettleChargeKey(st.ID), cust.DefaultPaymentMethod,
+			cust.StripeCustomerID, &startedAt
+		return nil
+	}); uerr != nil {
+		return settleResult{Settle: st}, uerr // nothing sent: the lease lapses and the sweep releases it
+	}
 	pi, chErr := s.Stripe.ChargeSettle(cust.StripeCustomerID, cust.DefaultPaymentMethod, st.AmountCents, st.Currency, st.ID, params)
 	paidWith := cust.DefaultPaymentMethod
 	var fail stripex.ChargeFailure
@@ -269,10 +296,21 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 		fail = stripex.ChargeFailure{PaymentIntentID: pi.ID, Code: string(pi.Status), NeedsAction: pi.Status == stripe.PaymentIntentStatusRequiresAction}
 	}
 	if fail.Transient {
-		return settleResult{Settle: st}, chErr // the lease lapses; the sweep resolves it from the key
+		return settleResult{Settle: st}, chErr // the lease lapses; the sweep finds what the charge made (B5)
 	}
 	piID := fail.PaymentIntentID
-	if pi != nil {
+	switch {
+	case webSettle(st.Trigger):
+		// stripe-go hands back an empty PaymentIntent with an error: the
+		// declined one is the error's, so the backups and the cancel below
+		// work on it (web; audit 2026-11-07).
+		if chErr == nil {
+			piID = pi.ID
+		}
+	case pi != nil:
+		// The app's triggers (ios_settle, soft_retry) keep their shipped
+		// behaviour unchanged (owner 2026-11-07): an error leaves piID ""
+		// (no backups, no bank-check answer, no cancel).
 		piID = pi.ID
 	}
 	if chErr != nil || fail.NeedsAction || fail.Code != "" {
@@ -294,7 +332,25 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 			return settleResult{Settle: updated, RequiresAction: true, ClientSecret: secret}, uerr
 		}
 		paid := false
-		if backups && !fail.Stop && !fail.NeedsAction && piID != "" {
+		if webSettle(st.Trigger) {
+			// Web (D1): a bank check goes on to the backups too, and a charge
+			// Stripe refused before making a PaymentIntent (B3) still tries
+			// them; a configuration error alerts (B2).
+			if fail.Config {
+				s.alertConfigError(ctx, "deletion dues", st.ID, st.UID, fail)
+			}
+			fail.PaymentIntentID = piID
+			r := s.webBackups(ctx, cust, fail, func(pm string) (*stripe.PaymentIntent, error) {
+				return s.Stripe.ChargeSettleWith(cust.StripeCustomerID, pm, st.AmountCents, st.Currency, st.ID, params)
+			})
+			if r.Transient {
+				return settleResult{Settle: st}, errors.New("settle backup charge: transient")
+			}
+			piID, fail = r.PIID, r.Fail
+			if r.Paid {
+				pi, paidWith, paid = r.PI, r.PaidWith, true
+			}
+		} else if backups && !fail.Stop && !fail.NeedsAction && piID != "" {
 			methods, _ := s.Stripe.ListMethods(cust.StripeCustomerID)
 			for _, m := range orderMethods(s.usableMethods(ctx, methods), cust.DefaultPaymentMethod, cust.BackupOrder) {
 				if m.PaymentMethodID == cust.DefaultPaymentMethod {
@@ -327,7 +383,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 				s.setSheetOnly(ctx, st.UID, "stop code "+fail.DeclineCode)
 			}
 			closed, ferr := s.Store.FinishSettle(ctx, st.ID, store.SettleOutcome{}, dropped)
-			return settleResult{Settle: closed, Declined: true}, ferr
+			return settleResult{Settle: closed, Declined: true, Failure: &fail}, ferr
 		}
 	}
 	out := stripex.Outcome{PaymentIntentID: pi.ID, AmountReceived: pi.AmountReceived, PaymentMethod: paidWith,
@@ -393,7 +449,8 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 			}
 		}
 	}
-	s.recordSettleCharge(ctx, done) // C6: one invoice, a line per run
+	s.recordSettleCharge(ctx, done)       // C6: one invoice, a line per run
+	s.payRequestsAfterSettle(ctx, st.UID) // D7: the dues links close once nothing is owed
 	if st.Trigger == settleSoftRety {
 		s.mailDownloadsBack(ctx, "E5_"+settleID, st.UID, out.AmountReceived)
 	}
@@ -435,6 +492,12 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 					_, _ = s.applySettlePayment(ctx, st.ID, *cp, out)
 					continue
 				}
+			} else if st.ChargeStartedAt != nil {
+				// B5: a charge went out and its answer was lost. Find what it
+				// made; money taken pays this settle, never a second charge.
+				if found, ok := s.recoverSettleCharge(ctx, st); !ok || found {
+					continue
+				}
 			}
 			if _, ferr := s.Store.FinishSettle(ctx, st.ID, store.SettleOutcome{}, nil); ferr == nil {
 				released++
@@ -452,6 +515,22 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 		}
 		age := now.Sub(*b.FailedAt)
 		switch {
+		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour && webBatch(b):
+			// A web group (D1): retried under the web's rules, and marked
+			// retried only once the retry ran (a transient error tries again).
+			seen[b.UID] = true
+			res, rerr := s.collectOutstanding(ctx, b.UID, settleWebRetry, payContext{})
+			if rerr != nil {
+				continue
+			}
+			_, _ = s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchFailed, store.BatchSettling, store.BatchPaid}, func(bb *store.Batch) error {
+				bb.SoftRetried = true
+				return nil
+			}, nil, nil)
+			if !res.Paid && !res.Live && !res.Nothing {
+				s.mailOwed(ctx, "E3", "E3_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+			}
+			retried++
 		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour:
 			seen[b.UID] = true
 			_, _ = s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchFailed}, func(bb *store.Batch) error {
@@ -468,6 +547,39 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 		}
 	}
 	return released, retried
+}
+
+// recoverSettleCharge resolves a lapsed settle whose off-session charge
+// was sent but never answered (B5), from Stripe's own record (a list by
+// customer and settle_id, never a create). found: the PaymentIntent paid
+// or is paying, and the settle follows it. ok false: Stripe couldn't be
+// read or the PaymentIntent couldn't be closed — try again next sweep.
+// Otherwise (none, or one that didn't pay, now cancelled) the caller
+// releases the settle as before.
+func (s *Service) recoverSettleCharge(ctx context.Context, st *store.Settle) (found, ok bool) {
+	pi, err := s.Stripe.FindSettleCharge(st.ChargeCustomerID, st.ID, *st.ChargeStartedAt)
+	if err != nil {
+		slog.WarnContext(ctx, "settle charge lookup failed; retried next sweep", "settle_id", st.ID, "err", err)
+		return false, false
+	}
+	if pi == nil {
+		return false, true
+	}
+	out, cerr := s.Stripe.ClosePaymentIntent(pi.ID)
+	if cerr != nil {
+		return false, false
+	}
+	if !out.Paid && !out.Processing {
+		return false, true
+	}
+	if out.PaymentMethod == "" {
+		out.PaymentMethod = st.ChargePM
+	}
+	slog.WarnContext(ctx, "settle charge recovered from Stripe", "settle_id", st.ID, "payment_intent", pi.ID, "paid", out.Paid)
+	if _, aerr := s.applySettlePayment(ctx, st.ID, store.Payment{Kind: store.PaymentIntentKind, ID: pi.ID}, out); aerr != nil {
+		return false, false
+	}
+	return true, true
 }
 
 // --------------------------------------------------------------- routes

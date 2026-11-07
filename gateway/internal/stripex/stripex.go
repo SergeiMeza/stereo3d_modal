@@ -121,6 +121,13 @@ type Job struct {
 	// the SVS app's cloud conversion: picks the statement suffix and
 	// stamps product=svs-web.
 	Web bool
+	// PMC names the payment-method configuration an off-session charge is
+	// made under (B1): the web's pmc_web, which offers every type its
+	// sheet saves (card, Link, PayPal). Without it Stripe uses the
+	// account's Default configuration (card, Apple Pay, BLIK) and refuses
+	// a saved Link or PayPal. "" leaves it out (the app's charges, as
+	// shipped).
+	PMC string
 }
 
 // Statement descriptor suffixes (P4): the account's prefix + "* " +
@@ -207,6 +214,9 @@ func (c *Client) stamp(params *stripe.PaymentIntentParams, job Job) {
 	}
 	if job.ReceiptEmail != "" {
 		params.ReceiptEmail = stripe.String(job.ReceiptEmail)
+	}
+	if job.PMC != "" {
+		params.PaymentMethodConfiguration = stripe.String(job.PMC)
 	}
 	for k, v := range job.Metadata {
 		switch k {
@@ -693,6 +703,12 @@ type ChargeFailure struct {
 	// do not try again) — the account then pays in the sheet.
 	DeclineCode string
 	Stop        bool
+	// Config: Stripe refused the request itself (invalid_request: a
+	// method type the configuration doesn't allow, a detached method, a
+	// bad parameter), not the bank (B2). The web never retries it on a
+	// schedule or mails "didn't go through" for it; it alerts. The app's
+	// paths don't read it (unchanged).
+	Config bool
 }
 
 // stopDeclines end every retry and backup at once (C5).
@@ -720,8 +736,12 @@ func ClassifyChargeError(err error) ChargeFailure {
 		f.Transient = true
 	case serr.Code == stripe.ErrorCodeAuthenticationRequired:
 		f.NeedsAction = true
-	case serr.Type == stripe.ErrorTypeCard, serr.Type == stripe.ErrorTypeInvalidRequest:
-		// decline / unusable payment method — needs the user
+	case serr.Type == stripe.ErrorTypeInvalidRequest:
+		// unusable payment method or a request Stripe refuses — needs the
+		// user on the app's paths; a configuration error on the web's (B2)
+		f.Config = true
+	case serr.Type == stripe.ErrorTypeCard:
+		// decline — needs the user
 	default:
 		f.Transient = true
 	}
@@ -754,7 +774,73 @@ func (c *Client) ChargeSettle(customerID, paymentMethodID string, amountCents in
 		OffSession:    stripe.Bool(true),
 	}
 	c.stamp(params, job)
-	params.SetIdempotencyKey("settle_" + c.env + "_" + settleID)
+	params.SetIdempotencyKey(c.SettleChargeKey(settleID))
+	return paymentintent.New(params)
+}
+
+// SettleChargeKey is the idempotency key of a settle's off-session charge.
+func (c *Client) SettleChargeKey(settleID string) string { return "settle_" + c.env + "_" + settleID }
+
+// FindSettleCharge looks for the PaymentIntent a settle's charge made
+// (metadata settle_id) among the customer's PaymentIntents created since
+// `since` (B5: an answer lost to a timeout). nil when there is none. A
+// list read, never a create: re-driving a settle never charges again.
+func (c *Client) FindSettleCharge(customerID, settleID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "settle_id", settleID, since)
+}
+
+// FindBatchCharge is FindSettleCharge for a group (metadata batch_id): a
+// web group re-driven after its answer was lost (B6). A succeeded one wins.
+func (c *Client) FindBatchCharge(customerID, batchID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "batch_id", batchID, since)
+}
+
+func (c *Client) findCharge(customerID, key, value string, since time.Time) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
+	if !since.IsZero() {
+		params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Add(-5 * time.Minute).Unix()}
+	}
+	params.AddExpand("data.payment_method")
+	it := paymentintent.List(params)
+	var found *stripe.PaymentIntent
+	for it.Next() {
+		if pi := it.PaymentIntent(); pi.Metadata[key] == value && pi.Metadata["env"] == c.env {
+			if pi.Status == stripe.PaymentIntentStatusSucceeded {
+				return pi, nil
+			}
+			if found == nil {
+				found = pi
+			}
+		}
+	}
+	return found, it.Err()
+}
+
+// ChargeBatchWith charges a web group on another saved method when the
+// default's charge made no PaymentIntent (B3): key batch_{env}_{id}{suffix}.
+func (c *Client) ChargeBatchWith(customerID, paymentMethodID string, amountCents int64, currency, batchID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
+	job.BatchID = batchID
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, currency, "batch_"+c.env+"_"+batchID+keySuffix, job)
+}
+
+// ChargeSettleWith charges a settle on another saved method when the
+// default's charge made no PaymentIntent to re-confirm (B3): its own key
+// settle_{env}_{settle_id}_{pm}.
+func (c *Client) ChargeSettleWith(customerID, paymentMethodID string, amountCents int64, currency, settleID string, job Job) (*stripe.PaymentIntent, error) {
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, currency, c.SettleChargeKey(settleID)+"_"+paymentMethodID, job)
+}
+
+func (c *Client) chargeKeyed(customerID, paymentMethodID string, amountCents int64, currency, key string, job Job) (*stripe.PaymentIntent, error) {
+	params := &stripe.PaymentIntentParams{
+		Amount:        stripe.Int64(amountCents),
+		Currency:      stripe.String(USD(currency)),
+		Customer:      stripe.String(customerID),
+		PaymentMethod: stripe.String(paymentMethodID),
+		Confirm:       stripe.Bool(true),
+		OffSession:    stripe.Bool(true),
+	}
+	c.stamp(params, job)
+	params.SetIdempotencyKey(key)
 	return paymentintent.New(params)
 }
 
@@ -804,6 +890,27 @@ func (c *Client) ChargeTopup(customerID, paymentMethodID string, amountCents int
 	params.AddMetadata("payment_flow", "topup")
 	params.SetIdempotencyKey("topup_" + c.env + "_" + topupID)
 	return paymentintent.New(params)
+}
+
+// ChargeTopupWith charges an auto-reload under key
+// topup_{env}_{topup_id}{keySuffix}, metadata as ChargeTopup: a backup
+// when the default's charge made no PaymentIntent (B3, suffix _{pm}), a
+// retry (D2, _r{n}, its backups _r{n}_{pm}).
+func (c *Client) ChargeTopupWith(customerID, paymentMethodID string, amountCents int64, topupID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
+	job.Web = true
+	job.Metadata = withMetadata(job.Metadata, map[string]string{"topup_id": topupID, "payment_flow": "topup"})
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, "usd", "topup_"+c.env+"_"+topupID+keySuffix, job)
+}
+
+func withMetadata(base, add map[string]string) map[string]string {
+	out := map[string]string{}
+	for k, v := range base {
+		out[k] = v
+	}
+	for k, v := range add {
+		out[k] = v
+	}
+	return out
 }
 
 // CreateAlipayTopup is China mode's top-up (N3: the P6 server path), key
