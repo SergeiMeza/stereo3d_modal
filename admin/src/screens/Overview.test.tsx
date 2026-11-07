@@ -55,7 +55,10 @@ describe("lanes (Now / Today / This week)", () => {
 });
 
 describe("Needs attention (Overview)", () => {
-  const soon = new Date(Date.now() + 2 * H).toISOString();
+  // due later today, whatever the clock says (after 22:00, two hours on
+  // would be tomorrow and leave the Today lane)
+  const endOfToday = new Date().setHours(23, 59, 0, 0);
+  const soon = new Date(Math.min(Date.now() + 2 * H, endOfToday)).toISOString();
   const later = new Date(Date.now() + 3 * 24 * H).toISOString();
   const cases = {
     cases: [

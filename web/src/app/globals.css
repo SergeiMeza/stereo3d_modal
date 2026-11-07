@@ -3,6 +3,12 @@
 @import "shadcn/tailwind.css";
 
 @custom-variant dark (&:is(.dark *));
+/* owner 2026-11-07 (foldable): short screens (a phone or a foldable in
+   landscape, a laptop with toolbars) get compact sheets */
+@custom-variant short (@media (max-height: 760px));
+/* very short screens (a phone or a folded foldable in landscape): a
+   payment sheet's footer keeps only its main button pinned */
+@custom-variant cramped (@media (max-height: 560px));
 
 /**
  * Spatial Video Studio on the web — dark professional theme.
@@ -272,3 +278,32 @@ kbd {
     display: none;
   }
 }
+
+/* owner 2026-11-07 (foldable, iPhone Duo): a sheet never outgrows the
+   screen you can see: the small viewport (toolbars shown) less the safe
+   areas; full height on phones, with a margin from sm up. Its body
+   scrolls and its footer stays (the component's own flex column). */
+@layer components {
+  .sheet-fit {
+    --sheet-max: min(100svh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+    height: var(--sheet-max);
+    max-height: var(--sheet-max);
+  }
+  @media (min-width: 640px) {
+    .sheet-fit {
+      height: auto;
+      max-height: calc(var(--sheet-max) - 2rem);
+    }
+  }
+  /* the payment sheets (SheetFrame): a phone's sheet is the visible
+     height from the bottom; a centred one stays inside it with a margin */
+  .sheet-frame-phone {
+    --sheet-max: min(100svh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+    height: var(--sheet-max);
+  }
+  .sheet-frame-centred {
+    --sheet-max: min(100svh, calc(100dvh - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+    max-height: min(90vh, calc(var(--sheet-max) - 1rem));
+  }
+}
+

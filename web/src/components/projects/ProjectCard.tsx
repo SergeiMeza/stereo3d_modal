@@ -288,15 +288,17 @@ export function ProjectCard({
               {project.name ?? t("projects.card.untitled")}
             </span>
           </h2>
-          <span>
+          {/* owner 2026-11-07 (foldable): a long badge ("Classic 3D · Ältere
+              Methode") stays inside the card, never widening the page */}
+          <span className="block min-w-0 max-w-full">
             <Badge
               variant="outline"
               data-testid="card-method"
-              className={
+              className={`max-w-full ${
                 method === "lifelike"
                   ? "border-primary/30 bg-primary/10 text-primary"
                   : "border-edge bg-surface-2 text-fg-muted"
-              }
+              }`}
             >
               {METHOD_NAMES[method]}
               {method === "classic" ? ` · ${t("projects.card.olderMethod")}` : ""}

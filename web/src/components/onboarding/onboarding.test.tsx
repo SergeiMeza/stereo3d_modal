@@ -55,6 +55,46 @@ function renderProjects() {
   );
 }
 
+describe("the welcome's layout on small and foldable screens (owner 2026-11-07)", () => {
+  // jsdom has no layout: these are the rules the overlay-bounds browser
+  // check measures in every posture (scripts/overlay-bounds.mjs)
+  it("fits the visible screen, scrolls its body, keeps Continue outside the scroll, and never scrolls sideways", async () => {
+    mockDb.projects.clear();
+    mockDb.sampleSeeding = true;
+    mockDb.accountSettings.onboarding = {};
+    renderProjects();
+    const dialog = await screen.findByTestId("welcome");
+    expect(dialog.className).toContain("sheet-fit");
+    expect(dialog.className).toContain("overflow-hidden");
+    const body = screen.getByTestId("welcome-body");
+    expect(body.className).toMatch(/\boverflow-y-auto\b/);
+    expect(body.className).toMatch(/\boverflow-x-hidden\b/);
+    expect(body.className).toMatch(/\bmin-h-0\b/);
+    const footer = screen.getByTestId("welcome-footer");
+    expect(body.contains(footer)).toBe(false);
+    expect(footer.contains(screen.getByTestId("welcome-next"))).toBe(true);
+    expect(footer.className).toContain("shrink-0");
+    // two columns wherever two cards fit, one on narrow phones; subtitles shown
+    const grid = screen.getByRole("group");
+    expect(grid.className).toContain("grid-cols-[repeat(auto-fit,minmax(min(100%,11rem),1fr))]");
+    expect(screen.getByTestId("welcome-device-avp").textContent).toContain("Spatial video");
+    // a fade at the end of the scroll says there's more below
+    const cue = screen.getByTestId("welcome-scroll-cue");
+    expect(body.contains(cue)).toBe(true);
+    expect(cue.className).toMatch(/\bsticky bottom-0\b/);
+  });
+
+  it("step 2's loop gives way on folded landscape (Duo pass, 2026-11-07)", async () => {
+    mockDb.projects.clear();
+    renderProjects();
+    fireEvent.click(await screen.findByTestId("welcome-device-avp"));
+    fireEvent.click(screen.getByTestId("welcome-next"));
+    const loop = await screen.findByTestId("welcome-loop");
+    expect(loop.className).toContain("cramped:h-[22svh]");
+    expect(loop.className).toContain("sm:cramped:h-[22svh]");
+  });
+});
+
 describe("welcome after sign-up", () => {
   it("asks where they watch, saves it on the account, logs the event, then offers the sample", async () => {
     mockDb.projects.clear();

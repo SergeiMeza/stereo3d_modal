@@ -53,13 +53,15 @@ function HeaderPlansLink({ withChip }: { withChip: boolean }): JSX.Element {
       href="/plans"
       data-testid="header-plans"
       onClick={() => chip && send("click", { target: "/plans" })}
-      className="flex shrink-0 items-center gap-2 text-fg-muted transition-colors hover:text-fg"
+      // owner 2026-11-07 (foldable): the chip gives way before the header
+      // grows wider than the screen (a longer "Save" in fr, ru)
+      className="flex min-w-0 items-center gap-2 text-fg-muted transition-colors hover:text-fg"
     >
-      <span className="hidden sm:inline">{t("plans.header.link")}</span>
+      <span className="hidden shrink-0 sm:inline">{t("plans.header.link")}</span>
       {chip ? (
         <span
           data-testid="header-save-chip"
-          className="rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
+          className="min-w-0 truncate rounded-full border border-primary/40 bg-primary/10 px-2 py-0.5 text-[11px] font-medium text-primary"
         >
           {t("plans.header.save", { range })}
         </span>

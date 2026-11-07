@@ -24,6 +24,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { STEP_DEFS, stepDef } from "@/components/steps/stepDefs";
 import type { Conversion, Project, Step } from "@/lib/api/types";
+import { I18nProvider } from "@/lib/i18n/I18nProvider";
+import { makeTr } from "@/lib/i18n/t";
+
+import de from "../../../messages/de.json";
 
 import projectFixture from "../../../fixtures/project.json";
 
@@ -218,5 +222,24 @@ describe("StepTab info drawer", () => {
       expect(within(drawer).getByText(def.tips[0])).toBeTruthy();
       cleanup();
     }
+  });
+});
+
+describe("StepTab in the reader's language (2026-11-07)", () => {
+  it("the header and the drawer read the step's copy from the catalog, not English", () => {
+    const deT = makeTr("de", de);
+    render(
+      <I18nProvider locale="de" messages={de}>
+        <StepTab step="production" project={fixtureProject()} onProjectChanged={vi.fn()} onNavigate={vi.fn()} />
+      </I18nProvider>,
+    );
+    const want = stepDef("production", "classic", deT);
+    expect(want.title).toBe("In 3D umwandeln");
+    const tab = screen.getByTestId("step-tab-production");
+    expect(within(tab).getByText(want.title)).toBeTruthy();
+    expect(within(tab).getByText(want.description)).toBeTruthy();
+    expect(tab.textContent).not.toContain(stepDef("production").description);
+    const drawer = openDrawer();
+    expect(within(drawer).getByText(want.tips[0])).toBeTruthy();
   });
 });

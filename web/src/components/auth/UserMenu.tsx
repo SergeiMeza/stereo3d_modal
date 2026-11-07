@@ -56,7 +56,7 @@ export function UserMenu() {
               photoURL={user.photoURL}
               name={user.displayName ?? user.email}
             />
-            <span className="hidden max-w-40 truncate text-xs sm:block">
+            <span className="hidden min-w-0 max-w-40 truncate text-xs md:block">
               {user.email ?? user.displayName ?? t("account.title")}
             </span>
           </button>

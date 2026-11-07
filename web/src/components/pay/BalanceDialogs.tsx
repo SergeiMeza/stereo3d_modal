@@ -34,7 +34,7 @@ import { chinaPayments } from "@/lib/paymentRegion";
 
 import { AddMethodSheet } from "./AddMethodSheet";
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
-import { StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
+import { PIN_FOOT, PIN_LINE, PIN_ROOT, PinnedMain, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
   checkoutCurrencyLine,
@@ -224,15 +224,20 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     setSession({ kind: "ready", ...s, notice: r === "too_many" ? "pay.copy.tooMany" : "pay.copy.declined" });
   }
 
+  // short screens (cramped, Duo folded): one slim line of balance and
+  // smaller chips, so the payment form's tabs and card field show above Add
   const header = (
-    <div className="flex flex-col gap-3">
-      <div className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 text-sm">
+    <div className="flex flex-col gap-3 cramped:gap-2">
+      <div
+        data-testid="funds-balance-row"
+        className="flex items-center justify-between rounded-lg border border-edge px-3 py-2.5 text-sm cramped:border-0 cramped:px-0 cramped:py-0 cramped:text-xs"
+      >
         <span className="text-fg-muted">{t("balance.addFunds.balance")}</span>
         <span data-testid="funds-balance" className="font-semibold tabular-nums text-fg">
           {formatCents(prepaid?.balance_cents ?? 0)}
         </span>
       </div>
-      <div role="radiogroup" aria-label={t("balance.addFunds.amount")} className="grid grid-cols-5 gap-2">
+      <div role="radiogroup" aria-label={t("balance.addFunds.amount")} className="grid grid-cols-5 gap-2 cramped:gap-1.5">
         {[...CHIPS, "other" as const].map((c) => (
           <button
             key={c}
@@ -240,7 +245,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             role="radio"
             aria-checked={chip === c}
             onClick={() => setChip(c)}
-            className={`h-12 rounded-lg border text-sm font-semibold tabular-nums transition-colors ${
+            className={`h-12 rounded-lg border text-sm font-semibold tabular-nums transition-colors cramped:h-9 cramped:text-xs ${
               chip === c ? "border-primary bg-primary/10 text-fg" : "border-edge text-fg-muted hover:text-fg"
             }`}
           >
@@ -296,8 +301,9 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           chinaOff ? (
             <ChinaComingSoon />
           ) : (
-          <div className="flex flex-col gap-2">
-            <p className="text-xs text-fg-muted">{t("pay.copy.chargedInUsd")}</p>
+          <div data-pin-main className={PIN_ROOT}>
+            <p className={`text-xs text-fg-muted ${PIN_LINE}`}>{t("pay.copy.chargedInUsd")}</p>
+            <PinnedMain>
             <Button
               size="lg"
               className="h-12 w-full"
@@ -313,7 +319,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
             >
               Alipay
             </Button>
-            <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
+            </PinnedMain>
+            <p className={`text-center text-xs text-fg-muted ${PIN_FOOT}`}>{t("balance.copy.topupSmallPrint")}</p>
           </div>
           )
         }
@@ -329,11 +336,12 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const ready = session.kind === "ready" || session.kind === "paying" ? session : null;
   const paying = session.kind === "paying";
   const footer = (form?: { ready: boolean; confirm: () => Promise<ConfirmResult> }) => (
-    <div className="flex flex-col gap-3">
-      <p className="flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
+    <div data-pin-main className={PIN_ROOT}>
+      <p className={`flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted ${PIN_LINE}`}>
         {/* the open payment form shows the local amount already */}
         {ready ? sheetCurrencyLine(localPrice, ready.amount, t) : checkoutCurrencyLine(localPrice, t)}
       </p>
+      <PinnedMain>
       <Button
         size="lg"
         data-testid="add-funds-main"
@@ -360,7 +368,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
           </>
         )}
       </Button>
-      <p className="text-center text-xs text-fg-muted">{t("balance.copy.topupSmallPrint")}</p>
+      </PinnedMain>
+      <p className={`text-center text-xs text-fg-muted ${PIN_FOOT}`}>{t("balance.copy.topupSmallPrint")}</p>
     </div>
   );
 

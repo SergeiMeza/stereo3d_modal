@@ -11,6 +11,14 @@
  * - Headset browsers: a centred panel 560 px, 56 px targets, 20 px text.
  *
  * Motion: slides up in 200 ms; under reduced motion it fades.
+ *
+ * owner 2026-11-07 (foldable, iPhone Duo): never taller than the screen
+ * you can see (sheet-frame-*: svh/dvh less the safe areas). The body and
+ * the footer scroll together; the footer is pinned at the bottom, and on
+ * very short screens (cramped, ≤ 560 px) only its main button stays
+ * pinned (a footer marked data-pin-main: MainButtonArea, the top-up
+ * footers) so the form keeps room; other footers stay pinned whole. Nothing has a fixed
+ * height: the payment form grows inside the scroll.
  */
 
 import { Dialog as DialogPrimitive } from "radix-ui";
@@ -48,11 +56,11 @@ export function useSheetFrame(): SheetFrameKind {
 
 const CONTENT: Record<SheetFrameKind, string> = {
   phone:
-    "inset-x-0 bottom-0 top-0 rounded-t-2xl pt-2 data-open:animate-in data-open:slide-in-from-bottom data-closed:animate-out data-closed:slide-out-to-bottom motion-reduce:data-open:slide-in-from-bottom-0 motion-reduce:data-open:fade-in-0",
+    "sheet-frame-phone inset-x-0 bottom-0 rounded-t-2xl pt-2 data-open:animate-in data-open:slide-in-from-bottom data-closed:animate-out data-closed:slide-out-to-bottom motion-reduce:data-open:slide-in-from-bottom-0 motion-reduce:data-open:fade-in-0",
   desktop:
-    "top-1/2 left-1/2 w-[440px] max-w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-2xl data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-4 motion-reduce:data-open:slide-in-from-bottom-0",
+    "sheet-frame-centred top-1/2 left-1/2 w-[440px] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-2xl data-open:animate-in data-open:fade-in-0 data-open:slide-in-from-bottom-4 motion-reduce:data-open:slide-in-from-bottom-0",
   headset:
-    "top-1/2 left-1/2 w-[560px] max-w-[calc(100%-2rem)] max-h-[90vh] -translate-x-1/2 -translate-y-1/2 rounded-3xl text-xl data-open:animate-in data-open:fade-in-0",
+    "sheet-frame-centred top-1/2 left-1/2 w-[560px] max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 rounded-3xl text-xl data-open:animate-in data-open:fade-in-0",
 };
 
 /**
@@ -127,18 +135,22 @@ export function SheetFrame({
               <XIcon className={big ? "size-6" : "size-4"} />
             </DialogPrimitive.Close>
           </div>
-          <div className={`min-h-0 flex-1 overflow-y-auto ${big ? "px-8 py-5" : "px-5 py-4"}`}>
-            {children}
+          <div
+            data-testid="sheet-scroll"
+            className="flex min-h-0 flex-1 flex-col overflow-x-hidden overflow-y-auto overscroll-contain"
+          >
+            <div className={`shrink-0 ${big ? "px-8 py-5" : "px-5 py-4"} cramped:py-3`}>{children}</div>
+            {footer ? (
+              <div
+                data-testid="sheet-footer"
+                className={`sticky bottom-0 z-10 mt-auto shrink-0 border-t border-edge/60 bg-popover ${big ? "px-8 pt-4 pb-7" : "px-5 pt-3 pb-4"} ${
+                  frame === "phone" ? "pb-[max(1rem,env(safe-area-inset-bottom))]" : ""
+                } cramped:has-[[data-pin-main]]:contents`}
+              >
+                {footer}
+              </div>
+            ) : null}
           </div>
-          {footer ? (
-            <div
-              className={`shrink-0 border-t border-edge/60 ${big ? "px-8 pt-4 pb-7" : "px-5 pt-3 pb-4"} ${
-                frame === "phone" ? "pb-[max(1rem,env(safe-area-inset-bottom))]" : ""
-              }`}
-            >
-              {footer}
-            </div>
-          ) : null}
         </DialogPrimitive.Content>
       </DialogPrimitive.Portal>
     </DialogPrimitive.Root>

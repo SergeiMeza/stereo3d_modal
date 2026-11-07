@@ -262,6 +262,25 @@ try {
     await close(page);
     await page.close();
   }
+
+  // owner 2026-11-07 (foldable, iPhone Duo): the welcome fits the screen
+  // you can see in each posture and language, its Continue stays in view,
+  // and nothing (the header included) scrolls sideways
+  for (const [w, h] of [[360, 740], [466, 678], [678, 466], [669, 951], [951, 669], [1000, 700]]) {
+    for (const lang of ["en", "de", "ar"]) {
+      const page = await browser.newPage({ viewport: { width: w, height: h }, colorScheme: "dark" });
+      page.setDefaultTimeout(30_000);
+      await page.goto(`${base}/projects?hl=${lang}`, { waitUntil: "domcontentloaded" });
+      const label = `Welcome ${lang} ${w}x${h}`;
+      await assertInside(page, label, failures);
+      const next = page.getByTestId("welcome-next");
+      await next.waitFor({ state: "visible" });
+      const box = await next.boundingBox();
+      if (!box || box.y < 0 || box.y + box.height > h + 0.5) failures.push(`${label}: Continue isn't in view (${JSON.stringify(box)})`);
+      await assertNoSideScroll(page, label, failures);
+      await page.close();
+    }
+  }
 } finally {
   await browser.close();
   if (server) process.kill(-server.pid);
@@ -272,5 +291,5 @@ if (failures.length) {
   process.exit(1);
 }
 console.log(
-  "overlay-bounds: every overlay stays inside the viewport, and the project pages don't scroll sideways, at 390 and 1280 px",
+  "overlay-bounds: every overlay stays inside the viewport, and the project pages don't scroll sideways, at 390 and 1280 px; the welcome fits every foldable posture",
 );
