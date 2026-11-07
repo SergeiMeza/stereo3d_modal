@@ -143,4 +143,33 @@ describe("Return page: a top-up (BUX-04, China's Alipay)", () => {
     expect(topupEntry(rows, null, now)?.id).toBe("other");
     expect(topupEntry(rows.slice(0, 2), 2500, now)).toBeNull();
   });
+
+  it("REV-14: with the top-up's id, its own row and no other", () => {
+    const now = Date.parse("2026-11-07T10:00:00Z");
+    const at = (ms: number) => new Date(now + ms).toISOString();
+    const rows = [
+      { id: "newer", kind: "topup" as const, cents: 2500, at: at(5000), topup_id: "tu_card" },
+      { id: "mine", kind: "topup" as const, cents: 2500, at: at(1000), topup_id: "tu_redirect" },
+    ];
+    expect(topupEntry(rows, 2500, now, "tu_redirect")?.id).toBe("mine");
+    // ids on the rows, this one not landed: none (never another's)
+    expect(topupEntry(rows.slice(0, 1), 2500, now, "tu_redirect")).toBeNull();
+    // rows without ids (an older gateway): the window as before
+    expect(topupEntry([{ id: "old", kind: "topup" as const, cents: 2500, at: at(1000) }], 2500, now, "tu_x")?.id).toBe("old");
+  });
+
+  it("REV-14: a card top-up then an abandoned one: the return names its own, not the newest", async () => {
+    const pp = mockDb.billing.prepaid;
+    pp.balance_cents = 2820;
+    pp.entries.push({ id: "e1", kind: "topup", cents: 2500, at: new Date().toISOString(), topup_id: "tu_card" });
+    search.value = "topup=tu_abandoned&amount=2500&redirect_status=succeeded";
+    renderPage();
+    await new Promise((r) => setTimeout(r, 300));
+    expect(screen.getByTestId("pay-return").getAttribute("data-state")).toBe("checking");
+    expect(screen.queryByText(/Added \$25\.00/)).toBeNull();
+    cleanup();
+    search.value = "topup=tu_card&amount=2500&redirect_status=succeeded";
+    renderPage();
+    expect(await screen.findByText("Added $25.00. Your balance is $28.20.")).toBeTruthy();
+  });
 });

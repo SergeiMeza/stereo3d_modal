@@ -215,7 +215,7 @@ interface MockPrepaid {
   spend_limit_cents: number | null;
   month_spent_cents: number;
   low_balance_cents: number;
-  entries: { id: string; kind: string; cents: number; at: string; detail?: string }[];
+  entries: { id: string; kind: string; cents: number; at: string; detail?: string; topup_id?: string }[];
   topups: number;
   /** what the next top-up does */
   nextTopup: "paid" | "declined";
@@ -312,14 +312,15 @@ function mockTopupBonus(cents: number): number {
   return tier ? Math.round(cents * tier.pct) : 0;
 }
 
-function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string) {
+function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string, topupId?: string) {
   const pp = mockDb.billing.prepaid;
   pp.balance_cents += cents;
   pp.topups += 1;
   pp.expired = false;
   pp.last_topup_at = new Date().toISOString();
   if (pp.auto_reload.paused_reason === "declined") delete pp.auto_reload.paused_reason;
-  pp.entries.unshift({ id: `be_${pp.entries.length + 1}`, kind, cents, at: pp.last_topup_at, detail });
+  // REV-14 (gateway 988d6c5): a top-up row names its top-up
+  pp.entries.unshift({ id: `be_${pp.entries.length + 1}`, kind, cents, at: pp.last_topup_at, detail, ...(topupId ? { topup_id: topupId } : {}) });
   // N9: what's owed is paid from the balance first
   const b = mockDb.billing;
   const owed = b.unpaid.reduce((n, u) => n + u.amount_cents, 0);
@@ -340,6 +341,8 @@ interface MockCheckout {
   /** BUX-25: the yearly Business (plan "business" billed yearly) */
   yearly?: boolean;
   conversion_id?: string;
+  /** kind "topup": its top-up (REV-14) */
+  topup_id?: string;
   amount_cents: number;
   state: "open" | "paid" | "expired";
   expires_at: string;
@@ -3465,6 +3468,7 @@ export const handlers = [
     const secret = `cs_mock_topup_${topup_id}`;
     mockDb.billing.checkouts.set(secret, {
       kind: "topup",
+      topup_id,
       amount_cents: body.amount_cents,
       state: "open",
       expires_at: new Date(Date.now() + 30 * 60 * 1000).toISOString(),
@@ -4572,7 +4576,7 @@ export const handlers = [
       if (outcome === "declined") return HttpResponse.json({ result: "declined" });
       ch.state = "paid";
       b.topupDayCents += ch.amount_cents;
-      addTopup(ch.amount_cents, "topup", "Visa •••• 4242");
+      addTopup(ch.amount_cents, "topup", "Visa •••• 4242", ch.topup_id);
       // BUX-23: the bonus is its own ledger row, usage credit only
       const bonus = mockTopupBonus(ch.amount_cents);
       if (bonus > 0) {

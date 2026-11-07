@@ -39,6 +39,7 @@ import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
 import { groupRetryLine, PaymentIssues } from "./PaymentIssues";
+import { TopupFromReturn } from "./TopupFromReturn";
 import { useBillingVersion, useFallbackTick } from "@/lib/live/useLive";
 import { formatCents, formatUsdLabeled, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
@@ -840,6 +841,8 @@ export function BillingScreen(): JSX.Element {
       <FirstTimeHint id="billing" />
       {/* ?settle=1, the app's link after a delete answered balance_due */}
       <SettleFromLink />
+      {/* REV-14: ?topup={id}, a top-up back from a payment page */}
+      <TopupFromReturn />
       {review ? (
         <p data-testid="billing-review" className="text-sm text-amber-200">
           {t("pay.copy.underReview")} {t("billing.screen.contactSupportToContinue")}

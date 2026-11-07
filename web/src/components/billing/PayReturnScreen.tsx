@@ -5,7 +5,8 @@
  * back — Alipay, PayPal, a bank's page, a hosted payment page.
  *
  * ?conversion=&project= or ?c= (a run) or ?settle= (what the account owed)
- * or ?topup=1&amount= (a top-up, China's Alipay; BUX-04).
+ * or ?topup={id}&amount= (a top-up; the gateway sets topup to its id,
+ * REV-14; "1" from older gateways; BUX-04).
  * Checking polls for up to 30 s; then Paid, Not paid, Slow or Expired.
  */
 
@@ -39,13 +40,23 @@ const LATE_MS = 6000;
  * opened, or later (the payment comes back before or just after it). */
 export const TOPUP_WINDOW_MS = 15 * 60_000;
 
-/** BUX-04: the ledger row that is this top-up: the newest top-up since the
- * window opened, of this amount when the address says it. */
+/** BUX-04: the ledger row that is this top-up. REV-14: the return names
+ * its top-up (`topup={id}`, gateway 988d6c5) and the rows say theirs, so
+ * that row and no other; older answers (no ids) fall back to the newest
+ * top-up since the window opened, of this amount when the address says
+ * it. */
 export function topupEntry(
   entries: readonly BalanceEntry[],
   amountCents: number | null,
   openedAt: number,
+  topupId: string | null = null,
 ): BalanceEntry | null {
+  if (topupId !== null) {
+    const own = entries.find((e) => e.topup_id === topupId);
+    if (own) return own;
+    // the rows carry ids: this one hasn't landed yet
+    if (entries.some((e) => e.topup_id !== undefined)) return null;
+  }
   const since = openedAt - TOPUP_WINDOW_MS;
   const rows = entries
     .filter((e) => e.kind === "topup" && Date.parse(e.at) >= since)
@@ -74,6 +85,9 @@ export function PayReturnScreen(): JSX.Element {
   const settle = (params.get("settle") ?? "") !== "";
   // BUX-04: a top-up has no run; its ledger row says it's paid
   const topup = !settle && !id && (params.get("topup") ?? "") !== "";
+  // REV-14: the gateway puts the top-up's id in topup ("1" before it)
+  const topupParam = params.get("topup") ?? "";
+  const topupId = topup && topupParam !== "1" ? topupParam : null;
   const amountParam = Number(params.get("amount"));
   const topupAmount = Number.isInteger(amountParam) && amountParam > 0 ? amountParam : null;
   const [openedAt] = useState(() => Date.now());
@@ -131,7 +145,7 @@ export function PayReturnScreen(): JSX.Element {
     void Promise.all([gateway.getBalanceEntries(), gateway.getBilling()]).then(
       ([page, b]) => {
         if (!live) return;
-        const row = topupEntry(page.entries, topupAmount, openedAt);
+        const row = topupEntry(page.entries, topupAmount, openedAt, topupId);
         if (!row) return;
         setAdded({ cents: row.cents, balance: prepaidOf(b)?.balance_cents ?? row.cents });
         setState("paid");

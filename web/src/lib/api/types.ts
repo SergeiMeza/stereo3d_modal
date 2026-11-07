@@ -1378,6 +1378,8 @@ export interface BalanceEntry {
   at: string;
   /** "Visa •••• 4242", "CASE-0062" */
   detail?: string;
+  /** REV-14 (gateway 988d6c5): the top-up a top-up row is for */
+  topup_id?: string;
 }
 export type FlowState = "credit" | "saved" | "sheet" | "under_review";
 
