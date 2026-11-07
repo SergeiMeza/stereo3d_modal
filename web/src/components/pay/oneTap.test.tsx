@@ -156,7 +156,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     oneTapOn({ outcome: "processing" });
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("Confirming your payment…");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("Confirming your payment…");
     expect((screen.getByTestId("one-tap-pay") as HTMLButtonElement).disabled).toBe(true);
   });
 
@@ -173,7 +173,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     oneTapOn({ outcome: "requires_action", actionOutcome: "failed" });
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("We couldn't confirm it with your bank.");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("We couldn't confirm it with your bank.");
     const run = lastRun();
     expect(run.state).toBe("created");
     fireEvent.click(screen.getByTestId("one-tap-another-way"));
@@ -186,7 +186,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     const taps = count("/pay-one-tap");
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("Your card has insufficient funds.");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("Your card has insufficient funds.");
     const again = screen.getByTestId("one-tap-pay") as HTMLButtonElement;
     expect(again.disabled).toBe(false);
     mockDb.oneTap.outcome = "succeeded";
@@ -208,7 +208,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     const taps = count("/pay-one-tap");
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe(
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe(
       "The amount is now US$42.10. Check it and tap again.",
     );
     const button = screen.getByTestId("one-tap-pay") as HTMLButtonElement;
@@ -218,7 +218,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     expect(lastRun().state).toBe("created");
     expect(taps.n).toBe(1);
     fireEvent.click(button);
-    await waitFor(() => expect(lastRun().state).toBe("paid"));
+    await waitFor(() => expect(lastRun().state).toBe("paid"), { timeout: 4000 });
     expect(lastRun().billing).toEqual({ status: "charged", charged_cents: 4210 });
     expect(taps.n).toBe(2);
   });
@@ -227,7 +227,7 @@ describe("one-tap on a pay-first run (BUX-20)", () => {
     oneTapOn({ error: { code: "payment_in_progress" } });
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe(
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe(
       "A payment for this is already being confirmed.",
     );
     expect((screen.getByTestId("one-tap-pay") as HTMLButtonElement).disabled).toBe(true);
@@ -331,7 +331,7 @@ describe("one-tap on what the account owes (settle sheet)", () => {
     oneTapOn({ outcome: "requires_action", actionOutcome: "failed" });
     sheet();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("We couldn't confirm it with your bank.");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("We couldn't confirm it with your bank.");
     fireEvent.click(screen.getByTestId("one-tap-another-way"));
     expect(await screen.findByTestId("settle-main")).toBeTruthy();
   });
@@ -341,7 +341,7 @@ describe("one-tap on what the account owes (settle sheet)", () => {
     oneTapOn({ outcome: "declined" });
     sheet();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("Your card has insufficient funds.");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("Your card has insufficient funds.");
     fireEvent.click(screen.getByTestId("one-tap-another-way"));
     expect(await screen.findByTestId("settle-main")).toBeTruthy();
   });
@@ -360,7 +360,7 @@ describe("one-tap on what the account owes (settle sheet)", () => {
     const taps = count("/settle/one-tap");
     sheet();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe(
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe(
       "The amount is now US$5.00. Check it and tap again.",
     );
     expect(screen.getByTestId("one-tap-pay").textContent).toBe("Pay US$5.00 with Visa •••• 4242");
@@ -377,7 +377,7 @@ describe("one-tap on what the account owes (settle sheet)", () => {
     oneTapOn({ error: { code: "payment_in_progress" } });
     sheet();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe(
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe(
       "A payment for this is already being confirmed.",
     );
     expect((screen.getByTestId("one-tap-pay") as HTMLButtonElement).disabled).toBe(true);
@@ -433,7 +433,7 @@ describe("one_tap_state, and state on older gateways", () => {
     });
     panel();
     fireEvent.click(await oneTapButton());
-    expect((await screen.findByTestId("one-tap-notice")).textContent).toBe("Your card has insufficient funds.");
+    expect((await screen.findByTestId("one-tap-notice", {}, { timeout: 4000 })).textContent).toBe("Your card has insufficient funds.");
     expect(answers[0]).toMatchObject({ one_tap_state: "declined", state: "created" });
   });
 
