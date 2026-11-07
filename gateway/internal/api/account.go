@@ -157,6 +157,11 @@ type deletionOpts struct {
 	By     string // request | sweep | admin:<who>, on the schedule row
 	// RequestedAt: when the person asked (a scheduled deletion's request).
 	RequestedAt *time.Time
+	// NoCharge: check what is owed without charging (the sweep between a
+	// dues retry's times, or after its last, #2); the balance still pays.
+	NoCharge bool
+	// Dues receives the dues collection's result when one ran.
+	Dues *settleResult
 }
 
 // runDeletion is the account deletion (unchanged since 2026-11-06, now
@@ -202,12 +207,17 @@ func (s *Service) runDeletion(ctx context.Context, uid string, o deletionOpts) (
 	if err != nil {
 		return 0, nil, err
 	}
-	if active == 0 && cust != nil && cust.StripeCustomerID != "" {
+	if active == 0 && cust != nil && cust.StripeCustomerID != "" && o.NoCharge {
+		s.payDebtsFromBalance(ctx, uid) // #2: no charge between the dues retry's times
+	} else if active == 0 && cust != nil && cust.StripeCustomerID != "" {
 		s.settleForDeletion(ctx, uid, cust.StripeCustomerID)
 		s.payDebtsFromBalance(ctx, uid) // N8 step 2: debts from the balance first
 		// C11 trigger=delete: off-session with backups; a live settle (P2
 		// open, an iOS bank check) answers 402 balance_due with its amount.
 		res, cerr := s.collectOutstanding(ctx, uid, settleDelete, o.Pay)
+		if o.Dues != nil && cerr == nil {
+			*o.Dues = res
+		}
 		if cerr == nil && res.Settle != nil && res.Settle.State == store.SettleSettling {
 			e := httpx.Err(http.StatusPaymentRequired, deleteBlockOwed,
 				"you have a payment to finish before we can delete your account")

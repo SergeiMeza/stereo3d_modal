@@ -41,6 +41,9 @@ type settleResult struct {
 	ClientSecret   string
 	Declined       bool
 	Live           bool // an existing live settle was returned
+	// Failure: why a declined off-session charge failed (informational:
+	// the deletion's retry schedule reads it, D2).
+	Failure *stripex.ChargeFailure
 }
 
 func settleItemRuns(st *store.Settle) []string {
@@ -254,7 +257,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 	}
 	if cust.DefaultPaymentMethod == "" {
 		closed, ferr := s.Store.FinishSettle(ctx, st.ID, store.SettleOutcome{}, dropped)
-		return settleResult{Settle: closed, Declined: true}, ferr
+		return settleResult{Settle: closed, Declined: true, Failure: &stripex.ChargeFailure{Code: "no_payment_method"}}, ferr
 	}
 	params := stripex.Job{Web: true, UID: st.UID, Description: fmt.Sprintf("Your last runs (%d)", st.Runs()),
 		ReceiptEmail: cust.Email, Metadata: map[string]string{"settle_id": st.ID, "payment_flow": "settle"}}
@@ -372,7 +375,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 				s.setSheetOnly(ctx, st.UID, "stop code "+fail.DeclineCode)
 			}
 			closed, ferr := s.Store.FinishSettle(ctx, st.ID, store.SettleOutcome{}, dropped)
-			return settleResult{Settle: closed, Declined: true}, ferr
+			return settleResult{Settle: closed, Declined: true, Failure: &fail}, ferr
 		}
 	}
 	out := stripex.Outcome{PaymentIntentID: pi.ID, AmountReceived: pi.AmountReceived, PaymentMethod: paidWith,
