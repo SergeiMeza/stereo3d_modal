@@ -16,6 +16,23 @@ import (
 var zeroDecimal = map[string]bool{"bif": true, "clp": true, "djf": true, "gnf": true, "jpy": true, "kmf": true, "krw": true,
 	"mga": true, "pyg": true, "rwf": true, "ugx": true, "vnd": true, "vuv": true, "xaf": true, "xof": true, "xpf": true}
 
+// threeDecimal: currencies Stripe counts in thousandths (REV-04): 1 BHD
+// is 1000 in the API.
+var threeDecimal = map[string]bool{"bhd": true, "jod": true, "kwd": true, "omr": true, "tnd": true}
+
+// minorExponent is Stripe's decimal places for currency: 0 for the
+// zero-decimal ones, 3 for the three-decimal ones, 2 otherwise.
+func minorExponent(currency string) int {
+	cur := strings.ToLower(currency)
+	switch {
+	case zeroDecimal[cur]:
+		return 0
+	case threeDecimal[cur]:
+		return 3
+	}
+	return 2
+}
+
 // wholeShown: two-decimal in Stripe but shown in whole units when there
 // are no cents (NT$317, not NT$317.00).
 var wholeShown = map[string]bool{"twd": true, "huf": true, "isk": true}
@@ -34,8 +51,8 @@ func groupDigits(d string) string {
 }
 
 // formatMinor writes amount (the currency's smallest unit) in currency:
-// "¥1,648", "€27.95", "NT$317", "SAR 17.99". Negative amounts keep a
-// leading minus.
+// "¥1,648", "€27.95", "NT$317", "SAR 17.99", "KWD 3.070". Negative
+// amounts keep a leading minus.
 func formatMinor(amount int64, currency string) string {
 	cur := strings.ToLower(currency)
 	sign := ""
@@ -43,17 +60,22 @@ func formatMinor(amount int64, currency string) string {
 		sign, amount = "-", -amount
 	}
 	var num string
+	exp := minorExponent(cur)
+	unit := int64(1)
+	for range exp {
+		unit *= 10
+	}
 	switch {
-	case zeroDecimal[cur]:
+	case exp == 0:
 		num = groupDigits(strconv.FormatInt(amount, 10))
-	case wholeShown[cur] && amount%100 == 0:
-		num = groupDigits(strconv.FormatInt(amount/100, 10))
+	case wholeShown[cur] && amount%unit == 0:
+		num = groupDigits(strconv.FormatInt(amount/unit, 10))
 	default:
-		frac := strconv.FormatInt(amount%100, 10)
-		if len(frac) < 2 {
+		frac := strconv.FormatInt(amount%unit, 10)
+		for len(frac) < exp {
 			frac = "0" + frac
 		}
-		num = groupDigits(strconv.FormatInt(amount/100, 10)) + "." + frac
+		num = groupDigits(strconv.FormatInt(amount/unit, 10)) + "." + frac
 	}
 	if s, ok := currencySign[cur]; ok {
 		return sign + s + num
