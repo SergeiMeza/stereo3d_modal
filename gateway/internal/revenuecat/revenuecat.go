@@ -217,6 +217,12 @@ type subscriber struct {
 	} `json:"subscriber"`
 }
 
+// subscriberRead: GET /v1/subscribers/{id} succeeded. RevenueCat answers
+// 201 when the read created the subscriber (a uid it hadn't seen), with
+// the same body as 200 (TEST logs 2026-11-07: "revenuecat: status 201"
+// left new accounts' Pro credit and plan unread).
+func subscriberRead(status int) bool { return status == http.StatusOK || status == http.StatusCreated }
+
 func (c *Client) fetch(ctx context.Context, uid string, now time.Time) (Status, error) {
 	ctx, cancel := context.WithTimeout(ctx, callTimeout)
 	defer cancel()
@@ -230,7 +236,7 @@ func (c *Client) fetch(ctx context.Context, uid string, now time.Time) (Status, 
 		return Status{}, fmt.Errorf("revenuecat: %w", err)
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if !subscriberRead(resp.StatusCode) {
 		return Status{}, fmt.Errorf("revenuecat: status %d", resp.StatusCode)
 	}
 	var body subscriber

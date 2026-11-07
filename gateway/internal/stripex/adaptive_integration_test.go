@@ -35,7 +35,11 @@ func apClient(t *testing.T) (*Client, string) {
 	if !strings.HasPrefix(sk, "sk_test_") && !strings.HasPrefix(sk, "rk_test_") || !strings.HasPrefix(pk, "pk_test_") {
 		t.Fatal("test-mode keys only")
 	}
-	return New(sk, "", pk, "test"), pk
+	// env "itest": our sessions' and subscriptions' metadata say env=itest,
+	// so the TEST gateway's webhooks ignore them (2026-11-07: with env=test
+	// the KR subscription's events reached the plan and Pro-credit paths,
+	// read RevenueCat for its made-up uid and mailed E18 to the owner).
+	return New(sk, "", pk, "itest"), pk
 }
 
 // pkCall is a Stripe.js-style call with the publishable key (no version
@@ -78,7 +82,7 @@ func payLikeStripeJS(t *testing.T, pk, sessionID string) (int64, string) {
 
 func apCustomer(t *testing.T, country, clock string) string {
 	t.Helper()
-	f := url.Values{"email": {"svs-ap-it+location_" + country + "@example.com"}, "metadata[env]": {"test"}, "metadata[probe]": {"ap-integration"}}
+	f := url.Values{"email": {"svs-ap-it+location_" + country + "@example.com"}, "metadata[env]": {"itest"}, "metadata[probe]": {"ap-integration"}}
 	if clock != "" {
 		f.Set("test_clock", clock)
 	}
@@ -198,7 +202,7 @@ func TestAPKoreaProSubscription(t *testing.T) {
 	}
 	yearly, _ := c.PriceByLookupKey("svs_web_pro_yearly")
 	sess, err := c.CreatePlanSession(PlanSessionSpec{CustomerID: cus, PriceID: monthly, UI: "elements", ReturnURL: "https://example.com/r?x=1",
-		Tier: "pro", UID: "ap-integration", PlanID: "pro_monthly", AdaptivePricing: true,
+		Tier: "pro", UID: "itest-no-account", PlanID: "pro_monthly", AdaptivePricing: true,
 		IdemKey: "ap_it_plan_" + strconv.FormatInt(time.Now().UnixNano(), 36)})
 	if err != nil {
 		t.Fatal(err)

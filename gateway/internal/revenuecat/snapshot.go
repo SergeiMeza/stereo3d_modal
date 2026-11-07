@@ -61,7 +61,7 @@ func (c *Client) PromotionalGrants(ctx context.Context, uid string) ([]PromoGran
 		return nil, &GrantError{Msg: "no answer"}
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if !subscriberRead(resp.StatusCode) {
 		return nil, &GrantError{Status: resp.StatusCode, Msg: "subscriber read failed"}
 	}
 	var body subscriber

@@ -32,7 +32,7 @@ func (c *Client) SubscriberAttributes(ctx context.Context, uid string) (map[stri
 		return nil, &GrantError{Msg: "no answer"}
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != http.StatusOK {
+	if !subscriberRead(resp.StatusCode) {
 		return nil, &GrantError{Status: resp.StatusCode, Msg: "subscriber read failed"}
 	}
 	var body struct {

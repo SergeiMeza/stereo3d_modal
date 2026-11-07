@@ -178,3 +178,30 @@ func TestAllowanceAndCreditKind(t *testing.T) {
 		}
 	}
 }
+
+// RevenueCat answers 201 when GET /v1/subscribers/{id} created the
+// subscriber; it is a successful read like 200 (TEST logs 2026-11-07).
+func TestSubscriberReadAccepts201(t *testing.T) {
+	for _, code := range []int{200, 201} {
+		srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			w.WriteHeader(code)
+			w.Write([]byte(`{"subscriber":{"entitlements":{},"subscriptions":{},"non_subscriptions":{},"subscriber_attributes":{"web_plan":{"value":"pro"}}}}`))
+		}))
+		c := New("k").WithBase(srv.URL, time.Now)
+		if st, err := c.Pro(context.Background(), "u1"); err != nil || st.Pro {
+			t.Fatalf("%d: Pro %+v %v", code, st, err)
+		}
+		if g, err := c.PromotionalGrants(context.Background(), "u1"); err != nil || len(g) != 0 {
+			t.Fatalf("%d: grants %v %v", code, g, err)
+		}
+		if a, err := c.SubscriberAttributes(context.Background(), "u1"); err != nil || a["web_plan"] != "pro" {
+			t.Fatalf("%d: attributes %v %v", code, a, err)
+		}
+		srv.Close()
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { w.WriteHeader(404) }))
+	defer srv.Close()
+	if _, err := New("k").WithBase(srv.URL, time.Now).Pro(context.Background(), "u1"); err == nil {
+		t.Fatal("404 read as success")
+	}
+}
