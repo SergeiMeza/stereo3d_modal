@@ -9,6 +9,8 @@
  * CDN files stay in place for old links but are no longer listed.
  */
 
+import { EN, type Tr } from "@/lib/i18n/t";
+
 export const SAMPLES_CDN =
   "https://cdn.public.spatial-video-studio.com/samples/2026-11";
 
@@ -36,20 +38,22 @@ export interface Sample {
   downloads: SampleDownload[];
 }
 
+/** One sample; its words from devices.samples.<key> in t's language. */
 function sample(
+  t: Tr,
   slug: string,
-  title: string,
-  detail: string,
-  size: string,
+  key: string,
+  /** per eye, e.g. "3840×2160" */
+  dims: string,
   bytes: { spatial: number; sbs: number; original: number },
   seconds = 15,
 ): Sample {
   const loops = `${SAMPLES_CDN}/loops/${slug}`;
   return {
     slug,
-    title,
-    detail,
-    size,
+    title: t(`devices.samples.${key}.title`),
+    detail: t(`devices.samples.${key}.detail`),
+    size: t("devices.samples.perEye", { size: dims }),
     seconds,
     poster: `/landing/samples/${slug}-poster-1600.webp`,
     loop: { mp4: `${loops}-loop.mp4`, webm: `${loops}-loop.webm` },
@@ -60,21 +64,21 @@ function sample(
     downloads: [
       {
         kind: "spatial",
-        label: "Vision Pro (spatial video)",
+        label: t("devices.samples.downloads.spatial"),
         ext: ".mov",
         href: `${SAMPLES_CDN}/${slug}-spatial.mov`,
         bytes: bytes.spatial,
       },
       {
         kind: "sbs",
-        label: "Quest, Pico, Galaxy XR, XR glasses (side by side)",
+        label: t("devices.samples.downloads.sbs"),
         ext: ".mp4",
         href: `${SAMPLES_CDN}/${slug}-sbs.mp4`,
         bytes: bytes.sbs,
       },
       {
         kind: "2d",
-        label: "2D original, to compare",
+        label: t("devices.samples.downloads.original"),
         ext: ".mp4",
         href: `${SAMPLES_CDN}/${slug}-2d.mp4`,
         bytes: bytes.original,
@@ -83,74 +87,74 @@ function sample(
   };
 }
 
-export const SAMPLES: Sample[] = [
-  sample(
-    "rooftop-party",
-    "Rooftop party",
-    "Hands in the air at a sunset party above the forest.",
-    "3840×2160 per eye",
-    { spatial: 281_202_002, sbs: 245_373_999, original: 26_401_666 },
-    12,
-  ),
-  sample(
-    "drift-chase",
-    "Drift chase",
-    "A drone chases a drifting car through clouds of tyre smoke.",
-    "3840×2160 per eye",
-    { spatial: 222_517_286, sbs: 296_814_594, original: 29_772_452 },
-  ),
-  sample(
-    "rooftop-singalong",
-    "Rooftop singalong",
-    "Singing, guitar and drinks with friends on a rooftop.",
-    "3840×2160 per eye",
-    { spatial: 195_018_598, sbs: 178_562_808, original: 17_248_841 },
-    9,
-  ),
-  sample(
-    "sunset-session",
-    "Sunset session",
-    "A singer and her band on a rooftop as the sun goes down.",
-    "3840×2160 per eye",
-    { spatial: 319_972_232, sbs: 299_105_920, original: 29_190_011 },
-  ),
-  sample(
-    "studio-take",
-    "Studio take",
-    "A singer gives it everything at the mic.",
-    "3840×2160 per eye",
-    { spatial: 180_343_615, sbs: 179_324_835, original: 18_121_783 },
-    9,
-  ),
-  sample(
-    "street-dance",
-    "Street dance",
-    "Three friends dance in front of a glass tower. Portrait.",
-    "2160×3840 per eye",
-    { spatial: 286_271_450, sbs: 282_889_234, original: 29_034_621 },
-  ),
-  sample(
-    "inside-the-wave",
-    "Inside the wave",
-    "A surfer's view through the barrel of a breaking wave.",
-    "3840×2160 per eye",
-    { spatial: 129_546_110, sbs: 168_236_172, original: 16_533_473 },
-    9,
-  ),
-  sample(
-    "fencing-hall",
-    "Fencing hall",
-    "Fencers spar in a training hall as others stride past.",
-    "3840×2160 per eye",
-    { spatial: 236_561_946, sbs: 250_113_238, original: 24_547_136 },
-    13,
-  ),
-  sample(
-    "river-stones",
-    "River stones",
-    "A girl steps across sunlit stones by a forest stream.",
-    "3840×2026 per eye",
-    { spatial: 304_095_765, sbs: 258_753_773, original: 29_621_691 },
-    14,
-  ),
-];
+/** The samples in the reader's language (English by default). */
+export function samples(t: Tr = EN): Sample[] {
+  return [
+    sample(
+      t,
+      "rooftop-party",
+      "rooftopParty",
+      "3840×2160",
+      { spatial: 281_202_002, sbs: 245_373_999, original: 26_401_666 },
+      12,
+    ),
+    sample(t, "drift-chase", "driftChase", "3840×2160", {
+      spatial: 222_517_286,
+      sbs: 296_814_594,
+      original: 29_772_452,
+    }),
+    sample(
+      t,
+      "rooftop-singalong",
+      "rooftopSingalong",
+      "3840×2160",
+      { spatial: 195_018_598, sbs: 178_562_808, original: 17_248_841 },
+      9,
+    ),
+    sample(t, "sunset-session", "sunsetSession", "3840×2160", {
+      spatial: 319_972_232,
+      sbs: 299_105_920,
+      original: 29_190_011,
+    }),
+    sample(
+      t,
+      "studio-take",
+      "studioTake",
+      "3840×2160",
+      { spatial: 180_343_615, sbs: 179_324_835, original: 18_121_783 },
+      9,
+    ),
+    sample(t, "street-dance", "streetDance", "2160×3840", {
+      spatial: 286_271_450,
+      sbs: 282_889_234,
+      original: 29_034_621,
+    }),
+    sample(
+      t,
+      "inside-the-wave",
+      "insideTheWave",
+      "3840×2160",
+      { spatial: 129_546_110, sbs: 168_236_172, original: 16_533_473 },
+      9,
+    ),
+    sample(
+      t,
+      "fencing-hall",
+      "fencingHall",
+      "3840×2160",
+      { spatial: 236_561_946, sbs: 250_113_238, original: 24_547_136 },
+      13,
+    ),
+    sample(
+      t,
+      "river-stones",
+      "riverStones",
+      "3840×2026",
+      { spatial: 304_095_765, sbs: 258_753_773, original: 29_621_691 },
+      14,
+    ),
+  ];
+}
+
+/** English */
+export const SAMPLES: Sample[] = samples();

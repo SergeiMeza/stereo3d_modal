@@ -13,6 +13,8 @@
  * validation errors throw with a human-readable message.
  */
 
+import { EN, type Tr } from "@/lib/i18n/t";
+
 import { cutsToRanges, frameToTimecode, type RationalFPS } from "./frames";
 
 export const CUTLIST_CSV_HEADER =
@@ -39,24 +41,20 @@ export function exportCutsCSV(
   return [CUTLIST_CSV_HEADER, ...rows].join("\n") + "\n";
 }
 
-function parseIntStrict(token: string): number {
+function parseIntStrict(token: string, t: Tr): number {
   if (!/^\d+$/.test(token)) {
-    throw new Error(
-      `"${token}" is not an integer frame index — cut lists carry whole source-frame numbers only.`,
-    );
+    throw new Error(t("errors.cutlist.notInteger", { token }));
   }
   return Number(token);
 }
 
 /** Validate + normalize raw frame values into a cut list: sorted, deduped,
  * every cut strictly inside (0, numFrames). Throws on violations. */
-function normalizeCuts(frames: number[], numFrames: number): number[] {
+function normalizeCuts(frames: number[], numFrames: number, t: Tr): number[] {
   const cuts = [...new Set(frames)].sort((a, b) => a - b);
   for (const c of cuts) {
     if (c <= 0 || c >= numFrames) {
-      throw new Error(
-        `Cut at frame ${c} is out of range — cuts must be inside (0, ${numFrames}) for this video.`,
-      );
+      throw new Error(t("errors.cutlist.outOfRange", { frame: String(c), frames: String(numFrames) }));
     }
   }
   return cuts;
@@ -66,8 +64,8 @@ function normalizeCuts(frames: number[], numFrames: number): number[] {
  * skipping scene 1's frame 0) or (b) a plain list of frame indices (one per
  * line or comma/space separated; blank lines and #-comments ignored).
  * Returns the sorted, deduped cut list; throws Error (human message) on
- * non-integers or out-of-range frames. */
-export function parseCutList(text: string, numFrames: number): number[] {
+ * non-integers or out-of-range frames; the messages in t's language. */
+export function parseCutList(text: string, numFrames: number, t: Tr = EN): number[] {
   const lines = text.split(/\r\n|\r|\n/);
   const headerIndex = lines.findIndex((l) =>
     l.toLowerCase().includes("start frame"),
@@ -83,17 +81,15 @@ export function parseCutList(text: string, numFrames: number): number[] {
       const cells = line.split(",");
       const cell = (cells[col] ?? "").trim();
       if (cell === "") {
-        throw new Error(
-          `A CSV row is missing its Start Frame value: "${line.trim()}"`,
-        );
+        throw new Error(t("errors.cutlist.missingStart", { row: line.trim() }));
       }
-      starts.push(parseIntStrict(cell));
+      starts.push(parseIntStrict(cell, t));
     }
     if (starts.length === 0) {
-      throw new Error("No scenes found in the CSV — nothing to import.");
+      throw new Error(t("errors.cutlist.noScenes"));
     }
     // scene 1 starts at frame 0 by definition — it is not a cut
-    return normalizeCuts(starts.filter((f) => f !== 0), numFrames);
+    return normalizeCuts(starts.filter((f) => f !== 0), numFrames, t);
   }
 
   // Plain list mode: integers separated by newlines, commas, or spaces.
@@ -101,9 +97,9 @@ export function parseCutList(text: string, numFrames: number): number[] {
     .map((l) => l.trim())
     .filter((l) => l !== "" && !l.startsWith("#"))
     .flatMap((l) => l.split(/[\s,]+/))
-    .filter((t) => t !== "");
+    .filter((tok) => tok !== "");
   if (tokens.length === 0) {
-    throw new Error("No cut frames found in the file — nothing to import.");
+    throw new Error(t("errors.cutlist.noCuts"));
   }
-  return normalizeCuts(tokens.map(parseIntStrict), numFrames);
+  return normalizeCuts(tokens.map((tok) => parseIntStrict(tok, t)), numFrames, t);
 }

@@ -21,6 +21,7 @@
  */
 
 import type { Format, Preset } from "@/lib/api/types";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 /**
  * Owner decision 2026-11-04: Meta Quest plays full side by side, so Quest
@@ -124,12 +125,18 @@ export function playChoice(
   return null;
 }
 
-/** The one-line hint under the button on Quest and Pico. */
-export const HEADSET_HINT: Partial<Record<Client, string>> = {
-  quest: "In the player's view options, choose 3D side by side.",
-  pico: "In the player's mode menu, choose 3D left and right (side by side).",
-  galaxyxr: "In the player, choose 3D side by side.",
-};
+const HINTED: readonly Client[] = ["quest", "pico", "galaxyxr"];
+
+/** The one-line hint under the button on Quest and Pico (and Galaxy XR);
+ * undefined for the others. */
+export function headsetHint(c: Client, t: Tr = EN): string | undefined {
+  return HINTED.includes(c) ? t(`devices.headsetHint.${c}`) : undefined;
+}
+
+/** English, by client (callers without a translator). */
+export const HEADSET_HINT: Partial<Record<Client, string>> = Object.fromEntries(
+  HINTED.map((c) => [c, headsetHint(c)]),
+);
 
 interface FullscreenElement extends HTMLElement {
   webkitRequestFullscreen?: () => Promise<void> | void;

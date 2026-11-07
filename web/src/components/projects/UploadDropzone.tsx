@@ -44,6 +44,8 @@ import { usePricing } from "@/lib/api/usePricing";
 import { methodLimitText } from "@/components/steps/methods";
 import { METHOD_NAMES } from "@/lib/glossary";
 import { formatBytes, formatTimeLeft } from "@/lib/format";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 const CONTENT_TYPES: Record<string, string> = {
   mp4: "video/mp4",
@@ -78,8 +80,12 @@ export function maxDurationFor(
 export function lengthLimits(
   limits: GatewayLimits | null,
   pricing: PublicPricing | null = null,
+  t: Tr = EN,
 ): string {
-  return `${METHOD_NAMES.lifelike}: ${methodLimitText("lifelike", limits, pricing)}`;
+  return t("upload.lengthLimits", {
+    method: METHOD_NAMES.lifelike,
+    limits: methodLimitText("lifelike", limits, pricing, t),
+  });
 }
 
 /** Only after this much progress is a time-left estimate shown. */
@@ -146,6 +152,7 @@ function readVideoMeta(file: File): Promise<VideoMeta | null> {
 function lengthLimitError(
   meta: VideoMeta,
   maxDurationS: number | null,
+  t: Tr = EN,
 ): string | null {
   if (
     maxDurationS !== null &&
@@ -155,7 +162,7 @@ function lengthLimitError(
   ) {
     const m = Math.floor(meta.duration / 60);
     const s = Math.round(meta.duration % 60);
-    return `This video is ${m}m ${s}s long. Videos can be at most ${Math.round(maxDurationS / 60)} minutes.`;
+    return t("upload.tooLong", { m, s, max: Math.round(maxDurationS / 60) });
   }
   return null;
 }
@@ -171,14 +178,13 @@ function stem(filename: string): string {
   return filename.replace(/\.[^.]+$/, "");
 }
 
-export const FIRST_PROJECT = "Drop a video to start your first project";
-
 export function UploadDropzone({
   first = false,
 }: {
   /** no projects yet: the drop zone is the empty state too (owner 2026-11-05) */
   first?: boolean;
 } = {}) {
+  const t = useT();
   const gateway = useGateway();
   const createdProject = useAppSetAtom(projectCreatedAtom);
   const router = useRouter();
@@ -219,10 +225,10 @@ export function UploadDropzone({
 
   function onProgress(fraction: number) {
     setProgress(fraction);
-    const t = timingRef.current;
-    if (t === null) return;
-    const elapsed = Date.now() - t.startedAt;
-    const done = fraction - t.from;
+    const timing = timingRef.current;
+    if (timing === null) return;
+    const elapsed = Date.now() - timing.startedAt;
+    const done = fraction - timing.from;
     if (elapsed < ETA_MIN_ELAPSED_MS || done <= 0) return;
     setTimeLeftS(((elapsed / done) * (1 - fraction)) / 1000);
   }
@@ -280,10 +286,10 @@ export function UploadDropzone({
         e instanceof GatewayError && e.code === "save_method_for_more"
           ? null
           : resumable
-            ? "The upload stopped — check your connection, then resume where it left off."
+            ? t("upload.stopped")
             : e instanceof GatewayError
               ? e.message
-              : "Upload failed — please try again.",
+              : t("upload.failed"),
       );
       setTimeLeftS(null);
       setPhase("idle");
@@ -294,14 +300,12 @@ export function UploadDropzone({
     if (busy) return;
     const contentType = contentTypeFor(file.name);
     if (contentType === null) {
-      setError(
-        "Unsupported file type — choose an .mp4, .mov, .m4v, or .webm video.",
-      );
+      setError(t("upload.unsupported"));
       return;
     }
     const meta = await readVideoMeta(file);
     if (meta !== null) {
-      const limitError = lengthLimitError(meta, maxDurationS);
+      const limitError = lengthLimitError(meta, maxDurationS, t);
       if (limitError !== null) {
         setError(limitError);
         return;
@@ -364,17 +368,17 @@ export function UploadDropzone({
         ref={inputRef}
         type="file"
         accept={ACCEPT}
-        aria-label="Upload video"
+        aria-label={t("upload.inputLabel")}
         className="hidden"
         disabled={busy}
         onChange={handleChange}
       />
       <div className="flex flex-col items-center gap-2 text-center">
         <p className={first ? "font-medium text-fg" : "text-fg"}>
-          {first ? FIRST_PROJECT : "Drag & drop a video to start a project"}
+          {first ? t("upload.firstProject") : t("upload.dragDrop")}
         </p>
         <p data-testid="upload-limits" className="text-xs text-fg-muted">
-          .mp4, .mov, .m4v or .webm · {lengthLimits(limits, pricing)}
+          {t("upload.formats", { limits: lengthLimits(limits, pricing, t) })}
         </p>
         <button
           type="button"
@@ -382,10 +386,10 @@ export function UploadDropzone({
           onClick={() => inputRef.current?.click()}
           className="mt-1 rounded-md bg-primary px-3 py-1.5 font-medium text-white transition-colors hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-50"
         >
-          Choose video
+          {t("upload.choose")}
         </button>
         <Link href="/pricing" className="mt-1 text-xs text-primary hover:underline">
-          See prices
+          {t("upload.seePrices")}
         </Link>
       </div>
 
@@ -394,8 +398,8 @@ export function UploadDropzone({
           <div className="flex items-baseline justify-between text-xs text-fg-muted">
             <span className="truncate">
               {phase === "uploading"
-                ? `Uploading ${fileName ?? "video"}…`
-                : "Creating project…"}
+                ? t("upload.uploading", { name: fileName ?? t("upload.videoFallback") })
+                : t("upload.creating")}
             </span>
             <span className="ml-3 shrink-0 font-mono">{percent}%</span>
           </div>
@@ -406,11 +410,14 @@ export function UploadDropzone({
             >
               <span>
                 {fileSize !== null
-                  ? `${formatBytes(Math.round(fileSize * progress))} of ${formatBytes(fileSize)}`
+                  ? t("upload.bytes", {
+                      done: formatBytes(Math.round(fileSize * progress)),
+                      total: formatBytes(fileSize),
+                    })
                   : null}
               </span>
               <span>
-                {timeLeftS !== null ? formatTimeLeft(timeLeftS) : "Estimating time left…"}
+                {timeLeftS !== null ? formatTimeLeft(timeLeftS) : t("upload.estimating")}
               </span>
             </p>
           ) : null}
@@ -446,7 +453,7 @@ export function UploadDropzone({
             onClick={() => void resumeUpload()}
             className="rounded-md border border-edge bg-surface-2 px-3 py-1.5 text-xs text-fg transition-colors hover:bg-surface-1"
           >
-            Resume upload ({Math.round(progress * 100)}% sent)
+            {t("upload.resume", { pct: Math.round(progress * 100) })}
           </button>
         </div>
       ) : null}

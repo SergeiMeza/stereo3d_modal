@@ -8,6 +8,7 @@
 
 import type { PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { sharedFetch } from "@/lib/state/sharedFetch";
 
 // ADR 0138: one shared answer in an app-store atom
@@ -40,11 +41,17 @@ export function fpsFactor(p: PublicPricing, fps: number): number {
 }
 
 /** "30 fps +25% · 60 fps ×2.5 (Business and Studio)" (S3D-15), from /v1/pricing's fps rule. */
-export function fpsRule(p: PublicPricing): string {
+export function fpsRule(p: PublicPricing, t: Tr = EN): string {
   const f30 = fpsFactor(p, 30);
   const f60 = fpsFactor(p, 60);
   const pct = Math.round((f30 - 1) * 100);
   const times = Math.round(f60 * 100) / 100;
   // owner 2026-11-04: above 30 fps comes with Business and Studio
-  return `30 fps ${pct >= 0 ? "+" : "−"}${Math.abs(pct)}% · 60 fps ×${times} (Business and Studio)`;
+  return t("upload.pricing.fpsRule", {
+    sign: pct >= 0 ? "+" : "−",
+    pct: Math.abs(pct),
+    times,
+    business: "Business",
+    studio: "Studio",
+  });
 }

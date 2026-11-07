@@ -60,14 +60,19 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { formatClock, formatTimeLeft } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { useLiveProject } from "@/lib/live/useLive";
 
-const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
-  year: "numeric",
-  month: "short",
-  day: "numeric",
-  timeZone: "UTC",
-});
+/** A card's date, in the reader's language (UTC, as listed). */
+function cardDate(at: string, t: Tr = EN): string {
+  return new Intl.DateTimeFormat(t.intl, {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    timeZone: "UTC",
+  }).format(new Date(at));
+}
 
 /** A card's outcome line (S3D-35): what is happening, or what came out. */
 export interface CardState {
@@ -80,11 +85,11 @@ export interface CardState {
   link?: { label: string; tab: string };
 }
 
-export function cardState(project: Project): CardState {
+export function cardState(project: Project, t: Tr = EN): CardState {
   // S3D-24: erased files — the project stays, nothing to open or run
   if (project.files_deleted_at !== undefined) {
     return {
-      label: `Files deleted on ${DATE_FORMAT.format(new Date(project.files_deleted_at))}`,
+      label: t("projects.card.filesDeletedOn", { date: cardDate(project.files_deleted_at, t) }),
       tone: "plain",
     };
   }
@@ -92,7 +97,7 @@ export function cardState(project: Project): CardState {
   if (a.state === "running") {
     const pct = a.progress !== undefined ? Math.round(a.progress * 100) : null;
     return {
-      label: `Getting your video ready${pct !== null ? ` · ${pct}%` : ""}`,
+      label: pct !== null ? t("projects.card.gettingReadyPct", { pct }) : t("projects.card.gettingReady"),
       tone: "plain",
       progress: a.progress,
       right:
@@ -103,25 +108,25 @@ export function cardState(project: Project): CardState {
   }
   if (a.state === "failed") {
     return {
-      label: "Couldn't read this video",
+      label: t("projects.card.readFailed"),
       tone: "attention",
-      link: { label: "Try again", tab: "overview" },
+      link: { label: t("projects.card.tryAgain"), tab: "overview" },
     };
   }
   const s = project.summary;
   switch (s?.latest_state) {
     case "created":
     case "paid":
-      return { label: "Waiting in line", tone: "working" };
+      return { label: t("projects.card.waiting"), tone: "working" };
     case "processing": {
       if (s.latest_waiting_for_gpu)
-        return { label: "Waiting in line", tone: "working" };
+        return { label: t("projects.card.waiting"), tone: "working" };
       const pct =
         s.latest_progress !== undefined
           ? Math.round(s.latest_progress * 100)
           : null;
       return {
-        label: `Making 3D${pct !== null ? ` · ${pct}%` : ""}`,
+        label: pct !== null ? t("projects.card.makingPct", { pct }) : t("projects.card.making"),
         tone: "working",
         progress: s.latest_progress,
         right:
@@ -133,26 +138,26 @@ export function cardState(project: Project): CardState {
     case "succeeded":
       return s.latest_billing_status === "charge_failed"
         ? {
-            label: "Payment needed",
+            label: t("projects.card.paymentNeeded"),
             tone: "attention",
-            link: { label: "Update payment method", tab: "files" },
+            link: { label: t("projects.card.updatePayment"), tab: "files" },
           }
         : {
-            label: "3D ready",
+            label: t("projects.card.ready"),
             tone: "ready",
-            link: { label: "Files", tab: "files" },
+            link: { label: t("projects.card.files"), tab: "files" },
           };
     case "failed":
       return {
-        label: "Failed, not charged",
+        label: t("projects.card.failed"),
         tone: "plain",
-        link: { label: "Try again", tab: "make" },
+        link: { label: t("projects.card.tryAgain"), tab: "make" },
       };
     case "canceled":
     case "expired":
-      return { label: "Cancelled · not charged", tone: "plain" };
+      return { label: t("projects.card.cancelled"), tone: "plain" };
   }
-  return { label: "Ready for 3D", tone: "plain" };
+  return { label: t("projects.card.readyFor3d"), tone: "plain" };
 }
 
 const TONE: Record<CardState["tone"], string> = {
@@ -175,8 +180,9 @@ export function filesDeleteSoon(
 }
 
 /** gateway 00101: 409 project_has_active_run */
-export const ARCHIVE_BLOCKED =
-  "This project has a run in progress. Wait for it to finish, or cancel it, before archiving.";
+export function archiveBlocked(t: Tr = EN): string {
+  return t("projects.card.archiveBlocked");
+}
 
 const FINISHED = new Set(["succeeded", "failed", "canceled", "expired"]);
 
@@ -195,6 +201,7 @@ export function ProjectCard({
   // owner 2026-11-07: the card's analysis and run line from the live feed,
   // the same moment the project page shows
   const project = useLiveProject(listed);
+  const t = useT();
   const gateway = useGateway();
   const [kept, setKept] = useState(false);
   const [keeping, setKeeping] = useState(false);
@@ -215,7 +222,7 @@ export function ProjectCard({
   const probe = project.probe;
   const thumb =
     posterUrl(project);
-  const state = cardState(project);
+  const state = cardState(project, t);
   const method = methodOf(project);
   const href = `/projects/${project.project_id}`;
   // S3D-24: unused files go after 90 days; the card warns in the last 14
@@ -274,11 +281,11 @@ export function ProjectCard({
             {project.pinned === true ? (
               <>
                 <Pin aria-hidden className="size-3.5 shrink-0 text-primary" />
-                <span className="sr-only">Pinned</span>
+                <span className="sr-only">{t("projects.card.pinned")}</span>
               </>
             ) : null}
             <span className="truncate">
-              {project.name ?? "Untitled project"}
+              {project.name ?? t("projects.card.untitled")}
             </span>
           </h2>
           <span>
@@ -292,7 +299,7 @@ export function ProjectCard({
               }
             >
               {METHOD_NAMES[method]}
-              {method === "classic" ? " · Older method" : ""}
+              {method === "classic" ? ` · ${t("projects.card.olderMethod")}` : ""}
             </Badge>
             {project.sample ? (
               <Badge
@@ -300,7 +307,7 @@ export function ProjectCard({
                 data-testid="card-sample"
                 className="ml-1.5 border-edge bg-surface-2 text-fg-muted"
               >
-                Sample
+                {t("projects.card.sample")}
               </Badge>
             ) : null}
           </span>
@@ -312,8 +319,8 @@ export function ProjectCard({
           className="px-3.5 text-xs text-fg-muted"
         >
           {project.archived === true
-            ? "The sample can't be deleted. Unarchive it any time."
-            : "A finished example to look around. It's not billed and you can archive it."}
+            ? t("projects.card.sampleNoteArchived")
+            : t("projects.card.sampleNote")}
         </p>
       ) : null}
 
@@ -353,8 +360,7 @@ export function ProjectCard({
             data-testid="card-files-delete"
             className="flex items-center gap-1.5 text-amber-300"
           >
-            Files deleted on{" "}
-            {DATE_FORMAT.format(new Date(project.files_delete_at!))}
+            {t("projects.card.filesDeletedOn", { date: cardDate(project.files_delete_at!, t) })}
             <span aria-hidden>·</span>
             <button
               type="button"
@@ -370,11 +376,11 @@ export function ProjectCard({
               }}
               className="text-primary hover:underline disabled:opacity-50"
             >
-              Keep
+              {t("projects.card.keep")}
             </button>
           </span>
         ) : (
-          <span>{DATE_FORMAT.format(new Date(project.created_at))}</span>
+          <span>{cardDate(project.created_at, t)}</span>
         )}
         {onUpdate !== undefined ? (
           <div className="flex items-center gap-0.5 text-fg-muted">
@@ -383,7 +389,7 @@ export function ProjectCard({
               variant="ghost"
               size="icon-xs"
               aria-label={
-                project.pinned === true ? "Unpin project" : "Pin project"
+                project.pinned === true ? t("projects.card.unpin") : t("projects.card.pin")
               }
               disabled={busy}
               onClick={() => void run({ pinned: project.pinned !== true })}
@@ -394,10 +400,10 @@ export function ProjectCard({
               type="button"
               variant="ghost"
               size="icon-xs"
-              aria-label="Rename project"
+              aria-label={t("projects.card.rename")}
               disabled={busy}
               onClick={() => {
-                setNameDraft(project.name ?? "Untitled project");
+                setNameDraft(project.name ?? t("projects.card.untitled"));
                 setDialog("rename");
               }}
             >
@@ -409,7 +415,7 @@ export function ProjectCard({
                   type="button"
                   variant="ghost"
                   size="icon-xs"
-                  aria-label="Restore project"
+                  aria-label={t("projects.card.restore")}
                   disabled={busy}
                   onClick={() => void run({ archived: false })}
                 >
@@ -420,7 +426,7 @@ export function ProjectCard({
                     type="button"
                     variant="ghost"
                     size="icon-xs"
-                    aria-label="Delete project"
+                    aria-label={t("projects.card.delete")}
                     data-testid="card-delete"
                     disabled={busy}
                     onClick={() => setDialog("delete")}
@@ -441,8 +447,8 @@ export function ProjectCard({
                       type="button"
                       variant="ghost"
                       size="icon-xs"
-                      aria-label="Archive project"
-                      aria-description={activeRun ? ARCHIVE_BLOCKED : undefined}
+                      aria-label={t("projects.card.archive")}
+                      aria-description={activeRun ? archiveBlocked(t) : undefined}
                       disabled={busy || activeRun}
                       onClick={() => setDialog("archive")}
                     >
@@ -451,7 +457,7 @@ export function ProjectCard({
                   </span>
                 </TooltipTrigger>
                 {activeRun ? (
-                  <TooltipContent side="top">{ARCHIVE_BLOCKED}</TooltipContent>
+                  <TooltipContent side="top">{archiveBlocked(t)}</TooltipContent>
                 ) : null}
               </Tooltip>
             )}
@@ -467,7 +473,7 @@ export function ProjectCard({
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Rename project</DialogTitle>
+            <DialogTitle>{t("projects.card.renameTitle")}</DialogTitle>
           </DialogHeader>
           <form
             className="grid gap-4"
@@ -478,7 +484,7 @@ export function ProjectCard({
           >
             <input
               type="text"
-              aria-label="Project name"
+              aria-label={t("projects.card.nameLabel")}
               value={nameDraft}
               maxLength={120}
               onChange={(e) => setNameDraft(e.target.value)}
@@ -486,7 +492,7 @@ export function ProjectCard({
             />
             <DialogFooter showCloseButton>
               <Button type="submit" disabled={busy || nameDraft.trim() === ""}>
-                Save
+                {t("projects.card.save")}
               </Button>
             </DialogFooter>
           </form>
@@ -501,14 +507,13 @@ export function ProjectCard({
       >
         <AlertDialogContent data-testid="delete-project-dialog">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete this project for good?</AlertDialogTitle>
+            <AlertDialogTitle>{t("projects.card.deleteTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Its files are removed for good. You won&apos;t be able to download
-              them again, and this can&apos;t be undone.
+              {t("projects.card.deleteBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Keep project</AlertDialogCancel>
+            <AlertDialogCancel>{t("projects.card.keepProject")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
@@ -517,7 +522,7 @@ export function ProjectCard({
                 void remove();
               }}
             >
-              Delete for good
+              {t("projects.card.deleteForGood")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -531,13 +536,13 @@ export function ProjectCard({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive project</AlertDialogTitle>
+            <AlertDialogTitle>{t("projects.card.archiveTitle")}</AlertDialogTitle>
             <AlertDialogDescription>
-              Archive this project? You can restore it later.
+              {t("projects.card.archiveBody")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogCancel>{t("projects.card.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={busy}
@@ -546,7 +551,7 @@ export function ProjectCard({
                 void run({ archived: true });
               }}
             >
-              Archive
+              {t("projects.card.archiveAction")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

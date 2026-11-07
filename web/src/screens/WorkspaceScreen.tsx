@@ -29,7 +29,7 @@ import { WorkspaceTips } from "@/components/onboarding/WorkspaceTips";
 import {
   HistoryList,
 } from "@/components/steps/HistoryList";
-import { UPLOAD_AGAIN } from "@/lib/api/client";
+import { uploadAgain } from "@/lib/api/client";
 import { OverviewTab } from "@/components/workspace/OverviewTab";
 import { MethodBadge } from "@/components/workspace/MethodChooser";
 import { PageHeader } from "@/components/workspace/PageHeader";
@@ -71,6 +71,7 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { useLimits } from "@/lib/api/useLimits";
 import { videoFacts } from "@/lib/glossary";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { retainOpenProject } from "@/lib/live/hub";
 import { RUN_TERMINAL } from "@/lib/live/liveStore";
 import { useLiveProject } from "@/lib/live/useLive";
@@ -119,6 +120,7 @@ export default function WorkspaceScreen(props: WorkspaceScreenProps) {
 }
 
 function Workspace({ projectId }: WorkspaceScreenProps) {
+  const tr = useT();
   const gateway = useGateway();
   // ADR 0138: the project, its load error and the analysis retry live in
   // the project's atom (workspaceAtoms); the action atoms write them
@@ -151,8 +153,8 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
   }, [setTabState]);
 
   const refetch = useCallback(
-    async () => load({ client: gateway, projectId }),
-    [load, gateway, projectId],
+    async () => load({ client: gateway, projectId, t: tr }),
+    [load, gateway, projectId, tr],
   );
 
   // A PATCH answer (method switch) keeps the runs we have
@@ -162,8 +164,8 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
   // force a re-upload); success flips analyze back to running, which
   // restarts the poll loop below.
   const retryAnalyze = useCallback(
-    async () => retry({ client: gateway, projectId }),
-    [retry, gateway, projectId],
+    async () => retry({ client: gateway, projectId, t: tr }),
+    [retry, gateway, projectId, tr],
   );
 
   useEffect(() => {
@@ -240,12 +242,12 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
           <div role="alert" className="space-y-2">
             <p className="text-red-400">{loadError}</p>
             <Button variant="outline" size="sm" onClick={() => void refetch()}>
-              Retry
+              {tr("workspace.screen.retry")}
             </Button>
           </div>
         ) : (
           <p data-testid="workspace-loading" className="text-fg-muted">
-            Loading project…
+            {tr("workspace.screen.loading")}
           </p>
         )}
       </section>
@@ -272,8 +274,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
       <div className="min-w-0 flex-1">
         <AnalyzeProgress analyze={project.analyze} />
         <p className="mt-1 text-sm">
-          Getting your video ready: finding its scenes and making a preview.
-          This step is free, and the page updates by itself.
+          {tr("workspace.screen.analyzing")}
         </p>
       </div>
     </div>
@@ -298,7 +299,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
             title={project.name || undefined}
             className="min-w-0 max-w-full truncate text-sm font-semibold tracking-tight"
           >
-            {project.name || "Untitled project"}
+            {project.name || tr("workspace.screen.untitled")}
           </h1>
           <Tooltip>
             <TooltipTrigger asChild>
@@ -307,12 +308,11 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
                 onClick={() => void copyProjectId()}
                 className="rounded border border-edge bg-surface-2 px-1.5 py-0.5 text-[11px] text-fg-muted hover:text-fg"
               >
-                {idCopied ? "Copied" : "Support info"}
+                {idCopied ? tr("workspace.screen.copied") : tr("workspace.screen.supportInfo")}
               </button>
             </TooltipTrigger>
             <TooltipContent side="bottom">
-              Copies this project&apos;s id ({project.project_id}) — quote it to
-              support
+              {tr("workspace.screen.supportInfoHint", { id: project.project_id })}
             </TooltipContent>
           </Tooltip>
           <MethodBadge
@@ -326,7 +326,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
                 aria-hidden
                 className="h-2.5 w-2.5 animate-spin rounded-full border border-primary border-t-transparent"
               />
-              {analyzeStageLabel(project.analyze.stage)}…
+              {analyzeStageLabel(project.analyze.stage, tr)}…
               {analyzePercent(project.analyze) !== null ? (
                 <span className="font-mono">
                   {analyzePercent(project.analyze)}%
@@ -340,7 +340,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
           ) : project.analyze.state === "failed" && !filesDeleted ? (
             <span className="flex items-center gap-2">
               <span className="rounded-full bg-red-500/10 px-2 py-0.5 text-[11px] text-red-400">
-                Analyze failed
+                {tr("workspace.screen.analyzeFailed")}
               </span>
               <button
                 type="button"
@@ -348,12 +348,12 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
                 onClick={() => void retryAnalyze()}
                 className="rounded border border-edge bg-surface-2 px-2 py-0.5 text-[11px] text-fg-muted transition-colors hover:text-fg disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {retrying ? "Retrying…" : "Retry analysis"}
+                {retrying ? tr("workspace.screen.retrying") : tr("workspace.screen.retryAnalysis")}
               </button>
             </span>
           ) : probe ? (
             <span className="text-[11px] text-fg-muted">
-              {videoFacts(project)}
+              {videoFacts(project, tr)}
             </span>
           ) : null}
           <div className="ml-auto flex items-center gap-2">
@@ -361,7 +361,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
               <TooltipTrigger asChild>
                 <button
                   type="button"
-                  aria-label="Keyboard shortcuts"
+                  aria-label={tr("workspace.screen.shortcuts")}
                   onClick={() => setShortcutsOpen((o) => !o)}
                   className="rounded border border-edge bg-surface-2 px-2 py-0.5 font-mono text-[11px] text-fg-muted hover:text-fg"
                 >
@@ -372,7 +372,7 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
                 side="bottom"
                 className="flex items-center gap-1.5"
               >
-                Keyboard shortcuts <kbd>?</kbd>
+                {tr("workspace.screen.shortcuts")} <kbd>?</kbd>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -384,21 +384,20 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
           <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4">
             <div className="mx-auto flex max-w-4xl flex-col gap-3">
               <PageHeader
-                title="Files"
-                description={`Files deleted on ${new Intl.DateTimeFormat(
-                  "en-US",
-                  {
+                title={tr("workspace.screen.filesTitle")}
+                description={tr("workspace.screen.filesDeletedOn", {
+                  date: new Intl.DateTimeFormat(tr.intl, {
                     year: "numeric",
                     month: "short",
                     day: "numeric",
-                  },
-                ).format(new Date(project.files_deleted_at!))}`}
+                  }).format(new Date(project.files_deleted_at!)),
+                })}
               />
               <p
                 data-testid="files-deleted-line"
                 className="text-sm text-fg-muted"
               >
-                {UPLOAD_AGAIN}.
+                {uploadAgain(tr)}
               </p>
               <HistoryList project={project} />
             </div>
@@ -458,8 +457,8 @@ function Workspace({ projectId }: WorkspaceScreenProps) {
               ) : (
                 <div className="mx-auto flex max-w-4xl flex-col gap-3">
                   <PageHeader
-                    title="Files"
-                    description="Kept while you use this project; deleted after 90 days without use."
+                    title={tr("workspace.screen.filesTitle")}
+                    description={tr("workspace.screen.filesKept")}
                       />
                   {/* plans canvas, Receipt A */}
                   <ProSavingsCard project={project} />

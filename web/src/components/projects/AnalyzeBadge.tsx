@@ -12,19 +12,24 @@ import type { JSX } from "react";
 import { Progress } from "@/components/ui/progress";
 import type { AnalyzeInfo } from "@/lib/api/types";
 import { formatTimeLeft } from "@/lib/format";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
-/** Gateway analyze stage ids → human labels. Unknown ids fall back to the
- * generic "Analyzing" rather than leaking internals. */
-const STAGE_LABELS: Record<string, string> = {
-  analyze: "Analyzing",
-  proxy: "Building preview",
-  scene_detect: "Detecting scenes",
-  thumbnails: "Thumbnails",
-  profiling: "Measuring scenes",
-};
+/** Gateway analyze stage ids with a human label (projects.analyze.stages).
+ * Unknown ids fall back to the generic "Analyzing" rather than leaking
+ * internals. */
+const STAGES: ReadonlySet<string> = new Set([
+  "analyze",
+  "proxy",
+  "scene_detect",
+  "thumbnails",
+  "profiling",
+]);
 
-export function analyzeStageLabel(stage?: string): string {
-  return (stage !== undefined ? STAGE_LABELS[stage] : undefined) ?? "Analyzing";
+export function analyzeStageLabel(stage?: string, t: Tr = EN): string {
+  return stage !== undefined && STAGES.has(stage)
+    ? t(`projects.analyze.stages.${stage}`)
+    : t("projects.analyze.stages.analyze");
 }
 
 /** The shared time formatter (lib/format, S3D-34). */
@@ -48,11 +53,12 @@ export function AnalyzeProgress({
 }: {
   analyze: ProgressLike;
 }): JSX.Element {
+  const t = useT();
   const pct = analyzePercent(analyze);
   return (
     <div data-testid="analyze-progress" className="min-w-0 flex-1">
       <p className="flex flex-wrap items-baseline gap-x-2 font-medium text-fg">
-        {analyzeStageLabel(analyze.stage)}…
+        {analyzeStageLabel(analyze.stage, t)}…
         {pct !== null ? <span className="font-mono text-xs">{pct}%</span> : null}
         {analyze.eta_seconds !== undefined && analyze.eta_seconds > 0 ? (
           <span className="text-xs font-normal text-fg-muted">
@@ -63,7 +69,7 @@ export function AnalyzeProgress({
       {pct !== null ? (
         <Progress
           value={pct}
-          aria-label="Analyze progress"
+          aria-label={t("projects.analyze.progressLabel")}
           className="mt-2 h-1 max-w-md"
         />
       ) : null}
@@ -72,6 +78,7 @@ export function AnalyzeProgress({
 }
 
 export function AnalyzeBadge({ analyze }: { analyze: AnalyzeInfo }) {
+  const t = useT();
   if (analyze.state === "running") {
     const pct = analyzePercent(analyze);
     return (
@@ -84,7 +91,7 @@ export function AnalyzeBadge({ analyze }: { analyze: AnalyzeInfo }) {
             className="h-1.5 w-1.5 animate-pulse rounded-full bg-primary"
             aria-hidden
           />
-          {analyzeStageLabel(analyze.stage)}
+          {analyzeStageLabel(analyze.stage, t)}
           {pct !== null ? <span className="font-mono">{pct}%</span> : null}
           {analyze.eta_seconds !== undefined && analyze.eta_seconds > 0 ? (
             <span>{formatEtaLeft(analyze.eta_seconds)}</span>
@@ -93,7 +100,7 @@ export function AnalyzeBadge({ analyze }: { analyze: AnalyzeInfo }) {
         {pct !== null ? (
           <Progress
             value={pct}
-            aria-label="Analyze progress"
+            aria-label={t("projects.analyze.progressLabel")}
             className="h-0.5 w-24"
           />
         ) : null}
@@ -105,7 +112,9 @@ export function AnalyzeBadge({ analyze }: { analyze: AnalyzeInfo }) {
       <span className="inline-flex max-w-full shrink items-center gap-1.5 rounded-full border border-red-500/40 bg-red-500/10 px-2 py-0.5 text-xs text-red-400">
         <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-red-400" aria-hidden />
         <span className="truncate">
-          Analyze failed{analyze.error ? ` — ${analyze.error}` : ""}
+          {analyze.error
+            ? t("projects.analyze.failedWith", { error: analyze.error })
+            : t("projects.analyze.failed")}
         </span>
       </span>
     );
@@ -113,7 +122,7 @@ export function AnalyzeBadge({ analyze }: { analyze: AnalyzeInfo }) {
   return (
     <span className="inline-flex shrink-0 items-center gap-1.5 rounded-full border border-edge bg-surface-1 px-2 py-0.5 text-xs text-fg-muted">
       <span className="h-1.5 w-1.5 rounded-full bg-emerald-400" aria-hidden />
-      Analyzed
+      {t("projects.analyze.done")}
     </span>
   );
 }

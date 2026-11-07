@@ -5,6 +5,7 @@
  */
 
 import { pendingDeletionMessage } from "@/lib/accountDeletion";
+import { EN, type Tr } from "@/lib/i18n/t";
 import { isReauthCode } from "@/lib/reauth";
 import type {
   AccountDeleteResult,
@@ -149,8 +150,14 @@ export function normalizeDownloads(raw: unknown): Downloads {
 
 /** S3D-24: what a 410 files_deleted says, wherever it comes from
  * (downloads, quotes, new runs, retries, uploads into the project). */
-export const UPLOAD_AGAIN = "Upload the video again to make new 3D";
-export const FILES_DELETED_MESSAGE = `This project's files have been deleted. ${UPLOAD_AGAIN}.`;
+export function uploadAgain(t: Tr = EN): string {
+  return t("errors.filesDeleted.uploadAgain");
+}
+export function filesDeletedMessage(t: Tr = EN): string {
+  return t("errors.filesDeleted.message");
+}
+/** English (callers without a translator) */
+export const FILES_DELETED_MESSAGE = filesDeletedMessage();
 
 /** POST /v1/plans/preview-change: today's charge is the new plan less
  * the unused days of the current one. */
@@ -320,10 +327,17 @@ export interface ClientOptions {
    * resolves once the person has signed in again (lib/reauth), and the
    * request is tried once more. Rejects when they don't. */
   onReauthRequired?: () => Promise<void>;
+  /** The reader's language for the errors the client words itself (the
+   * gateway's own messages stay as sent); English when absent. */
+  t?: Tr;
 }
 
 export class GatewayClient {
   constructor(private readonly opts: ClientOptions) {}
+
+  private get t(): Tr {
+    return this.opts.t ?? EN;
+  }
 
   private async request<T>(
     method: string,
@@ -385,10 +399,10 @@ export class GatewayClient {
       throw new GatewayError(
         code,
         code === "files_deleted"
-          ? FILES_DELETED_MESSAGE
+          ? filesDeletedMessage(this.t)
           : code === "account_pending_deletion"
-            ? pendingDeletionMessage(parsed?.details?.delete_after)
-            : (parsed?.message ?? `request failed (${res.status})`),
+            ? pendingDeletionMessage(parsed?.details?.delete_after, this.t)
+            : (parsed?.message ?? this.t("errors.requestFailed", { status: res.status })),
         res.status,
         parsed?.details,
       );
@@ -522,7 +536,7 @@ export class GatewayClient {
     const f = this.opts.fetchFn ?? fetch;
     const token = await this.opts.getToken();
     const res = await f(this.usageCsvUrl(month), { headers: { Authorization: `Bearer ${token}` } });
-    if (!res.ok) throw new GatewayError("server_error", "Couldn't download the CSV.", res.status);
+    if (!res.ok) throw new GatewayError("server_error", this.t("errors.csvDownloadFailed"), res.status);
     return res.text();
   }
 
@@ -922,12 +936,12 @@ export class GatewayClient {
           : reject(
               new GatewayError(
                 "upload_failed",
-                `upload failed (${xhr.status})`,
+                this.t("errors.upload.failedStatus", { status: xhr.status }),
                 xhr.status,
               ),
             );
       xhr.onerror = () =>
-        reject(new GatewayError("upload_failed", "upload network error", 0));
+        reject(new GatewayError("upload_failed", this.t("errors.upload.network"), 0));
       xhr.send(file);
     });
   }
@@ -1070,7 +1084,7 @@ export class GatewayClient {
     });
     if (!res.ok || res.body === null) {
       void res.body?.cancel().catch(() => {});
-      throw new GatewayError("events_unavailable", "The status stream isn't available.", res.status);
+      throw new GatewayError("events_unavailable", this.t("errors.eventsUnavailable"), res.status);
     }
     return res.body;
   }

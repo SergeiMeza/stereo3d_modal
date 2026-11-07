@@ -11,6 +11,7 @@ import { atom } from "jotai";
 import { GatewayError, type GatewayClient } from "@/lib/api/client";
 import type { Project } from "@/lib/api/types";
 import { billingUidAtom } from "@/lib/billing";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export interface ProjectListState {
   uid: string | null;
@@ -36,7 +37,9 @@ type Lister = Pick<GatewayClient, "listProjects">;
 /** Owner bug 2026-11-05: a list that fails, hangs or answers without a
  * list is an error with Retry, never "No projects yet". */
 export const PROJECTS_TIMEOUT_MS = 15_000;
-export const PROJECTS_FAILED = "Couldn't load your projects.";
+export function projectsFailed(t: Tr = EN): string {
+  return t("projects.list.loadFailed");
+}
 
 function inTime<T>(p: Promise<T>): Promise<T> {
   return new Promise<T>((resolve, reject) => {
@@ -54,10 +57,12 @@ function inTime<T>(p: Promise<T>): Promise<T> {
   });
 }
 
-/** The projects (or the archived ones). */
+/** The projects (or the archived ones); the errors in the caller's
+ * language (t, English when absent). */
 export const loadProjectsAtom = atom(
   null,
-  async (get, set, a: { client: Lister; archived?: boolean }): Promise<void> => {
+  async (get, set, a: { client: Lister; archived?: boolean; t?: Tr }): Promise<void> => {
+    const t = a.t ?? EN;
     const uid = get(billingUidAtom);
     const mine = (s: ProjectListState): ProjectListState => (s.uid === uid ? s : { ...EMPTY_PROJECT_LIST, uid });
     try {
@@ -75,11 +80,14 @@ export const loadProjectsAtom = atom(
         a.archived
           ? {
               ...mine(s),
-              actionError: e instanceof GatewayError ? e.message : "Failed to load archived projects.",
+              actionError: e instanceof GatewayError ? e.message : t("projects.list.archivedFailed"),
             }
           : {
               ...mine(s),
-              loadError: e instanceof GatewayError && e.message ? `${PROJECTS_FAILED} ${e.message}` : PROJECTS_FAILED,
+              loadError:
+                e instanceof GatewayError && e.message
+                  ? t("projects.list.loadFailedWith", { detail: e.message })
+                  : projectsFailed(t),
             },
       );
     }

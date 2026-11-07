@@ -26,6 +26,7 @@ import { UploadDropzone } from "@/components/projects/UploadDropzone";
 import { GatewayError } from "@/lib/api/client";
 import type { Project, UpdateProjectRequest } from "@/lib/api/types";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import {
   loadProjectsAtom,
@@ -48,6 +49,7 @@ const byNewest = (a: Project, b: Project) =>
   b.created_at.localeCompare(a.created_at);
 
 export default function ProjectsScreen() {
+  const t = useT();
   const gateway = useGateway();
   // ADR 0138: the list lives in app-store atoms (projectsAtoms)
   const list = useAppAtomValue(projectListAtom);
@@ -70,12 +72,12 @@ export default function ProjectsScreen() {
   const [welcomeClosed, setWelcomeClosed] = useState(false);
 
   const load = useCallback(() => {
-    void loadList({ client: gateway });
-  }, [gateway, loadList]);
+    void loadList({ client: gateway, t });
+  }, [gateway, loadList, t]);
 
   const loadArchived = useCallback(() => {
-    void loadList({ client: gateway, archived: true });
-  }, [gateway, loadList]);
+    void loadList({ client: gateway, archived: true, t });
+  }, [gateway, loadList, t]);
 
   // and again when the account changes
   useEffect(() => {
@@ -117,13 +119,13 @@ export default function ProjectsScreen() {
         setActionError(null);
       } catch (e: unknown) {
         setActionError(
-          e instanceof GatewayError ? e.message : "Failed to update project.",
+          e instanceof GatewayError ? e.message : t("projects.list.updateFailed"),
         );
       }
       load();
       if (showArchived) loadArchived();
     },
-    [gateway, load, loadArchived, showArchived, setActionError],
+    [gateway, load, loadArchived, showArchived, setActionError, t],
   );
 
   // owner 2026-11-04: archive first, then delete (Archived view only); the
@@ -139,13 +141,13 @@ export default function ProjectsScreen() {
         setActionError(
           e instanceof GatewayError && e.message
             ? e.message
-            : "Couldn't delete the project. Please try again.",
+            : t("projects.list.deleteFailed"),
         );
       }
       load();
       if (showArchived) loadArchived();
     },
-    [gateway, load, loadArchived, showArchived, setActionError],
+    [gateway, load, loadArchived, showArchived, setActionError, t],
   );
 
   const grid = (list: Project[]) => (
@@ -212,15 +214,18 @@ export default function ProjectsScreen() {
   return (
     <section className="mx-auto w-full max-w-7xl space-y-6 px-4 py-6">
       <div className="flex items-center justify-between gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Projects</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("projects.list.title")}</h1>
         <button
           type="button"
           aria-pressed={showArchived}
           onClick={() => setShowArchived((v) => !v)}
           className="rounded-md border border-edge px-3 py-1.5 text-xs text-fg-muted transition-colors hover:bg-surface-2 hover:text-fg"
         >
-          {showArchived ? "Hide archived" : "Show archived"}
-          {archived !== null ? ` (${archived.length})` : ""}
+          {archived !== null
+            ? t(showArchived ? "projects.list.hideArchivedCount" : "projects.list.showArchivedCount", {
+                count: archived.length,
+              })
+            : t(showArchived ? "projects.list.hideArchived" : "projects.list.showArchived")}
         </button>
       </div>
 
@@ -256,7 +261,7 @@ export default function ProjectsScreen() {
             onClick={() => setActionError(null)}
             className="rounded-md border border-red-500/40 px-3 py-1.5 text-xs transition-colors hover:bg-red-500/20"
           >
-            Dismiss
+            {t("projects.list.dismiss")}
           </button>
         </div>
       ) : null}
@@ -269,7 +274,7 @@ export default function ProjectsScreen() {
             onClick={load}
             className="rounded-md border border-red-500/40 px-3 py-1.5 text-xs transition-colors hover:bg-red-500/20"
           >
-            Retry
+            {t("projects.list.retry")}
           </button>
         </div>
       ) : null}
@@ -277,16 +282,16 @@ export default function ProjectsScreen() {
           came back empty; a failed one keeps what was shown before */}
       {sorted === null ? (
         loadError === null ? (
-          <p className="text-fg-muted">Loading projects…</p>
+          <p className="text-fg-muted">{t("projects.list.loading")}</p>
         ) : null
       ) : sorted.length === 0 ? null : pinned.length > 0 ? (
         <>
-          <h2 className="text-sm font-medium text-fg-muted">Pinned</h2>
+          <h2 className="text-sm font-medium text-fg-muted">{t("projects.list.pinned")}</h2>
           {grid(pinned)}
           {rest.length > 0 ? (
             <>
               <h2 className="text-sm font-medium text-fg-muted">
-                All projects
+                {t("projects.list.all")}
               </h2>
               {grid(rest)}
             </>
@@ -298,11 +303,11 @@ export default function ProjectsScreen() {
 
       {showArchived ? (
         <div className="space-y-4">
-          <h2 className="text-sm font-medium text-fg-muted">Archived</h2>
+          <h2 className="text-sm font-medium text-fg-muted">{t("projects.list.archived")}</h2>
           {archived === null ? (
-            <p className="text-fg-muted">Loading archived projects…</p>
+            <p className="text-fg-muted">{t("projects.list.loadingArchived")}</p>
           ) : archived.length === 0 ? (
-            <p className="text-fg-muted">No archived projects.</p>
+            <p className="text-fg-muted">{t("projects.list.noArchived")}</p>
           ) : (
             grid([...archived].sort(byNewest))
           )}

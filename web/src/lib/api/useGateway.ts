@@ -12,6 +12,7 @@ import { useMemo } from "react";
 
 import { GatewayClient } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { confirmItsYou } from "@/lib/reauth";
 import { currentRegion, gatewayBaseUrl } from "@/lib/region";
 
@@ -19,6 +20,7 @@ const chunkedUploads = () => currentRegion() === "cn";
 
 export function useGateway(): GatewayClient {
   const { getToken } = useAuth();
+  const t = useT();
   return useMemo(
     () =>
       new GatewayClient({
@@ -27,7 +29,9 @@ export function useGateway(): GatewayClient {
         resumableUploads: chunkedUploads,
         // owner 2026-11-06: sensitive routes after an old sign-in
         onReauthRequired: confirmItsYou,
+        // the errors the client words itself, in the reader's language
+        t,
       }),
-    [getToken],
+    [getToken, t],
   );
 }
