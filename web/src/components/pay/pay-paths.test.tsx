@@ -14,12 +14,14 @@ import { AuthProvider } from "@/lib/auth";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
+import { CheckoutPane } from "./CheckoutPane";
 import { PaySheet } from "./PaySheet";
 
 const stripe = vi.hoisted(() => ({
   confirm: vi.fn(),
   status: { type: "open" } as { type: string; paymentStatus?: string },
   keys: [] as string[],
+  options: [] as unknown[],
 }));
 
 vi.mock("@/components/billing/stripeLoader", () => ({
@@ -30,7 +32,11 @@ vi.mock("@/components/billing/stripeLoader", () => ({
 }));
 
 vi.mock("@stripe/react-stripe-js/checkout", () => ({
-  CheckoutElementsProvider: ({ children }: { children: ReactNode }) => <>{children}</>,
+  CheckoutElementsProvider: ({ children, options }: { children: ReactNode; options: unknown }) => {
+    stripe.options.push(options);
+    return <>{children}</>;
+  },
+  CurrencySelectorElement: () => <div data-testid="stripe-currency-selector" />,
   useCheckoutElements: () => ({
     type: "success",
     checkout: { confirm: stripe.confirm, getSession: () => ({ status: stripe.status }) },
@@ -52,6 +58,7 @@ beforeEach(() => {
   stripe.confirm.mockReset();
   stripe.status = { type: "open" };
   stripe.keys = [];
+  stripe.options = [];
 });
 afterEach(() => {
   cleanup();
@@ -101,6 +108,25 @@ function sheet(c: Conversion) {
   );
   return onClose;
 }
+
+describe("local currency at checkout (owner 2026-11-07, Option B)", () => {
+  it("a payment allows Adaptive Pricing and shows the Currency Selector, so US dollars stay a choice", async () => {
+    sheet(run("pk_test_run"));
+    expect(await screen.findByTestId("stripe-currency-selector")).toBeTruthy();
+    expect(stripe.options.at(-1)).toMatchObject({ clientSecret: SECRET, adaptivePricing: { allowed: true } });
+  });
+
+  it("adding a method has no amount: no Adaptive Pricing, no Currency Selector", async () => {
+    render(
+      <CheckoutPane clientSecret="cs_test_setup_secret" publishableKey="pk_test_run" setup>
+        {(_form, body) => <div data-testid="setup-body">{body}</div>}
+      </CheckoutPane>,
+    );
+    expect(await screen.findByTestId("setup-body")).toBeTruthy();
+    expect(screen.queryByTestId("stripe-currency-selector")).toBeNull();
+    expect(stripe.options.at(-1)).not.toHaveProperty("adaptivePricing");
+  });
+});
 
 describe("the run pay sheet on Stripe Checkout", () => {
   it("confirms with no returnUrl and finishes when paid", async () => {

@@ -17,6 +17,12 @@
  * A render prop hands the sheet a `PayForm` (ready, confirm, selected
  * method) so the sheet owns the one main button and the states.
  *
+ * Local currency (owner 2026-11-07, Option B): every payment session
+ * allows Stripe's Adaptive Pricing, so the customer sees and pays the
+ * amount in their own currency where Stripe offers it, and the Currency
+ * Selector above the wallet row lets them keep US dollars. Adding a
+ * method (setup) has no amount, so neither is there.
+ *
  * Test mode: a client secret starting `cs_mock_` (the MSW mock gateway)
  * swaps Stripe for a plain stand-in whose confirm asks the mock what
  * happened — the screens and their states run without Stripe.js.
@@ -26,6 +32,7 @@ import { appStore } from "@/lib/state/stores";
 import { checkoutEmailAtom } from "./payAtoms";
 import {
   CheckoutElementsProvider,
+  CurrencySelectorElement,
   ExpressCheckoutElement,
   PaymentElement,
   useCheckoutElements,
@@ -213,7 +220,12 @@ function StripePane({
   return (
     <CheckoutElementsProvider
       stripe={stripe}
-      options={{ clientSecret, elementsOptions: { appearance } }}
+      options={{
+        clientSecret,
+        elementsOptions: { appearance },
+        // owner 2026-11-07: the local price where Stripe offers one
+        ...(setup ? {} : { adaptivePricing: { allowed: true } }),
+      }}
     >
       <StripeForm
         big={big}
@@ -298,6 +310,12 @@ function StripeForm({
       ) : null}
       {ready ? (
         <>
+          {/* the customer can keep US dollars (no amount when adding a method) */}
+          {setup ? null : (
+            <div data-testid="pay-currency-selector">
+              <CurrencySelectorElement />
+            </div>
+          )}
           <ExpressCheckoutElement
             options={
               {
