@@ -120,10 +120,13 @@ func (s *Service) payStepUpCheckout(ctx context.Context, p *store.PayRequest, pc
 }
 
 // applyStepUpSession: a step-up's pay page was paid (checkout.session
-// completed / async succeeded). The change is made once (the pay request
-// claims the session), today's payment a credit on its invoice; if it
-// can't be made, the payment is refunded. An error answers 5xx: Stripe
-// sends the event again.
+// completed / async succeeded). The pay request claims the session in
+// two phases (REV-01): "applying" first, "paid" only once the change is
+// made, so a delivery cut short (a deploy, a Firestore or Stripe blip)
+// leaves it applying and the next delivery, or stepUpApplySweep, makes
+// it (its Stripe keys are the session's: nothing is done twice). A change
+// that can no longer be made is refunded. A transient failure answers
+// 5xx: Stripe sends the event again.
 func (s *Service) applyStepUpSession(ctx context.Context, eventType, sessionID string, md map[string]string) error {
 	if eventType != "checkout.session.completed" && eventType != "checkout.session.async_payment_succeeded" {
 		return nil
@@ -136,58 +139,160 @@ func (s *Service) applyStepUpSession(ctx context.Context, eventType, sessionID s
 		return nil // async: its succeeded event comes later
 	}
 	token, uid := md["pay_request"], md["user_id"]
-	claimed := false
-	p, err := s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
-		claimed = false
+	now := time.Now().UTC()
+	claimed, busy := false, false
+	_, err = s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+		claimed, busy = false, false
 		if x.UID != uid || x.Kind != store.PayKindStepUp {
 			return store.ErrStateConflict
 		}
-		if x.State == store.PayPaid && x.CheckoutID == sessionID {
-			return nil // done already
-		}
-		if x.State == store.PayPaid {
+		// ours: this session claimed it (records from before REV-01 are
+		// paid with no claim time)
+		ours := x.CheckoutID == sessionID && (x.ClaimedAt != nil || x.State == store.PayPaid)
+		switch {
+		case ours && x.State == store.PayApplying:
+			if x.ApplyLease != nil && now.Before(*x.ApplyLease) {
+				busy = true // another attempt is at it
+				return nil
+			}
+		case ours:
+			return nil // made (paid) or refunded (void) already
+		case x.State == store.PayPaid || x.State == store.PayApplying:
 			return store.ErrStateConflict // paid by another session: this one is refunded
+		default:
+			x.ClaimedAt = &now
+			x.Apply = map[string]string{"plan_to": md["plan_to"], "quote_at": md["quote_at"], "credit_cents": md["credit_cents"]}
 		}
-		now := time.Now().UTC()
-		x.State, x.CheckoutID, x.ClosedAt, x.VoidReason, claimed = store.PayPaid, sessionID, &now, "paid on the pay page", true
+		lease := now.Add(stepUpApplyLease)
+		x.State, x.CheckoutID, x.ApplyLease, x.ApplyAttempts, claimed = store.PayApplying, sessionID, &lease, x.ApplyAttempts+1, true
 		return nil
 	})
-	refund := func(why string) {
-		s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + token, UID: uid}, out.PaymentIntentID, out.AmountReceived, why)
-	}
 	if errors.Is(err, store.ErrStateConflict) || errors.Is(err, store.ErrNotFound) {
-		refund("a step-up paid twice or not ours")
+		s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + token, UID: uid}, out.PaymentIntentID, out.AmountReceived, "a step-up paid twice or not ours")
 		return nil
 	}
 	if err != nil {
 		return err
+	}
+	if busy {
+		return errStepUpBusy
 	}
 	if !claimed {
 		return nil
 	}
+	return s.stepUpApply(ctx, token, uid, sessionID, out, md, false)
+}
+
+const (
+	stepUpApplyLease  = 2 * time.Minute // one attempt's hold on a claimed step-up
+	stepUpApplyGiveUp = 2 * time.Hour   // a change still not made this long after the payment is refunded
+)
+
+var errStepUpBusy = errors.New("step-up change in progress")
+
+// stepUpApply makes the change a claimed (applying) step-up session paid
+// for. A transient failure leaves it applying, its lease let go, and
+// answers the error; one that can't be cured (no plan, the quote no
+// longer a step-up, Stripe refusing it), or any failure once giveUp, is
+// refunded.
+func (s *Service) stepUpApply(ctx context.Context, token, uid, sessionID string, out stripex.Outcome, md map[string]string, giveUp bool) error {
+	fail := func(err error, permanent bool) error {
+		if permanent || giveUp {
+			s.stepUpRefund(ctx, token, uid, sessionID, out, md["plan_to"], err)
+			return nil
+		}
+		s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+			if x.State == store.PayApplying && x.CheckoutID == sessionID {
+				x.ApplyLease, x.ApplyError = nil, err.Error()
+			}
+			return nil
+		})
+		slog.WarnContext(ctx, "paid step-up not applied yet; tried again", "pay_request", token, "err", err)
+		return err
+	}
 	cust, err := s.Store.GetCustomer(ctx, uid)
 	if err != nil {
-		return err
+		return fail(err, false)
+	}
+	if cust.Plan != nil && cust.Plan.Key() == md["plan_to"] {
+		// an earlier attempt made the change and was cut before it said so
+		s.stepUpPaid(ctx, token, sessionID, uid, md["plan_to"], out.AmountReceived)
+		return nil
 	}
 	quoteAt, _ := strconv.ParseInt(md["quote_at"], 10, 64)
 	credit, _ := strconv.ParseInt(md["credit_cents"], 10, 64)
 	q, qerr := s.quotePlanChange(ctx, uid, cust, md["plan_to"], time.Unix(quoteAt, 0).UTC())
-	if qerr == nil && q.Kind == changeStepUp {
-		q.CreditCents = credit // what the customer was shown and paid against
-		err = s.applyStepUpWith(ctx, cust, q, stepUpPaid{Cents: out.AmountReceived, Session: sessionID})
-	} else {
-		err = qerr
+	if qerr != nil {
+		return fail(qerr, qerr.Status < 500)
 	}
-	if err != nil {
-		slog.WarnContext(ctx, "paid step-up not applied; refunding", "pay_request", p.ID, "err", err)
-		s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
-			x.State, x.VoidReason = store.PayVoid, "change failed after payment; refunded"
-			return nil
-		})
-		refund("the plan change couldn't be made after it was paid")
-		s.Slack.Alert(ctx, "stepup_refunded", fmt.Sprintf("`%s`'s paid step-up to %s couldn't be made (%v); %s refunded", uid, md["plan_to"], err, money(out.AmountReceived)))
-		return nil
+	if q.Kind != changeStepUp {
+		return fail(errors.New("no longer a step-up"), true) // REV-19: an explicit error, not a typed nil
 	}
-	slog.InfoContext(ctx, "step-up paid on the pay page", "uid", uid, "to", md["plan_to"], "amount_cents", out.AmountReceived)
+	q.CreditCents = credit // what the customer was shown and paid against
+	if err := s.applyStepUpWith(ctx, cust, q, stepUpPaid{Cents: out.AmountReceived, Session: sessionID}); err != nil {
+		var api *httpx.APIError
+		return fail(err, errors.As(err, &api) && api.Status < 500)
+	}
+	s.stepUpPaid(ctx, token, sessionID, uid, md["plan_to"], out.AmountReceived)
 	return nil
+}
+
+func (s *Service) stepUpPaid(ctx context.Context, token, sessionID, uid, to string, cents int64) {
+	now := time.Now().UTC()
+	s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+		if x.State == store.PayApplying && x.CheckoutID == sessionID {
+			x.State, x.ClosedAt, x.VoidReason, x.ApplyLease, x.ApplyError = store.PayPaid, &now, "paid on the pay page", nil, ""
+		}
+		return nil
+	})
+	slog.InfoContext(ctx, "step-up paid on the pay page", "uid", uid, "to", to, "amount_cents", cents)
+}
+
+func (s *Service) stepUpRefund(ctx context.Context, token, uid, sessionID string, out stripex.Outcome, to string, why error) {
+	now := time.Now().UTC()
+	s.Store.UpdatePayRequest(ctx, token, func(x *store.PayRequest) error {
+		if x.State == store.PayApplying && x.CheckoutID == sessionID {
+			x.State, x.ClosedAt, x.VoidReason, x.ApplyLease, x.ApplyError = store.PayVoid, &now, "change failed after payment; refunded", nil, why.Error()
+		}
+		return nil
+	})
+	slog.WarnContext(ctx, "paid step-up not applied; refunding", "pay_request", token, "err", why)
+	s.refundLatePayment(ctx, &store.Conversion{ID: "stepup:" + token, UID: uid}, out.PaymentIntentID, out.AmountReceived, "the plan change couldn't be made after it was paid")
+	s.Slack.Alert(ctx, "stepup_refunded", fmt.Sprintf("`%s`'s paid step-up to %s couldn't be made (%v); %s refunded", uid, to, why, money(out.AmountReceived)))
+}
+
+// stepUpApplySweep takes up the paid step-ups left applying (a delivery
+// cut short, Stripe's redeliveries spent): the change is made, or, two
+// hours after the payment, refunded (reconciler).
+func (s *Service) stepUpApplySweep(ctx context.Context, now time.Time) (done int) {
+	rows, err := s.Store.ListPayRequests(ctx, "", store.PayApplying, 50)
+	if err != nil {
+		return 0
+	}
+	for _, p := range rows {
+		if p.Kind != store.PayKindStepUp || p.CheckoutID == "" || p.ClaimedAt == nil || p.ApplyLease != nil && now.Before(*p.ApplyLease) {
+			continue
+		}
+		out, _, err := s.Stripe.SessionOutcome(p.CheckoutID)
+		if err != nil || !out.Paid {
+			continue
+		}
+		taken := false
+		lease := now.Add(stepUpApplyLease)
+		if _, err := s.Store.UpdatePayRequest(ctx, p.ID, func(x *store.PayRequest) error {
+			taken = false
+			if x.State != store.PayApplying || x.CheckoutID != p.CheckoutID || x.ApplyLease != nil && now.Before(*x.ApplyLease) {
+				return nil
+			}
+			x.ApplyLease, x.ApplyAttempts, taken = &lease, x.ApplyAttempts+1, true
+			return nil
+		}); err != nil || !taken {
+			continue
+		}
+		md := map[string]string{"plan_to": p.Apply["plan_to"], "quote_at": p.Apply["quote_at"], "credit_cents": p.Apply["credit_cents"]}
+		if s.stepUpApply(ctx, p.ID, p.UID, p.CheckoutID, out, md, now.Sub(*p.ClaimedAt) > stepUpApplyGiveUp) == nil {
+			done++
+		}
+	}
+	return done
 }

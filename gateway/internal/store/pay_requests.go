@@ -25,7 +25,7 @@ type PayRequest struct {
 	// live amount (what is still owed, the invoice's amount due).
 	AmountCents int64      `firestore:"amount_cents" json:"amount_cents"`
 	Label       string     `firestore:"label" json:"label"`
-	State       string     `firestore:"state" json:"state"` // PayOpen | PayPaid | PayVoid
+	State       string     `firestore:"state" json:"state"` // PayOpen | PayPaid | PayVoid | PayApplying
 	VoidReason  string     `firestore:"void_reason,omitempty" json:"void_reason,omitempty"`
 	CreatedAt   time.Time  `firestore:"created_at" json:"created_at"`
 	ExpiresAt   time.Time  `firestore:"expires_at" json:"expires_at"`
@@ -38,6 +38,15 @@ type PayRequest struct {
 	HostedURL string `firestore:"hosted_url,omitempty" json:"-"`
 	// Kind stepup: the plan the change goes to.
 	PlanTo string `firestore:"plan_to,omitempty" json:"plan_to,omitempty"`
+	// Kind stepup, paid (REV-01): the paying session's quote (plan_to,
+	// quote_at, credit_cents), when it was claimed, and the change's
+	// attempts. State stays PayApplying until the change is made (then
+	// PayPaid) or refunded (PayVoid); ApplyLease keeps two attempts apart.
+	Apply         map[string]string `firestore:"apply,omitempty" json:"-"`
+	ClaimedAt     *time.Time        `firestore:"claimed_at,omitempty" json:"-"`
+	ApplyLease    *time.Time        `firestore:"apply_lease,omitempty" json:"-"`
+	ApplyAttempts int               `firestore:"apply_attempts,omitempty" json:"-"`
+	ApplyError    string            `firestore:"apply_error,omitempty" json:"-"`
 }
 
 // Pay request kinds and states.
@@ -47,9 +56,10 @@ const (
 	PayKindInvoice = "invoice" // a plan renewal's open invoice: Stripe's hosted page
 	PayKindStepUp  = "stepup"  // a plan step-up that didn't go through
 
-	PayOpen = "open"
-	PayPaid = "paid"
-	PayVoid = "void"
+	PayOpen     = "open"
+	PayPaid     = "paid"
+	PayVoid     = "void"
+	PayApplying = "applying" // kind stepup: paid, the change not made yet (the page shows "paid")
 )
 
 // PayRequestTTL is how long a pay link works.

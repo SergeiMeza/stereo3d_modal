@@ -37,6 +37,7 @@ type fakeStripe struct {
 	invItems       map[string]int64             // pending invoice item id → amount
 	schedules      map[string]map[string]string // schedule id → last phases form (and "released")
 	failNextChange bool                         // the next subscription update answers 402
+	changeDown     bool                         // subscription updates answer 500 while set
 	changeError    map[string]any               // the next subscription update answers 402 with this Stripe error
 	failCancel     int                          // the next n cancel_at_period_end updates answer 500
 	subCalls       int                          // calls on /v1/subscriptions…
@@ -203,6 +204,11 @@ func (f *fakeStripe) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 				f.changeError = nil
 				w.WriteHeader(402)
 				write(map[string]any{"error": e})
+				return
+			}
+			if f.changeDown {
+				w.WriteHeader(500)
+				write(map[string]any{"error": map[string]any{"type": "api_error", "message": "down"}})
 				return
 			}
 			if f.failNextChange {

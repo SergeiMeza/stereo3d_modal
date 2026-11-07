@@ -84,6 +84,9 @@ func (s *Service) payURL(token string) string { return s.Cfg.SiteURL + "/pay/" +
 // request whose debt was paid or went in the meantime.
 func (s *Service) payLive(ctx context.Context, p *store.PayRequest) (string, int64) {
 	now := time.Now().UTC()
+	if p.State == store.PayApplying {
+		return store.PayPaid, p.AmountCents // paid; the step-up is being made (or refunded)
+	}
 	if p.State != store.PayOpen {
 		return p.State, p.AmountCents
 	}

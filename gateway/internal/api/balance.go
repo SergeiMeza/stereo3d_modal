@@ -964,6 +964,9 @@ func (s *Service) balanceSweep(ctx context.Context) map[string]int {
 			}
 		}
 	}
+	if n := s.stepUpApplySweep(ctx, now); n > 0 { // REV-01: paid step-ups left applying
+		stats["stepups_applied"] = n
+	}
 	if n := s.rcAttrRetrySweep(ctx, now); n > 0 { // D14: failed web plan markers
 		stats["rc_attr_retries"] = n
 	}
