@@ -1319,7 +1319,8 @@
       "payOtherDevice": "Başka bir cihazda öde",
       "opening": "Açılıyor…",
       "wechatPhone": "WeChat ile ödemek için bir bilgisayar kullanın.",
-      "wechatHeadset": "WeChat ile bir bilgisayardan ödeyin"
+      "wechatHeadset": "WeChat ile bir bilgisayardan ödeyin",
+      "comingSoon": "Çin anakarasında ödemeler yakında geliyor."
     },
     "handoff": {
       "titleComputer": "Bir bilgisayarda öde",

@@ -1319,7 +1319,8 @@
       "payOtherDevice": "在其他裝置上付款",
       "opening": "開啟中…",
       "wechatPhone": "若要使用微信付款，請使用電腦。",
-      "wechatHeadset": "請在電腦上使用微信付款"
+      "wechatHeadset": "請在電腦上使用微信付款",
+      "comingSoon": "中國大陸的付款功能即將推出。"
     },
     "handoff": {
       "titleComputer": "在電腦上付款",

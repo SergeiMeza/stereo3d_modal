@@ -1319,7 +1319,8 @@
       "payOtherDevice": "다른 기기에서 결제",
       "opening": "여는 중…",
       "wechatPhone": "WeChat으로 결제하려면 컴퓨터를 사용해 주세요.",
-      "wechatHeadset": "컴퓨터에서 WeChat으로 결제"
+      "wechatHeadset": "컴퓨터에서 WeChat으로 결제",
+      "comingSoon": "중국 본토 결제는 곧 지원될 예정이에요."
     },
     "handoff": {
       "titleComputer": "컴퓨터에서 결제",

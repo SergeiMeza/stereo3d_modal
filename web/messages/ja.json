@@ -1319,7 +1319,8 @@
       "payOtherDevice": "別のデバイスで支払う",
       "opening": "開いています…",
       "wechatPhone": "WeChatで支払うには、コンピュータを使ってください。",
-      "wechatHeadset": "コンピュータでWeChatを使って支払う"
+      "wechatHeadset": "コンピュータでWeChatを使って支払う",
+      "comingSoon": "中国本土でのお支払いは近日対応予定です。"
     },
     "handoff": {
       "titleComputer": "コンピュータで支払う",
