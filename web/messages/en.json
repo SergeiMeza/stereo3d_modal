@@ -1433,6 +1433,11 @@
       "used": "a month · {amount} used",
       "resets": "Runs stop when this month's spending reaches it. Resets on the 1st (UTC).",
       "alert": "Email me when my balance drops below"
+    },
+    "reloadOffer": {
+      "question": "Never run out mid-project?",
+      "turnOn": "Turn on auto-reload",
+      "notNow": "Not now"
     }
   },
   "pro": {

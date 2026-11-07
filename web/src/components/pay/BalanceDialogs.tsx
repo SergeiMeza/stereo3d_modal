@@ -125,7 +125,8 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
     /** notice: the error line's message key */
     | { kind: "ready"; secret: string; publishableKey?: string; amount: number; expiresAt?: string; notice?: string }
     | { kind: "paying"; secret: string; publishableKey?: string; amount: number; expiresAt?: string }
-    | { kind: "done"; text: string }
+    /** offer: BUX-15, auto-reload is offered (off) under the success */
+    | { kind: "done"; text: string; offer?: boolean }
     /** BUX-02: the bank is still confirming it (not a decline) */
     | { kind: "waiting" }
     /** BUX-02: the session timed out, nothing was charged */
@@ -190,8 +191,12 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   async function finish(added: number): Promise<void> {
     const s = await billing.refresh();
     const bal = prepaidOf(s)?.balance_cents ?? (prepaid?.balance_cents ?? 0) + added;
-    setSession({ kind: "done", text: topupDone(added, bal, t) });
-    closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
+    // BUX-15: with auto-reload off (and nothing pausing it), offer it here,
+    // switched off; the sheet then stays until the person answers
+    const ar = prepaidOf(s)?.auto_reload;
+    const offer = !!ar && !ar.enabled && !ar.paused_reason;
+    setSession({ kind: "done", text: topupDone(added, bal, t), offer });
+    if (!offer) closing.current = setTimeout(onClose, SUCCESS_CLOSE_MS);
   }
 
   function handle(
@@ -252,6 +257,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   );
 
   if (session.kind === "done") {
+    if (session.offer) return <ReloadOffer text={session.text} onClose={onClose} />;
     return (
       <SheetFrame open onClose={onClose} testId="add-funds-sheet" title={t("balance.addFunds.title")}>
         <Success text={session.text} />
@@ -411,6 +417,112 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   );
 }
 
+/** Auto-reload's save refusals in words. */
+function reloadSaveError(e: unknown, t: Tr): string {
+  const code = e instanceof GatewayError ? e.code : "";
+  const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
+  return code === "auto_reload_blocked"
+    ? autoReloadBlocked(reason, t)
+    : code === "method_needed"
+      ? t("balance.autoReload.methodNeeded")
+      : t("balance.autoReload.saveFailed");
+}
+
+/** BUX-15: after a top-up, auto-reload offered once, opt-in: one line and
+ * a switch that starts off; on, it shows the consent with the saved
+ * method, and only Turn on auto-reload saves it. Not now closes. Without
+ * a saved method there's nothing to offer, and the sheet closes. */
+function ReloadOffer({ text, onClose }: { text: string; onClose: () => void }): JSX.Element {
+  const gateway = useGateway();
+  const billing = useBilling();
+  const t = useT();
+  // read on mount: the top-up has just saved its method
+  const { list } = useBillingMethods();
+  const ar = prepaidOf(billing.status)?.auto_reload ?? { enabled: false, below_cents: 1000, add_cents: 2500 };
+  const [on, setOn] = useState(false);
+  const [state, setState] = useState<"idle" | "saving" | "saved">("idle");
+  const [error, setError] = useState<string | null>(null);
+  const methods = list?.methods ?? null;
+  const def = methods?.find((m) => m.is_default) ?? methods?.[0];
+  const none = methods !== null && methods.length === 0;
+  useEffect(() => {
+    if (!none) return;
+    const timer = setTimeout(onClose, SUCCESS_CLOSE_MS);
+    return () => clearTimeout(timer);
+  }, [none, onClose]);
+
+  async function turnOn(): Promise<void> {
+    setState("saving");
+    setError(null);
+    try {
+      await gateway.saveBalanceSettings({
+        auto_reload: { enabled: true, below_cents: ar.below_cents, add_cents: ar.add_cents },
+      });
+      await billing.refresh();
+      setState("saved");
+      setTimeout(onClose, SUCCESS_CLOSE_MS);
+    } catch (e) {
+      setState("idle");
+      setError(reloadSaveError(e, t));
+    }
+  }
+
+  const offering = !none && def !== undefined;
+  return (
+    <SheetFrame
+      open
+      onClose={onClose}
+      locked={state === "saving"}
+      testId="add-funds-sheet"
+      title={t("balance.addFunds.title")}
+      footer={
+        !offering ? undefined : state === "saved" ? (
+          <SavedLine text={t("balance.autoReload.isOn")} />
+        ) : (
+          <div className="flex flex-col gap-2">
+            {on ? (
+              <Button
+                size="lg"
+                data-testid="reload-offer-on"
+                className="h-12 w-full"
+                disabled={state === "saving"}
+                onClick={() => void turnOn()}
+              >
+                {state === "saving" ? t("balance.autoReload.saving") : t("balance.reloadOffer.turnOn")}
+              </Button>
+            ) : null}
+            <button
+              type="button"
+              data-testid="reload-offer-not-now"
+              disabled={state === "saving"}
+              onClick={onClose}
+              className="py-2 text-center text-sm text-primary hover:underline"
+            >
+              {t("balance.reloadOffer.notNow")}
+            </button>
+          </div>
+        )
+      }
+    >
+      <Success text={text} />
+      {offering && state !== "saved" ? (
+        <div data-testid="reload-offer" className="flex flex-col gap-3 border-t border-edge pt-4">
+          <Toggle label={t("balance.reloadOffer.question")} on={on} onChange={setOn} />
+          {on ? (
+            <p data-testid="reload-offer-consent" className="flex gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
+              <RefreshCwIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
+              <span>
+                {reloadConsent(methodLabel(def), ar.add_cents, ar.below_cents, t)} {t("pay.copy.chargedInUsd")}
+              </span>
+            </p>
+          ) : null}
+          {error ? <ErrorLine text={error} /> : null}
+        </div>
+      ) : null}
+    </SheetFrame>
+  );
+}
+
 function ErrorLine({ text }: { text: string }): JSX.Element {
   return (
     <p
@@ -533,15 +645,7 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
       setTimeout(onClose, SUCCESS_CLOSE_MS);
     } catch (e) {
       setState("idle");
-      const code = e instanceof GatewayError ? e.code : "";
-      const reason = e instanceof GatewayError && typeof e.details?.reason === "string" ? e.details.reason : "";
-      setError(
-        code === "auto_reload_blocked"
-          ? autoReloadBlocked(reason, t)
-          : code === "method_needed"
-            ? t("balance.autoReload.methodNeeded")
-            : t("balance.autoReload.saveFailed"),
-      );
+      setError(reloadSaveError(e, t));
     }
   }
 
