@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"strconv"
-	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/mail"
@@ -13,19 +12,19 @@ import (
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
-// Customer mails (spec v6 G3): sent by the gateway through Resend, every
-// subject starting "Spatial Video Studio:" (renamed from Spatial Video Studio,
-// owner 2026-11-04), at most three short lines and one button, the footer
-// naming the web, "payment method" never
-// "card", no processor names. Each is claimed once by key in mails_{env}
-// before it is sent, so retried events never mail twice. On test every
-// customer mail goes to the owner's address instead, marked with who it
-// was for.
-
-const mailFooter = "Spatial Video Studio on the web · Help: support@spatial-ai-labs.com"
+// Customer mails (spec v6 G3; branded and translated 2026-11-08): sent by
+// the gateway through Resend in one layout (mail.Layout: the app's icon
+// and name, a title, a short body, one button, a details table, a footer
+// with help and the legal entity), HTML with a plain-text alternative, in
+// the account's language (mailLangOf). Subjects end " · Spatial Video
+// Studio" (the owner's rule: subjects name the app); "payment method",
+// not "card", no processor names. Each is claimed once by key in
+// mails_{env} before it is sent, so retried events never mail twice. On
+// test every customer mail goes to the owner's address instead, marked
+// with who it was for.
 
 // supportInbox is the reply-to of every customer mail.
-const supportInbox = "support@spatial-ai-labs.com"
+const supportInbox = mail.SupportEmail
 
 // money: "$1,500.00" (thousands grouped).
 func money(cents int64) string {
@@ -40,13 +39,12 @@ func money(cents int64) string {
 	return fmt.Sprintf("%s$%s.%02d", sign, d, cents%100)
 }
 
-// customerMail is one G3 mail before addressing.
+// customerMail is one G3 mail before addressing: its kind and how it
+// renders in a language.
 type customerMail struct {
-	Kind    string // E1…E12
-	Subject string
-	Lines   []string
-	Button  string
-	Link    string
+	Kind string // E1…E20, RN1, SU1, DL1…
+	// Render lays the mail out in lang (one of mail.Langs).
+	Render func(lang string) mail.Layout
 	// Receipt: a copy goes to the company's billing email when it has one.
 	Receipt bool
 	// OwnAddress: off prod too, the mail goes to the account's own address
@@ -55,16 +53,30 @@ type customerMail struct {
 	OwnAddress bool
 }
 
-func (m customerMail) text() string {
-	var b strings.Builder
-	for _, l := range m.Lines {
-		b.WriteString(l + "\n")
+// layout is the mail in lang.
+func (m customerMail) layout(lang string) mail.Layout {
+	l := m.Render(lang)
+	l.Lang = lang
+	return l
+}
+
+// subject and text are the English mail (admin previews, tests).
+func (m customerMail) subject() string { return m.layout("en").FullSubject() }
+func (m customerMail) text() string    { return m.layout("en").Text() }
+
+// mailLangOf is the account's mail language: the web's explicit
+// mail_locale, else the language its requests asked for
+// (Accept-Language), else the Lifelike intro's locale, else English.
+func mailLangOf(c *store.Customer) string {
+	if c == nil {
+		return "en"
 	}
-	if m.Button != "" {
-		fmt.Fprintf(&b, "\n%s: %s\n", m.Button, m.Link)
+	for _, tag := range []string{c.MailLocale, c.AcceptLocale, c.Locale} {
+		if l := mail.LangFor(tag); l != "" {
+			return l
+		}
 	}
-	b.WriteString("\n" + mailFooter + "\n")
-	return b.String()
+	return "en"
 }
 
 // mailCustomer claims key and sends m to the account's email (on test:
@@ -77,12 +89,15 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 	if err != nil || !ok {
 		return
 	}
+	cust, _ := s.Store.GetCustomer(ctx, uid)
+	lang := mailLangOf(cust)
+	l := m.layout(lang)
 	to := email
-	msg := mail.Message{Subject: m.Subject, Text: m.text(), ReplyTo: supportInbox, IdempotencyKey: key}
 	cc := ""
 	if m.Receipt {
 		cc = s.billingEmailCopy(ctx, uid, email)
 	}
+	msg := mail.Message{ReplyTo: supportInbox, IdempotencyKey: key}
 	if cc != "" {
 		msg.Cc = []string{cc}
 	}
@@ -91,13 +106,14 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 		if m.OwnAddress {
 			to = email // …or, for the deletion mails, the account itself, never a copy
 		}
-		msg.Subject += " (test)"
-		head := "[Test environment: this mail is for " + email
+		who := email
 		if cc != "" {
-			head += ", copy to " + cc
+			who += ", " + cc
 		}
-		msg.Text = head + ".]\n\n" + msg.Text
+		l.Banner = mail.T(lang, "common.testBanner", mail.Args{"email": who})
+		l.Subject += " (test)"
 	}
+	msg.Subject, msg.Text, msg.HTML = l.FullSubject(), l.Text(), l.HTML()
 	if to == "" || !s.Mail.Configured() {
 		slog.InfoContext(ctx, "customer mail not sent (no address or key)", "kind", m.Kind, "uid", uid)
 		s.Store.MarkMail(ctx, key, "skipped")
@@ -110,7 +126,7 @@ func (s *Service) mailCustomer(ctx context.Context, key, uid, email string, m cu
 		return
 	}
 	s.Store.MarkMail(ctx, key, "sent")
-	slog.InfoContext(ctx, "customer mail sent", "kind", m.Kind, "uid", uid)
+	slog.InfoContext(ctx, "customer mail sent", "kind", m.Kind, "uid", uid, "lang", lang)
 }
 
 // accountEmail is the account's email for mails ("" when unknown).
@@ -121,45 +137,30 @@ func (s *Service) accountEmail(ctx context.Context, uid string) string {
 	return ""
 }
 
-// mailOrderConfirmation is E1 (C3, v6 V8): a run paid at start that isn't
-// a preview is accepted — sent before it is queued, the send recorded
-// first.
+// mailOrderConfirmation is E1 (C3, v6 V8): a 3D video paid at start that
+// isn't a preview is accepted — sent before it is queued, the send
+// recorded first. The amount reads "¥618 (US$3.75)" when the payment
+// was presented locally (Adaptive Pricing). When the payment came in
+// before its Checkout Session could say so (deferE1), the mail waits for
+// the session (releaseDeferredE1) or two minutes (the reconciler).
 func (s *Service) mailOrderConfirmation(ctx context.Context, c *store.Conversion) {
 	if c.Step != store.StepProduction || c.Quote.AmountCents <= 0 {
 		return
 	}
-	s.mailCustomer(ctx, "E1_"+c.ID, c.UID, s.accountEmail(ctx, c.UID),
-		withCardLine(orderConfirmationMail(s.runLabel(ctx, c), c.Quote.AmountCents, s.Cfg.SiteURL+"/projects/"+c.ProjectID, !s.onBusinessPlan(ctx, c.UID)),
-			c.Stripe.Presentment, c.Stripe.CapturedCents))
-}
-
-// withCardLine adds, after a receipt's first line, what the card was
-// charged in the customer's currency when Adaptive Pricing presented it:
-// "Your card was charged ¥1,648 (US$10.00)." Nothing for a USD payment.
-func withCardLine(m customerMail, p *store.Presentment, usdCents int64) customerMail {
-	if p == nil || usdCents <= 0 || len(m.Lines) == 0 {
-		return m
+	key := "E1_" + c.ID
+	if e1Deferred(ctx) && c.Stripe.Presentment == nil {
+		if ok, err := s.Store.DeferMail(ctx, key, c.UID, "E1", c.ID, time.Now().UTC().Add(e1DeferFor)); err == nil && ok {
+			slog.InfoContext(ctx, "receipt mail waits for the payment's currency", "kind", "E1", "conversion_id", c.ID)
+		}
+		return
 	}
-	line := "Your card was charged " + localAndUSD(p, usdCents) + "."
-	m.Lines = append([]string{m.Lines[0], line}, m.Lines[1:]...)
-	return m
-}
-
-// orderConfirmationMail is E1; consumer (no Business or Studio plan) adds
-// the express-consent line.
-func orderConfirmationMail(label string, cents int64, link string, consumer bool) customerMail {
-	lines := []string{label + " · " + money(cents) + ", charged now.", "Refunded in full if it fails."}
-	if consumer {
-		// The durable-medium confirmation of express consent (UK CCR / EU
-		// CRD), for consumers only.
-		lines = append(lines, expressConsentLine)
+	usd := c.Quote.AmountCents
+	if c.Stripe.Presentment != nil && c.Stripe.CapturedCents > 0 {
+		usd = c.Stripe.CapturedCents
 	}
-	return customerMail{Kind: "E1", Subject: "Spatial Video Studio: your 3D video is starting", Lines: lines,
-		Button: "View your project", Link: link, Receipt: true}
+	s.mailCustomer(ctx, key, c.UID, s.accountEmail(ctx, c.UID),
+		orderConfirmationMail(s.runMailInfo(ctx, c), amountText(c.Stripe.Presentment, usd), s.Cfg.SiteURL+"/projects/"+c.ProjectID, !s.onBusinessPlan(ctx, c.UID)))
 }
-
-// expressConsentLine closes a paid run's receipt (owner 2026-11-05).
-const expressConsentLine = "You asked us to start right away, so this run can't be cancelled once it's done."
 
 // onBusinessPlan: the account has an active Business or Studio plan.
 func (s *Service) onBusinessPlan(ctx context.Context, uid string) bool {
@@ -170,40 +171,20 @@ func (s *Service) onBusinessPlan(ctx context.Context, uid string) bool {
 	return cust.Plan.Tier == pricing.TierBusiness || cust.Plan.Tier == pricing.TierStudio
 }
 
-// mailPaymentFailed is E2 (a group's whole backup loop failed), E3 (the
-// 24 h retry failed) or E4 (day 7).
+// mailOwed is E2 (a group's whole backup loop failed), E3 (the 24 h retry
+// failed) or E4 (day 7). The triggers and amounts are the app's shipped
+// ones; only the mail's look and language changed (owner 2026-11-08).
 func (s *Service) mailOwed(ctx context.Context, kind, key, uid string, cents int64) {
-	m := customerMail{Kind: kind, Button: "Pay " + money(cents), Link: s.Cfg.SiteURL + "/billing?pay=1"}
-	switch kind {
-	case "E2":
-		m.Subject = "Spatial Video Studio: a payment didn't go through"
-		m.Lines = []string{"We couldn't take " + money(cents) + " for your last 3D videos.", "Downloads are paused until it's paid."}
-	case "E3":
-		m.Subject = "Spatial Video Studio: your payment is still waiting"
-		m.Lines = []string{money(cents) + " for your last 3D videos is still unpaid.", "Pay it to download again."}
-	case "E4":
-		m.Subject = "Spatial Video Studio: last reminder about your payment"
-		m.Lines = []string{"This is our last reminder about " + money(cents) + " for your last 3D videos.", "We keep your files until it's paid."}
-	}
-	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), m)
+	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), owedMail(kind, money(cents), s.Cfg.SiteURL+"/billing?pay=1"))
 }
 
-// mailDownloadsBack is E5: the automatic retry cleared the account.
+// mailDownloadsBack is E5: the automatic retry (or the balance) cleared
+// the account.
 func (s *Service) mailDownloadsBack(ctx context.Context, key, uid string, cents int64) {
-	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), customerMail{
-		Kind:    "E5",
-		Subject: "Spatial Video Studio: your downloads are back",
-		Lines:   []string{"Your payment of " + money(cents) + " went through.", "Everything is ready to download again."},
-		Button:  "Open Spatial Video Studio", Link: s.Cfg.SiteURL,
-	})
+	s.mailCustomer(ctx, key, uid, s.accountEmail(ctx, uid), downloadsBackMail(money(cents), s.Cfg.SiteURL))
 }
 
 // mailHandoff is E7: the hand-off link, mailed on request.
 func (s *Service) mailHandoff(ctx context.Context, key, uid, email, link string, cents int64) {
-	s.mailCustomer(ctx, key, uid, email, customerMail{
-		Kind:    "E7",
-		Subject: "Spatial Video Studio: finish your payment",
-		Lines:   []string{"Open this on your phone or computer to pay " + money(cents) + " for your 3D video.", "The link works for 30 minutes."},
-		Button:  "Pay " + money(cents), Link: link,
-	})
+	s.mailCustomer(ctx, key, uid, email, handoffMail(money(cents), link))
 }

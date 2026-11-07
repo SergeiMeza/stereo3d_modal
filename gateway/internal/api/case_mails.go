@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -15,90 +14,56 @@ import (
 
 // Case mails (G3: E6, E9-E12) and owner notices (M9: O1-O5).
 
-// caseRunsLabel names a case's runs for mails ("Kyoto walk · 3D video").
-func (s *Service) caseRunsLabel(ctx context.Context, cs *store.Case) string {
-	var labels []string
+// caseWhatOf names a case's 3D videos for mails (two, then "and N
+// more"), else its balance or payment.
+func (s *Service) caseWhatOf(ctx context.Context, cs *store.Case) caseWhat {
+	var w caseWhat
 	for i, id := range cs.Related.ConversionIDs {
 		if i == 2 {
-			labels = append(labels, fmt.Sprintf("and %d more", len(cs.Related.ConversionIDs)-2))
+			w.More = len(cs.Related.ConversionIDs) - 2
 			break
 		}
 		if c, err := s.Store.GetConversion(ctx, id); err == nil {
-			labels = append(labels, s.runLabel(ctx, c))
+			r := s.runMailInfo(ctx, c)
+			w.Labels = append(w.Labels, joinDot(r.Name, r.product()))
 		}
 	}
-	if len(labels) == 0 {
+	if len(w.Labels) == 0 {
+		w.More, w.Fallback = 0, "payment"
 		if cs.Type == store.CaseBalanceRefund {
-			return "your balance"
+			w.Fallback = "balance"
 		}
-		return "your payment"
 	}
-	return strings.Join(labels, ", ")
+	return w
 }
 
 func (s *Service) historyLink() string { return s.Cfg.SiteURL + "/billing" }
 
-// mailRefunded is E6 (to the card, out of band, to the balance, waive).
+// mailRefunded is E6 (to the payment method, out of band, to the balance,
+// waive).
 func (s *Service) mailRefunded(ctx context.Context, cs *store.Case, cents int64, how string) {
-	what := s.caseRunsLabel(ctx, cs)
-	m := customerMail{Kind: "E6", Button: "View purchase history", Link: s.historyLink(), Receipt: true}
-	switch how {
-	case "balance":
-		m.Subject = fmt.Sprintf("Spatial Video Studio: %s returned to your balance (%s)", money(cents), cs.ID)
-		m.Lines = []string{fmt.Sprintf("We returned %s to your balance for %s.", money(cents), what)}
-	case "out_of_band":
-		m.Subject = fmt.Sprintf("Spatial Video Studio: we refunded %s (%s)", money(cents), cs.ID)
-		m.Lines = []string{fmt.Sprintf("We returned %s to you another way.", money(cents)), "Your case: " + cs.ID + "."}
-	case "waive":
-		m.Subject = fmt.Sprintf("Spatial Video Studio: we won't charge you %s (%s)", money(cents), cs.ID)
-		m.Lines = []string{fmt.Sprintf("We removed the %s charge for %s.", money(cents), what)}
-	default:
-		m.Subject = fmt.Sprintf("Spatial Video Studio: we refunded %s (%s)", money(cents), cs.ID)
-		m.Lines = []string{fmt.Sprintf("We refunded %s for %s.", money(cents), what),
-			"Refunds usually reach you in 5–10 business days. Your case: " + cs.ID + "."}
-	}
-	s.mailCustomer(ctx, fmt.Sprintf("E6_%s_%d", cs.ID, cents), cs.UID, s.accountEmail(ctx, cs.UID), m)
+	s.mailCustomer(ctx, fmt.Sprintf("E6_%s_%d", cs.ID, cents), cs.UID, s.accountEmail(ctx, cs.UID),
+		refundedMail(how, money(cents), s.caseWhatOf(ctx, cs), cs.ID, s.historyLink()))
 }
 
 // mailRefundUnderReview is E9.
 func (s *Service) mailRefundUnderReview(ctx context.Context, cs *store.Case) {
-	s.mailCustomer(ctx, "E9_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E9", Subject: fmt.Sprintf("Spatial Video Studio: we're looking at your refund (%s)", cs.ID),
-		Lines:  []string{"We're looking at a refund for " + s.caseRunsLabel(ctx, cs) + ".", "We'll email you within 2 business days. Your case: " + cs.ID + "."},
-		Button: "View purchase history", Link: s.historyLink(),
-	})
-}
-
-// denyTemplates are E10's texts (A2 Deny).
-var denyTemplates = map[string]string{
-	"delivered":     "We checked your 3D video and it was delivered as described, so we can't refund this payment.",
-	"outside_terms": "This payment is outside our refund terms, so we can't refund it.",
+	s.mailCustomer(ctx, "E9_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), refundUnderReviewMail(s.caseWhatOf(ctx, cs), cs.ID, s.historyLink()))
 }
 
 // mailRefundDenied is E10.
 func (s *Service) mailRefundDenied(ctx context.Context, cs *store.Case, text string) {
-	s.mailCustomer(ctx, "E10_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E10", Subject: fmt.Sprintf("Spatial Video Studio: about your refund request (%s)", cs.ID),
-		Lines:  []string{text, "Questions? Reply to this email and quote " + cs.ID + "."},
-		Button: "View purchase history", Link: s.historyLink(),
-	})
+	s.mailCustomer(ctx, "E10_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), refundDeniedMail(text, cs.ID, s.historyLink()))
 }
 
 // mailRefundQuestion is E11.
 func (s *Service) mailRefundQuestion(ctx context.Context, cs *store.Case, question string) {
-	s.mailCustomer(ctx, fmt.Sprintf("E11_%s_%d", cs.ID, time.Now().Unix()), cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E11", Subject: fmt.Sprintf("Spatial Video Studio: a question about your refund (%s)", cs.ID),
-		Lines: []string{question, "Reply to this email. Your case: " + cs.ID + "."},
-	})
+	s.mailCustomer(ctx, fmt.Sprintf("E11_%s_%d", cs.ID, time.Now().Unix()), cs.UID, s.accountEmail(ctx, cs.UID), refundQuestionMail(question, cs.ID))
 }
 
 // mailRefundFailed is E12.
 func (s *Service) mailRefundFailed(ctx context.Context, cs *store.Case, cents int64) {
-	s.mailCustomer(ctx, "E12_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), customerMail{
-		Kind: "E12", Subject: fmt.Sprintf("Spatial Video Studio: we couldn't return your refund (%s)", cs.ID),
-		Lines: []string{fmt.Sprintf("We couldn't return %s to your payment method.", money(cents)),
-			"Reply to this email so we can pay it another way. Your case: " + cs.ID + "."},
-	})
+	s.mailCustomer(ctx, "E12_"+cs.ID, cs.UID, s.accountEmail(ctx, cs.UID), refundFailedMail(money(cents), cs.ID))
 }
 
 // noticeOwner is M9: Slack and a mail to the owner, with the case link.
@@ -185,23 +150,13 @@ func (s *Service) caseReminderSweep(ctx context.Context) int {
 }
 
 // GET /v1/admin/mail-previews → every customer mail template rendered
-// with sample data (M1), as plain text.
+// with sample data (M1): {mails: [{id, subject, text, html}],
+// deny_templates}. English.
 func (s *Service) HandleAdminMailPreviews(w http.ResponseWriter, r *http.Request, a *AdminUser) {
-	sample := &store.Case{ID: "CASE-0042"}
-	what := "Kyoto walk · 3D video · 4K"
-	mails := []customerMail{
-		{Kind: "E6", Subject: "Spatial Video Studio: we refunded $6.75 (CASE-0042)", Lines: []string{"We refunded $6.75 for " + what + ".", "Refunds usually reach you in 5–10 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E6 balance", Subject: "Spatial Video Studio: $6.75 returned to your balance (CASE-0042)", Lines: []string{"We returned $6.75 to your balance for " + what + "."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E6 waive", Subject: "Spatial Video Studio: we won't charge you $1.00 (CASE-0042)", Lines: []string{"We removed the $1.00 charge for Kyoto walk · 3D preview."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E9", Subject: "Spatial Video Studio: we're looking at your refund (CASE-0042)", Lines: []string{"We're looking at a refund for " + what + ".", "We'll email you within 2 business days. Your case: CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E10", Subject: "Spatial Video Studio: about your refund request (CASE-0042)", Lines: []string{denyTemplates["delivered"], "Questions? Reply to this email and quote CASE-0042."}, Button: "View purchase history", Link: s.historyLink()},
-		{Kind: "E11", Subject: "Spatial Video Studio: a question about your refund (CASE-0042)", Lines: []string{"Which part of the video looked wrong?", "Reply to this email. Your case: CASE-0042."}},
-		{Kind: "E12", Subject: "Spatial Video Studio: we couldn't return your refund (CASE-0057)", Lines: []string{"We couldn't return $6.75 to your payment method.", "Reply to this email so we can pay it another way. Your case: CASE-0057."}},
-	}
-	_ = sample
-	out := make([]map[string]string, 0, len(mails))
-	for _, m := range mails {
-		out = append(out, map[string]string{"id": m.Kind, "subject": m.Subject, "text": m.text()})
+	out := make([]map[string]string, 0)
+	for _, p := range mailSamples(s.Cfg.SiteURL) {
+		l := p.Mail.layout("en")
+		out = append(out, map[string]string{"id": p.ID, "subject": l.FullSubject(), "text": l.Text(), "html": l.HTML()})
 	}
 	httpx.WriteOK(w, map[string]any{"mails": out, "deny_templates": denyTemplates})
 }

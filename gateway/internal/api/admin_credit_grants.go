@@ -222,16 +222,7 @@ func (s *Service) mailCreditGrant(ctx context.Context, g *store.CreditGrant, ema
 	if email == "" {
 		return "skipped"
 	}
-	lines := []string{fmt.Sprintf("We've added %s of credit to your Spatial Video Studio account.", money(g.AmountCents))}
-	if g.Message != "" {
-		lines = append(lines, "", g.Message)
-	}
-	lines = append(lines, "", "It pays for your next conversions before your card.")
-	if g.ExpiresAt != nil {
-		lines = append(lines, "Use it by "+g.ExpiresAt.Format("January 2, 2006")+".")
-	}
-	s.mailCustomer(ctx, "CG_"+g.ID, g.UID, email, customerMail{Kind: "CG", Subject: "Spatial Video Studio: " + money(g.AmountCents) + " of credit for you",
-		Lines: lines, Button: "Open Spatial Video Studio", Link: s.Cfg.SiteURL, OwnAddress: true})
+	s.mailCustomer(ctx, "CG_"+g.ID, g.UID, email, creditGrantMail(money(g.AmountCents), g.Message, g.ExpiresAt, s.Cfg.SiteURL))
 	return "sent"
 }
 

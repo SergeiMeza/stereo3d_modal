@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
@@ -92,26 +93,16 @@ func (s *Service) handlePlanInvoiceFailed(ctx context.Context, eventType string,
 	if next != nil {
 		s.extendDunningEntitlements(ctx, uid, cust.Plan.Tier, *next)
 	}
-	amount := money(inv.AmountDue) // a renewal may be presented in the customer's currency (Adaptive Pricing): the invoice says
+	amount := money(inv.AmountDue)
+	if cur := strings.ToLower(inv.Currency); cur != "" && cur != "usd" {
+		amount = formatMinor(inv.AmountDue, cur) // a plan sold in the customer's currency renews in it
+	}
 	email := s.accountEmail(ctx, uid)
 	if eventType == "invoice.payment_action_required" {
-		s.mailCustomer(ctx, "RN2_"+inv.ID, uid, email, customerMail{
-			Kind: "RN2", Subject: "Spatial Video Studio: confirm your " + name + " renewal",
-			Lines:  []string{"Your bank needs you to confirm the " + amount + " payment for your " + name + " plan.", "Your plan stays on in the meantime."},
-			Button: "Confirm and pay " + amount, Link: link,
-		})
+		s.mailCustomer(ctx, "RN2_"+inv.ID, uid, email, renewalConfirmMail(name, amount, link))
 		return
 	}
-	lines := []string{"We couldn't take " + amount + " to renew your " + name + " plan."}
-	if dn.NextAttemptAt != nil {
-		lines = append(lines, "Your plan stays on. We'll try again on "+dn.NextAttemptAt.Format("2 January")+", or you can pay now.")
-	} else {
-		lines = append(lines, "This was the last try. Pay now to keep your plan.")
-	}
-	s.mailCustomer(ctx, "RN1_"+inv.ID, uid, email, customerMail{
-		Kind: "RN1", Subject: "Spatial Video Studio: your " + name + " renewal didn't go through", Lines: lines,
-		Button: "Pay " + amount, Link: link,
-	})
+	s.mailCustomer(ctx, "RN1_"+inv.ID, uid, email, renewalFailedMail(name, amount, dn.NextAttemptAt, link))
 }
 
 func planName(s *Service, p *store.Plan) string {

@@ -44,22 +44,7 @@ func (s *Service) startReloadRetry(ctx context.Context, t *store.Topup, f stripe
 // mailReloadFailed is E15: the reload didn't go through, what happens next,
 // and the pay link.
 func (s *Service) mailReloadFailed(ctx context.Context, key string, t *store.Topup, r *store.OffSessionRetry, link string) {
-	lines := []string{"We couldn't add " + money(t.Cents) + usdNote + " to your balance. " + r.LastErrorMessage}
-	switch {
-	case r.State == store.RetryPending:
-		lines = append(lines, "We'll try again on "+retryDay(r)+". Auto-reload is paused until then; nothing was charged.")
-	case r.Reason == retryAuth:
-		lines = append(lines, "Confirm the payment to add the funds. Auto-reload is paused until you turn it back on.")
-	default:
-		lines = append(lines, "Auto-reload is paused until you turn it back on. Nothing was charged.")
-	}
-	button := "Pay " + money(t.Cents)
-	if r.Reason == retryAuth {
-		button = "Confirm and pay " + money(t.Cents)
-	}
-	s.mailCustomer(ctx, key, t.UID, s.accountEmail(ctx, t.UID), customerMail{
-		Kind: "E15", Subject: "Spatial Video Studio: auto-reload didn't go through", Lines: lines, Button: button, Link: link,
-	})
+	s.mailCustomer(ctx, key, t.UID, s.accountEmail(ctx, t.UID), reloadFailedMail(money(t.Cents), r.LastErrorMessage, nextOf(r), link))
 }
 
 // reloadRetrySweep charges the reloads whose retry is due (reconciler).

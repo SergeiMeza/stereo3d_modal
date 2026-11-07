@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
-	"strings"
 	"time"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
@@ -284,63 +283,19 @@ func (s *Service) mailDuesFailed(ctx context.Context, d *store.AccountDeletion, 
 			return nil
 		})
 	}
-	lines := []string{"Before we delete your account we need to collect " + money(r.AmountCents) + usdNote + " for your last runs. " + r.LastErrorMessage}
 	key := fmt.Sprintf("DL3_%s_%d_%d", d.UID, d.RequestedAt.Unix(), r.Attempts)
-	switch {
-	case r.Reason == retryConfig:
+	if r.Reason == retryConfig {
 		// REV-16: ours to fix (the owner was alerted); the customer hears
 		// once, and can pay another way meanwhile
-		lines = append(lines, "We'll try again tomorrow. You can also pay now on the page below, with another payment method if you like. Your account will be deleted once it's paid.")
 		key = fmt.Sprintf("DL3_%s_%d_config", d.UID, d.RequestedAt.Unix())
-	case r.State == store.RetryPending:
-		lines = append(lines, "We'll try again on "+retryDay(r)+". Your account will be deleted once it's paid.")
-	default:
-		lines = append(lines, "We won't try again. Your account will be deleted once it's paid, or sign in to keep it.")
 	}
-	button := "Pay " + money(r.AmountCents)
-	if r.Reason == retryAuth {
-		button = "Confirm and pay " + money(r.AmountCents)
-	}
-	s.mailCustomer(ctx, key, d.UID, d.Email, customerMail{
-		Kind: "DL3", Subject: "Spatial Video Studio: your account deletion is waiting for a payment", Lines: lines,
-		Button: button, Link: link, OwnAddress: true,
-	})
+	s.mailCustomer(ctx, key, d.UID, d.Email, duesFailedMail(money(r.AmountCents), r.LastErrorMessage, nextOf(r), link))
 }
 
 // configRetryDue: a dues charge refused for our configuration is tried
 // again a day after the refusal.
 func configRetryDue(r *store.OffSessionRetry, now time.Time) bool {
 	return r.Reason == retryConfig && r.FinalAt != nil && !now.Before(r.FinalAt.Add(24*time.Hour))
-}
-
-// deletionDate is the day a deletion runs, in mails and messages (UTC).
-func deletionDate(t time.Time) string { return t.UTC().Format("2 January 2006") }
-
-// deletionScheduledMail is DL1; lostCents > 0 (the unspent cash the
-// deletion forfeits, refund policy 2026-11-08) adds the balance line.
-func deletionScheduledMail(after time.Time, site string, lostCents int64) customerMail {
-	lines := []string{
-		"You asked us to delete your Spatial Video Studio account. We'll delete it on " + deletionDate(after) +
-			" at " + after.UTC().Format("15:04") + " UTC.",
-		"Until then your account is paused: runs you started finish, but you can't start new ones or change how you sign in.",
-	}
-	if lostCents > 0 {
-		lines = append(lines, "Your unspent balance of "+money(lostCents)+" will be lost when your account is deleted.")
-	}
-	lines = append(lines,
-		"Changed your mind? Sign in before then and choose Keep my account.",
-		"If you didn't ask for this, sign in and keep your account, then reply to this email.")
-	return customerMail{Kind: "DL1", OwnAddress: true,
-		Subject: "Spatial Video Studio: your account will be deleted on " + deletionDate(after),
-		Lines:   lines,
-		Button:  "Sign in to keep your account", Link: strings.TrimRight(site, "/") + "/account?deletion=keep"}
-}
-
-func deletionCancelledMail(site string) customerMail {
-	return customerMail{Kind: "DL2", OwnAddress: true,
-		Subject: "Spatial Video Studio: your account won't be deleted",
-		Lines:   []string{"You kept your Spatial Video Studio account, so we won't delete it. Everything works as before."},
-		Button:  "Open Spatial Video Studio", Link: strings.TrimRight(site, "/") + "/"}
 }
 
 // GET /v1/admin/deletions?state=pending|cancelled|done → {deletions:

@@ -32,15 +32,102 @@ func (s *Store) RecordConsent(ctx context.Context, c Consent) error {
 func mailsCol(env string) string { return "mails_" + env }
 
 // ClaimMail reserves a customer mail by key (deduped: a retried event
-// never mails twice). false when it was already claimed.
+// never mails twice). false when it was already claimed. A mail left
+// deferred (DeferMail) is claimed once, by whoever gets there first.
 func (s *Store) ClaimMail(ctx context.Context, key, uid, kind string) (bool, error) {
-	_, err := s.fs.Collection(mailsCol(s.env)).Doc(key).Create(ctx, map[string]any{
+	ref := s.fs.Collection(mailsCol(s.env)).Doc(key)
+	_, err := ref.Create(ctx, map[string]any{
 		"uid": uid, "kind": kind, "claimed_at": time.Now().UTC(),
+	})
+	if status.Code(err) != codes.AlreadyExists {
+		return err == nil, err
+	}
+	claimed := false
+	err = s.fs.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
+		claimed = false
+		snap, err := tx.Get(ref)
+		if err != nil {
+			return err
+		}
+		if st, _ := snap.DataAt("state"); st != MailDeferred {
+			return nil
+		}
+		claimed = true
+		return tx.Update(ref, []firestore.Update{{Path: "state", Value: firestore.Delete}, {Path: "claimed_at", Value: time.Now().UTC()}})
+	})
+	return claimed, err
+}
+
+// MailDeferred marks a mail waiting to be sent (DeferMail).
+const MailDeferred = "deferred"
+
+// DeferredMail is a mail waiting for a fact (E1: the payment's currency)
+// or its due time.
+type DeferredMail struct {
+	Key          string    `firestore:"-"`
+	UID          string    `firestore:"uid"`
+	Kind         string    `firestore:"kind"`
+	ConversionID string    `firestore:"conversion_id,omitempty"`
+	DueAt        time.Time `firestore:"due_at"`
+}
+
+// DeferMail records that the mail under key waits until due (or until
+// whoever learns the missing fact sends it). false when the key was
+// already claimed or deferred.
+func (s *Store) DeferMail(ctx context.Context, key, uid, kind, conversionID string, due time.Time) (bool, error) {
+	_, err := s.fs.Collection(mailsCol(s.env)).Doc(key).Create(ctx, map[string]any{
+		"uid": uid, "kind": kind, "state": MailDeferred, "conversion_id": conversionID, "due_at": due.UTC(),
 	})
 	if status.Code(err) == codes.AlreadyExists {
 		return false, nil
 	}
 	return err == nil, err
+}
+
+// MailDeferred reports whether the mail under key is waiting (deferred).
+func (s *Store) MailDeferred(ctx context.Context, key string) bool {
+	snap, err := s.fs.Collection(mailsCol(s.env)).Doc(key).Get(ctx)
+	if err != nil {
+		return false
+	}
+	st, _ := snap.DataAt("state")
+	return st == MailDeferred
+}
+
+// ListDeferredMailsFor lists uid's deferred mails of kind (due or not).
+func (s *Store) ListDeferredMailsFor(ctx context.Context, uid, kind string, limit int) ([]*DeferredMail, error) {
+	docs, err := s.fs.Collection(mailsCol(s.env)).Where("uid", "==", uid).Where("state", "==", MailDeferred).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	var out []*DeferredMail
+	for _, d := range docs {
+		var m DeferredMail
+		if d.DataTo(&m) != nil || m.Kind != kind {
+			continue
+		}
+		m.Key = d.Ref.ID
+		out = append(out, &m)
+	}
+	return out, nil
+}
+
+// ListDueDeferredMails lists deferred mails due by now.
+func (s *Store) ListDueDeferredMails(ctx context.Context, now time.Time, limit int) ([]*DeferredMail, error) {
+	docs, err := s.fs.Collection(mailsCol(s.env)).Where("state", "==", MailDeferred).Limit(limit).Documents(ctx).GetAll()
+	if err != nil {
+		return nil, err
+	}
+	var out []*DeferredMail
+	for _, d := range docs {
+		var m DeferredMail
+		if d.DataTo(&m) != nil || m.DueAt.After(now) {
+			continue
+		}
+		m.Key = d.Ref.ID
+		out = append(out, &m)
+	}
+	return out, nil
 }
 
 // MarkMail records a claimed mail's outcome.

@@ -96,21 +96,6 @@ func (s *Service) planStarted(ctx context.Context, uid, tier, subID string) {
 	s.mailCustomer(ctx, "plan_started:"+subID, uid, s.accountEmail(ctx, uid), planStartedMail(tier, link, s.Cfg.SiteURL))
 }
 
-// planStartedMail is E18; appLink set = an App Store Pro to cancel.
-func planStartedMail(tier, appLink, site string) customerMail {
-	name := tierLabel(tier)
-	line := "Your " + name + " plan is active. Its credit and free previews are ready on your account."
-	if tier == pricing.TierPro { // Pro has no usage credit (only free previews)
-		line = "Your Pro plan is active. Its free previews are ready on your account."
-	}
-	lines := []string{line}
-	if appLink != "" {
-		lines = append(lines, appStoreProLines(name, appLink)...)
-	}
-	return customerMail{Kind: "E18", Subject: "Spatial Video Studio: your " + name + " plan has started", Lines: lines,
-		Button: "Open Spatial Video Studio", Link: site}
-}
-
 // appProReminderSweep sends E19 once per subscription, ~3 days after the
 // plan started, only while the plan runs and an App Store Pro still
 // renews. Run from the balance sweep.
@@ -154,10 +139,6 @@ func (s *Service) remindAppPro(ctx context.Context, uid string, c *store.Custome
 	if !send {
 		return false
 	}
-	name := tierLabel(p.Tier)
-	s.mailCustomer(ctx, "app_pro_reminder:"+subID, uid, c.Email, customerMail{Kind: "E19",
-		Subject: "Spatial Video Studio: cancel your App Store Pro to avoid paying twice",
-		Lines:   append([]string{"Your " + name + " plan is running, and your Pro from the App Store is still set to renew."}, appStoreProLines(name, link)...),
-		Button:  "Manage subscriptions", Link: link})
+	s.mailCustomer(ctx, "app_pro_reminder:"+subID, uid, c.Email, appProReminderMail(p.Tier, link))
 	return true
 }

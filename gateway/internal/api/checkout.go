@@ -346,6 +346,9 @@ func (s *Service) handleCheckoutEvent(ctx context.Context, eventType string, raw
 		if perr := s.notePresentment(ctx, store.PresentRun, convID, out); perr != nil {
 			return perr // 5xx → Stripe retries; the payment above is applied once
 		}
+		if out.Paid {
+			s.releaseDeferredE1(ctx, convID) // the session said in which currency: E1 goes now
+		}
 		if out.Paid && updated != nil && updated.Stripe.PaymentIntentID == out.PaymentIntentID {
 			s.recordSavedMethod(ctx, updated, out.PaymentMethod, payment, updated.PayReason != "no_method")
 		}

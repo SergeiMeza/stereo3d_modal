@@ -106,7 +106,11 @@ func (s *Service) applyIntro(ctx context.Context, r *http.Request, uid, step str
 }
 
 // GET /v1/account/settings → {lifelike_intro, lifelike_intro_editable,
-// locale}; PATCH {lifelike_intro?, locale? (null clears)} → the same.
+// locale, mail_locale, notify_ready, …}; PATCH {lifelike_intro?, locale?
+// (null clears), mail_locale? (null clears), notify_ready?} → the same.
+// locale is the Lifelike intro's language; mail_locale the mails' (the
+// web's UI language); notify_ready (default true) the "3D video ready"
+// mail.
 // lifelike_intro (default true) can be changed only while a Business or
 // Studio plan is active (409 plan_required); without one it reads true.
 func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
@@ -118,6 +122,10 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			Dismissed      json.RawMessage `json:"dismissed"`
 			SimulateAppPro *bool           `json:"simulate_app_pro"`
 			BusinessSetup  json.RawMessage `json:"business_setup"`
+			// MailLocale: the language mails use (the web's UI language;
+			// null clears). NotifyReady: the "3D video ready" mail.
+			MailLocale  json.RawMessage `json:"mail_locale"`
+			NotifyReady *bool           `json:"notify_ready"`
 			onboardingPatch
 		}
 		if err := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10)).Decode(&req); err != nil {
@@ -161,6 +169,22 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 				return
 			}
 		}
+		var mailLocale *string
+		if len(req.MailLocale) > 0 {
+			var v *string
+			if json.Unmarshal(req.MailLocale, &v) != nil {
+				httpx.WriteErr(ctx, w, httpx.ErrInvalid("mail_locale is a BCP-47 tag or null"))
+				return
+			}
+			n := ""
+			if v != nil {
+				if n = normalizeLocale(*v); n == "" {
+					httpx.WriteErr(ctx, w, httpx.ErrInvalid("mail_locale is a BCP-47 tag such as ja, de or zh-Hant"))
+					return
+				}
+			}
+			mailLocale = &n
+		}
 		if req.SimulateAppPro != nil && (s.Cfg == nil || s.Cfg.Env == "prod") {
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusForbidden, "test_only", "simulate_app_pro is for test only"))
 			return
@@ -202,6 +226,12 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			if locale != nil {
 				c.Locale = *locale
 			}
+			if mailLocale != nil {
+				c.MailLocale = *mailLocale
+			}
+			if req.NotifyReady != nil {
+				c.NotifyReadyOff = !*req.NotifyReady
+			}
 			req.onboardingPatch.apply(c)
 			if bsSet {
 				c.BusinessSetup = bsetup
@@ -239,6 +269,10 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 	out := map[string]any{"lifelike_intro": !(editable && cust.LifelikeIntroOff), "lifelike_intro_editable": editable, "locale": nil}
 	if cust != nil && cust.Locale != "" {
 		out["locale"] = cust.Locale
+	}
+	out["mail_locale"], out["notify_ready"] = nil, cust == nil || !cust.NotifyReadyOff
+	if cust != nil && cust.MailLocale != "" {
+		out["mail_locale"] = cust.MailLocale
 	}
 	for k, v := range s.onboardingSettings(ctx, user.UID, cust) { // owner 2026-11-04
 		out[k] = v

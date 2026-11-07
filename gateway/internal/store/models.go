@@ -625,6 +625,16 @@ type Customer struct {
 	// opt-out (honoured only while such a plan is active).
 	Locale           string `firestore:"locale,omitempty"`
 	LifelikeIntroOff bool   `firestore:"lifelike_intro_off,omitempty"`
+	// MailLocale: the language the web asked mails to use (BCP-47; the UI
+	// language, kept apart from Locale, which picks the intro's).
+	// AcceptLocale: the account's requests' Accept-Language (first tag),
+	// written at most once a day while MailLocale is empty (owner
+	// 2026-11-08: mails in the account's language). NotifyReadyOff: the
+	// customer turned the "3D video ready" mail off (notify_ready).
+	MailLocale     string     `firestore:"mail_locale,omitempty"`
+	AcceptLocale   string     `firestore:"accept_locale,omitempty"`
+	AcceptLocaleAt *time.Time `firestore:"accept_locale_at,omitempty"`
+	NotifyReadyOff bool       `firestore:"notify_ready_off,omitempty"`
 	// Onboarding (owner 2026-11-04): where they watch (the welcome's first
 	// answer; HeadsetsSet tells an empty answer from none), the first-time
 	// hints dismissed, the welcome/checklist/tips flags, and when they
