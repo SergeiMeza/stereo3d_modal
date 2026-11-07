@@ -175,7 +175,7 @@ func Load() (*Config, error) {
 	c.KPIServiceAccounts = splitList(getenv("KPI_OIDC_SERVICE_ACCOUNTS", ""))
 	c.InternalOIDCAudiences = splitList(getenv("INTERNAL_OIDC_AUDIENCES", map[string]string{
 		"test": "https://stereo3d-gateway-test-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-test-151335782809.us-central1.run.app",
-		"prod": "https://stereo3d-gateway-prod-151335782809.us-central1.run.app"}[env]))
+		"prod": "https://stereo3d-gateway-prod-zergcuzmrq-uc.a.run.app,https://stereo3d-gateway-prod-151335782809.us-central1.run.app"}[env]))
 	for _, e := range strings.Split(getenv("FILE_KEEPING_TEST_ACCOUNTS", ""), ",") {
 		if e = strings.ToLower(strings.TrimSpace(e)); e != "" {
 			c.FileKeepingTestAccounts = append(c.FileKeepingTestAccounts, e)
