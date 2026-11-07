@@ -21,6 +21,9 @@ export interface SharedFetch<T> {
   use: (fetcher: () => Promise<T>) => T | null;
   /** test hook: forget the answer */
   reset: () => void;
+  /** read it again (the current answer stays until the new one is in);
+   * any mounted reader fetches */
+  refresh: () => void;
 }
 
 export function sharedFetch<T>(): SharedFetch<T> {
@@ -42,13 +45,23 @@ export function sharedFetch<T>(): SharedFetch<T> {
       useEffect(() => {
         ref.current = fetcher;
       });
+      // on mount (a failed answer is tried again then)
       useEffect(() => {
         void appStore.set(load, () => ref.current());
       }, []);
+      // and after refresh() (idle again, the answer kept meanwhile)
+      useEffect(() => {
+        if (s.status === "idle") void appStore.set(load, () => ref.current());
+      }, [s.status]);
       return s.value;
     },
     reset() {
       appStore.set(state, { status: "idle", value: null });
+    },
+    refresh() {
+      const s = appStore.get(state);
+      if (s.status === "loading") return;
+      appStore.set(state, { status: "idle", value: s.value });
     },
   };
 }

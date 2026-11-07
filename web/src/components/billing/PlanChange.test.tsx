@@ -386,3 +386,56 @@ describe("the next plan from scheduled_change.to (gateway 00138)", () => {
   });
 });
 
+describe("Business billed yearly in the plan menu (BUX-25)", () => {
+  function business(): void {
+    mockDb.billing.plan = {
+      plan: "business",
+      name: "Business",
+      status: "active",
+      active: true,
+      monthly_cents: 29900,
+      credit_cents: 40000,
+      credit_left_cents: 40000,
+      cancel_at_period_end: false,
+      current_period_end: new Date(Date.now() + 20 * 86_400_000).toISOString(),
+    };
+  }
+
+  it("off: monthly Business moves up to Studio only", async () => {
+    business();
+    wrap(<PlanCard />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    expect(await screen.findByRole("menuitem", { name: "Studio (move up)" })).toBeTruthy();
+    expect(screen.queryByRole("menuitem", { name: "Business Yearly (move up)" })).toBeNull();
+  });
+
+  it("on: monthly Business can move up to Business Yearly, and the plan reads its own price", async () => {
+    mockDb.businessYearly = true;
+    business();
+    wrap(<PlanCard />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    fireEvent.click(await screen.findByRole("menuitem", { name: "Business Yearly (move up)" }));
+    const line = await screen.findByTestId("plan-change-line");
+    await waitFor(() => expect(line.textContent).not.toBe("Working out the change…"));
+    fireEvent.click(await screen.findByRole("button", { name: /^Pay .* and change$/ }));
+    await waitFor(() => expect(mockDb.billing.plan).toMatchObject({ plan: "business", plan_id: "business_yearly", interval: "year", price_cents: 299000 }));
+    expect((await screen.findByTestId("plan-price")).textContent).toContain("$2,990");
+  });
+
+  it("refused as unavailable (turned off meanwhile): reads the prices again", async () => {
+    mockDb.businessYearly = true;
+    business();
+    let reads = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/pricing") reads += 1;
+    });
+    wrap(<PlanCard />);
+    fireEvent.keyDown(await screen.findByRole("button", { name: "Change plan" }), { key: "Enter" });
+    const item = await screen.findByRole("menuitem", { name: "Business Yearly (move up)" });
+    mockDb.businessYearly = false;
+    const before = reads;
+    fireEvent.click(item);
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+    expect(mockDb.planChanges).toEqual([]);
+  });
+});

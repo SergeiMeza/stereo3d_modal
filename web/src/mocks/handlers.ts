@@ -699,8 +699,19 @@ function tierQuoteExtras(
 
 /** Plans from highest to lowest (owner 2026-11-04: lower = step-down). */
 const PLAN_RANK: Record<string, number> = {
-  studio: 40, business: 30, pro_yearly: 23, pro_monthly: 22, pro_weekly: 21, pay_per_video: 0,
+  studio: 40, business_yearly: 35, business: 30, pro_yearly: 23, pro_monthly: 22, pro_weekly: 21, pay_per_video: 0,
 };
+
+/** BUX-24/25: a plan its flag doesn't offer now answers 409
+ * plan_unavailable {plan}, like the gateway. */
+function planUnavailable(plan: string | undefined): Response | null {
+  const off = (plan === "pro_weekly" && mockDb.webProWeeklyHidden) || (plan === "business_yearly" && !mockDb.businessYearly);
+  if (!off) return null;
+  return HttpResponse.json(
+    { success: false, error: "plan_unavailable", message: "that plan isn't offered here", details: { plan } },
+    { status: 409 },
+  );
+}
 
 function planTarget(to: string | undefined): { id: string; price: number; interval?: string } | null {
   if (!to) return null;
@@ -710,6 +721,10 @@ function planTarget(to: string | undefined): { id: string; price: number; interv
   if (to === "business" || to === "studio") {
     const d = TIERS.plans[to] as { price_cents?: number; monthly_cents: number; interval?: string };
     return { id: to, price: d.price_cents ?? d.monthly_cents, interval: d.interval };
+  }
+  if (to === "business_yearly") {
+    const d = businessYearlyMock();
+    return { id: to, price: d.price_cents, interval: "year" };
   }
   return null;
 }
@@ -3806,6 +3821,8 @@ export const handlers = [
   // owner 2026-11-04: web Pro → Business/Studio, priced before confirming
   http.post(`${GATEWAY}/v1/plans/preview-change`, async ({ request }) => {
     const { to } = (await request.json().catch(() => ({}))) as { to?: string };
+    const unavailable = planUnavailable(to);
+    if (unavailable) return unavailable;
     const target = planTarget(to);
     if (!target) return err(400, "invalid_request", "unknown plan");
     const current = currentPlanKey();
@@ -3861,6 +3878,8 @@ export const handlers = [
         "That price is out of date. Check the new one.",
       );
     }
+    const unavailable = planUnavailable(target.id);
+    if (unavailable) return unavailable;
     const current = currentPlanKey();
     if (target.id === current)
       return err(409, "same_plan", "You're already on that plan.");
@@ -3892,8 +3911,10 @@ export const handlers = [
       startMockPro(target.id);
       return HttpResponse.json({ plan: target.id, status: "active" });
     }
-    const key = target.id as "business" | "studio";
-    const def = TIERS.plans[key];
+    // BUX-25: the yearly Business is Business with its own price and year
+    const yearlyBiz = target.id === "business_yearly";
+    const key = (yearlyBiz ? "business" : target.id) as "business" | "studio";
+    const def = yearlyBiz ? businessYearlyMock() : TIERS.plans[key];
     // a step-up starts at once: a full period from today
     const end = new Date();
     if (def.interval === "year") end.setUTCFullYear(end.getUTCFullYear() + 1);
@@ -3902,6 +3923,7 @@ export const handlers = [
       plan: key, name: def.name, status: "active", active: true, monthly_cents: def.monthly_cents,
       credit_cents: def.credit_cents, credit_left_cents: def.credit_cents, cancel_at_period_end: false,
       current_period_end: end.toISOString(), interval: def.interval as "month" | "year", price_cents: def.price_cents,
+      ...(yearlyBiz ? { plan_id: "business_yearly" } : {}),
     };
     return HttpResponse.json({ plan: key, status: "active" });
   }),
@@ -4320,6 +4342,8 @@ export const handlers = [
   // pricing 2026-11: Business / Studio subscription checkout
   http.post(`${GATEWAY}/v1/billing/plan`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as { plan?: string; ui?: string };
+    const unavailable = planUnavailable(body.plan);
+    if (unavailable) return unavailable;
     // owner 2026-11-04: web Pro on the same checkout
     const proDef = MOCK_PRO_PLANS.find((p) => p.id === body.plan);
     if (proDef) {

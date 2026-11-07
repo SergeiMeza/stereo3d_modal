@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { SheetFrame, useSheetFrame } from "@/components/ui/sheet-frame";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
-import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
+import { refreshPricing, useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import {
@@ -92,6 +92,9 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
       (e: unknown) => {
         if (!live) return;
         const code = e instanceof GatewayError ? e.code : "";
+        // BUX-24: a plan no longer sold here (Weekly behind its flag): the
+        // prices are read again, so the picker drops it
+        if (code === "plan_unavailable") refreshPricing();
         setPhase({
           kind: "error",
           key:
@@ -99,7 +102,9 @@ function ProStripeSheet({ plan }: { plan: ProPlan }): JSX.Element {
               ? CHINA_COMING_SOON_KEY
               : code === "plan_active"
                 ? "pro.checkout.planActive"
-                : "pro.checkout.unavailable",
+                : code === "plan_unavailable"
+                  ? "pro.checkout.planUnavailable"
+                  : "pro.checkout.unavailable",
         });
       },
     );

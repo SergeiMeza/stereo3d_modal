@@ -18,7 +18,7 @@ import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { awaitPlanCredit } from "@/lib/billing";
-import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
+import { refreshPricing, useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
@@ -119,6 +119,9 @@ export function PlanSheet({
       (e: unknown) => {
         if (!live) return;
         const code = e instanceof GatewayError ? e.code : "";
+        // BUX-25: a plan not offered now (Business yearly behind its flag):
+        // the prices are read again, so the page drops it
+        if (code === "plan_unavailable") refreshPricing();
         setPhase({
           kind: "error",
           key:
@@ -128,7 +131,9 @@ export function PlanSheet({
               ? "pay.plan.errorPlanActive"
               : code === "under_review"
                 ? "pay.plan.errorUnderReview"
-                : "pay.plan.errorUnavailable",
+                : code === "plan_unavailable"
+                  ? "pay.plan.errorPlanUnavailable"
+                  : "pay.plan.errorUnavailable",
         });
       },
     );

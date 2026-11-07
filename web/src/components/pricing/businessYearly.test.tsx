@@ -49,7 +49,7 @@ function renderPricing(): void {
   );
 }
 
-describe("Business yearly (BUX-25 proposal)", () => {
+describe("Business yearly (BUX-25, gateway a7d7c2e)", () => {
   it("10× the month saves 17%", () => {
     const m = { name: "Business", monthly_cents: 29900, credit_cents: 0, max_active_runs: 1, free_previews_per_period: 0, express_included: false, interval: "month" as const, price_cents: 29900 };
     expect(yearlySavePct({ ...m, interval: "year", price_cents: 299000 }, m)).toBe(17);
@@ -82,5 +82,23 @@ describe("Business yearly (BUX-25 proposal)", () => {
     expect(main.textContent).toContain("$2,990.00");
     fireEvent.click(main);
     await waitFor(() => expect(mockDb.billing.plan).toMatchObject({ plan: "business", plan_id: "business_yearly", interval: "year", price_cents: 299000 }));
+  });
+
+  it("turned off after the page loaded: 409 plan_unavailable says so, reads the prices again and drops Yearly", async () => {
+    mockDb.businessYearly = true;
+    let reads = 0;
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/pricing") reads += 1;
+    });
+    renderPricing();
+    const biz = await screen.findByTestId("plan-business");
+    fireEvent.click(await within(biz).findByTestId("business-yearly"));
+    mockDb.businessYearly = false;
+    const before = reads;
+    fireEvent.click(within(biz).getByTestId("choose-business"));
+    expect(await screen.findByText("That plan isn't offered right now. Choose another one.")).toBeTruthy();
+    await waitFor(() => expect(reads).toBeGreaterThan(before));
+    await waitFor(() => expect(within(screen.getByTestId("plan-business")).queryByTestId("business-yearly")).toBeNull());
+    expect(mockDb.billing.plan).toBeFalsy();
   });
 });

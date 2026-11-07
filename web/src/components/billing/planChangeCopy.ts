@@ -109,7 +109,7 @@ export type ConfirmOutcome =
   | { kind: "repriced"; preview: PlanChangePreview }
   /** payUrl: a step-up the saved method couldn't pay (402, owner
    * 2026-11-07, D): its pay page takes today's amount */
-  | { kind: "error"; message: string; payUrl?: string | null };
+  | { kind: "error"; message: string; payUrl?: string | null; code?: string };
 
 /** Shown when the quote ran out and the price was worked out again. */
 export const REPRICED = EN("billing.planChange.repriced");
@@ -196,6 +196,6 @@ export async function confirmPlanChange(
       }
     }
     const payUrl = e instanceof GatewayError && e.status === 402 && typeof e.details?.pay_url === "string" ? e.details.pay_url : null;
-    return { kind: "error", message: planChangeError(e, t), payUrl };
+    return { kind: "error", message: planChangeError(e, t), payUrl, code: e instanceof GatewayError ? e.code : undefined };
   }
 }

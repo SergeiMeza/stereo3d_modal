@@ -19,6 +19,7 @@ import { AUTH_MODE, useAuth } from "@/lib/auth";
 import { gatewayBaseUrl } from "@/lib/region";
 import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
+import { pricingEpochAtom } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { openProCheckout, proCheckoutAtom } from "@/lib/pro/checkoutStore";
 import { anchorLine, anchorPlan, webPlansFromPricing } from "@/lib/pro/plans";
@@ -77,7 +78,7 @@ export const proStatusAtom = atom<{ uid: string; epoch: number; status: ProStatu
 );
 
 /** The plans on sale, for the account they were read for. */
-export const proPlansAtom = atom<{ uid: string; v: PlansState; loading: boolean } | null>(null);
+export const proPlansAtom = atom<{ uid: string; v: PlansState; loading: boolean; epoch?: number } | null>(null);
 
 /** the mock gateway's own purchase (mock auth only, tests and previews) */
 let mockPro = false;
@@ -196,17 +197,20 @@ export type PlansState =
 
 /** Read the plans for `uid` unless they're read or on their way; a
  * failure is tried again on the next reader's mount. */
-async function loadPlans(uid: string, gateway: GatewayClient): Promise<void> {
+async function loadPlans(uid: string, gateway: GatewayClient, epoch = 0): Promise<void> {
   const cur = appStore.get(proPlansAtom);
-  if (cur && cur.uid === uid && (cur.loading || cur.v.state === "ready")) return;
-  appStore.set(proPlansAtom, { uid, v: cur?.uid === uid ? cur.v : { state: "loading" }, loading: true });
+  // BUX-24: refreshPricing (a plan refused as unavailable) reads them again
+  const fresh = (cur?.epoch ?? 0) === epoch;
+  if (cur && cur.uid === uid && fresh && (cur.loading || cur.v.state === "ready")) return;
+  appStore.set(proPlansAtom, { uid, v: cur?.uid === uid ? cur.v : { state: "loading" }, loading: true, epoch });
   let v: PlansState;
   try {
     v = { state: "ready", plans: await loadPlansFor(gateway) };
   } catch (e) {
     v = { state: "error", message: e instanceof Error ? e.message : "" };
   }
-  if (appStore.get(proPlansAtom)?.uid === uid) appStore.set(proPlansAtom, { uid, v, loading: false });
+  const now = appStore.get(proPlansAtom);
+  if (now?.uid === uid && (now.epoch ?? 0) === epoch) appStore.set(proPlansAtom, { uid, v, loading: false, epoch });
 }
 
 /** The plans on sale to the signed-in person. */
@@ -215,9 +219,10 @@ export function useProPlans(): PlansState {
   const gateway = useGateway();
   const uid = user?.uid ?? null;
   const st = useAppAtomValue(proPlansAtom);
+  const epoch = useAppAtomValue(pricingEpochAtom);
   useEffect(() => {
-    if (uid !== null) void loadPlans(uid, gateway);
-  }, [uid, gateway]);
+    if (uid !== null) void loadPlans(uid, gateway, epoch);
+  }, [uid, gateway, epoch]);
   return st !== null && st.uid === uid ? st.v : { state: "loading" };
 }
 

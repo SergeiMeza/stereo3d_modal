@@ -121,3 +121,56 @@ describe("web Pro on Stripe", () => {
     await waitFor(() => expect(mockDb.planChanges).toEqual(["pro_yearly"]));
   });
 });
+
+describe("Pro Weekly behind web_pro_weekly_hidden (BUX-24, gateway 8960553)", () => {
+  function pricingReads(): { n: number } {
+    const c = { n: 0 };
+    server.events.on("request:start", ({ request }) => {
+      if (request.method === "GET" && new URL(request.url).pathname === "/v1/pricing") c.n += 1;
+    });
+    return c;
+  }
+
+  it("off: Weekly is offered and pays", async () => {
+    wrap(<ProPlans onPurchased={vi.fn()} />);
+    fireEvent.click(await screen.findByTestId("pro-plan-weekly"));
+    fireEvent.click(screen.getByTestId("pro-get"));
+    expect((await screen.findByTestId("pro-stripe-pay")).textContent).toContain("Start Pro · $3.99");
+    expect(screen.queryByTestId("pro-stripe-error")).toBeNull();
+  });
+
+  it("on: Weekly isn't offered", async () => {
+    mockDb.webProWeeklyHidden = true;
+    wrap(<ProPlans onPurchased={vi.fn()} />);
+    await screen.findByTestId("pro-plan-monthly");
+    expect(screen.queryByTestId("pro-plan-weekly")).toBeNull();
+  });
+
+  it("turned on after the page loaded: 409 plan_unavailable says so, reads the prices again and drops Weekly", async () => {
+    const reads = pricingReads();
+    wrap(<ProPlans onPurchased={vi.fn()} />);
+    fireEvent.click(await screen.findByTestId("pro-plan-weekly"));
+    mockDb.webProWeeklyHidden = true;
+    const before = reads.n;
+    fireEvent.click(screen.getByTestId("pro-get"));
+    expect((await screen.findByTestId("pro-stripe-error")).textContent).toBe(
+      "That plan isn't offered here any more. Choose another one.",
+    );
+    // read again after the refusal
+    await waitFor(() => expect(reads.n).toBeGreaterThan(before));
+    await waitFor(() => expect(screen.queryByTestId("pro-plan-weekly")).toBeNull());
+    expect(mockDb.pro).not.toBe(true);
+  });
+
+  it("a change to Weekly refused the same way reads the prices again", async () => {
+    mockDb.proStatus = { pro: true, known: true, source: "stripe", via: "pro_monthly" };
+    const reads = pricingReads();
+    wrap(<ProPeriodChange />);
+    const toWeekly = await screen.findByRole("button", { name: "Switch to Weekly" });
+    mockDb.webProWeeklyHidden = true;
+    const before = reads.n;
+    fireEvent.click(toWeekly);
+    await waitFor(() => expect(reads.n).toBeGreaterThan(before));
+    expect(mockDb.planChanges).toEqual([]);
+  });
+});

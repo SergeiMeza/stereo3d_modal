@@ -9,7 +9,10 @@
 import type { PublicPricing } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { atom } from "jotai";
+
 import { sharedFetch } from "@/lib/state/sharedFetch";
+import { appStore } from "@/lib/state/stores";
 
 // ADR 0138: one shared answer in an app-store atom
 const pricing = sharedFetch<PublicPricing>();
@@ -17,6 +20,18 @@ const pricing = sharedFetch<PublicPricing>();
 /** Test hook: forget the shared answer. */
 export function resetPricingCache(): void {
   pricing.reset();
+  appStore.set(pricingEpochAtom, 0);
+}
+
+/** Bumped by refreshPricing: readers that keep their own copy of what
+ * /v1/pricing says (the Pro plans) read it again. */
+export const pricingEpochAtom = atom(0);
+
+/** Read /v1/pricing again (a plan the page offered was refused with
+ * plan_unavailable: the flags changed); what it says now replaces it. */
+export function refreshPricing(): void {
+  pricing.refresh();
+  appStore.set(pricingEpochAtom, (n) => n + 1);
 }
 
 export function usePricing(): PublicPricing | null {

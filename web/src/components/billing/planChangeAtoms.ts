@@ -19,6 +19,7 @@ import { atomFamily } from "jotai-family";
 
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient, PlanChangePreview } from "@/lib/api/client";
+import { refreshPricing } from "@/lib/api/usePricing";
 import type { Tr } from "@/lib/i18n/t";
 
 import { confirmPlanChange } from "./planChangeCopy";
@@ -88,6 +89,9 @@ export const previewPlanChangeAtom = atom(
       const preview = await withTimeout(a.client.previewPlanChange(a.to), PREVIEW_TIMEOUT_MS);
       if (get(at).seq === mine) set(at, (s) => ({ ...s, preview }));
     } catch (e) {
+      // BUX-24/25: a plan not offered now; the prices are read again so
+      // the menu drops it
+      if (e instanceof GatewayError && e.code === "plan_unavailable") refreshPricing();
       // the coordinator 2026-11-06: a refusal shows the gateway's own
       // words (e.g. a change it can't make now), never a dead end
       const refused = e instanceof GatewayError && e.status >= 400 && e.status < 500 && e.message;
@@ -116,6 +120,7 @@ export const confirmPlanChangeAtom = atom(
     set(at, { ...s, busy: true, error: null, payUrl: null, repriced: false });
     // the failure's words in the caller's language (English without one)
     const r = await confirmPlanChange(a.client, s.preview, a.t);
+    if (r.kind === "error" && r.code === "plan_unavailable") refreshPricing();
     if (get(at).seq !== mine) return r.kind;
     if (r.kind === "done") set(at, (x) => ({ ...x, busy: false }));
     else if (r.kind === "repriced") set(at, (x) => ({ ...x, busy: false, preview: r.preview, repriced: true }));

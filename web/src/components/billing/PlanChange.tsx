@@ -71,6 +71,8 @@ export const PAY_PER_VIDEO = "pay_per_video";
 /** Highest to lowest (owner 2026-11-04: a lower plan is a step-down). */
 const PLAN_RANK: Record<string, number> = {
   studio: 40,
+  // BUX-25: Business billed yearly, between Business and Studio
+  business_yearly: 35,
   business: 30,
   pro_yearly: 23,
   pro_monthly: 22,
@@ -104,7 +106,10 @@ export function optionFor(
 ): Option {
   // gateway 00138: "pay_per_video" (older answers said "none")
   if (id === PAY_PER_VIDEO || id === "none" || id === "") return { id: PAY_PER_VIDEO, name: null };
-  if (id === "business" || id === "studio") {
+  // BUX-25: Business yearly, named by the caller ("Business Yearly")
+  const named = id === "business_yearly" ? proNames.get(id) : undefined;
+  if (named) return named;
+  if (id === "business" || id === "studio" || id === "business_yearly") {
     const def = pricing?.plans?.[id];
     return {
       id,
@@ -188,15 +193,30 @@ export function PlanChangeMenu({
           per: proPer(p.kind, t),
         }))
       : [];
-  const proNames = new Map(pro.map((o) => [o.id, o]));
+  const proNames = new Map<string, Option>(pro.map((o) => [o.id, o]));
+  // BUX-25: Business billed yearly reads apart from monthly Business
+  const yearlyDef = pricing?.business_yearly === true ? pricing.plans?.business_yearly : undefined;
+  if (yearlyDef) {
+    proNames.set("business_yearly", {
+      id: "business_yearly",
+      name: t("billing.planChange.proName", { pro: yearlyDef.name || "Business", period: t("pro.plans.name.yearly") }),
+      per: planPrice(yearlyDef).per,
+      cents: planPrice(yearlyDef).cents,
+    });
+  }
   // lower plans, and (owner 2026-11-04) Business → Studio as a step-up
-  const rank = PLAN_RANK[plan.plan_id ?? plan.plan] ?? 0;
-  const higher: Option[] =
-    plan.plan === "business" ? [optionFor("studio", pricing, proNames)] : [];
+  const currentId = plan.plan_id ?? plan.plan;
+  const rank = PLAN_RANK[currentId] ?? 0;
+  // the team plans one can move to (BUX-25: Business yearly while it's
+  // offered); from Business, Studio is a step-up
+  const yearlyOn = yearlyDef !== undefined;
+  const team = plan.plan === "business" || plan.plan === "studio";
+  const teamIds = ["business", ...(yearlyOn ? ["business_yearly"] : []), "studio"].filter((id) => id !== currentId);
+  const higher: Option[] = team
+    ? teamIds.filter((id) => (PLAN_RANK[id] ?? 0) > rank).map((id) => optionFor(id, pricing, proNames))
+    : [];
   const lower: Option[] = [
-    ...(plan.plan === "studio"
-      ? [optionFor("business", pricing, proNames)]
-      : []),
+    ...(team ? teamIds.filter((id) => (PLAN_RANK[id] ?? 0) < rank).map((id) => optionFor(id, pricing, proNames)) : []),
     ...pro.filter((o) => (PLAN_RANK[o.id] ?? 0) < rank),
     { id: PAY_PER_VIDEO, name: null },
   ];
