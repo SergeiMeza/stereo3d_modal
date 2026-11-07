@@ -2061,6 +2061,386 @@
     "fullScreen": "Tam ekran",
     "playsFlat": "Burada düz oynar. Vision Pro uzamsal videosu 3D oynar."
   },
+  "quote": {
+    "timedOut": "Fiyatlandırma normalden uzun sürüyor.",
+    "charge": {
+      "atStart": "Başlarken tahsil edilir. Başarısız olursa iade edilir.",
+      "after": "Bittikten sonra tahsil edilir.",
+      "payBefore": "Dönüştürme başlamadan önce ödersiniz. Önce kredi ve bakiyeniz kullanılır.",
+      "payBeforePublic": "Dönüştürme başlamadan önce ödersiniz.",
+      "roundedUp": "Başlayan her dakika tam dakika sayılır.",
+      "rule": "{amount} üzerindeki dönüştürmeler: başlarken tahsil edilir, başarısız olursa iade edilir. {amount} ve altındakiler: bittikten sonra tahsil edilir. Başarısız dönüştürmeler ücretsizdir.",
+      "cancelBefore": "Başlattığınızda tahsil edilir. Sırada beklerken ya da ilk dakikada istediğiniz zaman iptal edin, tam iade alın.",
+      "cancelAfter": "{amount} ve altındaki dönüştürmeler bittikten sonra tahsil edilir. Sırada beklerken ya da ilk dakikada istediğiniz zaman iptal edin, hiçbir şey ödemezsiniz."
+    },
+    "payment": {
+      "refunded": "İade edildi",
+      "notCharged": "Tahsil edilmedi",
+      "needed": "Ödeme gerekli",
+      "update": "Ödeme gerekli: ödeme yönteminizi güncelleyin",
+      "payToDownload": "İndirmek için {amount} öde",
+      "payToPlay": "Oynatmak için {amount} öde"
+    },
+    "view": {
+      "tierPrice": "{name} fiyatı",
+      "yourPrice": "Fiyatınız",
+      "addOn": "ek",
+      "bulkDiscount": "Toplu indirim",
+      "bulkLabel": "{amount} üzeri %{pct} indirim",
+      "reuse": {
+        "depth": "derinlik işi",
+        "preprocess": "hazırlık"
+      },
+      "listAnd": "{a} ve {b}",
+      "reusing": "Önceki <list>{stages}</list> yeniden kullanılıyor",
+      "minutes": "{minutes} dk",
+      "yourVideo": "Videonuz: {length}",
+      "atFpsPct": "{fps} fps ({pct})",
+      "price": "Fiyat",
+      "lengthAtQuality": "{length}, {quality}",
+      "perMinute": "{minutes} dk × dakikası {rate}",
+      "atFpsLabelPct": "{fps} ({pct})",
+      "howPriced": "Fiyat nasıl hesaplandı",
+      "depthDetail": "Derinlik ayrıntısı",
+      "depthDetailPx": "Derinlik ayrıntısı ({px} px)",
+      "edgeStyle": "Kenar stili",
+      "subtotal": "Ara toplam",
+      "included": "Dahil",
+      "namePct": "{name} ({pct})",
+      "masterBitrate": "{master} bit hızı ({pct})",
+      "express": "Ekspres",
+      "minimum": "Asgari ücret {amount}",
+      "total": "Toplam <note>USD, vergi hariç</note>",
+      "fpsCapped": "{fps} ile dönüştürülür. Daha yüksek kare hızları {business} ve {studio} planlarıyla gelir.",
+      "estimatedTime": "Tahmini süre",
+      "readyIn": "Hazır olma süresi"
+    }
+  },
+  "make": {
+    "checkout": {
+      "requestFailed": "istek başarısız oldu",
+      "confirmFailed": "Ödeme onaylanamadı — dönüştürme başlatılmadı.",
+      "starting": "Başlatılıyor…",
+      "freePreview": "Ücretsiz önizleme",
+      "paidFromCredit": "Kredinizden ödendi",
+      "balanceShort": "Bakiye {amount} · <add>Bakiye ekle</add>",
+      "freePreviews": {
+        "first": "İlk önizlemeniz ücretsiz",
+        "todayUsed": "Bugünkü ücretsiz önizlemeler bitti. Yarın yenisi var.",
+        "left": {
+          "week": "Bu hafta {allowance} ücretsiz önizlemenin {remaining} tanesi kaldı",
+          "month": "Bu ay {allowance} ücretsiz önizlemenin {remaining} tanesi kaldı",
+          "year": "Bu yıl {allowance} ücretsiz önizlemenin {remaining} tanesi kaldı",
+          "pass": "Geçişinizde {allowance} ücretsiz önizlemenin {remaining} tanesi kaldı",
+          "none": "{allowance} ücretsiz önizlemenin {remaining} tanesi kaldı"
+        }
+      },
+      "changeLimit": "Limiti değiştir",
+      "contactSupport": "Destekle iletişime geç",
+      "block": {
+        "noPaymentMethod": "Ücretli dönüştürmeleri başlatmadan önce bir ödeme yöntemi gerekir.",
+        "addPaymentMethod": "Ödeme yöntemi ekle →",
+        "declined": "Bu dönüştürmenin ödemesi reddedildi. Hiçbir şey tahsil edilmedi.",
+        "updatePaymentMethod": "Ödeme yöntemini güncelle →"
+      },
+      "getQuote": "Fiyat al",
+      "convert": "Dönüştür",
+      "convertPrice": "Dönüştür · {price}",
+      "retry": "Tekrar dene",
+      "updating": "Güncelleniyor…",
+      "pricing": "Fiyatlanıyor…",
+      "runInProgress": "Bir dönüştürme sürüyor. Bitince yenisini başlatabilirsiniz.",
+      "free": "Ücretsiz",
+      "youllGet": "Alacağınız: {files}",
+      "labelPrice": "{label} · {price}"
+    },
+    "fileQuality": {
+      "title": "Dosya kalitesi",
+      "hint": {
+        "high": "Müşteri incelemeleri ve büyük ekranlar için",
+        "master": "Düzenleme ve arşiv için"
+      },
+      "aboutSize": "yaklaşık {size}",
+      "aboutMbps": "yaklaşık {mbps} Mbit/sn",
+      "mbps": "{mbps} Mbit/sn",
+      "kbps": "{kbps} kbit/sn",
+      "overall": "toplam {rate}",
+      "measuredOne": "ölçülen {rate}",
+      "measuredMany": "ölçülen: {rates}",
+      "measuredPart": "{name} {rate}",
+      "askedMeasured": "{asked} ({measured})",
+      "bitrateAuto": "Otomatik",
+      "bitrateMatchSource": "Kaynakla aynı",
+      "outputShort": {
+        "mvhevc": "Uzamsal",
+        "sbs": "SBS",
+        "half_sbs": "Yarım SBS",
+        "anaglyph": "Kırmızı-camgöbeği",
+        "depth": "Derinlik",
+        "depth_vis": "Derinlik görünümü"
+      }
+    },
+    "fps": {
+      "planRequired": "30 fps üzeri kare hızları {business} ve {studio} planlarıyla gelir.",
+      "planRequiredSeePlans": "30 fps üzeri kare hızları {business} ve {studio} planlarıyla gelir. <link>Planlara bakın</link>",
+      "pickFrameRate": "Fiyatı görmek için bir kare hızı seçin.",
+      "costLine": "Yüksek kare hızları daha akıcı görünür ve daha pahalıdır: {fps} ile bir dakika {minutes} dakika sayılır.",
+      "label": "Kare hızı",
+      "free": "Ücretsiz",
+      "lockedPlan": "{business} veya {studio} planı"
+    },
+    "methods": {
+      "description": {
+        "lifelike": "Videonuzun her anını gerçek bir 3D sahne olarak yeniden kurar, sonra her göz için yeniden çeker. En doğal derinlik ve temiz kenarlar, çok daha kısa sürede.",
+        "classic": "Görüntünüze derinlik katar; her adımı elle kontrol edersiniz."
+      },
+      "lifelikeEyebrow": "En yeni 3D teknolojimiz",
+      "tagClassic": "Eski yöntem",
+      "limitMinutes": "{minutes} dakikaya kadar, {top} değerine kadar",
+      "limitAnyLength": "her uzunlukta, {top} değerine kadar",
+      "limitsStatement": "{method}: {limit}.",
+      "convertWithLifelike": "{method} ile dönüştür",
+      "moveToLifelikeTitle": "Bu proje {method} ile dönüştürülsün mü?",
+      "moveToLifelikeBody": "Classic dosyalarınız Dosyalar’da kalır. Classic yöntemine geri dönemezsiniz.",
+      "switchNotAllowed": "{lifelike} projesi {classic} yöntemine geri dönemez.",
+      "sampleProject": "Bu hazır bir örnek, burada ödenecek bir şey yok. 3D dosyaları Dosyalar’da. Kendi videonuzu ekleyip 3D yapın.",
+      "classicRetired": "{classic} kaldırıldı. Dosyalarınız burada kalır; bu projeyi {lifelike} ile dönüştürebilirsiniz.",
+      "highestQualityTag": "En yüksek kalite",
+      "presetAboveSource": "Bu kalite videonuzdan yüksek. Daha düşük birini seçin; asla büyütmeyiz.",
+      "errors": {
+        "presetUnavailable": "{classic} en çok 3K’ya çıkar. 4K ve üzeri için {lifelike} ile dönüştürün.",
+        "methodUnavailable": "Bu 3D yöntemi şu an kullanılamıyor. Lütfen daha sonra tekrar deneyin.",
+        "sourceTooLong": "Bu video {classic} için çok uzun. Sayfanın üstünden {lifelike} ile dönüştürün. Her uzunluktaki videoyla çalışır.",
+        "stepNotSupported": "Bu projenin 3D yöntemi değişti. Devam etmek için sayfayı yenileyin.",
+        "splitUnsupported": "Bu yöntemde parçalara bölme kullanılamaz."
+      }
+    },
+    "output": {
+      "inpaint": {
+        "propainter": "Tam kalite",
+        "migan": "Hızlı doldurma (artık sunulmuyor)",
+        "none": "Hızlı"
+      },
+      "edgeHint": "Resmi her göz için kaydırmak nesne kenarlarında ince boşluklar açar. Gerilmiş, komşu pikselleri boşlukların üzerine çeker; Doldurulmuş, boşlukları boyar. İki farklı görünüm: beğendiğinizi seçin."
+    },
+    "stepDefs": {
+      "classic": {
+        "depth_preview": {
+          "title": "Derinlik",
+          "description": "3D yapmadan önce her şeyin ne kadar uzakta olduğuna bakın: zaman çizelgesinde bulunduğunuz yerden 10 saniyelik bir derinlik klibi. İsteğe bağlı.",
+          "outputs": {
+            "o1": "Kaynağınızın yanında oynatabileceğiniz 10 saniyelik bir derinlik klibi; yakın parlak, uzak koyu"
+          },
+          "tips": {
+            "t1": "Oynatma çubuğunu kontrol etmek istediğiniz çekime taşıyın; klip oradan başlar.",
+            "t2": "Daha yüksek ayrıntı daha pahalıdır; videonuzun kendi çözünürlüğüyle sınırlıdır.",
+            "t3": "Bir sahnede derinliğin kararlı olmasına bakın — kareler arası titreme 3D’de parıltı olarak görünür."
+          }
+        },
+        "stereo_preview": {
+          "title": "3D görünümü",
+          "description": "Sahne başına 3D: her sahne otomatik ölçülür ve sınıflandırılır; gerekenleri ayarlayın ve zaman çizelgesinde bulunduğunuz yerden 10 saniyelik bir klibi kontrol edin.",
+          "outputs": {
+            "o1": "3D yap’ın sunduğu aynı kalite ve biçimlerde 10 saniyelik bir 3D klip",
+            "o2": "Dönüştürmenin hesapladığı sahne başı profil, bu sayfanın Otomatik varsayılanlarını belirler"
+          },
+          "tips": {
+            "t1": "Her sahne varsayılan olarak Otomatik’tir: profil çıkarıcı aksiyonun kameraya uzaklığını ölçer ve dört çekim türünden birini seçer — yalnızca değiştirdiğiniz satırlar geçersiz kılma olarak gönderilir.",
+            "t2": "Yakın plan — özne kameraya yakın. Derinlik yumuşak tutulur ve özne size doğru hafifçe öne çıkar.",
+            "t3": "Standart — orta mesafe çekim. Ekran düzlemi çevresinde dengeli derinlik; en yaygın durum.",
+            "t4": "Geniş — tanıtıcı ya da uzak çekim. Derinlik bir pencere gibi ekranın arkasında durur; doldurması en zor çekimlerde kenarları temiz tutar.",
+            "t5": "Dinamik — sahne boyunca kamera ya da özne mesafesi değişir (yaklaşma, uzaklaşma); 3D gücü çekim boyunca sabit kalmak yerine uyum sağlar.",
+            "t6": "Otomatik seçim yanlış görünürse sahnenin çekim türünü değiştirin — örneğin profilin Standart dediği yakın bir çekimi daha çok öne çıkarmak için Yakın plan yapın.",
+            "t7": "Genel 3D gücü TÜM sahneleri birden ölçekler; sahne başına çekim türü ayarı kendi sahnesinde geçerlidir.",
+            "t8": "Kenarlar varsayılan olarak Doldurulmuş: 3D’de nesne kenarlarında açılan ince boşluklar boyanır. Diğer kenar stili Gerilmiş, Gelişmiş altındadır.",
+            "t9": "Bir sahneyi 2D teslim etmek için “3D” işaretini kaldırın — iki göz aynı, derinlik yok (bitiş jenerikleri, logolar, başlık kartları).",
+            "t10": "“Çekimleri profille (ücretsiz)” her sahnenin derinliğini önizleme proxy’sinden ölçer ve sahne başı kontrolleri belirler — ücretsiz, yaklaşık bir dakika.",
+            "t11": "Ayarlarınız proje başına saklanır ve 3D yap’a otomatik aktarılır."
+          }
+        },
+        "production": {
+          "title": "3D yap",
+          "description": "Tüm video (ya da seçtiğiniz bölüm) 3D olarak. Derinlik ve 3D görünümü ayarlarınızı kullanır, önceki derinlik işini indirimle yeniden kullanır.",
+          "outputs": {
+            "o1": "Seçtiğiniz her biçimde videonuz: Vision Pro uzamsal video, diğer başlıklar ve 3D TV’ler için yan yana, hızlı kontrol için kırmızı-camgöbeği",
+            "o2": "Seçtiğiniz kalitede tam kare hızı; Gelişmiş altında Gerilmiş seçmediyseniz Doldurulmuş kenarlarla"
+          },
+          "tips": {
+            "t1": "Özet, bu dönüştürmenin hangi Derinlik ve 3D görünümü ayarlarını kullandığını gösterir — her biri otomatiğe geri alınabilir.",
+            "t2": "Yeniden kullanım varsayılandır: uyumlu önizleme çıktıları (derinlik, hazırlık) otomatik indirimlidir — fiyat teklifi yeniden kullanılan her aşamayı gösterir.",
+            "t3": "Her şeyi yeniden hesaplamak için “Sıfırdan başla”yı seçin; örneğin kaliteyi önizlemelerin çalıştığı düzeyin üstüne çıkarmak için."
+          }
+        }
+      },
+      "lifelike": {
+        "lifelike_preview": {
+          "title": "Önizleme",
+          "description": "Tüm videoyu 3D yapmadan önce birkaç saniyesini 3D görün.",
+          "outputs": {
+            "o1": "Videonuzun seçtiğiniz andan başlayan birkaç saniyesi 3D olarak (varsayılan 5)",
+            "o2": "Yan yana; burada hemen oynatabilir (ya da ücretsiz olarak kırmızı-camgöbeği veya salınım ile kontrol edebilir) ya da başlıkta izleyebilirsiniz"
+          },
+          "tips": {
+            "t1": "Sizin için en önemli çekim türünü içeren bir an seçin — yüzler, hızlı hareket ya da geniş görünümler.",
+            "t2": "Önizleme, aynı saniyelerin son videoda maliyetine mal olur; dönüştürme başına küçük bir asgari ücret vardır. Hızlı bakış, yarı kare hızıyla yarı fiyata işler.",
+            "t3": "Beğendiniz mi? 3D yap tüm videoyu aynı şekilde işler."
+          }
+        },
+        "production": {
+          "title": "3D yap",
+          "description": "Tüm video ya da yalnızca bir bölümü 3D olarak.",
+          "outputs": {
+            "o1": "Vision Pro uzamsal video, tam yan yana ve yarım yan yana",
+            "o2": "Uzun videolar, her biri akıcı oynayan 15 dakikalık parçalar olarak gelebilir"
+          },
+          "tips": {
+            "t1": "Vision Pro uzamsal video Apple Vision Pro içindir; yan yana çoğu diğer başlıkta ve 3D TV’de oynar.",
+            "t2": "Yarım yan yana dosyayı küçük tutar; tam yan yana her pikseli korur.",
+            "t3": "Dönüştürme başlamadan önce ödersiniz. Önce kredi ve bakiyeniz kullanılır. Başarısız olursa iade edilir."
+          }
+        }
+      }
+    },
+    "devices": {
+      "glasses": "XR gözlükler (XREAL, VITURE, RayNeo)",
+      "tv": "3D TV veya projektör",
+      "unsure": "Emin değilim"
+    },
+    "controls": {
+      "watchQuestion": "Nerede izleyeceksiniz?",
+      "filesYoullGet": "Alacağınız dosyalar",
+      "formatFor": {
+        "mvhevc": "Apple Vision Pro için",
+        "sbs": "Meta Quest, Galaxy XR, Pico, Steam Frame ve XR gözlükler için",
+        "half_sbs": "3D TV’ler, projektörler ve 4K ve üzerinde Meta Quest için",
+        "anaglyph": "Kırmızı-camgöbeği gözlükle her ekran"
+      },
+      "halfSbsSizeHint": "Tam yan yananın yaklaşık yarı boyutu. Dosya kopyalamak ya da akıtmak için çok büyükse işe yarar.",
+      "quality": "Kalite",
+      "highestChip": "En yüksek<sr> kalite</sr>",
+      "originalEye": "Bir göz özgün görüntünüzü korur.",
+      "startHandle": "Başlangıç tutamacı",
+      "endHandle": "Bitiş tutamacı",
+      "start": "Başlangıç",
+      "end": "Bitiş",
+      "trimWhole": "Tüm video · {length}",
+      "trimPart": "Bölüm · {length}",
+      "partsEstimate": "{count, plural, other {# parça}}: yaklaşık {list} dk",
+      "bitrateMatchSource": "Kaynakla aynı",
+      "bitrate": "Bit hızı",
+      "estimatedSize": "Tahmini boyut: yaklaşık {size}"
+    },
+    "deliver": {
+      "analyzing": "Videonuzu hâlâ çözümlüyoruz. Bitince fiyatlar görünür.",
+      "optionalLook": "İsteğe bağlı: önce <link>3D görünümü</link> sayfasında herhangi bir 10 saniyeyi kontrol edin.",
+      "pickAll": "Uygun olanların hepsini seçin.",
+      "allIncluded": "Hepsi fiyata dahil.",
+      "edgeNote": {
+        "filled": "Doldurulmuş kenarlarla. Gelişmiş altından değiştirebilirsiniz.",
+        "stretched": "Gerilmiş kenarlarla. Gelişmiş altından değiştirebilirsiniz."
+      },
+      "whichPart": "Hangi bölüm?",
+      "whichPartHint": "Yalnızca bir bölümün parasını ödemek için tutamaçları sürükleyin.",
+      "advanced": "Gelişmiş",
+      "depthFromPage": "{px} px (Derinlik sayfasından)",
+      "useAutoDepth": "Otomatik derinlik ayrıntısını kullan",
+      "depthStandard": "Bu kalite için standart. Daha yüksek ayrıntı Derinlik sayfasında ayarlanır.",
+      "ownDepthMap": "Kendi derinlik haritanız",
+      "uploadedDepth": "Yüklenen derinlik videosu",
+      "uploadedDepthNamed": "Yüklenen derinlik videosu · {name}",
+      "useUploadedDepth": "Yüklediğim derinlik videosunu kullan",
+      "usedAsIs": "Olduğu gibi kullanılır; daha ucuz.",
+      "sceneSettings": "Sahne ayarları",
+      "stereoFromPage": "{count} sahne ayarlandı, 3D gücü ×{scale} (3D görünümü sayfasından)",
+      "useAutoStereo": "Her sahne için otomatik 3D kullan",
+      "stereoAuto": "Her sahne otomatik 3D kullanır.",
+      "edges": "Kenarlar",
+      "fromScratch": "Sıfırdan başla",
+      "fromScratchHint": "Bu videodaki önceki işi yeniden kullanma. Tam fiyat.",
+      "makeLabel": "3D yap",
+      "pickOneFile": "En az bir dosya seçin"
+    },
+    "lifelike": {
+      "splitQuestion": "Videonuz {minutes} dakika. Her dosya akıcı oynasın diye {part} dakikalık parçalara bölünsün mü?",
+      "expressHint": "Sırada ilk.",
+      "hdr": "3D’niz HDR olacak; parlak vurgular ve zengin renk korunur. Ücretsiz.",
+      "hdrWithSbs": "3D’niz HDR olacak; parlak vurgular ve zengin renk korunur. Ücretsiz. Yan yana dosyalar, HDR göstermeyen başlıklar için standart renkte hazırlanır.",
+      "splitHint": "Parçalar sahne geçişinde biter. Ek ücret yok.",
+      "splitIntoParts": "Parçalara böl",
+      "keepOneFile": "Tek dosya kalsın",
+      "yourVideoIs": "Videonuz {resolution}.",
+      "fullResolutionNote": "Tam çözünürlük videonuzun kendi boyutudur, bir alt adım gibi fiyatlanır.",
+      "keepOneEye": "Bir gözü özgün bırak",
+      "alwaysOn": "Bu kalitede hep açık",
+      "includedDot": "· dahil",
+      "fpsHint": "Videonuz {fps}. Hangi hızda yapılacağını seçin.",
+      "subscribeAndConvert": "Katıl ve dönüştür",
+      "earlierFiles": "Önceki dosyalarınız Dosyalar’da",
+      "whichEye": "Hangi göz",
+      "left": "Sol",
+      "right": "Sağ"
+    }
+  },
+  "glossary": {
+    "formats": {
+      "mvhevc": "Vision Pro uzamsal video",
+      "sbs": "Yan yana",
+      "half_sbs": "Yan yana (yarım boyut)",
+      "anaglyph": "Kırmızı-camgöbeği",
+      "tb": "Üst-alt",
+      "half_tb": "Üst-alt (yarım boyut)"
+    },
+    "otherOutputs": {
+      "depth": "Derinlik videosu",
+      "depth_vis": "Derinlik videosu (önizleme)"
+    },
+    "outputPart": "{name} · Parça {part}",
+    "qualityDraft": "Taslak",
+    "perEye": "Göz başına {width}×{height}",
+    "fullResolution": "Tam çözünürlük ({short}p)",
+    "steps": {
+      "depth_preview": "Derinlik önizlemesi",
+      "stereo_preview": "3D görünümü önizlemesi",
+      "lifelike_preview": "Önizleme",
+      "production": "Tüm video"
+    },
+    "edgeStyles": {
+      "filled": "Doldurulmuş",
+      "stretched": "Gerilmiş"
+    },
+    "edges": {
+      "filled": "Doldurulmuş kenarlar",
+      "stretched": "Gerilmiş kenarlar",
+      "fast": "Hızlı doldurma (artık sunulmuyor)",
+      "none": "Doldurulmamış kenarlar"
+    },
+    "fps": "{fps} fps",
+    "scenes": "{count, plural, other {# sahne}}",
+    "hdrVideo": "HDR video",
+    "foveatedDetail": "Foveated Detail",
+    "foveatedHint": "Baktığınız yerde daha çok ayrıntı.",
+    "summary": {
+      "depthScale": "3D gücü ×{scale}",
+      "scenesAdjusted": "{count, plural, other {# sahne ayarlandı}}",
+      "splitParts": "{minutes} dakikalık parçalar halinde",
+      "originalEye": {
+        "left": "Sol gözde özgün görüntü",
+        "right": "Sağ gözde özgün görüntü"
+      }
+    }
+  },
+  "offer": {
+    "name": "Lansman teklifi",
+    "badge": "%{pct} lansman indirimi",
+    "note": {
+      "list": "{rest} ve {last}",
+      "listSeparator": ", ",
+      "pctOn": "{label}: {on} için %{pct} indirim.",
+      "pctOnly": "{label}: %{pct} indirim.",
+      "onOnly": "{label}: {on} için.",
+      "labelOnly": "{label}."
+    }
+  },
   "workspace": {
     "analyze": {
       "slow": "Bu her zamankinden uzun sürüyor.",

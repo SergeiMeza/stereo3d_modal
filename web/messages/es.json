@@ -2061,6 +2061,386 @@
     "fullScreen": "Pantalla completa",
     "playsFlat": "Aquí se reproduce en 2D. El video espacial de Vision Pro se reproduce en 3D."
   },
+  "quote": {
+    "timedOut": "El cálculo del precio está tardando más de lo normal.",
+    "charge": {
+      "atStart": "Se cobra al empezar. Se reembolsa si falla.",
+      "after": "Se cobra al terminar.",
+      "payBefore": "Pagas antes de que empiece la conversión. Primero se usan tu crédito y tu saldo.",
+      "payBeforePublic": "Pagas antes de que empiece la conversión.",
+      "roundedUp": "Cada minuto iniciado cuenta como un minuto completo.",
+      "rule": "Conversiones de más de {amount}: se cobran al empezar y se reembolsan si fallan. Conversiones de {amount} o menos: se cobran al terminar. Las conversiones fallidas no cuestan nada.",
+      "cancelBefore": "Se cobra al empezar. Cancela cuando quieras mientras espera en la cola, o en su primer minuto, y te reembolsamos todo.",
+      "cancelAfter": "Las conversiones de {amount} o menos se cobran al terminar. Cancela cuando quieras mientras esperan en la cola, o en su primer minuto, y no pagas nada."
+    },
+    "payment": {
+      "refunded": "Reembolsado",
+      "notCharged": "Sin cobro",
+      "needed": "Falta el pago",
+      "update": "Falta el pago: actualiza tu método de pago",
+      "payToDownload": "Paga {amount} para descargar",
+      "payToPlay": "Paga {amount} para reproducir"
+    },
+    "view": {
+      "tierPrice": "Precio {name}",
+      "yourPrice": "Tu precio",
+      "addOn": "complemento",
+      "bulkDiscount": "Descuento por volumen",
+      "bulkLabel": "{pct}% de descuento sobre {amount}",
+      "reuse": {
+        "depth": "trabajo de profundidad",
+        "preprocess": "preparación"
+      },
+      "listAnd": "{a} y {b}",
+      "reusing": "Reutilizando tu <list>{stages}</list> anterior",
+      "minutes": "{minutes} min",
+      "yourVideo": "Tu video: {length}",
+      "atFpsPct": "a {fps} fps ({pct})",
+      "price": "Precio",
+      "lengthAtQuality": "{length} en {quality}",
+      "perMinute": "{minutes} min × {rate} el minuto",
+      "atFpsLabelPct": "A {fps} ({pct})",
+      "howPriced": "Cómo calculamos el precio",
+      "depthDetail": "Detalle de profundidad",
+      "depthDetailPx": "Detalle de profundidad ({px} px)",
+      "edgeStyle": "Estilo de bordes",
+      "subtotal": "Subtotal",
+      "included": "Incluido",
+      "namePct": "{name} ({pct})",
+      "masterBitrate": "Tasa de bits {master} ({pct})",
+      "express": "Express",
+      "minimum": "Cargo mínimo {amount}",
+      "total": "Total <note>USD, sin impuestos</note>",
+      "fpsCapped": "Se convierte a {fps}. Más fotogramas por segundo vienen con los planes {business} y {studio}.",
+      "estimatedTime": "Tiempo estimado",
+      "readyIn": "Listo en"
+    }
+  },
+  "make": {
+    "checkout": {
+      "requestFailed": "la solicitud falló",
+      "confirmFailed": "No se pudo confirmar el pago: la conversión no se inició.",
+      "starting": "Iniciando…",
+      "freePreview": "Vista previa gratis",
+      "paidFromCredit": "Pagado con tu crédito",
+      "balanceShort": "Saldo {amount} · <add>Añadir fondos</add>",
+      "freePreviews": {
+        "first": "Tu primera vista previa es gratis",
+        "todayUsed": "Ya usaste las vistas previas gratis de hoy. Mañana habrá más.",
+        "left": {
+          "week": "Te quedan {remaining} de {allowance} vistas previas gratis esta semana",
+          "month": "Te quedan {remaining} de {allowance} vistas previas gratis este mes",
+          "year": "Te quedan {remaining} de {allowance} vistas previas gratis este año",
+          "pass": "Te quedan {remaining} de {allowance} vistas previas gratis en tu pase",
+          "none": "Te quedan {remaining} de {allowance} vistas previas gratis"
+        }
+      },
+      "changeLimit": "Cambiar límite",
+      "contactSupport": "Contactar a soporte",
+      "block": {
+        "noPaymentMethod": "Necesitas un método de pago para iniciar conversiones de pago.",
+        "addPaymentMethod": "Añadir método de pago →",
+        "declined": "Se rechazó el pago de esta conversión. No se cobró nada.",
+        "updatePaymentMethod": "Actualizar método de pago →"
+      },
+      "getQuote": "Ver precio",
+      "convert": "Convertir",
+      "convertPrice": "Convertir · {price}",
+      "retry": "Reintentar",
+      "updating": "Actualizando…",
+      "pricing": "Calculando precio…",
+      "runInProgress": "Hay una conversión en curso. Podrás iniciar otra cuando termine.",
+      "free": "Gratis",
+      "youllGet": "Recibirás: {files}",
+      "labelPrice": "{label} · {price}"
+    },
+    "fileQuality": {
+      "title": "Calidad de archivo",
+      "hint": {
+        "high": "Para revisiones con clientes y pantallas grandes",
+        "master": "Para edición y archivo"
+      },
+      "aboutSize": "unos {size}",
+      "aboutMbps": "unos {mbps} Mbit/s",
+      "mbps": "{mbps} Mbit/s",
+      "kbps": "{kbps} kbit/s",
+      "overall": "{rate} en total",
+      "measuredOne": "medido {rate}",
+      "measuredMany": "medido: {rates}",
+      "measuredPart": "{name} {rate}",
+      "askedMeasured": "{asked} ({measured})",
+      "bitrateAuto": "Automática",
+      "bitrateMatchSource": "Igual al original",
+      "outputShort": {
+        "mvhevc": "Espacial",
+        "sbs": "SBS",
+        "half_sbs": "Half SBS",
+        "anaglyph": "Rojo/cian",
+        "depth": "Profundidad",
+        "depth_vis": "Vista de profundidad"
+      }
+    },
+    "fps": {
+      "planRequired": "Más de 30 fps vienen con los planes {business} y {studio}.",
+      "planRequiredSeePlans": "Más de 30 fps vienen con los planes {business} y {studio}. <link>Ver planes</link>",
+      "pickFrameRate": "Elige una velocidad de fotogramas para ver el precio.",
+      "costLine": "Más fotogramas se ven más fluidos y cuestan más: a {fps}, un minuto cuenta como {minutes} minutos.",
+      "label": "Velocidad de fotogramas",
+      "free": "Gratis",
+      "lockedPlan": "Plan {business} o {studio}"
+    },
+    "methods": {
+      "description": {
+        "lifelike": "Reconstruye cada momento de tu video como una escena 3D real y la vuelve a filmar para cada ojo. Profundidad más natural y bordes limpios, en una fracción del tiempo.",
+        "classic": "Añade profundidad a tu video, con control manual de cada paso."
+      },
+      "lifelikeEyebrow": "Nuestra tecnología 3D más nueva",
+      "tagClassic": "Método anterior",
+      "limitMinutes": "hasta {minutes} minutos, hasta {top}",
+      "limitAnyLength": "cualquier duración, hasta {top}",
+      "limitsStatement": "{method}: {limit}.",
+      "convertWithLifelike": "Convertir con {method}",
+      "moveToLifelikeTitle": "¿Convertir este proyecto con {method}?",
+      "moveToLifelikeBody": "Tus archivos Classic se quedan en Archivos. No se puede volver a Classic.",
+      "switchNotAllowed": "Un proyecto {lifelike} no puede volver a {classic}.",
+      "sampleProject": "Este es un ejemplo terminado, así que no hay nada que pagar. Sus archivos 3D están en Archivos. Añade tu propio video para crear 3D.",
+      "classicRetired": "{classic} ya no está disponible. Tus archivos se quedan aquí y puedes convertir este proyecto con {lifelike}.",
+      "highestQualityTag": "Máxima calidad",
+      "presetAboveSource": "Esa calidad es mayor que la de tu video. Elige una menor: nunca aumentamos la resolución.",
+      "errors": {
+        "presetUnavailable": "{classic} llega hasta 3K. Convierte con {lifelike} para 4K o más.",
+        "methodUnavailable": "Este método 3D no está disponible ahora. Inténtalo más tarde.",
+        "sourceTooLong": "Este video es demasiado largo para {classic}. Convierte con {lifelike}, arriba en la página. Funciona con videos de cualquier duración.",
+        "stepNotSupported": "El método 3D de este proyecto cambió. Recarga la página para continuar.",
+        "splitUnsupported": "Dividir en partes no está disponible con este método."
+      }
+    },
+    "output": {
+      "inpaint": {
+        "propainter": "Calidad completa",
+        "migan": "Relleno rápido (ya no disponible)",
+        "none": "Rápido"
+      },
+      "edgeHint": "Desplazar la imagen para cada ojo abre huecos finos en los bordes de los objetos. Estirado alarga los píxeles vecinos sobre ellos; Relleno los pinta. Son dos aspectos distintos: elige el que prefieras."
+    },
+    "stepDefs": {
+      "classic": {
+        "depth_preview": {
+          "title": "Profundidad",
+          "description": "Revisa qué tan lejos está todo antes de crear el 3D: un clip de profundidad de 10 segundos desde donde estás en la línea de tiempo. Opcional.",
+          "outputs": {
+            "o1": "Un clip de profundidad de 10 segundos que puedes reproducir junto a tu original: lo cercano es claro y lo lejano, oscuro"
+          },
+          "tips": {
+            "t1": "Mueve el cabezal a la toma que quieres revisar; el clip empieza ahí.",
+            "t2": "Más detalle cuesta más; se limita a la resolución de tu propio video.",
+            "t3": "Busca una profundidad estable en la escena: el parpadeo entre fotogramas se ve como destellos en 3D."
+          }
+        },
+        "stereo_preview": {
+          "title": "Aspecto 3D",
+          "description": "3D por escena: cada escena se mide y se clasifica automáticamente; ajusta las que lo necesiten y revisa un clip de 10 segundos desde donde estás en la línea de tiempo.",
+          "outputs": {
+            "o1": "Un clip 3D de 10 segundos con las mismas calidades y formatos que ofrece Convertir a 3D",
+            "o2": "El perfil por escena calculado en la conversión define los valores Auto de esta página"
+          },
+          "tips": {
+            "t1": "Cada escena empieza en Auto: el analizador mide qué tan lejos está la acción de la cámara y elige uno de cuatro tipos de toma; solo se envían como ajustes las filas que cambies.",
+            "t2": "Primer plano: el sujeto está cerca de la cámara. La profundidad se mantiene suave y el sujeto sale un poco hacia ti.",
+            "t3": "Estándar: una toma a distancia media. Profundidad equilibrada alrededor del plano de la pantalla; el caso más común.",
+            "t4": "Amplia: una toma de ubicación o lejana. La profundidad queda detrás de la pantalla, como una ventana, lo que mantiene limpios los bordes en las tomas más difíciles de rellenar.",
+            "t5": "Dinámica: la distancia de la cámara o del sujeto cambia durante la escena (acercamientos, alejamientos), así que la intensidad del 3D se adapta a lo largo de la toma en vez de quedar fija.",
+            "t6": "Cambia el tipo de toma de una escena cuando la elección automática no te convenza; por ejemplo, fuerza Primer plano en una toma cerrada que el analizador marcó como Estándar para que sobresalga más.",
+            "t7": "La intensidad 3D general afecta a TODAS las escenas a la vez; el tipo de toma elegido para una escena prevalece en esa escena.",
+            "t8": "Los bordes se rellenan por defecto: los huecos finos que se abren en los bordes de los objetos en 3D se pintan. El otro estilo, Estirado, está en Avanzado.",
+            "t9": "Desmarca “3D” en una escena para entregarla en 2D: ambos ojos idénticos, sin profundidad (créditos finales, logotipos, tarjetas de título).",
+            "t10": "“Analizar tomas (gratis)” mide la profundidad de cada escena desde el proxy de la vista previa y define los controles por escena. Sin cargo, tarda cerca de un minuto.",
+            "t11": "Tus ajustes se guardan por proyecto y pasan a Convertir a 3D automáticamente."
+          }
+        },
+        "production": {
+          "title": "Convertir a 3D",
+          "description": "Todo el video (o la parte que elijas) en 3D. Usa tus ajustes de Profundidad y Aspecto 3D, y reutiliza con descuento el trabajo de profundidad anterior.",
+          "outputs": {
+            "o1": "Tu video en cada formato que elijas: video espacial para Vision Pro, lado a lado para otros visores y TV 3D, rojo/cian para una revisión rápida",
+            "o2": "Fotogramas completos a la calidad que elijas, con bordes Rellenos salvo que elijas Estirado en Avanzado"
+          },
+          "tips": {
+            "t1": "El resumen muestra qué ajustes de Profundidad y Aspecto 3D usa esta conversión; cada uno se puede volver a poner en automático.",
+            "t2": "Reutilizar es lo predeterminado: los archivos compatibles de las vistas previas (profundidad, preparación) se descuentan automáticamente; el precio muestra cada etapa reutilizada.",
+            "t3": "Elige “Empezar desde cero” para recalcular todo, por ejemplo para subir la calidad por encima de la que usaron las vistas previas."
+          }
+        }
+      },
+      "lifelike": {
+        "lifelike_preview": {
+          "title": "Vista previa",
+          "description": "Mira unos segundos en 3D antes de convertir todo el video.",
+          "outputs": {
+            "o1": "Unos segundos de tu video en 3D (5 por defecto), desde el momento que elijas",
+            "o2": "Lado a lado, para reproducirlo aquí mismo (o revisarlo en rojo/cian o como vaivén, gratis) o en un visor"
+          },
+          "tips": {
+            "t1": "Elige un momento con el tipo de toma que más te importe: rostros, movimiento rápido o vistas amplias.",
+            "t2": "Una vista previa cuesta lo mismo que esos segundos en el video final, con un pequeño mínimo por conversión. Vista rápida usa la mitad de los fotogramas por la mitad del precio.",
+            "t3": "¿Te gusta? Convertir a 3D procesa todo el video del mismo modo."
+          }
+        },
+        "production": {
+          "title": "Convertir a 3D",
+          "description": "Todo el video, o solo una parte, en 3D.",
+          "outputs": {
+            "o1": "Video espacial para Vision Pro, lado a lado completo y lado a lado reducido",
+            "o2": "Los videos largos pueden salir en partes de 15 minutos que se reproducen con fluidez"
+          },
+          "tips": {
+            "t1": "El video espacial para Vision Pro es para Apple Vision Pro; lado a lado se reproduce en la mayoría de los demás visores y TV 3D.",
+            "t2": "Lado a lado reducido mantiene el archivo pequeño; el completo conserva cada píxel.",
+            "t3": "Pagas antes de que empiece la conversión. Primero se usan tu crédito y tu saldo. Se reembolsa si falla."
+          }
+        }
+      }
+    },
+    "devices": {
+      "glasses": "Gafas XR (XREAL, VITURE, RayNeo)",
+      "tv": "TV 3D o proyector",
+      "unsure": "No estoy seguro"
+    },
+    "controls": {
+      "watchQuestion": "¿Dónde lo vas a ver?",
+      "filesYoullGet": "Archivos que recibirás",
+      "formatFor": {
+        "mvhevc": "Para Apple Vision Pro",
+        "sbs": "Para Meta Quest, Galaxy XR, Pico, Steam Frame y gafas XR",
+        "half_sbs": "Para TV 3D, proyectores y Meta Quest en 4K o más",
+        "anaglyph": "Cualquier pantalla, con gafas rojo/cian"
+      },
+      "halfSbsSizeHint": "Pesa cerca de la mitad que el lado a lado completo. Útil cuando un archivo es muy grande para copiarlo o transmitirlo.",
+      "quality": "Calidad",
+      "highestChip": "Máxima<sr> calidad</sr>",
+      "originalEye": "Un ojo conserva tu imagen original.",
+      "startHandle": "Control de inicio",
+      "endHandle": "Control de final",
+      "start": "Inicio",
+      "end": "Final",
+      "trimWhole": "Video completo · {length}",
+      "trimPart": "Parte · {length}",
+      "partsEstimate": "{count, plural, one {# parte} other {# partes}}: unos {list} min",
+      "bitrateMatchSource": "Igual al original",
+      "bitrate": "Tasa de bits",
+      "estimatedSize": "Tamaño estimado: unos {size}"
+    },
+    "deliver": {
+      "analyzing": "Aún estamos analizando tu video. Los precios aparecen al terminar.",
+      "optionalLook": "Opcional: revisa antes cualquier tramo de 10 segundos en <link>Aspecto 3D</link>.",
+      "pickAll": "Elige todos los que quieras.",
+      "allIncluded": "Todos incluidos en el precio.",
+      "edgeNote": {
+        "filled": "Con bordes rellenos. Puedes cambiarlo en Avanzado.",
+        "stretched": "Con bordes estirados. Puedes cambiarlo en Avanzado."
+      },
+      "whichPart": "¿Qué parte?",
+      "whichPartHint": "Arrastra los controles para pagar solo una parte.",
+      "advanced": "Avanzado",
+      "depthFromPage": "{px} px (de la página Profundidad)",
+      "useAutoDepth": "Usar detalle de profundidad automático",
+      "depthStandard": "Estándar para esta calidad. El detalle mayor se define en la página Profundidad.",
+      "ownDepthMap": "Tu propio mapa de profundidad",
+      "uploadedDepth": "Video de profundidad subido",
+      "uploadedDepthNamed": "Video de profundidad subido · {name}",
+      "useUploadedDepth": "Usar mi video de profundidad subido",
+      "usedAsIs": "Se usa tal cual; cuesta menos.",
+      "sceneSettings": "Ajustes de escena",
+      "stereoFromPage": "{count} escenas ajustadas, intensidad 3D ×{scale} (de la página Aspecto 3D)",
+      "useAutoStereo": "Usar 3D automático en todas las escenas",
+      "stereoAuto": "Todas las escenas usan 3D automático.",
+      "edges": "Bordes",
+      "fromScratch": "Empezar desde cero",
+      "fromScratchHint": "No reutiliza trabajo anterior de este video. Precio completo.",
+      "makeLabel": "Convertir a 3D",
+      "pickOneFile": "Elige al menos un archivo"
+    },
+    "lifelike": {
+      "splitQuestion": "Tu video dura {minutes} minutos. ¿Dividirlo en partes de {part} minutos para que cada archivo se reproduzca con fluidez?",
+      "expressHint": "Primero en la fila.",
+      "hdr": "Tu 3D saldrá en HDR, así se conservan las luces brillantes y los colores intensos. Gratis.",
+      "hdrWithSbs": "Tu 3D saldrá en HDR, así se conservan las luces brillantes y los colores intensos. Gratis. Los archivos lado a lado se crean en color estándar para visores que no muestran HDR.",
+      "splitHint": "Las partes terminan en un cambio de escena. Sin cargo extra.",
+      "splitIntoParts": "Dividir en partes",
+      "keepOneFile": "Dejar en un solo archivo",
+      "yourVideoIs": "Tu video es {resolution}.",
+      "fullResolutionNote": "La resolución completa es el tamaño de tu propio video y se cobra como el nivel anterior.",
+      "keepOneEye": "Dejar un ojo como el original",
+      "alwaysOn": "Siempre activo en esta calidad",
+      "includedDot": "· incluido",
+      "fpsHint": "Tu video es {fps}. Elige con cuántos fotogramas crearlo.",
+      "subscribeAndConvert": "Elegir plan y convertir",
+      "earlierFiles": "Tus archivos anteriores están en Archivos",
+      "whichEye": "Qué ojo",
+      "left": "Izquierdo",
+      "right": "Derecho"
+    }
+  },
+  "glossary": {
+    "formats": {
+      "mvhevc": "Video espacial para Vision Pro",
+      "sbs": "Lado a lado",
+      "half_sbs": "Lado a lado (tamaño reducido)",
+      "anaglyph": "Rojo/cian",
+      "tb": "Arriba y abajo",
+      "half_tb": "Arriba y abajo (tamaño reducido)"
+    },
+    "otherOutputs": {
+      "depth": "Video de profundidad",
+      "depth_vis": "Video de profundidad (vista previa)"
+    },
+    "outputPart": "{name} · Parte {part}",
+    "qualityDraft": "Borrador",
+    "perEye": "{width}×{height} por ojo",
+    "fullResolution": "Resolución completa ({short}p)",
+    "steps": {
+      "depth_preview": "Vista previa de profundidad",
+      "stereo_preview": "Vista previa del aspecto 3D",
+      "lifelike_preview": "Vista previa",
+      "production": "Video completo"
+    },
+    "edgeStyles": {
+      "filled": "Relleno",
+      "stretched": "Estirado"
+    },
+    "edges": {
+      "filled": "Bordes rellenos",
+      "stretched": "Bordes estirados",
+      "fast": "Relleno rápido (ya no disponible)",
+      "none": "Bordes sin rellenar"
+    },
+    "fps": "{fps} fps",
+    "scenes": "{count, plural, one {# escena} other {# escenas}}",
+    "hdrVideo": "Video HDR",
+    "foveatedDetail": "Foveated Detail",
+    "foveatedHint": "Más detalle donde miras.",
+    "summary": {
+      "depthScale": "Intensidad 3D ×{scale}",
+      "scenesAdjusted": "{count, plural, one {# escena ajustada} other {# escenas ajustadas}}",
+      "splitParts": "en partes de {minutes} minutos",
+      "originalEye": {
+        "left": "Imagen original en el ojo izquierdo",
+        "right": "Imagen original en el ojo derecho"
+      }
+    }
+  },
+  "offer": {
+    "name": "Oferta de lanzamiento",
+    "badge": "−{pct}% oferta de lanzamiento",
+    "note": {
+      "list": "{rest} y {last}",
+      "listSeparator": ", ",
+      "pctOn": "{label}: −{pct}% en {on}.",
+      "pctOnly": "{label}: −{pct}%.",
+      "onOnly": "{label}: en {on}.",
+      "labelOnly": "{label}."
+    }
+  },
   "workspace": {
     "analyze": {
       "slow": "Esto tarda más de lo habitual.",

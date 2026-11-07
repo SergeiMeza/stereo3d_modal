@@ -2061,6 +2061,386 @@
     "fullScreen": "全屏",
     "playsFlat": "在这里为平面播放。Vision Pro 空间视频会以 3D 播放。"
   },
+  "quote": {
+    "timedOut": "报价用时比平时长。",
+    "charge": {
+      "atStart": "开始时扣费。失败会退款。",
+      "after": "完成后扣费。",
+      "payBefore": "开始前付费，先用你的额度和余额。",
+      "payBeforePublic": "开始前付费。",
+      "roundedUp": "不足一分钟按一分钟计。",
+      "rule": "超过 {amount} 的转换：开始时扣费，失败会退款。{amount} 及以下：完成后扣费。失败的转换不收费。",
+      "cancelBefore": "开始时扣费。排队期间或开始后的第一分钟内随时取消，可全额退款。",
+      "cancelAfter": "{amount} 及以下的转换完成后才扣费。排队期间或开始后的第一分钟内随时取消，无需付费。"
+    },
+    "payment": {
+      "refunded": "已退款",
+      "notCharged": "未扣费",
+      "needed": "需要付款",
+      "update": "需要付款：请更新支付方式",
+      "payToDownload": "支付 {amount} 下载",
+      "payToPlay": "支付 {amount} 播放"
+    },
+    "view": {
+      "tierPrice": "{name} 价格",
+      "yourPrice": "你的价格",
+      "addOn": "附加项",
+      "bulkDiscount": "批量折扣",
+      "bulkLabel": "超过 {amount} 立减 {pct}%",
+      "reuse": {
+        "depth": "深度处理",
+        "preprocess": "预处理"
+      },
+      "listAnd": "{a}和{b}",
+      "reusing": "复用你之前的<list>{stages}</list>",
+      "minutes": "{minutes} 分钟",
+      "yourVideo": "你的视频：{length}",
+      "atFpsPct": "{fps} fps（{pct}）",
+      "price": "价格",
+      "lengthAtQuality": "{length}，{quality}",
+      "perMinute": "{minutes} 分钟 × 每分钟 {rate}",
+      "atFpsLabelPct": "{fps}（{pct}）",
+      "howPriced": "价格如何计算",
+      "depthDetail": "深度细节",
+      "depthDetailPx": "深度细节（{px} px）",
+      "edgeStyle": "边缘样式",
+      "subtotal": "小计",
+      "included": "已包含",
+      "namePct": "{name}（{pct}）",
+      "masterBitrate": "{master} 码率（{pct}）",
+      "express": "加急",
+      "minimum": "最低收费 {amount}",
+      "total": "合计 <note>美元，不含税</note>",
+      "fpsCapped": "按 {fps} 转换。更高帧率包含在 {business} 和 {studio} 套餐中。",
+      "estimatedTime": "预计用时",
+      "readyIn": "完成时间"
+    }
+  },
+  "make": {
+    "checkout": {
+      "requestFailed": "请求失败",
+      "confirmFailed": "付款确认失败，转换未开始。",
+      "starting": "正在开始…",
+      "freePreview": "免费预览",
+      "paidFromCredit": "已用额度支付",
+      "balanceShort": "余额 {amount} · <add>充值</add>",
+      "freePreviews": {
+        "first": "首次预览免费",
+        "todayUsed": "今天的免费预览已用完，明天再来。",
+        "left": {
+          "week": "本周还剩 {remaining}/{allowance} 次免费预览",
+          "month": "本月还剩 {remaining}/{allowance} 次免费预览",
+          "year": "今年还剩 {remaining}/{allowance} 次免费预览",
+          "pass": "通行证还剩 {remaining}/{allowance} 次免费预览",
+          "none": "还剩 {remaining}/{allowance} 次免费预览"
+        }
+      },
+      "changeLimit": "更改上限",
+      "contactSupport": "联系支持",
+      "block": {
+        "noPaymentMethod": "开始付费转换前，需要先添加支付方式。",
+        "addPaymentMethod": "添加支付方式 →",
+        "declined": "这次转换的付款被拒绝，未扣费。",
+        "updatePaymentMethod": "更新支付方式 →"
+      },
+      "getQuote": "获取报价",
+      "convert": "转换",
+      "convertPrice": "转换 · {price}",
+      "retry": "重试",
+      "updating": "更新中…",
+      "pricing": "计价中…",
+      "runInProgress": "有一个转换正在进行，完成后可再开始新的。",
+      "free": "免费",
+      "youllGet": "你将得到：{files}",
+      "labelPrice": "{label} · {price}"
+    },
+    "fileQuality": {
+      "title": "文件画质",
+      "hint": {
+        "high": "适合客户审阅和大屏幕",
+        "master": "适合剪辑和存档"
+      },
+      "aboutSize": "约 {size}",
+      "aboutMbps": "约 {mbps} Mbit/s",
+      "mbps": "{mbps} Mbit/s",
+      "kbps": "{kbps} kbit/s",
+      "overall": "总计 {rate}",
+      "measuredOne": "实测 {rate}",
+      "measuredMany": "实测：{rates}",
+      "measuredPart": "{name} {rate}",
+      "askedMeasured": "{asked}（{measured}）",
+      "bitrateAuto": "自动",
+      "bitrateMatchSource": "与原片一致",
+      "outputShort": {
+        "mvhevc": "空间",
+        "sbs": "SBS",
+        "half_sbs": "半宽 SBS",
+        "anaglyph": "红蓝",
+        "depth": "深度",
+        "depth_vis": "深度视图"
+      }
+    },
+    "fps": {
+      "planRequired": "30 fps 以上的帧率包含在 {business} 和 {studio} 套餐中。",
+      "planRequiredSeePlans": "30 fps 以上的帧率包含在 {business} 和 {studio} 套餐中。<link>查看套餐</link>",
+      "pickFrameRate": "选择帧率以查看价格。",
+      "costLine": "帧率越高越流畅，价格也越高：{fps} 下每分钟按 {minutes} 分钟计。",
+      "label": "帧率",
+      "free": "免费",
+      "lockedPlan": "{business} 或 {studio} 套餐"
+    },
+    "methods": {
+      "description": {
+        "lifelike": "把视频的每个瞬间重建为真实的 3D 场景，再分别为双眼重新拍摄。深度最自然，边缘干净，用时只是一小部分。",
+        "classic": "为你的素材添加深度，每一步都可手动控制。"
+      },
+      "lifelikeEyebrow": "我们最新的 3D 技术",
+      "tagClassic": "旧版方法",
+      "limitMinutes": "最长 {minutes} 分钟，最高 {top}",
+      "limitAnyLength": "时长不限，最高 {top}",
+      "limitsStatement": "{method}：{limit}。",
+      "convertWithLifelike": "用 {method} 转换",
+      "moveToLifelikeTitle": "用 {method} 转换此项目？",
+      "moveToLifelikeBody": "你的 Classic 文件会保留在“文件”中。转换后无法切回 Classic。",
+      "switchNotAllowed": "{lifelike} 项目无法切回 {classic}。",
+      "sampleProject": "这是已完成的示例，无需付费。它的 3D 文件在“文件”中。添加你自己的视频即可生成 3D。",
+      "classicRetired": "{classic} 已停用。你的文件仍保留在这里，可以用 {lifelike} 转换此项目。",
+      "highestQualityTag": "最高画质",
+      "presetAboveSource": "该画质高于你的视频。请选低一些的，我们不会放大画面。",
+      "errors": {
+        "presetUnavailable": "{classic} 最高支持 3K。4K 及以上请用 {lifelike} 转换。",
+        "methodUnavailable": "此 3D 方法暂时不可用，请稍后再试。",
+        "sourceTooLong": "此视频对 {classic} 来说太长。请用页面顶部的 {lifelike} 转换，它支持任意时长的视频。",
+        "stepNotSupported": "此项目的 3D 方法已更改。请刷新页面后继续。",
+        "splitUnsupported": "此方法不支持分段。"
+      }
+    },
+    "output": {
+      "inpaint": {
+        "propainter": "完整画质",
+        "migan": "快速填充（已不再提供）",
+        "none": "快速"
+      },
+      "edgeHint": "为双眼移位画面会在物体边缘留下细小空隙。“拉伸”用相邻像素拉过去填满；“填充”则把空隙画出来。两种效果不同，选你喜欢的。"
+    },
+    "stepDefs": {
+      "classic": {
+        "depth_preview": {
+          "title": "深度",
+          "description": "生成 3D 前先看看各处有多远：从时间线当前位置截取 10 秒深度片段。可选。",
+          "outputs": {
+            "o1": "一段 10 秒的深度片段，可与原片并排播放，近处亮、远处暗"
+          },
+          "tips": {
+            "t1": "把播放头移到想检查的镜头，片段从那里开始。",
+            "t2": "细节越高价格越高，上限为视频自身的分辨率。",
+            "t3": "留意场景中深度是否稳定：帧间闪烁会在 3D 中表现为抖动。"
+          }
+        },
+        "stereo_preview": {
+          "title": "3D 效果",
+          "description": "逐场景 3D：每个场景都会自动测量并分类；调整需要的场景，并从时间线当前位置查看 10 秒片段。",
+          "outputs": {
+            "o1": "一段 10 秒的 3D 片段，画质和格式与“生成 3D”提供的相同",
+            "o2": "本次转换算出的逐场景参数，会作为此页面“自动”的默认值"
+          },
+          "tips": {
+            "t1": "每个场景默认为“自动”：分析器测量主体离镜头多远，并选出四种镜头类型之一。只有你改过的行才会作为覆盖项发送。",
+            "t2": "近景：主体靠近镜头。深度保持柔和，主体会略微向你凸出。",
+            "t3": "标准：中距离镜头。深度围绕屏幕平面平衡分布，最常见。",
+            "t4": "远景：建立镜头或远处镜头。深度位于屏幕后方，像一扇窗，能让最难填补的镜头边缘保持干净。",
+            "t5": "动态：场景中相机或主体的距离在变化（推近、走远），3D 强度会随镜头自适应，而不是固定不变。",
+            "t6": "自动判断不准时，可改写场景的镜头类型，例如把分析器判为“标准”的特写强制设为“近景”，让它更突出。",
+            "t7": "整体 3D 强度会同时作用于所有场景；逐场景的镜头类型覆盖对该场景优先。",
+            "t8": "边缘默认为“填充”：3D 中物体边缘出现的细小空隙会被画出来。另一种边缘样式“拉伸”在“高级”中。",
+            "t9": "取消勾选场景的“3D”，该场景将以 2D 输出：双眼相同，没有深度（片尾字幕、标志、标题卡）。",
+            "t10": "“分析镜头（免费）”会从预览代理中测量每个场景的深度，并填入逐场景控件。不收费，约一分钟。",
+            "t11": "你的调整会按项目保存，并自动带到“生成 3D”。"
+          }
+        },
+        "production": {
+          "title": "生成 3D",
+          "description": "把整个视频（或你选的部分）生成 3D。使用你的“深度”和“3D 效果”设置，并以折扣复用之前的深度处理。",
+          "outputs": {
+            "o1": "你选的每种格式：Vision Pro 空间视频、适用于其他头显和 3D 电视的左右格式、便于快速检查的红蓝",
+            "o2": "按所选画质输出完整帧率；边缘为“填充”，除非你在“高级”中选了“拉伸”"
+          },
+          "tips": {
+            "t1": "摘要会显示本次使用的“深度”和“3D 效果”设置，每项都可改回自动。",
+            "t2": "默认复用：兼容的预览成果（深度、预处理）自动打折，报价会列出每个被复用的环节。",
+            "t3": "选“从头开始”会全部重新计算，例如想把画质提高到超过预览时的水平。"
+          }
+        }
+      },
+      "lifelike": {
+        "lifelike_preview": {
+          "title": "预览",
+          "description": "生成整个视频前，先看几秒的 3D 效果。",
+          "outputs": {
+            "o1": "视频中几秒的 3D 片段（默认 5 秒），从你选的时刻开始",
+            "o2": "左右格式，可直接在这里播放（也可免费用红蓝或摇摆查看），或在头显上观看"
+          },
+          "tips": {
+            "t1": "选一个你最在意的镜头类型的时刻：人脸、快速运动或广角画面。",
+            "t2": "预览按最终视频中相同秒数的价格计费，每次有少量最低收费。“快速查看”用一半帧率，价格减半。",
+            "t3": "满意吗？“生成 3D”会用同样的方式处理整个视频。"
+          }
+        },
+        "production": {
+          "title": "生成 3D",
+          "description": "把整个视频或其中一部分生成 3D。",
+          "outputs": {
+            "o1": "Vision Pro 空间视频、完整左右格式和半宽左右格式",
+            "o2": "长视频可分为 15 分钟一段，每段都能流畅播放"
+          },
+          "tips": {
+            "t1": "Vision Pro 空间视频适用于 Apple Vision Pro；左右格式适用于大多数其他头显和 3D 电视。",
+            "t2": "半宽左右格式文件更小；完整左右格式保留每个像素。",
+            "t3": "开始前付费，先用你的额度和余额。失败会退款。"
+          }
+        }
+      }
+    },
+    "devices": {
+      "glasses": "XR 眼镜（XREAL、VITURE、RayNeo）",
+      "tv": "3D 电视或投影仪",
+      "unsure": "不确定"
+    },
+    "controls": {
+      "watchQuestion": "你打算在哪里观看？",
+      "filesYoullGet": "你将得到的文件",
+      "formatFor": {
+        "mvhevc": "适用于 Apple Vision Pro",
+        "sbs": "适用于 Meta Quest、Galaxy XR、Pico、Steam Frame 和 XR 眼镜",
+        "half_sbs": "适用于 3D 电视、投影仪，以及 4K 及以上的 Meta Quest",
+        "anaglyph": "任意屏幕，配红蓝眼镜"
+      },
+      "halfSbsSizeHint": "文件大小约为完整左右格式的一半。文件太大无法拷贝或串流时很方便。",
+      "quality": "画质",
+      "highestChip": "最高<sr>画质</sr>",
+      "originalEye": "一只眼睛保留你的原始画面。",
+      "startHandle": "起点手柄",
+      "endHandle": "终点手柄",
+      "start": "起点",
+      "end": "终点",
+      "trimWhole": "整个视频 · {length}",
+      "trimPart": "片段 · {length}",
+      "partsEstimate": "{count, plural, other {# 段}}：约 {list} 分钟",
+      "bitrateMatchSource": "与原片一致",
+      "bitrate": "码率",
+      "estimatedSize": "预计大小：约 {size}"
+    },
+    "deliver": {
+      "analyzing": "我们仍在分析你的视频，完成后会显示价格。",
+      "optionalLook": "可选：先在<link>3D 效果</link>中查看任意 10 秒。",
+      "pickAll": "可多选。",
+      "allIncluded": "全部包含在价格内。",
+      "edgeNote": {
+        "filled": "边缘为“填充”，可在“高级”中更改。",
+        "stretched": "边缘为“拉伸”，可在“高级”中更改。"
+      },
+      "whichPart": "哪一部分？",
+      "whichPartHint": "拖动手柄，只为其中一部分付费。",
+      "advanced": "高级",
+      "depthFromPage": "{px} px（来自“深度”页）",
+      "useAutoDepth": "使用自动深度细节",
+      "depthStandard": "此画质的标准值。更高细节请在“深度”页设置。",
+      "ownDepthMap": "你自己的深度图",
+      "uploadedDepth": "已上传的深度视频",
+      "uploadedDepthNamed": "已上传的深度视频 · {name}",
+      "useUploadedDepth": "使用我上传的深度视频",
+      "usedAsIs": "直接使用，价格更低。",
+      "sceneSettings": "场景设置",
+      "stereoFromPage": "已调整 {count} 个场景，3D 强度 ×{scale}（来自“3D 效果”页）",
+      "useAutoStereo": "所有场景使用自动 3D",
+      "stereoAuto": "所有场景都使用自动 3D。",
+      "edges": "边缘",
+      "fromScratch": "从头开始",
+      "fromScratchHint": "不复用此视频之前的成果，按全价计费。",
+      "makeLabel": "生成 3D",
+      "pickOneFile": "至少选一个文件"
+    },
+    "lifelike": {
+      "splitQuestion": "你的视频有 {minutes} 分钟。分成每段 {part} 分钟，让每个文件都能流畅播放？",
+      "expressHint": "排在最前。",
+      "hdr": "你的 3D 将为 HDR，保留明亮的高光和丰富的色彩。免费。",
+      "hdrWithSbs": "你的 3D 将为 HDR，保留明亮的高光和丰富的色彩。免费。左右格式文件使用标准色彩，以适配不支持 HDR 的头显。",
+      "splitHint": "分段在场景切换处结束。不另收费。",
+      "splitIntoParts": "分段",
+      "keepOneFile": "保持为一个文件",
+      "yourVideoIs": "你的视频为 {resolution}。",
+      "fullResolutionNote": "完整分辨率即视频自身的尺寸，按下一档计价。",
+      "keepOneEye": "一只眼睛保留原画面",
+      "alwaysOn": "此画质下始终开启",
+      "includedDot": "· 已包含",
+      "fpsHint": "你的视频为 {fps}。选择要生成的帧率。",
+      "subscribeAndConvert": "开通套餐并转换",
+      "earlierFiles": "你之前的文件在“文件”中",
+      "whichEye": "哪只眼睛",
+      "left": "左",
+      "right": "右"
+    }
+  },
+  "glossary": {
+    "formats": {
+      "mvhevc": "Vision Pro 空间视频",
+      "sbs": "左右格式",
+      "half_sbs": "左右格式（半宽）",
+      "anaglyph": "红蓝",
+      "tb": "上下格式",
+      "half_tb": "上下格式（半高）"
+    },
+    "otherOutputs": {
+      "depth": "深度视频",
+      "depth_vis": "深度视频（预览）"
+    },
+    "outputPart": "{name} · 第 {part} 段",
+    "qualityDraft": "草稿",
+    "perEye": "每眼 {width}×{height}",
+    "fullResolution": "完整分辨率（{short}p）",
+    "steps": {
+      "depth_preview": "深度预览",
+      "stereo_preview": "3D 效果预览",
+      "lifelike_preview": "预览",
+      "production": "完整视频"
+    },
+    "edgeStyles": {
+      "filled": "填充",
+      "stretched": "拉伸"
+    },
+    "edges": {
+      "filled": "填充边缘",
+      "stretched": "拉伸边缘",
+      "fast": "快速填充（已不再提供）",
+      "none": "未填充边缘"
+    },
+    "fps": "{fps} fps",
+    "scenes": "{count, plural, other {# 个场景}}",
+    "hdrVideo": "HDR 视频",
+    "foveatedDetail": "注视点细节",
+    "foveatedHint": "视线所在处细节更多。",
+    "summary": {
+      "depthScale": "3D 强度 ×{scale}",
+      "scenesAdjusted": "{count, plural, other {已调整 # 个场景}}",
+      "splitParts": "每段 {minutes} 分钟",
+      "originalEye": {
+        "left": "左眼为原始画面",
+        "right": "右眼为原始画面"
+      }
+    }
+  },
+  "offer": {
+    "name": "上线优惠",
+    "badge": "上线优惠 −{pct}%",
+    "note": {
+      "list": "{rest}和{last}",
+      "listSeparator": "、",
+      "pctOn": "{label}：{on}立减 {pct}%。",
+      "pctOnly": "{label}：立减 {pct}%。",
+      "onOnly": "{label}：适用于{on}。",
+      "labelOnly": "{label}。"
+    }
+  },
   "workspace": {
     "analyze": {
       "slow": "耗时比平时更长。",

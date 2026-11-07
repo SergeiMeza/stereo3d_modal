@@ -2061,6 +2061,386 @@
     "fullScreen": "全画面",
     "playsFlat": "ここでは平面で再生されます。Vision Proの空間ビデオは3Dで再生されます。"
   },
+  "quote": {
+    "timedOut": "料金の算出に時間がかかっています。",
+    "charge": {
+      "atStart": "開始時に請求。失敗した場合は返金。",
+      "after": "完了後に請求。",
+      "payBefore": "変換の開始前にお支払いいただきます。クレジットと残高が先に使われます。",
+      "payBeforePublic": "変換の開始前にお支払いいただきます。",
+      "roundedUp": "開始した分は1分として数えます。",
+      "rule": "{amount}を超える変換：開始時に請求、失敗した場合は返金。{amount}以下の変換：完了後に請求。失敗した変換は無料です。",
+      "cancelBefore": "開始時に請求されます。順番待ちの間と開始から1分以内ならいつでもキャンセルでき、全額返金されます。",
+      "cancelAfter": "{amount}以下の変換は完了後に請求されます。順番待ちの間と開始から1分以内ならいつでもキャンセルでき、お支払いはありません。"
+    },
+    "payment": {
+      "refunded": "返金済み",
+      "notCharged": "請求なし",
+      "needed": "お支払いが必要です",
+      "update": "お支払いが必要です：支払い方法を更新してください",
+      "payToDownload": "{amount}を支払ってダウンロード",
+      "payToPlay": "{amount}を支払って再生"
+    },
+    "view": {
+      "tierPrice": "{name}の料金",
+      "yourPrice": "お客様の料金",
+      "addOn": "追加",
+      "bulkDiscount": "まとめて割引",
+      "bulkLabel": "{amount}超で{pct}%オフ",
+      "reuse": {
+        "depth": "奥行きの処理",
+        "preprocess": "下準備"
+      },
+      "listAnd": "{a}と{b}",
+      "reusing": "以前の<list>{stages}</list>を再利用",
+      "minutes": "{minutes}分",
+      "yourVideo": "動画：{length}",
+      "atFpsPct": "{fps} fps（{pct}）",
+      "price": "料金",
+      "lengthAtQuality": "{length}・{quality}",
+      "perMinute": "{minutes}分 × 1分あたり{rate}",
+      "atFpsLabelPct": "{fps}（{pct}）",
+      "howPriced": "料金の内訳",
+      "depthDetail": "奥行きの精細さ",
+      "depthDetailPx": "奥行きの精細さ（{px} px）",
+      "edgeStyle": "エッジの処理",
+      "subtotal": "小計",
+      "included": "含まれます",
+      "namePct": "{name}（{pct}）",
+      "masterBitrate": "{master}ビットレート（{pct}）",
+      "express": "優先",
+      "minimum": "最低料金 {amount}",
+      "total": "合計 <note>USD・税別</note>",
+      "fpsCapped": "{fps}で変換します。これより高いフレームレートは{business}・{studio}プランで使えます。",
+      "estimatedTime": "所要時間の目安",
+      "readyIn": "完了まで"
+    }
+  },
+  "make": {
+    "checkout": {
+      "requestFailed": "リクエストに失敗しました",
+      "confirmFailed": "お支払いを確認できませんでした。変換は開始されていません。",
+      "starting": "開始中…",
+      "freePreview": "無料プレビュー",
+      "paidFromCredit": "クレジットで支払い",
+      "balanceShort": "残高 {amount}・<add>チャージ</add>",
+      "freePreviews": {
+        "first": "最初のプレビューは無料です",
+        "todayUsed": "今日の無料プレビューは使い切りました。明日また使えます。",
+        "left": {
+          "week": "今週の無料プレビュー：残り{remaining}/{allowance}回",
+          "month": "今月の無料プレビュー：残り{remaining}/{allowance}回",
+          "year": "今年の無料プレビュー：残り{remaining}/{allowance}回",
+          "pass": "パスの無料プレビュー：残り{remaining}/{allowance}回",
+          "none": "無料プレビュー：残り{remaining}/{allowance}回"
+        }
+      },
+      "changeLimit": "上限を変更",
+      "contactSupport": "サポートに連絡",
+      "block": {
+        "noPaymentMethod": "有料の変換を始めるには、支払い方法が必要です。",
+        "addPaymentMethod": "支払い方法を追加 →",
+        "declined": "この変換のお支払いが承認されませんでした。請求は発生していません。",
+        "updatePaymentMethod": "支払い方法を更新 →"
+      },
+      "getQuote": "見積もりを見る",
+      "convert": "変換する",
+      "convertPrice": "変換する・{price}",
+      "retry": "再試行",
+      "updating": "更新中…",
+      "pricing": "料金を算出中…",
+      "runInProgress": "変換中です。終わると次の変換を始められます。",
+      "free": "無料",
+      "youllGet": "受け取るファイル：{files}",
+      "labelPrice": "{label}・{price}"
+    },
+    "fileQuality": {
+      "title": "ファイル品質",
+      "hint": {
+        "high": "クライアント確認や大画面向け",
+        "master": "編集や保管向け"
+      },
+      "aboutSize": "約{size}",
+      "aboutMbps": "約{mbps} Mbit/s",
+      "mbps": "{mbps} Mbit/s",
+      "kbps": "{kbps} kbit/s",
+      "overall": "全体で{rate}",
+      "measuredOne": "実測{rate}",
+      "measuredMany": "実測：{rates}",
+      "measuredPart": "{name} {rate}",
+      "askedMeasured": "{asked}（{measured}）",
+      "bitrateAuto": "自動",
+      "bitrateMatchSource": "元に合わせる",
+      "outputShort": {
+        "mvhevc": "空間",
+        "sbs": "SBS",
+        "half_sbs": "ハーフSBS",
+        "anaglyph": "赤とシアン",
+        "depth": "奥行き",
+        "depth_vis": "奥行き表示"
+      }
+    },
+    "fps": {
+      "planRequired": "30 fpsを超えるフレームレートは{business}・{studio}プランで使えます。",
+      "planRequiredSeePlans": "30 fpsを超えるフレームレートは{business}・{studio}プランで使えます。<link>プランを見る</link>",
+      "pickFrameRate": "フレームレートを選ぶと料金が表示されます。",
+      "costLine": "高いフレームレートはなめらかですが、料金も上がります。{fps}では1分が{minutes}分として数えられます。",
+      "label": "フレームレート",
+      "free": "無料",
+      "lockedPlan": "{business}または{studio}プラン"
+    },
+    "methods": {
+      "description": {
+        "lifelike": "動画のすべての瞬間を本物の3Dシーンとして作り直し、左右の目それぞれに向けて撮り直します。自然な奥行きときれいなエッジを、わずかな時間で。",
+        "classic": "手順ごとに調整しながら、映像に奥行きを加えます。"
+      },
+      "lifelikeEyebrow": "最新の3D技術",
+      "tagClassic": "従来の方式",
+      "limitMinutes": "{minutes}分まで、最大{top}",
+      "limitAnyLength": "長さ無制限、最大{top}",
+      "limitsStatement": "{method}：{limit}。",
+      "convertWithLifelike": "{method}で変換",
+      "moveToLifelikeTitle": "このプロジェクトを{method}で変換しますか？",
+      "moveToLifelikeBody": "Classicで作ったファイルは「ファイル」に残ります。Classicには戻せません。",
+      "switchNotAllowed": "{lifelike}のプロジェクトは{classic}に戻せません。",
+      "sampleProject": "これは完成済みのサンプルなので、お支払いは不要です。3Dファイルは「ファイル」にあります。ご自身の動画を追加して3Dにしましょう。",
+      "classicRetired": "{classic}は終了しました。ファイルはそのまま残り、このプロジェクトを{lifelike}で変換できます。",
+      "highestQualityTag": "最高品質",
+      "presetAboveSource": "この品質は動画より高いため選べません。低い品質を選んでください。アップスケールは行いません。",
+      "errors": {
+        "presetUnavailable": "{classic}は3Kまでです。4K以上は{lifelike}で変換してください。",
+        "methodUnavailable": "この3D方式は現在ご利用いただけません。しばらくしてからもう一度お試しください。",
+        "sourceTooLong": "この動画は{classic}には長すぎます。ページ上部の{lifelike}で変換してください。長さに制限はありません。",
+        "stepNotSupported": "このプロジェクトの3D方式が変わりました。ページを再読み込みして続けてください。",
+        "splitUnsupported": "この方式ではパート分割は使えません。"
+      }
+    },
+    "output": {
+      "inpaint": {
+        "propainter": "フル品質",
+        "migan": "高速補完（提供終了）",
+        "none": "クイック"
+      },
+      "edgeHint": "左右の目に合わせて映像をずらすと、物体のエッジに細いすき間ができます。「引き伸ばし」は隣のピクセルでそこを埋め、「補完」は描き足して埋めます。仕上がりが異なるので、好みで選んでください。"
+    },
+    "stepDefs": {
+      "classic": {
+        "depth_preview": {
+          "title": "奥行き",
+          "description": "3Dにする前に、被写体までの距離を確認できます。タイムラインの現在位置から10秒の奥行き動画を作ります。任意です。",
+          "outputs": {
+            "o1": "元の動画と並べて再生できる10秒の奥行き動画。近いほど明るく、遠いほど暗く表示されます"
+          },
+          "tips": {
+            "t1": "確認したいショットに再生ヘッドを動かすと、そこから始まります。",
+            "t2": "精細にするほど料金が上がります。上限は動画自体の解像度です。",
+            "t3": "シーン内で奥行きが安定しているか確認してください。フレーム間のちらつきは、3Dではゆらめきとして見えます。"
+          }
+        },
+        "stereo_preview": {
+          "title": "3Dの見え方",
+          "description": "シーンごとの3D：各シーンを自動で測定して分類します。必要なシーンだけ調整し、タイムラインの現在位置から10秒のクリップで確認できます。",
+          "outputs": {
+            "o1": "「3Dにする」と同じ品質・形式で作る10秒の3Dクリップ",
+            "o2": "変換で算出したシーンごとのプロファイルが、このページの「自動」の初期値になります"
+          },
+          "tips": {
+            "t1": "どのシーンも初期値は「自動」です。被写体がカメラからどれだけ離れているかを測り、4種類のショットから選びます。変更した行だけが上書きとして送られます。",
+            "t2": "クローズアップ：被写体がカメラに近い場合。奥行きは控えめで、被写体が少し手前に飛び出します。",
+            "t3": "スタンダード：中距離のショット。画面の面を中心にバランスよく奥行きをつけます。最も一般的です。",
+            "t4": "ワイド：状況説明や遠景のショット。窓のように奥行きを画面の奥に置くので、補完が最も難しいショットでもエッジがきれいに保てます。",
+            "t5": "ダイナミック：シーン中にカメラや被写体の距離が変わる場合（寄り、遠ざかり）。3Dの強さが固定されず、ショット内で変化します。",
+            "t6": "自動の判定が合っていないときは、シーンのショットタイプを変更できます。たとえば、スタンダードと判定されたアップのショットを、もっと飛び出させたいときはクローズアップにします。",
+            "t7": "全体の3Dの強さは、すべてのシーンに一度に反映されます。シーンごとのショットタイプの指定が優先されます。",
+            "t8": "エッジは初期設定で「補完」です。3Dで物体のエッジにできる細いすき間を描き足して埋めます。もう一つの「引き伸ばし」は詳細設定にあります。",
+            "t9": "シーンの「3D」のチェックを外すと、2Dのまま仕上げます。左右の目で同じ映像になり、奥行きはつきません（エンドクレジット、ロゴ、タイトルカードなど）。",
+            "t10": "「ショットを解析（無料）」は、プレビュー用の映像から各シーンの奥行きを測り、シーンごとの設定に反映します。料金はかからず、約1分です。",
+            "t11": "調整内容はプロジェクトごとに保存され、「3Dにする」に自動で引き継がれます。"
+          }
+        },
+        "production": {
+          "title": "3Dにする",
+          "description": "動画全体（または選んだ部分）を3Dにします。「奥行き」と「3Dの見え方」の設定を使い、以前の奥行きの処理は割引で再利用します。",
+          "outputs": {
+            "o1": "選んだすべての形式で出力：Vision Proの空間ビデオ、ほかのヘッドセットや3Dテレビ向けのサイドバイサイド、手軽な確認用の赤とシアン",
+            "o2": "選んだ品質のフルフレームレート。詳細設定で「引き伸ばし」を選ばない限り、エッジは「補完」になります"
+          },
+          "tips": {
+            "t1": "概要には、この変換で使う「奥行き」と「3Dの見え方」の設定が表示されます。どれも自動に戻せます。",
+            "t2": "初期設定は再利用です。互換性のあるプレビューの成果物（奥行き、下準備）は自動で割引され、見積もりに再利用した工程が表示されます。",
+            "t3": "「最初からやり直す」を選ぶとすべてを再計算します。プレビュー時より品質を上げたいときなどに使います。"
+          }
+        }
+      },
+      "lifelike": {
+        "lifelike_preview": {
+          "title": "プレビュー",
+          "description": "動画全体を3Dにする前に、数秒を3Dで確認できます。",
+          "outputs": {
+            "o1": "選んだ位置から始まる、数秒（初期設定は5秒）の3D動画",
+            "o2": "サイドバイサイドなので、ここでそのまま再生できます（無料で赤とシアンやゆらしでも確認可）。ヘッドセットでも再生できます"
+          },
+          "tips": {
+            "t1": "顔、速い動き、広い景色など、重視したいショットの瞬間を選んでください。",
+            "t2": "プレビューの料金は、本番の同じ秒数分と同額で、変換ごとに少額の最低料金があります。「クイック」はフレームレートが半分で、料金も半額です。",
+            "t3": "仕上がりに満足したら、「3Dにする」で動画全体を同じ方法で作ります。"
+          }
+        },
+        "production": {
+          "title": "3Dにする",
+          "description": "動画全体、または一部を3Dにします。",
+          "outputs": {
+            "o1": "Vision Proの空間ビデオ、フルサイズのサイドバイサイド、ハーフサイズのサイドバイサイド",
+            "o2": "長い動画は、それぞれなめらかに再生できる15分ごとのパートに分けられます"
+          },
+          "tips": {
+            "t1": "Vision Proの空間ビデオはApple Vision Pro用です。サイドバイサイドは、ほかのほとんどのヘッドセットや3Dテレビで再生できます。",
+            "t2": "ハーフサイドバイサイドはファイルが小さく、フルサイドバイサイドはすべてのピクセルを保ちます。",
+            "t3": "変換の開始前にお支払いいただきます。クレジットと残高が先に使われます。失敗した場合は返金されます。"
+          }
+        }
+      }
+    },
+    "devices": {
+      "glasses": "XRグラス（XREAL、VITURE、RayNeo）",
+      "tv": "3Dテレビまたはプロジェクター",
+      "unsure": "わからない"
+    },
+    "controls": {
+      "watchQuestion": "どこで観ますか？",
+      "filesYoullGet": "受け取るファイル",
+      "formatFor": {
+        "mvhevc": "Apple Vision Pro向け",
+        "sbs": "Meta Quest、Galaxy XR、Pico、Steam Frame、XRグラス向け",
+        "half_sbs": "3Dテレビ、プロジェクター、4K以上のMeta Quest向け",
+        "anaglyph": "赤とシアンのメガネで、どの画面でも"
+      },
+      "halfSbsSizeHint": "フルサイドバイサイドの約半分のファイルサイズ。コピーや配信にはファイルが大きすぎるときに便利です。",
+      "quality": "品質",
+      "highestChip": "最高<sr>品質</sr>",
+      "originalEye": "片方の目は元の映像のままです。",
+      "startHandle": "開始ハンドル",
+      "endHandle": "終了ハンドル",
+      "start": "開始",
+      "end": "終了",
+      "trimWhole": "動画全体・{length}",
+      "trimPart": "一部・{length}",
+      "partsEstimate": "{count, plural, other {#パート}}：約{list}分",
+      "bitrateMatchSource": "元に合わせる",
+      "bitrate": "ビットレート",
+      "estimatedSize": "サイズの目安：約{size}"
+    },
+    "deliver": {
+      "analyzing": "動画を解析中です。完了すると料金が表示されます。",
+      "optionalLook": "任意：先に<link>3Dの見え方</link>で好きな10秒を確認できます。",
+      "pickAll": "当てはまるものをすべて選んでください。",
+      "allIncluded": "すべて料金に含まれます。",
+      "edgeNote": {
+        "filled": "エッジは「補完」です。詳細設定で変更できます。",
+        "stretched": "エッジは「引き伸ばし」です。詳細設定で変更できます。"
+      },
+      "whichPart": "どの部分？",
+      "whichPartHint": "ハンドルをドラッグすると、一部だけの料金になります。",
+      "advanced": "詳細設定",
+      "depthFromPage": "{px} px（奥行きページの設定）",
+      "useAutoDepth": "奥行きの精細さを自動にする",
+      "depthStandard": "この品質の標準です。より精細にするには奥行きページで設定します。",
+      "ownDepthMap": "自分の奥行きマップ",
+      "uploadedDepth": "アップロードした奥行き動画",
+      "uploadedDepthNamed": "アップロードした奥行き動画・{name}",
+      "useUploadedDepth": "アップロードした奥行き動画を使う",
+      "usedAsIs": "そのまま使うので、料金が下がります。",
+      "sceneSettings": "シーンの設定",
+      "stereoFromPage": "{count}シーンを調整、3Dの強さ×{scale}（3Dの見え方ページの設定）",
+      "useAutoStereo": "すべてのシーンを自動の3Dにする",
+      "stereoAuto": "すべてのシーンが自動の3Dです。",
+      "edges": "エッジ",
+      "fromScratch": "最初からやり直す",
+      "fromScratchHint": "この動画の以前の処理を再利用しません。通常料金です。",
+      "makeLabel": "3Dにする",
+      "pickOneFile": "ファイルを1つ以上選んでください"
+    },
+    "lifelike": {
+      "splitQuestion": "動画の長さは{minutes}分です。各ファイルをなめらかに再生できるよう、{part}分ごとのパートに分けますか？",
+      "expressHint": "先頭に割り込みます。",
+      "hdr": "3DはHDRで作られ、明るいハイライトと豊かな色が保たれます。無料です。",
+      "hdrWithSbs": "3DはHDRで作られ、明るいハイライトと豊かな色が保たれます。無料です。サイドバイサイドのファイルは、HDRに対応しないヘッドセット向けに標準の色で作られます。",
+      "splitHint": "パートはシーンの切り替わりで区切ります。追加料金はありません。",
+      "splitIntoParts": "パートに分ける",
+      "keepOneFile": "1つのファイルのまま",
+      "yourVideoIs": "動画は{resolution}です。",
+      "fullResolutionNote": "フル解像度は動画自体のサイズで、ひとつ下の品質と同じ料金です。",
+      "keepOneEye": "片方の目を元の映像のままにする",
+      "alwaysOn": "この品質では常にオン",
+      "includedDot": "・含まれます",
+      "fpsHint": "動画は{fps}です。作成するフレームレートを選んでください。",
+      "subscribeAndConvert": "登録して変換",
+      "earlierFiles": "以前のファイルは「ファイル」にあります",
+      "whichEye": "どちらの目",
+      "left": "左",
+      "right": "右"
+    }
+  },
+  "glossary": {
+    "formats": {
+      "mvhevc": "Vision Proの空間ビデオ",
+      "sbs": "サイドバイサイド",
+      "half_sbs": "サイドバイサイド（ハーフサイズ）",
+      "anaglyph": "赤とシアン",
+      "tb": "トップ・ボトム",
+      "half_tb": "トップ・ボトム（ハーフサイズ）"
+    },
+    "otherOutputs": {
+      "depth": "奥行き動画",
+      "depth_vis": "奥行き動画（プレビュー）"
+    },
+    "outputPart": "{name}・パート{part}",
+    "qualityDraft": "ドラフト",
+    "perEye": "片目あたり{width}×{height}",
+    "fullResolution": "フル解像度（{short}p）",
+    "steps": {
+      "depth_preview": "奥行きプレビュー",
+      "stereo_preview": "3Dの見え方プレビュー",
+      "lifelike_preview": "プレビュー",
+      "production": "動画全体"
+    },
+    "edgeStyles": {
+      "filled": "補完",
+      "stretched": "引き伸ばし"
+    },
+    "edges": {
+      "filled": "補完したエッジ",
+      "stretched": "引き伸ばしたエッジ",
+      "fast": "高速補完（提供終了）",
+      "none": "補完なしのエッジ"
+    },
+    "fps": "{fps} fps",
+    "scenes": "{count, plural, other {#シーン}}",
+    "hdrVideo": "HDR動画",
+    "foveatedDetail": "フォービエイテッド詳細",
+    "foveatedHint": "見ている場所をより精細に。",
+    "summary": {
+      "depthScale": "3Dの強さ×{scale}",
+      "scenesAdjusted": "{count, plural, other {#シーンを調整}}",
+      "splitParts": "{minutes}分ごとのパート",
+      "originalEye": {
+        "left": "左目は元の映像",
+        "right": "右目は元の映像"
+      }
+    }
+  },
+  "offer": {
+    "name": "ローンチ特典",
+    "badge": "ローンチ特典 −{pct}%",
+    "note": {
+      "list": "{rest}と{last}",
+      "listSeparator": "、",
+      "pctOn": "{label}：{on}が−{pct}%。",
+      "pctOnly": "{label}：−{pct}%。",
+      "onOnly": "{label}：{on}が対象。",
+      "labelOnly": "{label}。"
+    }
+  },
   "workspace": {
     "analyze": {
       "slow": "いつもより時間がかかっています。",
