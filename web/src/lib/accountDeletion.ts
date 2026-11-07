@@ -8,11 +8,13 @@
 
 import { atom } from "jotai";
 
+import { EN, type Tr } from "@/lib/i18n/t";
+
 /** "Sun 9 Nov, 14:05" in the viewer's time. */
-export function deleteAfterText(iso: string): string {
+export function deleteAfterText(iso: string, t: Tr = EN): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-GB", {
+  return d.toLocaleString(dateTag(t), {
     weekday: "short",
     day: "numeric",
     month: "short",
@@ -22,21 +24,26 @@ export function deleteAfterText(iso: string): string {
 }
 
 /** "9 Nov": the day alone. */
-export function deleteAfterDay(iso: string): string {
+export function deleteAfterDay(iso: string, t: Tr = EN): string {
   const d = new Date(iso);
-  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+  return Number.isNaN(d.getTime()) ? "" : d.toLocaleDateString(dateTag(t), { day: "numeric", month: "short" });
+}
+
+/** English writes the day first ("9 Nov"); other languages their own way. */
+function dateTag(t: Tr): string {
+  return t.locale === "en" ? "en-GB" : t.intl;
 }
 
 /** After the delete is confirmed. */
-export function scheduledLine(deleteAfter: string): string {
-  return `Your account will be deleted on ${deleteAfterText(deleteAfter)}. You can still change your mind: sign in before then.`;
+export function scheduledLine(deleteAfter: string, t: Tr = EN): string {
+  return t("account.deletion.scheduled", { date: deleteAfterText(deleteAfter, t) });
 }
 
 /** What a frozen action says (409 account_pending_deletion). */
-export function pendingDeletionMessage(deleteAfter: unknown): string {
+export function pendingDeletionMessage(deleteAfter: unknown, t: Tr = EN): string {
   return typeof deleteAfter === "string" && deleteAfter
-    ? `Your account is set to be deleted on ${deleteAfterText(deleteAfter)}. Keep your account to do this.`
-    : "Your account is set to be deleted. Keep your account to do this.";
+    ? t("account.deletion.pendingOn", { date: deleteAfterText(deleteAfter, t) })
+    : t("account.deletion.pending");
 }
 
 /** The sign-in prompt: whose account, and when it goes; null = none. */

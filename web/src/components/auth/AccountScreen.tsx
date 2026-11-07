@@ -51,6 +51,9 @@ import { scheduledLine } from "@/lib/accountDeletion";
 import { useProStatus } from "@/lib/pro/usePro";
 import { LanguagePicker } from "@/lib/i18n/LanguagePicker";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
+import { errorText } from "@/lib/authErrors";
 
 function CardShell({
   title,
@@ -67,17 +70,17 @@ function CardShell({
   );
 }
 
-function deleteErrorMessage(err: unknown): string {
+function deleteErrorMessage(err: unknown, t: Tr = EN): string {
   if (err instanceof GatewayError && err.code === "balance_due") {
     const cents = err.details?.amount_cents;
-    const amount =
-      typeof cents === "number" && cents > 0 ? ` (${formatCents(cents)})` : "";
-    return `Payment needed${amount}: update your payment method on Billing, then delete your account.`;
+    return typeof cents === "number" && cents > 0
+      ? t("account.delete.paymentNeededAmount", { amount: formatCents(cents, t) })
+      : t("account.delete.paymentNeeded");
   }
   if (err instanceof GatewayError && err.code === "active_runs") {
     return ACTIVE_RUNS_LINE;
   }
-  return err instanceof Error ? err.message : "Failed to delete account.";
+  return errorText(err, t, "account.delete.failed");
 }
 
 export default function AccountScreen() {
@@ -126,9 +129,7 @@ export default function AccountScreen() {
       setNameState("saved");
     } catch (err) {
       setNameState("idle");
-      setNameError(
-        err instanceof Error ? err.message : "Failed to update name.",
-      );
+      setNameError(errorText(err, tr, "account.profile.saveFailed"));
     }
   }
 
@@ -181,7 +182,7 @@ export default function AccountScreen() {
       }
       if (typeof owed === "number" && owed > 0) setDues(owed);
       else if (typeof cash === "number" && cash > 0) setRefund(cash);
-      else setDeleteError(deleteErrorMessage(err));
+      else setDeleteError(deleteErrorMessage(err, tr));
     }
   }
 
@@ -212,24 +213,24 @@ export default function AccountScreen() {
 
   return (
     <div className="mx-auto w-full max-w-2xl space-y-4 px-4 py-6">
-      <h1 className="text-xl font-semibold tracking-tight">Account</h1>
+      <h1 className="text-xl font-semibold tracking-tight">{tr("account.title")}</h1>
       <AlertDialog open={scheduled !== null}>
         <AlertDialogContent data-testid="deletion-scheduled" onEscapeKeyDown={(e) => e.preventDefault()}>
           <AlertDialogHeader>
-            <AlertDialogTitle>Account deletion scheduled</AlertDialogTitle>
+            <AlertDialogTitle>{tr("account.delete.scheduledTitle")}</AlertDialogTitle>
             <AlertDialogDescription data-testid="deletion-scheduled-line">
-              {scheduled ? scheduledLine(scheduled) : ""}
+              {scheduled ? scheduledLine(scheduled, tr) : ""}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <Button onClick={() => void signOut()}>Sign out</Button>
+            <Button onClick={() => void signOut()}>{tr("account.session.signOut")}</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
       <FirstTimeHint id="account" />
       <ResetPlansSurfaces />
 
-      <CardShell title="Profile">
+      <CardShell title={tr("account.profile.title")}>
         <div className="flex items-center gap-3">
           <UserAvatar
             photoURL={user.photoURL}
@@ -237,13 +238,13 @@ export default function AccountScreen() {
             className="size-10 text-base"
           />
           <div className="min-w-0">
-            <p className="truncate text-fg">{user.email ?? "No email"}</p>
+            <p className="truncate text-fg">{user.email ?? tr("account.profile.noEmail")}</p>
           </div>
         </div>
 
         <form onSubmit={saveName} className="space-y-1">
           <label htmlFor="account-name" className="block text-xs text-fg-muted">
-            Display name
+            {tr("account.profile.displayName")}
           </label>
           <div className="flex gap-2">
             <input
@@ -262,10 +263,10 @@ export default function AccountScreen() {
               className="rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg transition-colors hover:border-primary/60 disabled:opacity-50"
             >
               {nameState === "saving"
-                ? "Saving…"
+                ? tr("account.profile.saving")
                 : nameState === "saved"
-                  ? "Saved"
-                  : "Save"}
+                  ? tr("account.profile.saved")
+                  : tr("account.profile.save")}
             </button>
           </div>
           {nameError !== null && (
@@ -276,8 +277,7 @@ export default function AccountScreen() {
         <div className="flex items-center justify-between gap-3 border-t border-edge pt-3">
           <div className="min-w-0">
             <p className="text-xs text-fg-muted">
-              Account ID — quote this in support requests; projects and
-              conversions are keyed to it.
+              {tr("account.profile.idHint")}
             </p>
             <p className="truncate font-mono text-xs text-fg">{user.uid}</p>
           </div>
@@ -286,13 +286,13 @@ export default function AccountScreen() {
             onClick={() => void copyUid()}
             className="shrink-0 rounded-md border border-edge px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-primary/60 hover:text-fg"
           >
-            {copied ? "Copied" : "Copy ID"}
+            {copied ? tr("account.profile.copied") : tr("account.profile.copyId")}
           </button>
         </div>
       </CardShell>
 
       {/* ADR 0136: the ways in, and passkeys */}
-      <CardShell title="Sign-in & security">
+      <CardShell title={tr("account.security.title")}>
         <SignInMethods />
         {/* gateway 00152: the account's emails, one main */}
         <AccountEmails />
@@ -301,20 +301,24 @@ export default function AccountScreen() {
 
       <BusinessEntry />
 
-      <CardShell title="Billing">
+      <CardShell title={tr("account.billing.title")}>
         <p className="text-fg-muted">
-          Your card and purchase history are on{" "}
-          <Link href="/account/billing" className="text-primary hover:underline">
-            Billing
-          </Link>
-          .
+          {rich(tr, "account.billing.card", {
+            link: (c) => (
+              <Link href="/account/billing" className="text-primary hover:underline">
+                {c}
+              </Link>
+            ),
+          })}
         </p>
         <p className="pt-2 text-fg-muted">
-          Invoices with your company name, tax ID and address:{" "}
-          <Link href="/account/business-details" className="text-primary hover:underline">
-            Business details
-          </Link>
-          .
+          {rich(tr, "account.billing.businessDetails", {
+            link: (c) => (
+              <Link href="/account/business-details" className="text-primary hover:underline">
+                {c}
+              </Link>
+            ),
+          })}
         </p>
         <AccountScheduledChange />
         <AppStoreProLine />
@@ -324,18 +328,18 @@ export default function AccountScreen() {
         <LanguagePicker />
       </CardShell>
 
-      <CardShell title="Session">
+      <CardShell title={tr("account.session.title")}>
         <button
           type="button"
           onClick={() => void signOut()}
           className="rounded-lg border border-edge bg-surface-2 px-3 py-1.5 text-fg transition-colors hover:border-primary/60"
         >
-          Sign out
+          {tr("account.session.signOut")}
         </button>
       </CardShell>
 
       <section className="rounded-lg border border-destructive/40 bg-destructive/5 p-4">
-        <h2 className="font-medium text-destructive">Danger zone</h2>
+        <h2 className="font-medium text-destructive">{tr("account.delete.dangerZone")}</h2>
         <div className="mt-3 space-y-3">
           <DeletePlanNotice state={planState} />
           {mustCancel ? null : (
@@ -344,7 +348,7 @@ export default function AccountScreen() {
                 htmlFor="delete-confirm"
                 className="block text-xs text-fg-muted"
               >
-                Type DELETE to permanently delete your account
+                {tr("account.delete.typeToConfirm", { word: "DELETE" })}
               </label>
               <div className="flex gap-2">
                 <input
@@ -360,7 +364,7 @@ export default function AccountScreen() {
                   onClick={() => void onDelete()}
                   className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
                 >
-                  {deletePending ? "Deleting…" : "Delete account"}
+                  {deletePending ? tr("account.delete.deleting") : tr("account.delete.button")}
                 </button>
               </div>
             </div>
@@ -369,7 +373,7 @@ export default function AccountScreen() {
             // 00081: confirm the balance refund, then delete
             <div data-testid="delete-refund" className="flex flex-wrap items-center gap-3 text-sm">
               <span className="text-fg">
-                We return your {formatCents(refund)} balance to your payment method first.
+                {tr("account.delete.refundFirst", { amount: formatCents(refund, tr) })}
               </span>
               <button
                 type="button"
@@ -377,13 +381,13 @@ export default function AccountScreen() {
                 onClick={() => void onDelete(true)}
                 className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50"
               >
-                Refund and delete
+                {tr("account.delete.refundAndDelete")}
               </button>
             </div>
           )}
           {pending !== null && (
             <p data-testid="deletion-pending" className="text-sm text-fg">
-              We&apos;re returning your {formatCents(pending)}; your account is deleted once that&apos;s done.
+              {tr("account.delete.returning", { amount: formatCents(pending, tr) })}
             </p>
           )}
           {dues !== null && (
@@ -394,9 +398,7 @@ export default function AccountScreen() {
             <p className="text-xs text-destructive">{deleteError}</p>
           )}
           <p className="text-xs text-fg-muted">
-            Anything you still owe is charged to your saved payment method first. Your
-            projects, videos and 3D files are removed from your account at
-            once; billing records are kept for support.
+            {tr("account.delete.note")}
           </p>
         </div>
       </section>

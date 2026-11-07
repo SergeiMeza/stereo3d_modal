@@ -13,6 +13,7 @@
  */
 
 import { isAppleRelayEmail } from "@/lib/emailCode";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 export type MethodId = "email" | "apple.com" | "google.com" | "password";
 
@@ -78,3 +79,10 @@ export const METHOD_LABELS: Record<MethodId, string> = {
   "google.com": "Google",
   password: "Password",
 };
+
+/** The method's name in the reader's language (Apple and Google stay). */
+export function methodLabel(id: MethodId, t: Tr = EN): string {
+  if (id === "email") return t("auth.methods.email");
+  if (id === "password") return t("auth.methods.password");
+  return METHOD_LABELS[id];
+}

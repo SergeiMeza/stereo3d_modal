@@ -14,7 +14,9 @@ import { atom } from "jotai";
 import { GatewayError } from "@/lib/api/client";
 import type { GatewayClient } from "@/lib/api/client";
 import { AppleCancelled, appleAuthorize, type AppleAnswer } from "@/lib/appleJs";
+import { enText, errorText, keyed } from "@/lib/authErrors";
 import { billingUidAtom } from "@/lib/billing";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 type Client = Pick<GatewayClient, "getIdentities" | "linkIdentity" | "unlinkIdentity">;
 
@@ -30,11 +32,11 @@ export class IdentityInUseError extends Error {
     readonly providers: string[],
     readonly switchTo: (() => Promise<void>) | null,
   ) {
-    const how = providersWords(providers);
-    super(
-      `That sign-in belongs to another account${how ? ` (it signs in with ${how})` : ""}.`,
-    );
+    const key = providersWords(providers) ? "auth.inUse.identityHow" : "auth.inUse.identity";
+    const values = (t: Tr) => ({ how: providersWords(providers, t) });
+    super(enText(key, values));
     this.name = "IdentityInUseError";
+    keyed(this, key, values);
   }
 }
 
@@ -49,7 +51,7 @@ export const loadIdentitiesAtom = atom(null, async (get, set, client: Client): P
       set(identitiesAtom, (s) => ({
         uid,
         data: s.uid === uid ? s.data : null,
-        error: e instanceof Error ? e.message : "Couldn't load your sign-in methods.",
+        error: errorText(e, EN, "auth.methods.loadFailed"),
       }));
   }
 });

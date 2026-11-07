@@ -31,11 +31,14 @@ import { useAuth } from "@/lib/auth";
 import type { LinkableProvider } from "@/lib/auth";
 import { billingUidAtom } from "@/lib/billing";
 import { CODE_LENGTH, isAppleRelayEmail } from "@/lib/emailCode";
+import { errorText } from "@/lib/authErrors";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 import { toPasskeyError } from "@/lib/passkeys";
 import { finishReauth, reauthOpenAtom } from "@/lib/reauth";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
-export const REAUTH_TITLE = "Confirm it's you";
+export const REAUTH_TITLE = EN("auth.reauth.title");
 
 export function ReauthSheet(): JSX.Element {
   const open = useAppAtomValue(reauthOpenAtom);
@@ -50,6 +53,7 @@ export function ReauthSheet(): JSX.Element {
 }
 
 function ReauthBody(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const { user, appleEnabled, reauthenticate, reauthenticateWithPasskey, sendEmailCode, signInWithEmailCode } =
     useAuth();
@@ -79,7 +83,7 @@ function ReauthBody(): JSX.Element {
       finishReauth(true);
     } catch (e) {
       const p = toPasskeyError(e);
-      if (!p.cancelled) setError(e instanceof Error ? e.message : "That didn't work. Try again.");
+      if (!p.cancelled) setError(errorText(e, t, "auth.errors.didntWork"));
     } finally {
       setBusy(false);
     }
@@ -95,8 +99,8 @@ function ReauthBody(): JSX.Element {
   return (
     <>
       <DialogHeader>
-        <DialogTitle>{REAUTH_TITLE}</DialogTitle>
-        <DialogDescription>Sign in again to continue. It only takes a moment.</DialogDescription>
+        <DialogTitle>{t("auth.reauth.title")}</DialogTitle>
+        <DialogDescription>{t("auth.reauth.description")}</DialogDescription>
       </DialogHeader>
       <div className="space-y-2.5">
         {hasPasskey && (
@@ -108,17 +112,17 @@ function ReauthBody(): JSX.Element {
             onClick={() => void run(reauthenticateWithPasskey)}
           >
             <KeyRound className="size-4" aria-hidden />
-            Use a passkey
+            {t("auth.reauth.usePasskey")}
           </Button>
         )}
         {providers.includes("apple.com") && appleEnabled &&
-          providerButton("apple.com", "Continue with Apple", <AppleLogo className="size-4" />)}
+          providerButton("apple.com", t("auth.signIn.continueApple"), <AppleLogo className="size-4" />)}
         {providers.includes("google.com") &&
-          providerButton("google.com", "Continue with Google", <GoogleLogo className="size-4" />)}
+          providerButton("google.com", t("auth.signIn.continueGoogle"), <GoogleLogo className="size-4" />)}
         {email !== null &&
           (codeSent ? (
             <div className="space-y-2">
-              <p className="text-xs text-fg-muted">Enter the code we sent to {email}.</p>
+              <p className="text-xs text-fg-muted">{t("auth.emails.codeSentTo", { email })}</p>
               <CodeInput
                 value={code}
                 onChange={setCode}
@@ -132,7 +136,7 @@ function ReauthBody(): JSX.Element {
                 disabled={busy || code.length !== CODE_LENGTH}
                 onClick={() => void run(() => signInWithEmailCode(email, code))}
               >
-                {busy ? "Checking…" : "Confirm"}
+                {busy ? t("auth.emails.checking") : t("auth.reauth.confirm")}
               </Button>
             </div>
           ) : (
@@ -146,11 +150,11 @@ function ReauthBody(): JSX.Element {
                 setError(null);
                 sendEmailCode(email)
                   .then(() => setCodeSent(true))
-                  .catch((e: unknown) => setError(e instanceof Error ? e.message : "Couldn't send the code."))
+                  .catch((e: unknown) => setError(errorText(e, t, "auth.errors.sendCodeFailed")))
                   .finally(() => setBusy(false));
               }}
             >
-              Send a code to {email}
+              {t("auth.reauth.sendCode", { email })}
             </Button>
           ))}
       </div>
@@ -161,7 +165,7 @@ function ReauthBody(): JSX.Element {
       )}
       <DialogFooter>
         <Button type="button" variant="outline" disabled={busy} onClick={() => finishReauth(false)}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       </DialogFooter>
     </>

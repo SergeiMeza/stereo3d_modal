@@ -34,13 +34,15 @@ import {
 import { useGateway } from "@/lib/api/useGateway";
 import { prepareApple } from "@/lib/appleJs";
 import { useAuth } from "@/lib/auth";
+import { errorText } from "@/lib/authErrors";
 import { billingUidAtom } from "@/lib/billing";
 import {
   canRemove,
   fromIdentities,
-  METHOD_LABELS,
+  methodLabel,
   signInMethods,
 } from "@/lib/signInMethods";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 import type { MethodId } from "@/lib/signInMethods";
 import { useRegion } from "@/lib/useRegion";
@@ -53,6 +55,7 @@ function MethodIcon({ id }: { id: MethodId }): JSX.Element {
 }
 
 export function SignInMethods(): JSX.Element | null {
+  const t = useT();
   const { user, appleEnabled, linkProvider, reloadUser, signInWithAppleToken, redirectError } = useAuth();
   const gateway = useGateway();
   const cn = useRegion() === "cn";
@@ -95,7 +98,7 @@ export function SignInMethods(): JSX.Element | null {
         const go = e.switchTo;
         setSwitchTo(() => go);
       }
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(errorText(e, t, "auth.errors.somethingWrong"));
     } finally {
       setBusy(null);
     }
@@ -114,7 +117,7 @@ export function SignInMethods(): JSX.Element | null {
   const shownError = error ?? redirectError;
   return (
     <div data-testid="signin-methods" className="space-y-2">
-      <p className="text-xs text-fg-muted">Sign in with</p>
+      <p className="text-xs text-fg-muted">{t("auth.methods.heading")}</p>
       {/* gateway 00155: another account holds this email */}
       {identities?.other_account && view.email ? (
         <OtherAccountNotice email={view.email} providers={identities.other_account.providers ?? []} />
@@ -132,10 +135,10 @@ export function SignInMethods(): JSX.Element | null {
                 <MethodIcon id={m.id} />
               </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm text-fg">{METHOD_LABELS[m.id]}</p>
+                <p className="text-sm text-fg">{methodLabel(m.id, t)}</p>
                 {m.id === "email" && (
                   <p className="truncate text-xs text-fg-muted">
-                    Code to {view.email}
+                    {t("auth.methods.codeTo", { email: view.email })}
                   </p>
                 )}
               </div>
@@ -149,10 +152,10 @@ export function SignInMethods(): JSX.Element | null {
                     }
                     className={`${action} text-fg-muted hover:border-destructive/60 hover:text-destructive`}
                   >
-                    {busy === m.id ? "Removing…" : "Remove"}
+                    {busy === m.id ? t("auth.passkeys.removing") : t("auth.emails.remove")}
                   </button>
                 ) : (
-                  <span className="text-xs text-fg-muted">On</span>
+                  <span className="text-xs text-fg-muted">{t("auth.methods.on")}</span>
                 )
               ) : (
                 <button
@@ -161,7 +164,7 @@ export function SignInMethods(): JSX.Element | null {
                   onClick={() => void run(m.id, () => add(m.id))}
                   className={`${action} text-fg hover:border-primary/60`}
                 >
-                  {busy === m.id ? "Adding…" : "Add"}
+                  {busy === m.id ? t("auth.methods.adding") : t("auth.methods.add")}
                 </button>
               )}
             </li>
@@ -181,7 +184,7 @@ export function SignInMethods(): JSX.Element | null {
               }}
               className={`${action} text-fg hover:border-primary/60`}
             >
-              Sign in to that account
+              {t("auth.emails.signInThere")}
             </button>
           )}
         </div>

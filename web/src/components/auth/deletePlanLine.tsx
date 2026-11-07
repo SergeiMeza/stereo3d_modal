@@ -15,10 +15,11 @@ import { planEnds } from "@/components/billing/planChangeCopy";
 import { proCase } from "@/components/business/BusinessSetup";
 import { Button } from "@/components/ui/button";
 import type { AccountPlan } from "@/lib/api/types";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 import { isWebPro, type ProStatus } from "@/lib/pro/usePro";
 
-export const APP_STORE_DELETE_LINE =
-  "Pro from the App Store renews through Apple. Cancel it in your Apple ID settings.";
+export const APP_STORE_DELETE_LINE = EN("account.deletePlan.appStore", { plan: "Pro" });
 
 /** Plan & billing with the cancel confirmation open (PlanChangeMenu). */
 export const CANCEL_PLAN_HREF = "/account/billing?cancel=1";
@@ -68,32 +69,33 @@ export function renewingFromGateway(details: Record<string, unknown> | undefined
 }
 
 export function DeletePlanNotice({ state }: { state: DeletePlanState }): JSX.Element | null {
+  const t = useT();
   if (state === null) return null;
   if (state.kind === "app_store") {
     return (
       <p data-testid="delete-plan-line" className="text-sm text-fg">
-        {APP_STORE_DELETE_LINE}
+        {t("account.deletePlan.appStore", { plan: "Pro" })}
       </p>
     );
   }
-  const until = state.until ? longDate(state.until) : null;
+  const until = state.until ? longDate(state.until, t) : null;
   if (state.kind === "ending") {
     return (
       <p data-testid="delete-plan-line" className="text-sm text-fg">
         {until
-          ? `Your ${state.name} plan stays valid until ${until}.`
-          : `Your ${state.name} plan stays valid until the end of its period.`}{" "}
-        If you sign up again with this email, you can restore it.
+          ? t("account.deletePlan.validUntil", { plan: state.name, date: until })
+          : t("account.deletePlan.validToPeriodEnd", { plan: state.name })}{" "}
+        {t("account.deletePlan.restore")}
       </p>
     );
   }
   return (
     <div data-testid="delete-plan-renewing" className="flex flex-wrap items-center gap-3 text-sm">
       <p className="min-w-0 flex-1 text-fg">
-        Cancel your plan first.{until ? ` It stays valid until ${until}.` : ""}
+        {until ? t("account.deletePlan.cancelFirstUntil", { date: until }) : t("account.deletePlan.cancelFirst")}
       </p>
       <Button asChild size="sm" variant="outline">
-        <Link href={CANCEL_PLAN_HREF}>Cancel plan</Link>
+        <Link href={CANCEL_PLAN_HREF}>{t("account.deletePlan.cancelPlan")}</Link>
       </Button>
     </div>
   );

@@ -2495,6 +2495,26 @@
       "fromScratchHint": "Don't reuse earlier work on this video. Full price.",
       "makeLabel": "Make 3D",
       "pickOneFile": "Pick at least one file"
+    },
+    "lifelike": {
+      "splitQuestion": "Your video is {minutes} minutes long. Split it into {part}-minute parts so each file plays smoothly?",
+      "expressHint": "First in line.",
+      "hdr": "Your 3D will be in HDR, so bright highlights and rich colour are kept. Free.",
+      "hdrWithSbs": "Your 3D will be in HDR, so bright highlights and rich colour are kept. Free. Side-by-side files are made in standard colour for headsets that don't show HDR.",
+      "splitHint": "Parts end at a scene change. No extra charge.",
+      "splitIntoParts": "Split into parts",
+      "keepOneFile": "Keep as one file",
+      "yourVideoIs": "Your video is {resolution}.",
+      "fullResolutionNote": "Full resolution is your video's own size, priced like the step below it.",
+      "keepOneEye": "Keep one eye as the original",
+      "alwaysOn": "Always on at this quality",
+      "includedDot": "· included",
+      "fpsHint": "Your video is {fps}. Pick the rate to make it at.",
+      "subscribeAndConvert": "Subscribe and convert",
+      "earlierFiles": "Your earlier files are in Files",
+      "whichEye": "Which eye",
+      "left": "Left",
+      "right": "Right"
     }
   },
   "glossary": {

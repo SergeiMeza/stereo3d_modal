@@ -23,8 +23,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export function UserMenu() {
+  const t = useT();
   const { user, ready, signOutUser } = useAuth();
   const router = useRouter();
 
@@ -36,7 +38,7 @@ export function UserMenu() {
         href="/signin"
         className="ml-auto rounded-md border border-edge px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-primary/60 hover:text-fg"
       >
-        Sign in
+        {t("auth.signIn.title")}
       </Link>
     );
   }
@@ -47,7 +49,7 @@ export function UserMenu() {
         <DropdownMenuTrigger asChild>
           <button
             type="button"
-            aria-label="Account menu"
+            aria-label={t("auth.menu.label")}
             className="flex min-w-0 items-center gap-2 rounded-md px-2 py-1 text-fg-muted transition-colors hover:text-fg"
           >
             <UserAvatar
@@ -55,7 +57,7 @@ export function UserMenu() {
               name={user.displayName ?? user.email}
             />
             <span className="hidden max-w-40 truncate text-xs sm:block">
-              {user.email ?? user.displayName ?? "Account"}
+              {user.email ?? user.displayName ?? t("account.title")}
             </span>
           </button>
         </DropdownMenuTrigger>
@@ -68,10 +70,10 @@ export function UserMenu() {
             {user.email ?? user.displayName}
           </DropdownMenuLabel>
           <DropdownMenuItem asChild>
-            <Link href="/account">Account</Link>
+            <Link href="/account">{t("account.title")}</Link>
           </DropdownMenuItem>
           <DropdownMenuItem asChild>
-            <Link href="/account/billing">Plan &amp; billing</Link>
+            <Link href="/account/billing">{t("auth.menu.planBilling")}</Link>
           </DropdownMenuItem>
           <DropdownMenuItem
             onSelect={async () => {
@@ -79,7 +81,7 @@ export function UserMenu() {
               router.replace("/");
             }}
           >
-            Sign out
+            {t("account.session.signOut")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

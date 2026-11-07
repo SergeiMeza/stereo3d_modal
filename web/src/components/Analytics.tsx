@@ -25,9 +25,12 @@ import {
   storedConsent,
 } from "@/lib/analytics";
 import type { ConsentChoice } from "@/lib/analytics";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 import { currentRegion } from "@/lib/region";
 
 export function Analytics() {
+  const t = useT();
   const [banner, setBanner] = useState(false);
 
   useEffect(() => {
@@ -64,18 +67,19 @@ export function Analytics() {
   return (
     <div
       role="region"
-      aria-label="Analytics consent"
+      aria-label={t("common.analytics.bannerLabel")}
       // eslint-disable-next-line no-restricted-syntax -- a full-width bar pinned to the bottom edge, not an anchored overlay; it can't clip
       className="fixed inset-x-0 bottom-0 z-50 border-t border-edge bg-surface-1 pointer-fine:bg-surface-1/95 pointer-fine:backdrop-blur"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-4 text-sm">
         <p className="min-w-64 flex-1 text-fg-muted">
-          Can we use analytics cookies? Microsoft Clarity shows us how the
-          studio is used so we can improve it — no advertising, and never the
-          content of your videos.{" "}
-          <Link href="/privacy" className="text-primary hover:underline">
-            Privacy Policy
-          </Link>
+          {rich(t, "common.analytics.banner", {
+            link: (c) => (
+              <Link href="/privacy" className="text-primary hover:underline">
+                {c}
+              </Link>
+            ),
+          })}
         </p>
         <div className="flex shrink-0 items-center gap-2">
           <button
@@ -83,14 +87,14 @@ export function Analytics() {
             onClick={() => choose("denied")}
             className="rounded-md border border-edge px-4 py-2 font-medium text-fg transition-colors hover:bg-surface-2"
           >
-            No thanks
+            {t("common.analytics.deny")}
           </button>
           <button
             type="button"
             onClick={() => choose("granted")}
             className="rounded-md border border-edge px-4 py-2 font-medium text-fg transition-colors hover:bg-surface-2"
           >
-            Allow analytics
+            {t("common.analytics.allow")}
           </button>
         </div>
       </div>

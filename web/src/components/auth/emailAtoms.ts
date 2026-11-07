@@ -13,8 +13,10 @@ import { atom } from "jotai";
 
 import { GatewayError } from "@/lib/api/client";
 import type { AccountEmails, GatewayClient } from "@/lib/api/client";
+import { enText, errorText, keyed, keyedError } from "@/lib/authErrors";
 import { billingUidAtom } from "@/lib/billing";
 import { codeMailLanguage } from "@/lib/emailCode";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { providersWords } from "./identityState";
 
@@ -30,16 +32,18 @@ export const EMPTY_EMAILS: EmailsState = { uid: null, data: null, error: null };
 export const emailsAtom = atom<EmailsState>(EMPTY_EMAILS);
 
 export const MAX_EMAILS = 5;
-export const RELAY_NOT_MAIN = "Use a real email for your plan, not a hidden Apple address.";
-export const MAIN_NOT_REMOVABLE = "Make another email main first.";
+export const RELAY_NOT_MAIN = EN("auth.emails.relayNotMain");
+export const MAIN_NOT_REMOVABLE = EN("auth.emails.mainNotRemovable");
 
 /** 409 credential_in_use: the address is another account's. Its code is
  * left unspent, so "Sign in to that account" can use it. */
 export class EmailInUseError extends Error {
   constructor(readonly providers: string[]) {
-    const how = providersWords(providers);
-    super(`That email belongs to another account${how ? ` (it signs in with ${how})` : ""}.`);
+    const key = providersWords(providers) ? "auth.inUse.emailHow" : "auth.inUse.email";
+    const values = (t: Tr) => ({ how: providersWords(providers, t) });
+    super(enText(key, values));
     this.name = "EmailInUseError";
+    keyed(this, key, values);
   }
 }
 
@@ -50,10 +54,10 @@ export function emailError(e: unknown): Error {
       const p = e.details?.providers;
       return new EmailInUseError(Array.isArray(p) ? p.filter((x): x is string => typeof x === "string") : []);
     }
-    if (e.code === "relay_not_main") return new Error(RELAY_NOT_MAIN);
-    if (e.code === "main_email_not_removable") return new Error(MAIN_NOT_REMOVABLE);
+    if (e.code === "relay_not_main") return keyedError("auth.emails.relayNotMain");
+    if (e.code === "main_email_not_removable") return keyedError("auth.emails.mainNotRemovable");
   }
-  return e instanceof Error ? e : new Error("That didn't work. Try again.");
+  return e instanceof Error ? e : keyedError("auth.errors.didntWork");
 }
 
 function store(get: () => string | null, set: (v: EmailsState) => void, uid: string | null, data: AccountEmails): void {
@@ -67,7 +71,7 @@ export const loadEmailsAtom = atom(null, async (get, set, client: Client): Promi
     if (get(billingUidAtom) === uid) set(emailsAtom, { uid, data, error: null });
   } catch (e) {
     if (get(billingUidAtom) === uid)
-      set(emailsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: e instanceof Error ? e.message : "Couldn't load your emails." }));
+      set(emailsAtom, (s) => ({ uid, data: s.uid === uid ? s.data : null, error: errorText(e, EN, "auth.emails.loadFailed") }));
   }
 });
 

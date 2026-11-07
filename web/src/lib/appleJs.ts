@@ -13,6 +13,9 @@
  * redirect fallback.
  */
 
+import { keyed, keyedError } from "@/lib/authErrors";
+import { EN } from "@/lib/i18n/t";
+
 export const APPLE_JS_URL =
   "https://appleid.cdn-apple.com/appleauth/static/jsapi/appleid/1/en_US/appleid.auth.js";
 export const APPLE_CLIENT_ID = "com.oliver-ai.spatial-photo-studio.web";
@@ -43,8 +46,9 @@ declare global {
 /** The script didn't load: use the redirect fallback. */
 export class AppleJsUnavailable extends Error {
   constructor() {
-    super("Sign in with Apple isn't available right now.");
+    super(EN("auth.errors.appleUnavailable"));
     this.name = "AppleJsUnavailable";
+    keyed(this, "auth.errors.appleUnavailable");
   }
 }
 
@@ -155,14 +159,14 @@ export async function appleAuthorize(): Promise<AppleAnswer> {
     const code = typeof e === "object" && e !== null && "error" in e ? String((e as { error: unknown }).error) : "";
     if (CANCEL_ERRORS.has(code)) throw new AppleCancelled();
     if (code === "popup_blocked_by_browser") {
-      throw new Error("Your browser blocked the Apple window. Allow pop-ups for this site and try again.");
+      throw keyedError("auth.errors.appleBlocked");
     }
-    throw new Error("Sign in with Apple didn't work. Try again.");
+    throw keyedError("auth.errors.appleFailed");
   }
   prepareApple();
   const idToken = answer.authorization?.id_token;
   if (!idToken || answer.authorization.state !== p.state) {
-    throw new Error("Sign in with Apple didn't finish. Try again.");
+    throw keyedError("auth.errors.appleUnfinished");
   }
   const n = answer.user?.name;
   const name = [n?.firstName, n?.lastName].filter((x) => x && x.trim()).join(" ").trim();

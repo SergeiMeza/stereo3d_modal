@@ -12,6 +12,7 @@ import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
 import { CODE_LENGTH, codeDigits } from "@/lib/emailCode";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { cn } from "@/lib/utils";
 
 export function CodeInput({
@@ -29,6 +30,7 @@ export function CodeInput({
   invalid?: boolean;
   autoFocus?: boolean;
 }): JSX.Element {
+  const t = useT();
   const ref = useRef<HTMLInputElement | null>(null);
   const [hasFocus, setHasFocus] = useState(false);
 
@@ -47,7 +49,7 @@ export function CodeInput({
     <div className="relative" data-testid="code-input">
       <input
         ref={ref}
-        aria-label="Sign-in code"
+        aria-label={t("auth.code.inputLabel")}
         inputMode="numeric"
         autoComplete="one-time-code"
         pattern="[0-9]*"

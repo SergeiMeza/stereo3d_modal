@@ -11,23 +11,26 @@ import { X } from "lucide-react";
 import type { JSX } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAccountSettings } from "@/lib/useAccountSettings";
 
+/** Each hint's message (onboarding.hints.<id> in messages/en.json). */
 export const HINTS = {
-  billing: "Your balance, payment methods and receipts. Top up here, or let your balance reload by itself.",
-  usage: "Every run with its price, month by month. Download a CSV for your records.",
-  invoices: "Invoices for your top-ups and plans, ready to download.",
-  plans: "Plans lower the price of every run and include usage every month. Paying per video works without one.",
-  pricing: "Prices are per minute of video at the size you pick. You always see the exact price before you pay.",
-  pro: "Pro is one membership for the web and the apps. Members pay less for every run and get usage credit when they join.",
-  account: "Your sign-in, your settings and, if you ever need it, deleting your account.",
-  devices: "How to watch your 3D videos on this device.",
-  scenes: "Where your video's scenes change. Previews and parts start at these points; you rarely need to change them.",
+  billing: "onboarding.hints.billing",
+  usage: "onboarding.hints.usage",
+  invoices: "onboarding.hints.invoices",
+  plans: "onboarding.hints.plans",
+  pricing: "onboarding.hints.pricing",
+  pro: "onboarding.hints.pro",
+  account: "onboarding.hints.account",
+  devices: "onboarding.hints.devices",
+  scenes: "onboarding.hints.scenes",
 } as const;
 
 export type HintId = keyof typeof HINTS;
 
 export function FirstTimeHint({ id, className = "" }: { id: HintId; className?: string }): JSX.Element | null {
+  const t = useT();
   const { user } = useAuth();
   const { settings, update } = useAccountSettings();
   if (!user || !settings || (settings.hints_seen ?? []).includes(id)) return null;
@@ -37,10 +40,10 @@ export function FirstTimeHint({ id, className = "" }: { id: HintId; className?: 
       data-testid={`hint-${id}`}
       className={`flex items-start gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3.5 py-2.5 text-sm text-fg ${className}`}
     >
-      <span className="flex-1">{HINTS[id]}</span>
+      <span className="flex-1">{t(HINTS[id], { pro: "Pro" })}</span>
       <button
         type="button"
-        aria-label="Dismiss this tip"
+        aria-label={t("onboarding.hints.dismiss")}
         onClick={() => update({ hints_seen_add: [id] })}
         className="shrink-0 rounded p-0.5 text-fg-muted hover:text-fg"
       >

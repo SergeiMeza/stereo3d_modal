@@ -16,7 +16,8 @@ import type { Passkey } from "@/lib/passkeys";
 export interface PasskeyListState {
   uid: string | null;
   list: Passkey[] | null;
-  loadError: string | null;
+  /** what the load threw (shown with errorText) */
+  loadError: { cause: unknown } | null;
 }
 
 export const EMPTY_PASSKEYS: PasskeyListState = { uid: null, list: null, loadError: null };
@@ -36,7 +37,7 @@ export const loadPasskeysAtom = atom(
         set(passkeyListAtom, (s) => ({
           uid,
           list: s.uid === uid ? s.list : null,
-          loadError: e instanceof Error ? e.message : "Couldn't load your passkeys.",
+          loadError: { cause: e },
         }));
     }
   },

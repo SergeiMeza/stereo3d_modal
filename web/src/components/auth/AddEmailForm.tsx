@@ -17,17 +17,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
+import { errorText } from "@/lib/authErrors";
 import { CODE_LENGTH, isAppleRelayEmail } from "@/lib/emailCode";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAppSetAtom } from "@/lib/state/stores";
 
-import { addEmailAtom, EmailInUseError, RELAY_NOT_MAIN, sendAddEmailCode } from "./emailAtoms";
+import { addEmailAtom, EmailInUseError, sendAddEmailCode } from "./emailAtoms";
 
 export function AddEmailForm({
   idPrefix,
   mainChoice,
   forPlan = false,
   prefill = "",
-  submitLabel = "Add email",
+  submitLabel,
   onDone,
   onCancel,
 }: {
@@ -41,6 +43,7 @@ export function AddEmailForm({
   onDone?: () => void;
   onCancel?: () => void;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const { reloadUser, signInWithEmailCode } = useAuth();
   const addEmail = useAppSetAtom(addEmailAtom);
@@ -55,11 +58,11 @@ export function AddEmailForm({
   async function send(): Promise<void> {
     const e = email.trim();
     if (!e.includes("@")) {
-      setError("Enter an email address.");
+      setError(t("auth.emails.enterAddress"));
       return;
     }
     if (forPlan && isAppleRelayEmail(e)) {
-      setError(RELAY_NOT_MAIN);
+      setError(t("auth.emails.relayNotMain"));
       return;
     }
     setBusy(true);
@@ -68,7 +71,7 @@ export function AddEmailForm({
       await sendAddEmailCode(gateway, e);
       setStep("code");
     } catch (x) {
-      setError(x instanceof Error ? x.message : "Couldn't send the code.");
+      setError(errorText(x, t, "auth.errors.sendCodeFailed"));
     } finally {
       setBusy(false);
     }
@@ -86,7 +89,7 @@ export function AddEmailForm({
       onDone?.();
     } catch (x) {
       setInUse(x instanceof EmailInUseError);
-      setError(x instanceof Error ? x.message : "That didn't work. Try again.");
+      setError(errorText(x, t, "auth.errors.didntWork"));
     } finally {
       setBusy(false);
     }
@@ -102,7 +105,7 @@ export function AddEmailForm({
             void send();
           }}
         >
-          <Label htmlFor={`${idPrefix}-email`}>Email</Label>
+          <Label htmlFor={`${idPrefix}-email`}>{t("auth.signIn.emailLabel")}</Label>
           <div className="flex gap-2">
             <Input
               id={`${idPrefix}-email`}
@@ -113,17 +116,17 @@ export function AddEmailForm({
               className="flex-1"
             />
             <Button type="submit" size="sm" disabled={busy}>
-              {busy ? "Sending…" : "Send code"}
+              {busy ? t("auth.signIn.sending") : t("auth.emails.sendCode")}
             </Button>
           </div>
         </form>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-fg-muted">Enter the code we sent to {email.trim()}.</p>
+          <p className="text-xs text-fg-muted">{t("auth.emails.codeSentTo", { email: email.trim() })}</p>
           <CodeInput value={code} onChange={setCode} onComplete={(d) => void confirm(d)} disabled={busy} invalid={error !== null} />
           <div className="flex flex-wrap gap-2">
             <Button size="sm" disabled={busy || code.length !== CODE_LENGTH} onClick={() => void confirm(code)}>
-              {busy ? "Checking…" : submitLabel}
+              {busy ? t("auth.emails.checking") : (submitLabel ?? t("auth.emails.add"))}
             </Button>
             <Button
               size="sm"
@@ -135,7 +138,7 @@ export function AddEmailForm({
                 setError(null);
               }}
             >
-              Use another email
+              {t("auth.code.back")}
             </Button>
           </div>
         </div>
@@ -149,7 +152,7 @@ export function AddEmailForm({
             checked={makeMain}
             onChange={(e) => setMakeMain(e.target.checked)}
           />
-          Make it my main email
+          {t("auth.emails.makeItMain")}
         </label>
       ) : null}
       {error !== null && (
@@ -160,16 +163,16 @@ export function AddEmailForm({
               size="sm"
               variant="outline"
               disabled={busy}
-              onClick={() => void signInWithEmailCode(email.trim(), code).catch((x: unknown) => setError(x instanceof Error ? x.message : "That didn't work."))}
+              onClick={() => void signInWithEmailCode(email.trim(), code).catch((x: unknown) => setError(errorText(x, t, "auth.errors.didntWorkShort")))}
             >
-              Sign in to that account
+              {t("auth.emails.signInThere")}
             </Button>
           ) : null}
         </div>
       )}
       {onCancel ? (
         <Button size="sm" variant="ghost" className="self-start" disabled={busy} onClick={onCancel}>
-          Cancel
+          {t("common.cancel")}
         </Button>
       ) : null}
     </div>

@@ -18,6 +18,8 @@ import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "
 import type { JSX } from "react";
 
 import { Button } from "@/components/ui/button";
+import { errorText } from "@/lib/authErrors";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { cancelPasskeyRequest, passkeyAutofillSupported, passkeysSupported, toPasskeyError } from "@/lib/passkeys";
 
 type SignIn = (opts?: { autofill?: boolean }) => Promise<void>;
@@ -40,6 +42,7 @@ export function usePasskeyAutofill(
   signIn: SignIn,
   onError: (message: string) => void,
 ): { autofill: boolean; restart: () => void } {
+  const t = useT();
   const [supported, setSupported] = useState(false);
   const live = useRef(true);
   const autofill = enabled && supported;
@@ -57,9 +60,9 @@ export function usePasskeyAutofill(
   const run = useCallback(() => {
     signIn({ autofill: true }).catch((e: unknown) => {
       const err = toPasskeyError(e);
-      if (live.current && !err.cancelled) onError(err.message);
+      if (live.current && !err.cancelled) onError(errorText(err, t));
     });
-  }, [signIn, onError]);
+  }, [signIn, onError, t]);
 
   // once the field carries autocomplete="username webauthn" (this render)
   useEffect(() => {
@@ -92,6 +95,7 @@ export function PasskeyButton({
   /** after the attempt, signed in or not (restart the autofill) */
   onDone?: () => void;
 }): JSX.Element {
+  const t = useT();
   const [busy, setBusy] = useState(false);
   async function go() {
     setBusy(true);
@@ -100,7 +104,7 @@ export function PasskeyButton({
       await signIn();
     } catch (e) {
       const err = toPasskeyError(e);
-      if (!err.cancelled) onError(err.message);
+      if (!err.cancelled) onError(errorText(err, t));
     } finally {
       setBusy(false);
       onDone?.();
@@ -116,7 +120,7 @@ export function PasskeyButton({
       className="h-11 w-full gap-2.5 text-sm"
     >
       <KeyRound className="size-4" aria-hidden="true" />
-      {busy ? "Waiting for your passkey…" : "Sign in with a passkey"}
+      {busy ? t("auth.passkeys.waiting") : t("auth.passkeys.signIn")}
     </Button>
   );
 }

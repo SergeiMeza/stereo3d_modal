@@ -31,12 +31,16 @@ import { CodeInput } from "@/components/auth/CodeInput";
 import { PasskeyButton, usePasskeyAutofill, usePasskeysSupported } from "@/components/auth/PasskeySignIn";
 import { AppleLogo, GoogleLogo } from "@/components/auth/ProviderLogos";
 import { prepareApple } from "@/lib/appleJs";
+import { errorText } from "@/lib/authErrors";
 import { AccountExistsError, AUTH_MODE, useAuth } from "@/lib/auth";
 import type { PendingLink } from "@/lib/auth";
 import { CODE_LENGTH, EmailCodeError, RESEND_AFTER_S } from "@/lib/emailCode";
 import type { CodeStart } from "@/lib/emailCode";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 import { markPasskeySuggestion } from "@/lib/passkeys";
-import { METHOD_LABELS } from "@/lib/signInMethods";
+import { methodLabel } from "@/lib/signInMethods";
+import { SITE_NAME } from "@/lib/site";
 import { useRegion } from "@/lib/useRegion";
 
 function safeNext(raw: string | null): string {
@@ -62,6 +66,7 @@ export default function SignInScreen() {
     redirectError,
   } = useAuth();
   const router = useRouter();
+  const t = useT();
   const emailOnly = useRegion() === "cn";
   const next = safeNext(useSearchParams().get("next"));
 
@@ -122,15 +127,15 @@ export default function SignInScreen() {
   if (AUTH_MODE === "mock") {
     return (
       <section className="mx-auto w-full max-w-sm space-y-4 px-4 py-16">
-        <h1 className="text-xl font-semibold tracking-tight">Sign in</h1>
+        <h1 className="text-xl font-semibold tracking-tight">{t("auth.signIn.title")}</h1>
         <p className="rounded-lg border border-edge bg-surface-1 p-4 text-fg-muted">
-          Auth is mocked in this environment.
+          {t("auth.signIn.mocked")}
         </p>
         <Link
           href={next}
           className="block rounded-lg bg-primary px-4 py-2 text-center font-medium text-primary-foreground transition-colors hover:bg-primary/80"
         >
-          Continue
+          {t("auth.signIn.continue")}
         </Link>
       </section>
     );
@@ -151,7 +156,7 @@ export default function SignInScreen() {
         setStep("code");
         return true;
       }
-      setError(e instanceof Error ? e.message : "Something went wrong.");
+      setError(errorText(e, t, "auth.errors.somethingWrong"));
       return false;
     } finally {
       setPending(false);
@@ -166,7 +171,7 @@ export default function SignInScreen() {
     } catch (e) {
       // AccountExistsError: the pendingLink effect takes over
       if (!(e instanceof AccountExistsError)) {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+        setError(errorText(e, t, "auth.errors.somethingWrong"));
       }
     } finally {
       setPending(false);
@@ -199,9 +204,9 @@ export default function SignInScreen() {
   return (
     <section className="mx-auto w-full max-w-sm space-y-6 px-4 py-16">
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Sign in</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{t("auth.signIn.title")}</h1>
         <p className="text-fg-muted">
-          One account for Spatial Video Studio on the web and in the app.
+          {t("auth.signIn.subtitle", { site: SITE_NAME })}
         </p>
       </div>
 
@@ -216,7 +221,7 @@ export default function SignInScreen() {
               className={`${providerButton} bg-white text-black hover:bg-white/90`}
             >
               <AppleLogo className="size-4 -translate-y-px" />
-              Continue with Apple
+              {t("auth.signIn.continueApple")}
             </button>
           )}
           <button
@@ -227,7 +232,7 @@ export default function SignInScreen() {
             className={`${providerButton} border border-edge bg-surface-2 text-fg hover:border-primary/60`}
           >
             <GoogleLogo className="size-4" />
-            Continue with Google
+            {t("auth.signIn.continueGoogle")}
           </button>
           {passkeys && (
             <PasskeyButton
@@ -244,7 +249,7 @@ export default function SignInScreen() {
       {!emailOnly && (
         <div className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="h-px flex-1 bg-edge" aria-hidden="true" />
-          or
+          {t("auth.signIn.or")}
           <span className="h-px flex-1 bg-edge" aria-hidden="true" />
         </div>
       )}
@@ -257,7 +262,7 @@ export default function SignInScreen() {
         className="space-y-2.5"
       >
         <label htmlFor="signin-email" className="sr-only">
-          Email
+          {t("auth.signIn.emailLabel")}
         </label>
         <input
           id="signin-email"
@@ -266,7 +271,7 @@ export default function SignInScreen() {
           autoComplete={autofill ? "username webauthn" : "email"}
           inputMode="email"
           enterKeyHint="go"
-          placeholder="you@example.com"
+          placeholder={t("auth.signIn.emailPlaceholder")}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="h-11 w-full rounded-lg border border-edge bg-surface-2 px-3 text-fg outline-none placeholder:text-fg-muted/60 focus:border-primary/60"
@@ -276,7 +281,7 @@ export default function SignInScreen() {
           disabled={pending || email.trim() === ""}
           className={`${providerButton} bg-primary text-primary-foreground hover:bg-primary/80`}
         >
-          {pending ? "Sending…" : "Continue with email"}
+          {pending ? t("auth.signIn.sending") : t("auth.signIn.continueEmail")}
         </button>
       </form>
 
@@ -287,15 +292,18 @@ export default function SignInScreen() {
       )}
 
       <p className="text-xs text-fg-muted">
-        By continuing, you agree to our{" "}
-        <Link href="/terms" className="text-primary hover:underline">
-          Terms of Use
-        </Link>{" "}
-        and{" "}
-        <Link href="/privacy" className="text-primary hover:underline">
-          Privacy Policy
-        </Link>
-        .
+        {rich(t, "auth.signIn.agree", {
+          terms: (c) => (
+            <Link href="/terms" className="text-primary hover:underline">
+              {c}
+            </Link>
+          ),
+          privacy: (c) => (
+            <Link href="/privacy" className="text-primary hover:underline">
+              {c}
+            </Link>
+          ),
+        })}
       </p>
     </section>
   );
@@ -326,6 +334,7 @@ export function EmailCodeStep({
   onVerify: (code: string) => Promise<void>;
   onBack: () => void;
 }): JSX.Element {
+  const tr = useT();
   const [code, setCode] = useState("");
   const [verifying, setVerifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -350,11 +359,11 @@ export function EmailCodeStep({
         const left = e.attemptsLeft;
         setError(
           left !== null && left <= 2
-            ? `That code isn't right. ${left} ${left === 1 ? "try" : "tries"} left.`
-            : "That code isn't right.",
+            ? tr("auth.code.wrongTriesLeft", { count: left })
+            : tr("auth.errors.codeInvalid"),
         );
       } else {
-        setError(e instanceof Error ? e.message : "Something went wrong.");
+        setError(errorText(e, tr, "auth.errors.somethingWrong"));
       }
     } finally {
       setVerifying(false);
@@ -370,18 +379,16 @@ export function EmailCodeStep({
         className="-ml-1 inline-flex items-center gap-1 text-sm text-fg-muted transition-colors hover:text-fg"
       >
         <ArrowLeft className="size-4" aria-hidden="true" />
-        Use another email
+        {tr("auth.code.back")}
       </button>
       <div className="space-y-1.5">
-        <h1 className="text-2xl font-semibold tracking-tight">Check your email</h1>
+        <h1 className="text-2xl font-semibold tracking-tight">{tr("auth.code.title")}</h1>
         <p className="text-fg-muted">
-          Enter the code we sent to{" "}
-          <span className="break-all text-fg">{email}</span>.
+          {rich(tr, "auth.code.sentTo", { addr: (c) => <span className="break-all text-fg">{c}</span> }, { email })}
         </p>
         {linking !== null && (
           <p data-testid="code-linking" className="text-sm text-fg-muted">
-            You already have an account with this email.{" "}
-            {METHOD_LABELS[linking.providerId]} will be added to it.
+            {tr("auth.code.linking", { method: methodLabel(linking.providerId, tr) })}
           </p>
         )}
       </div>
@@ -409,7 +416,7 @@ export function EmailCodeStep({
           disabled={verifying || code.length !== CODE_LENGTH}
           className={`${providerButton} bg-primary text-primary-foreground hover:bg-primary/80`}
         >
-          {verifying ? "Signing in…" : "Sign in"}
+          {verifying ? tr("auth.code.signingIn") : tr("auth.signIn.title")}
         </button>
       </form>
 
@@ -429,13 +436,13 @@ export function EmailCodeStep({
             if (ok) {
               setCode("");
               setError(null);
-              setNotice("New code sent.");
+              setNotice(tr("auth.code.newCodeSent"));
             }
           })
         }
         className="text-sm text-primary transition-colors hover:underline disabled:text-fg-muted disabled:no-underline"
       >
-        {waitMs > 0 ? `Send a new code in ${mmss(waitMs)}` : "Send a new code"}
+        {waitMs > 0 ? tr("auth.code.resendIn", { time: mmss(waitMs) }) : tr("auth.code.resend")}
       </button>
     </div>
   );

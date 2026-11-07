@@ -18,13 +18,13 @@ import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { SettleProvider } from "@/components/pay/SettleSheet";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
-import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
+import { SITE_NAME, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
 import { messagesFor } from "@/lib/i18n/catalogs";
 import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { HlParamCleanup } from "@/lib/i18n/HlParamCleanup";
 import { dirOf } from "@/lib/i18n/locales";
-import { getRequestLocale } from "@/lib/i18n/server";
+import { getRequestLocale, getServerTr } from "@/lib/i18n/server";
 
 import "./globals.css";
 
@@ -38,42 +38,44 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-const description =
-  `${SITE_TAGLINE}. Convert 2D videos to 3D: spatial video for Apple Vision Pro, side by side for Meta Quest, Pico and every 3D display. See the price before you start.`;
-
-export const metadata: Metadata = {
-  metadataBase: new URL(SITE_URL),
-  title: {
-    default: "Spatial Video Studio on the web — Convert 2D Video to 3D",
-    template: "%s — Spatial Video Studio",
-  },
-  description,
-  applicationName: SITE_NAME,
-  // which build is live: <meta name="build" content="8f2fe30"> (Vercel's
-  // commit, read on the server; "local" in dev and tests)
-  other: { build: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7) },
-  openGraph: {
-    type: "website",
-    siteName: SITE_NAME,
-    locale: "en_US",
-    title: `${SITE_TAGLINE}: turn any video into lifelike 3D`,
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerTr();
+  const description = t("meta.site.description", { site: SITE_NAME });
+  const ogTitle = t("meta.site.ogTitle", { site: SITE_NAME });
+  return {
+    metadataBase: new URL(SITE_URL),
+    title: {
+      default: t("meta.site.title", { site: SITE_NAME }),
+      template: `%s — ${SITE_NAME}`,
+    },
     description,
-    images: [
-      {
-        url: "/landing/og.jpg",
-        width: 1200,
-        height: 630,
-        alt: "Spatial Video Studio on the web: turn any video into lifelike 3D, up to 8K, for Vision Pro and every headset",
-      },
-    ],
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: `${SITE_TAGLINE}: turn any video into lifelike 3D`,
-    description,
-    images: ["/landing/og.jpg"],
-  },
-};
+    applicationName: SITE_NAME,
+    // which build is live: <meta name="build" content="8f2fe30"> (Vercel's
+    // commit, read on the server; "local" in dev and tests)
+    other: { build: (process.env.VERCEL_GIT_COMMIT_SHA ?? "local").slice(0, 7) },
+    openGraph: {
+      type: "website",
+      siteName: SITE_NAME,
+      locale: t.intl.replace("-", "_"),
+      title: ogTitle,
+      description,
+      images: [
+        {
+          url: "/landing/og.jpg",
+          width: 1200,
+          height: 630,
+          alt: t("meta.site.ogImageAlt", { site: SITE_NAME }),
+        },
+      ],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: ogTitle,
+      description,
+      images: ["/landing/og.jpg"],
+    },
+  };
+}
 
 export default async function RootLayout({
   children,
@@ -82,6 +84,7 @@ export default async function RootLayout({
 }>) {
   // owner 2026-11-07: NEXT_LOCALE, then Accept-Language, then English
   const locale = await getRequestLocale();
+  const t = await getServerTr();
   return (
     <html
       lang={locale}
@@ -113,7 +116,7 @@ export default async function RootLayout({
                 href="/projects"
                 className="hidden text-fg-muted transition-colors hover:text-fg sm:block"
               >
-                Projects
+                {t("common.header.projects")}
               </Link>
               {/* plans canvas, Header B: Plans + "Save 15–25%" */}
               <HeaderPlans />

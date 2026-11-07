@@ -47,15 +47,18 @@ import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import { dropPasskeyAtom, loadPasskeysAtom, passkeyListAtom, putPasskeyAtom } from "./passkeyAtoms";
 import { useRegion } from "@/lib/useRegion";
+import { errorText } from "@/lib/authErrors";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 const NAME_MAX = 60;
 
-function when(iso: string | null | undefined): string {
-  if (!iso) return "never";
+function when(iso: string | null | undefined, t: Tr = EN): string {
+  if (!iso) return t("auth.passkeys.never");
   const d = new Date(iso);
   return Number.isNaN(d.getTime())
     ? "—"
-    : d.toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+    : d.toLocaleDateString(t.intl, { year: "numeric", month: "short", day: "numeric" });
 }
 
 /** 401 reauth_required {method: "firebase"}: the ID token's sign-in is
@@ -64,15 +67,16 @@ function needsReauth(e: unknown): boolean {
   return e instanceof GatewayError && isReauthCode(e.code);
 }
 
-function message(e: unknown): string {
+function message(e: unknown, t: Tr = EN): string {
   if (e instanceof GatewayError) {
-    if (e.code === "passkey_exists") return "This device already has a passkey for your account.";
-    return e.message;
+    if (e.code === "passkey_exists") return t("auth.passkeyErrors.exists");
+    return errorText(e, t);
   }
-  return toPasskeyError(e).message;
+  return errorText(toPasskeyError(e), t);
 }
 
 export function PasskeysSection(): JSX.Element | null {
+  const t = useT();
   const gateway = useGateway();
   const supported = usePasskeysSupported();
   const cn = useRegion() === "cn";
@@ -105,13 +109,13 @@ export function PasskeysSection(): JSX.Element | null {
     <div data-testid="passkeys" className="space-y-2">
       <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs text-fg-muted">Passkeys</p>
-          <p className="text-xs text-fg-muted">Sign in with Face ID, Touch ID, your phone or a security key.</p>
+          <p className="text-xs text-fg-muted">{t("auth.passkeys.title")}</p>
+          <p className="text-xs text-fg-muted">{t("auth.passkeys.subtitle")}</p>
         </div>
         {supported && (
           <Button size="sm" variant="outline" onClick={() => setAdding(true)} data-testid="passkey-add">
             <KeyRound aria-hidden="true" />
-            Add a passkey
+            {t("auth.passkeys.addTitle")}
           </Button>
         )}
       </div>
@@ -126,15 +130,15 @@ export function PasskeysSection(): JSX.Element | null {
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm text-fg">{p.name}</p>
                 <p className="text-xs text-fg-muted">
-                  {[p.device_hint, `Added ${when(p.created_at)}`, `Last used ${when(p.last_used_at)}`].filter(Boolean).join(" · ")}
+                  {[p.device_hint, t("auth.passkeys.added", { date: when(p.created_at, t) }), t("auth.passkeys.lastUsed", { date: when(p.last_used_at, t) })].filter(Boolean).join(" · ")}
                 </p>
               </div>
               <div className="flex shrink-0 gap-1.5">
-                <Button size="xs" variant="outline" onClick={() => setRenaming(p.id)} aria-label={`Rename ${p.name}`}>
-                  Rename
+                <Button size="xs" variant="outline" onClick={() => setRenaming(p.id)} aria-label={t("auth.passkeys.renameLabel", { name: p.name })}>
+                  {t("auth.passkeys.rename")}
                 </Button>
-                <Button size="xs" variant="outline" onClick={() => setRemoving(p.id)} aria-label={`Remove ${p.name}`}>
-                  Remove
+                <Button size="xs" variant="outline" onClick={() => setRemoving(p.id)} aria-label={t("auth.passkeys.removeLabel", { name: p.name })}>
+                  {t("auth.passkeys.remove")}
                 </Button>
               </div>
             </li>
@@ -143,12 +147,12 @@ export function PasskeysSection(): JSX.Element | null {
       )}
       {passkeys !== null && passkeys.length === 0 && (
         <p className="text-xs text-fg-muted">
-          {supported ? "No passkeys yet." : "No passkeys yet. This browser can't add one."}
+          {supported ? t("auth.passkeys.empty") : t("auth.passkeys.emptyUnsupported")}
         </p>
       )}
       {loadError !== null && (
         <p role="alert" className="text-xs text-destructive">
-          {loadError}
+          {errorText(loadError.cause, t, "auth.passkeys.loadFailed")}
         </p>
       )}
       {notice !== null && <p role="status" className="text-xs text-chart-2">{notice}</p>}
@@ -157,7 +161,7 @@ export function PasskeysSection(): JSX.Element | null {
         open={adding}
         onOpenChange={setAdding}
         onAdded={(p) => {
-          setNotice("Passkey added.");
+          setNotice(t("auth.passkeys.addedNotice"));
           // the gateway answers the new passkey (201): no refetch
           if (p) putPasskey(p);
           else load();
@@ -167,7 +171,7 @@ export function PasskeysSection(): JSX.Element | null {
         passkey={renaming}
         onClose={() => setRenaming(null)}
         onRenamed={(p) => {
-          setNotice("Passkey renamed.");
+          setNotice(t("auth.passkeys.renamedNotice"));
           putPasskey(p);
         }}
       />
@@ -175,7 +179,7 @@ export function PasskeysSection(): JSX.Element | null {
         passkey={removing}
         onClose={() => setRemoving(null)}
         onRemoved={(id) => {
-          setNotice("Passkey removed.");
+          setNotice(t("auth.passkeys.removedNotice"));
           dropPasskey(id);
         }}
       />
@@ -224,6 +228,7 @@ function AddPasskeyBody({
   onCancel: () => void;
   onAdded: (p: Passkey | null) => void;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const [name, setName] = useState(deviceName);
   const [confirmed, setConfirmed] = useState(false);
@@ -247,7 +252,7 @@ function AddPasskeyBody({
         } catch {
           // not confirmed: nothing changed, the dialog stays
         }
-      } else if (e instanceof GatewayError || !toPasskeyError(e).cancelled) setError(message(e));
+      } else if (e instanceof GatewayError || !toPasskeyError(e).cancelled) setError(message(e, t));
     } finally {
       setBusy(false);
     }
@@ -255,9 +260,9 @@ function AddPasskeyBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Add a passkey</DialogTitle>
+        <DialogTitle>{t("auth.passkeys.addTitle")}</DialogTitle>
         <DialogDescription>
-          Sign in next time with Face ID, Touch ID, your phone or a security key. Nothing to type.
+          {t("auth.passkeys.addDescription")}
         </DialogDescription>
       </DialogHeader>
       <form
@@ -268,10 +273,10 @@ function AddPasskeyBody({
         }}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="passkey-name">Name</Label>
+          <Label htmlFor="passkey-name">{t("auth.passkeys.name")}</Label>
           <Input id="passkey-name" value={name} maxLength={NAME_MAX} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </div>
-        {confirmed && <p className="text-xs text-chart-2">Signed in again. Now add the passkey.</p>}
+        {confirmed && <p className="text-xs text-chart-2">{t("auth.passkeys.confirmed")}</p>}
         {error !== null && (
           <p role="alert" className="text-xs text-destructive">
             {error}
@@ -279,10 +284,10 @@ function AddPasskeyBody({
         )}
         <DialogFooter>
           <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" disabled={busy}>
-            {busy ? "Waiting for your passkey…" : "Add passkey"}
+            {busy ? t("auth.passkeys.waiting") : t("auth.passkeys.add")}
           </Button>
         </DialogFooter>
       </form>
@@ -333,6 +338,7 @@ function RenameBody({
   onCancel: () => void;
   onRenamed: (p: Passkey) => void;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const [name, setName] = useState(passkey.name);
   const [error, setError] = useState<string | null>(null);
@@ -344,7 +350,7 @@ function RenameBody({
       const renamed = await gateway.renamePasskey(passkey.id, name.trim());
       onRenamed(renamed ?? { ...passkey, name: name.trim() });
     } catch (e) {
-      setError(message(e));
+      setError(message(e, t));
     } finally {
       setBusy(false);
     }
@@ -353,8 +359,8 @@ function RenameBody({
   return (
     <>
       <DialogHeader>
-        <DialogTitle>Rename passkey</DialogTitle>
-        <DialogDescription>A name helps you tell your passkeys apart.</DialogDescription>
+        <DialogTitle>{t("auth.passkeys.renameTitle")}</DialogTitle>
+        <DialogDescription>{t("auth.passkeys.renameDescription")}</DialogDescription>
       </DialogHeader>
       <form
         className="space-y-3"
@@ -364,7 +370,7 @@ function RenameBody({
         }}
       >
         <div className="space-y-1.5">
-          <Label htmlFor="passkey-rename">Name</Label>
+          <Label htmlFor="passkey-rename">{t("auth.passkeys.name")}</Label>
           <Input id="passkey-rename" value={name} maxLength={NAME_MAX} onChange={(e) => setName(e.target.value)} autoComplete="off" />
         </div>
         {error !== null && (
@@ -374,10 +380,10 @@ function RenameBody({
         )}
         <DialogFooter>
           <Button type="button" variant="outline" disabled={busy} onClick={onCancel}>
-            Cancel
+            {t("common.cancel")}
           </Button>
           <Button type="submit" disabled={busy || name.trim() === ""}>
-            {busy ? "Saving…" : "Save"}
+            {busy ? t("account.profile.saving") : t("account.profile.save")}
           </Button>
         </DialogFooter>
       </form>
@@ -425,6 +431,7 @@ function RemoveBody({
   setBusy: (b: boolean) => void;
   onRemoved: (id: string) => void;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const [error, setError] = useState<string | null>(null);
 
@@ -435,7 +442,7 @@ function RemoveBody({
       await gateway.removePasskey(passkey.id);
       onRemoved(passkey.id);
     } catch (e) {
-      setError(message(e));
+      setError(message(e, t));
     } finally {
       setBusy(false);
     }
@@ -444,9 +451,9 @@ function RemoveBody({
   return (
     <>
       <AlertDialogHeader>
-        <AlertDialogTitle>Remove &quot;{passkey.name}&quot;?</AlertDialogTitle>
+        <AlertDialogTitle>{t("auth.passkeys.removeTitle", { name: passkey.name })}</AlertDialogTitle>
         <AlertDialogDescription>
-          You won&apos;t be able to sign in with this passkey any more. You can still sign in another way.
+          {t("auth.passkeys.removeDescription")}
         </AlertDialogDescription>
       </AlertDialogHeader>
       {error !== null && (
@@ -455,9 +462,9 @@ function RemoveBody({
         </p>
       )}
       <AlertDialogFooter>
-        <AlertDialogCancel disabled={busy}>Cancel</AlertDialogCancel>
+        <AlertDialogCancel disabled={busy}>{t("common.cancel")}</AlertDialogCancel>
         <Button variant="destructive" disabled={busy} onClick={() => void remove()}>
-          {busy ? "Removing…" : "Remove passkey"}
+          {busy ? t("auth.passkeys.removing") : t("auth.passkeys.removeButton")}
         </Button>
       </AlertDialogFooter>
     </>

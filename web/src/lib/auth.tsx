@@ -42,6 +42,7 @@ import { useEffect, useMemo } from "react";
 import { AuthDebugPanel } from "@/components/auth/AuthDebugPanel";
 import { track, upgradeSession } from "@/lib/analytics";
 import { runAppleFlow, type AppleAuthApi, type AppleOp } from "@/lib/appleSignIn";
+import { copyKey, errorText, keyed, keyedError } from "@/lib/authErrors";
 import { appStore, useAppAtomValue } from "@/lib/state/stores";
 import {
   EmailCodeError,
@@ -58,6 +59,7 @@ import {
   REDIRECT_KEY,
   redirectPending,
   settleRedirect,
+  unfinishedError,
   type AuthDebug,
 } from "@/lib/authRedirect";
 import { firebaseConfig, getFirebaseAuth } from "@/lib/firebase";
@@ -74,6 +76,8 @@ import {
 } from "@/lib/gatewayAuth";
 import type { GatewaySession } from "@/lib/gatewayAuth";
 import { detectClient, isHeadset } from "@/lib/headset";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN } from "@/lib/i18n/t";
 import { passkeySignIn } from "@/lib/passkeys";
 import { confirmItsYou } from "@/lib/reauth";
 import { currentRegion, gatewayBaseUrl } from "@/lib/region";
@@ -153,63 +157,58 @@ const MOCK_USER: AuthUser = {
   providerIds: ["password"],
 };
 
-const SIGNED_OUT_MESSAGE = "You are signed out. Sign in to continue.";
+// ------------------------------------------------------- error mapping
 
-// -------------------------------------------------------- error mapping
-
+/** Each code's message key (auth.errors.*); the message is English, the
+ * key lets a screen show it in the reader's language (lib/authErrors). */
 const FRIENDLY_BY_CODE: Record<string, string> = {
-  "auth/invalid-credential": "Incorrect email or password.",
-  "auth/wrong-password": "Incorrect email or password.",
-  "auth/user-not-found": "No account found with that email.",
-  "auth/invalid-email": "That email address is not valid.",
-  "auth/email-already-in-use":
-    "An account with that email already exists — sign in instead.",
-  "auth/weak-password": "Password is too weak — use at least 6 characters.",
-  "auth/missing-password": "Enter your password.",
-  "auth/popup-closed-by-user":
-    "The sign-in window was closed before finishing. Try again.",
-  "auth/cancelled-popup-request":
-    "The sign-in window was closed before finishing. Try again.",
-  "auth/popup-blocked":
-    "Your browser blocked the sign-in popup — allow popups and try again.",
-  "auth/too-many-requests": "Too many attempts — wait a moment and try again.",
-  "auth/network-request-failed":
-    "Network error — check your connection and try again.",
-  "auth/user-disabled": "This account has been disabled.",
-  "auth/requires-recent-login":
-    "For security, this action needs a fresh session — sign out, sign in again, then retry.",
+  "auth/invalid-credential": "incorrectCredentials",
+  "auth/wrong-password": "incorrectCredentials",
+  "auth/user-not-found": "userNotFound",
+  "auth/invalid-email": "invalidEmail",
+  "auth/email-already-in-use": "emailExists",
+  "auth/weak-password": "weakPassword",
+  "auth/missing-password": "missingPassword",
+  "auth/popup-closed-by-user": "popupClosed",
+  "auth/cancelled-popup-request": "popupClosed",
+  "auth/popup-blocked": "popupBlocked",
+  "auth/too-many-requests": "tooManyAttempts",
+  "auth/network-request-failed": "network",
+  "auth/user-disabled": "accountDisabled",
+  "auth/requires-recent-login": "recentLogin",
   // Gateway sign-in (China mode) — the gateway's stable error codes.
-  invalid_credentials: "Incorrect email or password.",
-  invalid_email: "That email address is not valid.",
-  email_exists: "An account with that email already exists — sign in instead.",
-  weak_password: "Password is too weak — use at least 6 characters.",
-  missing_password: "Enter your password.",
-  too_many_attempts: "Too many attempts — wait a moment and try again.",
-  rate_limited: "Too many attempts — wait a moment and try again.",
-  user_disabled: "This account has been disabled.",
-  operation_not_allowed: "Sign in with your email.",
-  invalid_refresh_token: SIGNED_OUT_MESSAGE,
-  invalid_token: SIGNED_OUT_MESSAGE,
-  signed_out: SIGNED_OUT_MESSAGE,
-  network: "Network error — check your connection and try again.",
-  auth_unavailable: "Sign-in is unavailable right now. Try again in a moment.",
+  invalid_credentials: "incorrectCredentials",
+  invalid_email: "invalidEmail",
+  email_exists: "emailExists",
+  weak_password: "weakPassword",
+  missing_password: "missingPassword",
+  too_many_attempts: "tooManyAttempts",
+  rate_limited: "tooManyAttempts",
+  user_disabled: "accountDisabled",
+  operation_not_allowed: "emailOnly",
+  invalid_refresh_token: "signedOut",
+  invalid_token: "signedOut",
+  signed_out: "signedOut",
+  network: "network",
+  auth_unavailable: "authUnavailable",
   // Email codes (S3D-70).
-  code_invalid: "That code isn't right.",
-  code_expired: "That code has expired. Send a new one.",
-  resend_too_soon: "Wait a moment, then send a new code.",
-  too_many_codes: "Too many codes for this email. Try again in an hour.",
+  code_invalid: "codeInvalid",
+  code_expired: "codeExpired",
+  resend_too_soon: "resendTooSoon",
+  too_many_codes: "tooManyCodes",
   // Linking (S3D-69).
-  "auth/credential-already-in-use":
-    "That sign-in already has its own account. Sign out, then sign in with it to use that account.",
-  "auth/provider-already-linked": "That's already linked.",
-  "auth/unauthorized-domain": "Sign-in isn't available on this address yet.",
-  "auth/operation-not-allowed": "That sign-in isn't available yet.",
-  "auth/invalid-custom-token": "Sign-in failed. Send a new code.",
-  "auth/no-such-provider": "That sign-in isn't linked.",
+  "auth/credential-already-in-use": "credentialInUse",
+  "auth/provider-already-linked": "alreadyLinked",
+  "auth/unauthorized-domain": "unauthorizedDomain",
+  "auth/operation-not-allowed": "providerUnavailable",
+  "auth/invalid-custom-token": "customTokenInvalid",
+  "auth/no-such-provider": "noSuchProvider",
 };
 
 /** China mode signs in by email only. */
-const EMAIL_ONLY_MESSAGE = "Sign in with your email.";
+const emailOnlyError = (): Error => keyedError("auth.errors.emailOnly");
+const signedOutError = (): Error => keyedError("auth.errors.signedOut");
+const signInFailedError = (): Error => keyedError("auth.errors.signInFailed");
 
 function friendlyAuthError(error: unknown): Error {
   if (error instanceof AccountExistsError) return error;
@@ -218,19 +217,21 @@ function friendlyAuthError(error: unknown): Error {
       ? String((error as { code: unknown }).code)
       : "";
   const friendly = FRIENDLY_BY_CODE[code];
+  const key = friendly !== undefined ? `auth.errors.${friendly}` : undefined;
   if (error instanceof EmailCodeError) {
     // keep retryAfter / attemptsLeft for the code screen
-    return new EmailCodeError(
+    const out = new EmailCodeError(
       error.code,
-      friendly ?? error.message,
+      key !== undefined ? EN(key) : error.message,
       error.status,
       error.retryAfter,
       error.attemptsLeft,
     );
+    return key !== undefined ? keyed(out, key) : copyKey(out, error);
   }
-  if (friendly !== undefined) return new Error(friendly);
+  if (key !== undefined) return keyedError(key);
   if (error instanceof Error && error.message) return error;
-  return new Error("Authentication failed. Try again.");
+  return keyedError("auth.errors.failed");
 }
 
 // ------------------------------------------------------------- firebase
@@ -292,13 +293,13 @@ async function getLiveToken(): Promise<string> {
 
 async function getFirebaseToken(): Promise<string> {
   const user = await settledFirebaseUser();
-  if (!user) throw new Error(SIGNED_OUT_MESSAGE);
+  if (!user) throw signedOutError();
   return user.getIdToken();
 }
 
 async function requireFirebaseUser(): Promise<User> {
   const user = await settledFirebaseUser();
-  if (!user) throw new Error(SIGNED_OUT_MESSAGE);
+  if (!user) throw signedOutError();
   return user;
 }
 
@@ -308,8 +309,9 @@ async function requireFirebaseUser(): Promise<User> {
  * (S3D-69); the screen asks for an email code, then the link completes. */
 export class AccountExistsError extends Error {
   constructor(public readonly pending: PendingLink) {
-    super(`You already have an account with ${pending.email}.`);
+    super(EN("auth.errors.accountExists", { email: pending.email }));
     this.name = "AccountExistsError";
+    keyed(this, "auth.errors.accountExists", { email: pending.email });
   }
 }
 
@@ -476,6 +478,8 @@ interface AuthState {
   ready: boolean;
   pendingLink: PendingLink | null;
   redirectError: string | null;
+  /** the redirect's error itself, shown in the reader's language */
+  redirectFailure?: Error | null;
 }
 
 const INITIAL_AUTH: AuthState = {
@@ -507,7 +511,7 @@ export function resetAuthForTests(): void {
 // ------------------------------------------------------------ actions
 
 const signInWithGoogle = async () => {
-  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (viaGateway()) throw emailOnlyError();
   try {
     const auth = await getFirebaseAuth();
     const { GoogleAuthProvider, getAdditionalUserInfo, signInWithPopup } =
@@ -576,7 +580,7 @@ async function appleViaJs(op: AppleOp): Promise<"done" | "fallback"> {
   } catch (e) {
     // an Apple token the auth service refused isn't "incorrect password"
     if (errorCode(e) === "auth/invalid-credential" || errorCode(e) === "auth/missing-or-invalid-nonce") {
-      throw new Error("Sign in with Apple didn't work. Try again.");
+      throw keyedError("auth.errors.appleFailed");
     }
     throw e;
   }
@@ -588,7 +592,7 @@ async function appleViaJs(op: AppleOp): Promise<"done" | "fallback"> {
 }
 
 const signInWithApple = async () => {
-  if (viaGateway() || !APPLE_SIGNIN) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (viaGateway() || !APPLE_SIGNIN) throw emailOnlyError();
   try {
     if ((await appleViaJs("signin")) === "done") return;
   } catch (e) {
@@ -640,7 +644,7 @@ const signInWithEmailCode = async (email: string, code: string) => {
         return;
       }
       const answer = await verifyEmailCode(email, code, false);
-      if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+      if (!answer.custom_token) throw signInFailedError();
       const auth = await getFirebaseAuth();
       const { linkWithCredential, signInWithCustomToken } =
         await import("firebase/auth");
@@ -687,7 +691,7 @@ const signInWithPasskey = async (opts?: { autofill?: boolean }) => {
     track("login", { method: "passkey" });
     return;
   }
-  if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+  if (!answer.custom_token) throw signInFailedError();
   try {
     const auth = await getFirebaseAuth();
     const { signInWithCustomToken } = await import("firebase/auth");
@@ -699,7 +703,7 @@ const signInWithPasskey = async (opts?: { autofill?: boolean }) => {
 };
 
 const reauthenticate = async (id: LinkableProvider) => {
-  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (viaGateway()) throw emailOnlyError();
   try {
     const current = await requireFirebaseUser();
     const provider = await providerFor(id);
@@ -711,19 +715,18 @@ const reauthenticate = async (id: LinkableProvider) => {
   }
 };
 
-export const OTHER_ACCOUNT_PASSKEY =
-  "That passkey is for another account. Use one saved for this account.";
+export const OTHER_ACCOUNT_PASSKEY = EN("auth.errors.otherAccountPasskey");
 
 const reauthenticateWithPasskey = async () => {
   const gw = viaGateway();
   const uid = appStore.get(authStateAtom).user?.uid ?? null;
   const answer = await passkeySignIn({ session: gw });
-  if (uid === null || answer.uid !== uid) throw new Error(OTHER_ACCOUNT_PASSKEY);
+  if (uid === null || answer.uid !== uid) throw keyedError("auth.errors.otherAccountPasskey");
   if (gw) {
     gatewayAdoptSession(answer);
     return;
   }
-  if (!answer.custom_token) throw new Error("Sign-in failed. Try again.");
+  if (!answer.custom_token) throw signInFailedError();
   try {
     const auth = await getFirebaseAuth();
     const { signInWithCustomToken } = await import("firebase/auth");
@@ -751,7 +754,7 @@ const clearPendingLink = () => {
 };
 
 const linkProvider = async (id: LinkableProvider) => {
-  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (viaGateway()) throw emailOnlyError();
   if (id === "apple.com") {
     try {
       if ((await appleViaJs("link")) === "done") return;
@@ -799,7 +802,7 @@ const reloadUser = async () => {
 };
 
 const signInWithAppleToken = async (idToken: string, rawNonce: string) => {
-  if (viaGateway()) throw new Error(EMAIL_ONLY_MESSAGE);
+  if (viaGateway()) throw emailOnlyError();
   try {
     const auth = await getFirebaseAuth();
     const { OAuthProvider, signInWithCredential } = await import("firebase/auth");
@@ -924,12 +927,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           return;
         case "unfinished":
           track("redirect_unfinished", { op: intent?.op ?? "", method: intent?.providerId ?? "" });
-          setAuth({ redirectError: outcome.message });
+          setAuth({ redirectError: outcome.message, redirectFailure: intent ? unfinishedError(intent) : null });
           return;
         case "error": {
           const p = await capturePending(outcome.error, intent?.providerId ?? "apple.com");
           if (p) setAuthPending(p);
-          else setAuth({ redirectError: friendlyAuthError(outcome.error).message });
+          else {
+            const failure = friendlyAuthError(outcome.error);
+            setAuth({ redirectError: failure.message, redirectFailure: failure });
+          }
           return;
         }
         default:
@@ -996,6 +1002,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
  * functions (ADR 0138: no context). */
 export function useAuth(): AuthContextValue {
   const s = useAppAtomValue(authStateAtom);
+  const t = useT();
   return useMemo<AuthContextValue>(
     () =>
       s.mode === "mock" || AUTH_MODE === "mock"
@@ -1006,8 +1013,8 @@ export function useAuth(): AuthContextValue {
             ready: s.ready,
             appleEnabled: APPLE_SIGNIN && s.mode === "firebase",
             pendingLink: s.pendingLink,
-            redirectError: s.redirectError,
+            redirectError: s.redirectFailure ? errorText(s.redirectFailure, t) : s.redirectError,
           },
-    [s],
+    [s, t],
   );
 }

@@ -13,6 +13,8 @@
 
 import { atom } from "jotai";
 
+import { keyed } from "@/lib/authErrors";
+import { EN } from "@/lib/i18n/t";
 import { appStore } from "@/lib/state/stores";
 
 /** The gateway's codes for "sign in again first". */
@@ -22,7 +24,7 @@ export function isReauthCode(code: string | undefined | null): boolean {
   return code !== undefined && code !== null && REAUTH_CODES.has(code);
 }
 
-export const NOT_CONFIRMED = "Not confirmed. Nothing was changed.";
+export const NOT_CONFIRMED = EN("auth.errors.notConfirmed");
 
 /** The person closed the sheet without confirming. */
 export class ReauthCancelledError extends Error {
@@ -30,6 +32,7 @@ export class ReauthCancelledError extends Error {
   constructor() {
     super(NOT_CONFIRMED);
     this.name = "ReauthCancelledError";
+    keyed(this, "auth.errors.notConfirmed");
   }
 }
 

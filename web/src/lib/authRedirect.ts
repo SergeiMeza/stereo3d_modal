@@ -16,6 +16,9 @@
 
 import { atom } from "jotai";
 
+import { keyedError } from "@/lib/authErrors";
+import { EN, type Tr } from "@/lib/i18n/t";
+
 export type RedirectProvider = "apple.com" | "google.com";
 
 export interface RedirectIntent {
@@ -67,11 +70,17 @@ const PROVIDER_NAME: Record<RedirectProvider, string> = {
 };
 
 /** "Sign-in with Apple didn't finish. Try again." */
-export function unfinishedMessage(intent: RedirectIntent): string {
-  const name = PROVIDER_NAME[intent.providerId];
-  return intent.op === "link"
-    ? `Connecting ${name} didn't finish. Try again.`
-    : `Sign-in with ${name} didn't finish. Try again.`;
+export function unfinishedMessage(intent: RedirectIntent, t: Tr = EN): string {
+  return t(unfinishedKey(intent), { provider: PROVIDER_NAME[intent.providerId] });
+}
+
+function unfinishedKey(intent: RedirectIntent): string {
+  return intent.op === "link" ? "auth.errors.linkUnfinished" : "auth.errors.signInUnfinished";
+}
+
+/** The same, as an error a screen shows in the reader's language. */
+export function unfinishedError(intent: RedirectIntent): Error {
+  return keyedError(unfinishedKey(intent), { provider: PROVIDER_NAME[intent.providerId] });
 }
 
 /** The little the settle needs from a signed-in user. */

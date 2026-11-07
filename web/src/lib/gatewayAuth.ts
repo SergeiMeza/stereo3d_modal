@@ -11,6 +11,8 @@
  * the user out, while a network failure keeps the session for a retry.
  */
 
+import { keyed } from "@/lib/authErrors";
+import { EN } from "@/lib/i18n/t";
 import { gatewayBaseUrl } from "@/lib/region";
 
 export interface GatewaySession {
@@ -47,7 +49,9 @@ export class GatewayAuthError extends Error {
 export const SESSION_STORAGE_KEY = "s3d-auth-session";
 /** Refresh this long before the ID token expires. */
 export const REFRESH_MARGIN_MS = 5 * 60 * 1000;
-const SIGNED_OUT_MESSAGE = "You are signed out. Sign in to continue.";
+const SIGNED_OUT_MESSAGE = EN("auth.errors.signedOut");
+const signedOut = (): GatewayAuthError =>
+  keyed(new GatewayAuthError("signed_out", SIGNED_OUT_MESSAGE, 401), "auth.errors.signedOut");
 
 // ------------------------------------------------------------- storage
 
@@ -193,7 +197,7 @@ export function refreshGatewaySession(): Promise<GatewaySession> {
   const session = gatewaySession();
   if (session === null) {
     return Promise.reject(
-      new GatewayAuthError("signed_out", SIGNED_OUT_MESSAGE, 401),
+      signedOut(),
     );
   }
   inflightRefresh ??= (async () => {
@@ -203,7 +207,7 @@ export function refreshGatewaySession(): Promise<GatewaySession> {
       });
       // Signed out (or in as someone else) while this was in flight.
       if (gatewaySession()?.refreshToken !== session.refreshToken) {
-        throw new GatewayAuthError("signed_out", SIGNED_OUT_MESSAGE, 401);
+        throw signedOut();
       }
       const next = sessionFrom(answer, session);
       store(next);
@@ -230,7 +234,7 @@ export function refreshGatewaySession(): Promise<GatewaySession> {
 export async function getGatewayToken(): Promise<string> {
   const session = gatewaySession();
   if (session === null) {
-    throw new GatewayAuthError("signed_out", SIGNED_OUT_MESSAGE, 401);
+    throw signedOut();
   }
   if (session.expiresAt - Date.now() > REFRESH_MARGIN_MS) return session.idToken;
   return (await refreshGatewaySession()).idToken;

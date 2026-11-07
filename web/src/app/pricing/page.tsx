@@ -6,13 +6,18 @@
 import type { Metadata } from "next";
 
 import { PricingScreen } from "@/components/pricing/PricingScreen";
+import { METHOD_NAMES } from "@/lib/glossary";
+import { getServerTr } from "@/lib/i18n/server";
+import { SITE_NAME } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Prices",
-  description:
-    "Spatial Video Studio on the web prices: pay per minute of video, or save with a plan. Lifelike 3D, 1080p to 8K.",
-  alternates: { canonical: "/pricing" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerTr();
+  return {
+    title: t("meta.pricing.title"),
+    description: t("meta.pricing.description", { site: SITE_NAME, lifelike: METHOD_NAMES.lifelike }),
+    alternates: { canonical: "/pricing" },
+  };
+}
 
 export default function PricingPage() {
   return <PricingScreen />;

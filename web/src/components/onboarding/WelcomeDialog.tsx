@@ -27,6 +27,7 @@
  */
 
 import { creditAmount as formatCredit } from "@/lib/pro/plans";
+import { SITE_NAME } from "@/lib/site";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -54,11 +55,16 @@ import { billingUidAtom, useBilling } from "@/lib/billing";
 import { useProStatus } from "@/lib/pro/usePro";
 import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { proPct } from "@/components/plans/upsell";
 
 /** The welcome's headset list, in the canvas's order, with the files each
- * one gets. Ids are Make 3D's device ids. */
+ * one gets. Ids are Make 3D's device ids. name/files are the English
+ * copy; on screen they read through welcomeDeviceName/welcomeDeviceFiles
+ * (onboarding.devices.<id> in messages/en.json). */
 export const WELCOME_DEVICES: readonly {
   id: Device;
   name: string;
@@ -73,6 +79,19 @@ export const WELCOME_DEVICES: readonly {
   { id: "tv", name: "3D TV or projector", files: "Side by side (half size)" },
   { id: "unsure", name: "Not sure yet", files: "We include both" },
 ];
+
+/** The product name, kept English in every language. */
+const PRO = "Pro";
+
+/** A welcome device's name in the viewer's language. */
+export function welcomeDeviceName(id: Device, t: Tr = EN): string {
+  return t(`onboarding.devices.${id}.name`);
+}
+
+/** The files a welcome device gets, in the viewer's language. */
+export function welcomeDeviceFiles(id: Device, t: Tr = EN): string {
+  return t(`onboarding.devices.${id}.files`);
+}
 
 /** The plan a person is on, for the onboarding event: business | studio |
  * pro | none. */
@@ -116,9 +135,9 @@ export function proPreviews(
   return { count, period: fp?.period ?? "month" };
 }
 
-/** "7 Dec": the credit's use-by day. */
-function creditUseBy(iso: string): string {
-  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+/** "7 Dec": the credit's use-by day (English keeps the day first). */
+function creditUseBy(iso: string, t: Tr): string {
+  return new Date(iso).toLocaleDateString(t.locale === "en" ? "en-GB" : t.intl, { day: "numeric", month: "short" });
 }
 
 /** "Pro prices on every video, 15% off. Your plan includes 20 free previews
@@ -133,46 +152,27 @@ function ProLines({
   /** owner 2026-11-07: the usage credit this Pro was given, when granted */
   credit?: { left_cents: number; expires_at: string } | null;
 }): JSX.Element {
-  const when =
-    previews?.period === "pass"
-      ? "with your pass"
-      : previews
-        ? `a ${previews.period}`
-        : "";
-  return (
-    <>
-      {pct
-        ? `Pro prices on every video, ${pct}% off.`
-        : "Pro prices on every video."}
-      {previews
-        ? ` Your plan includes ${previews.count} free previews ${when}.`
-        : ""}
-      {credit
-        ? ` You have ${formatCredit(credit.left_cents)} of usage credit to use by ${creditUseBy(credit.expires_at)}.`
-        : ""}{" "}
-      Nothing new is billed.
-    </>
-  );
+  const t = useT();
+  const parts = [
+    pct
+      ? t("onboarding.welcome.pro.pricesPct", { pct, pro: PRO })
+      : t("onboarding.welcome.pro.prices", { pro: PRO }),
+    previews
+      ? t("onboarding.welcome.pro.previews", { count: previews.count, period: previews.period })
+      : null,
+    credit
+      ? t("onboarding.welcome.pro.credit", {
+          amount: formatCredit(credit.left_cents),
+          date: creditUseBy(credit.expires_at, t),
+        })
+      : null,
+    t("onboarding.welcome.pro.nothingBilled"),
+  ];
+  return <>{parts.filter((p) => p !== null).join(" ")}</>;
 }
 
-const HOW: readonly { title: string; body: string; short: string }[] = [
-  {
-    title: "Add a video",
-    // "Any length, up to 4K." comes first, from the gateway's limits
-    body: "We look at every scene and show you the price. Free.",
-    short: "See the price for free.",
-  },
-  {
-    title: "Watch a preview",
-    body: "See a short part in 3D in your headset. Your first preview is on us.",
-    short: "Your first one is on us.",
-  },
-  {
-    title: "Make it 3D",
-    body: "Pay for the whole video, then download it or play it in your headset's browser.",
-    short: "Download it or play it in your headset.",
-  },
-];
+/** The three steps; copy at onboarding.welcome.how.steps.<id>. */
+const HOW: readonly ("add" | "preview" | "make")[] = ["add", "preview", "make"];
 
 export function WelcomeDialog({
   open,
@@ -186,6 +186,7 @@ export function WelcomeDialog({
   onClose: () => void;
   variant?: WelcomeVariant;
 }): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const billing = useBilling();
   const proStatus = useProStatus();
@@ -272,7 +273,7 @@ export function WelcomeDialog({
               onClick={() => setStep(total)}
               className="text-sm text-fg-muted hover:text-fg"
             >
-              Skip
+              {t("onboarding.welcome.skip")}
             </button>
           ) : null}
         </div>
@@ -280,9 +281,9 @@ export function WelcomeDialog({
         {kind === "pro" ? (
           <div className="flex flex-col" data-testid="welcome-app-pro">
             <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
-              <p className="text-[13px] font-medium text-primary">Welcome</p>
+              <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
               <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-                Your Pro works here too
+                {t("onboarding.welcome.pro.title", { pro: PRO })}
               </DialogTitle>
               <DialogDescription className="text-[15px] leading-normal text-fg-muted">
                 <ProLines pct={pct} previews={previews} credit={proCredit} />
@@ -297,35 +298,34 @@ export function WelcomeDialog({
                 className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8"
                 data-testid="welcome-app-pro"
               >
-                <p className="text-[13px] font-medium text-primary">Welcome</p>
+                <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
                 <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-                  Your Pro works here too
+                  {t("onboarding.welcome.pro.title", { pro: PRO })}
                 </DialogTitle>
                 <DialogDescription className="text-[15px] leading-normal text-fg-muted">
                   <ProLines pct={pct} previews={previews} credit={proCredit} />
                 </DialogDescription>
                 <p className="pt-2 text-[15px] text-fg">
-                  Where will you watch?
+                  {t("onboarding.welcome.headsets.question")}
                 </p>
               </div>
             ) : (
               <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
-                <p className="text-[13px] font-medium text-primary">Welcome</p>
+                <p className="text-[13px] font-medium text-primary">{t("onboarding.welcome.eyebrow")}</p>
                 <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[28px]">
-                  Your videos, in 3D.
+                  {t("onboarding.welcome.headsets.title")}
                 </DialogTitle>
                 <DialogDescription className="text-[15px] leading-normal text-fg-muted">
                   <span className="hidden sm:inline">
-                    Spatial Video Studio turns any 2D video into 3D you can
-                    watch in your headset. First, where will you watch?
+                    {t("onboarding.welcome.headsets.intro", { site: SITE_NAME })}
                   </span>
-                  <span className="sm:hidden">Where will you watch?</span>
+                  <span className="sm:hidden">{t("onboarding.welcome.headsets.question")}</span>
                 </DialogDescription>
               </div>
             )}
             <div
               role="group"
-              aria-label="Where will you watch?"
+              aria-label={t("onboarding.welcome.headsets.question")}
               className="grid grid-cols-1 gap-2.5 px-5 pt-5 sm:grid-cols-2 sm:px-9"
             >
               {WELCOME_DEVICES.map((d) => {
@@ -352,9 +352,9 @@ export function WelcomeDialog({
                       {on ? "✓" : ""}
                     </span>
                     <span className="flex flex-col items-start gap-0.5">
-                      <span className="text-[15px] text-fg">{d.name}</span>
+                      <span className="text-[15px] text-fg">{welcomeDeviceName(d.id, t)}</span>
                       <span className="hidden text-xs text-fg-muted sm:block">
-                        {d.files}
+                        {welcomeDeviceFiles(d.id, t)}
                       </span>
                     </span>
                   </button>
@@ -363,10 +363,10 @@ export function WelcomeDialog({
             </div>
             <p className="px-5 pt-3 text-[13px] text-fg-muted sm:px-9">
               {appPro && picked === null && fromApp.length > 0
-                ? "From your app. We use this to pick the right files for you. You can change it on any project."
+                ? t("onboarding.welcome.headsets.fromApp")
                 : otherHeadset && picked === null
-                  ? "You told the app you use a headset. We use this to pick the right files for you."
-                  : "We use this to pick the right files for you. You can change it on any project."}
+                  ? t("onboarding.welcome.headsets.otherHeadset")
+                  : t("onboarding.welcome.headsets.note")}
             </p>
           </div>
         ) : kind === "how" ? (
@@ -377,43 +377,43 @@ export function WelcomeDialog({
             >
               <LoopVideo
                 base="/landing/hero/sunset-session-2d-3d"
-                label="A singer in front of her band at sunset: on the left the 2D video, on the right the same moment in 3D"
+                label={t("onboarding.welcome.how.loopLabel")}
                 className="absolute inset-0 h-full w-full object-cover"
               />
             </div>
             <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-6">
               <p className="text-[13px] font-medium text-primary">
-                How it works
+                {t("onboarding.welcome.how.eyebrow")}
               </p>
               <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
                 <span className="hidden sm:inline">
-                  Three steps. You see the price before you pay.
+                  {t("onboarding.welcome.how.title")}
                 </span>
                 <span className="sm:hidden">
-                  You see the price before you pay.
+                  {t("onboarding.welcome.how.titleShort")}
                 </span>
               </DialogTitle>
               <DialogDescription className="sr-only">
-                How Spatial Video Studio works
+                {t("onboarding.welcome.how.description", { site: SITE_NAME })}
               </DialogDescription>
             </div>
             <ol className="flex flex-col gap-4 px-5 pt-5 sm:grid sm:grid-cols-3 sm:gap-4 sm:px-9">
               {HOW.map((h, i) => (
-                <li key={h.title} className="flex flex-col gap-1">
+                <li key={h} className="flex flex-col gap-1">
                   <span className="font-mono text-xs text-primary">
                     {i + 1}
                   </span>
                   <span className="text-[15px] font-semibold text-fg">
-                    {h.title}
+                    {t(`onboarding.welcome.how.steps.${h}.title`)}
                   </span>
                   <span className="hidden text-[13px] leading-snug text-fg-muted sm:block">
                     {i === 0
-                      ? `${sentenceCase(methodLimitText("lifelike", limits, pricing))}. `
+                      ? `${sentenceCase(methodLimitText("lifelike", limits, pricing, t))}. `
                       : ""}
-                    {h.body}
+                    {t(`onboarding.welcome.how.steps.${h}.body`)}
                   </span>
                   <span className="text-[13px] leading-snug text-fg-muted sm:hidden">
-                    {h.short}
+                    {t(`onboarding.welcome.how.steps.${h}.short`)}
                   </span>
                 </li>
               ))}
@@ -423,13 +423,13 @@ export function WelcomeDialog({
           <div className="flex flex-col">
             <div className="flex flex-col gap-1.5 px-5 pt-4 sm:px-9 sm:pt-8">
               <p className="text-[13px] font-medium text-primary">
-                Your first project
+                {t("onboarding.welcome.project.eyebrow")}
               </p>
               <DialogTitle className="text-2xl font-semibold tracking-tight sm:text-[26px]">
-                Start with one of your videos.
+                {t("onboarding.welcome.project.title")}
               </DialogTitle>
               <DialogDescription className="sr-only">
-                Add a video or open the sample
+                {t("onboarding.welcome.project.description")}
               </DialogDescription>
             </div>
             <div className="px-5 pt-5 sm:px-9">
@@ -438,8 +438,7 @@ export function WelcomeDialog({
             {sample ? (
               <div className="flex flex-col gap-2.5 px-5 pt-5 sm:px-9">
                 <span className="text-sm text-fg-muted">
-                  No video to hand? Open a finished sample and look around
-                  first.
+                  {t("onboarding.welcome.project.sample")}
                 </span>
                 <Link
                   href={`/projects/${sample.project_id}`}
@@ -471,7 +470,7 @@ export function WelcomeDialog({
         <div className="sticky bottom-0 mt-auto flex items-center justify-between gap-3 border-t border-edge bg-popover px-5 pt-4 pb-5 sm:static sm:mt-0 sm:border-t-0 sm:px-9 sm:pt-6 sm:pb-7">
           <div
             className={`flex gap-1.5 ${total === 1 ? "invisible" : ""}`}
-            aria-label={`Step ${step} of ${total}`}
+            aria-label={t("onboarding.welcome.stepOf", { step, total })}
           >
             {steps
               .map((_, i) => i + 1)
@@ -490,23 +489,23 @@ export function WelcomeDialog({
                 className="hidden sm:inline-flex"
                 onClick={() => setStep(total)}
               >
-                Skip
+                {t("onboarding.welcome.skip")}
               </Button>
             ) : (
               <Button
                 variant="ghost"
                 onClick={() => setStep((s) => Math.max(1, s - 1))}
               >
-                Back
+                {t("onboarding.welcome.back")}
               </Button>
             )}
             {total === 1 ? (
               <Button data-testid="welcome-got-it" onClick={finish}>
-                Got it
+                {t("onboarding.welcome.gotIt")}
               </Button>
             ) : step < total ? (
               <Button data-testid="welcome-next" onClick={next}>
-                Continue
+                {t("onboarding.welcome.continue")}
               </Button>
             ) : (
               <Button
@@ -514,7 +513,7 @@ export function WelcomeDialog({
                 variant="outline"
                 onClick={finish}
               >
-                I&apos;ll do it later
+                {t("onboarding.welcome.later")}
               </Button>
             )}
           </div>
@@ -528,18 +527,26 @@ export function WelcomeDialog({
  * never for Business or Studio (owner 2026-11-05: the same rule as the
  * Projects nudge, useBusinessMention). */
 function BusinessLine(): JSX.Element | null {
+  const t = useT();
   const show = useBusinessMention();
   if (!show) return null;
   return (
     <p data-testid="welcome-business" className="text-[13px] text-fg-muted">
-      Working for clients?{" "}
-      <Link
-        href="/plans"
-        className="underline underline-offset-2 hover:text-fg"
-      >
-        Business
-      </Link>{" "}
-      adds monthly usage, commercial use and invoices.
+      {rich(
+        t,
+        "onboarding.welcome.business",
+        {
+          link: (c) => (
+            <Link
+              href="/plans"
+              className="underline underline-offset-2 hover:text-fg"
+            >
+              {c}
+            </Link>
+          ),
+        },
+        { plan: "Business" },
+      )}
     </p>
   );
 }

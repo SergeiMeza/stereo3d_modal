@@ -9,13 +9,18 @@ import { Suspense } from "react";
 
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { ProScreen } from "@/components/pro/ProScreen";
+import { getServerTr } from "@/lib/i18n/server";
+import { SITE_NAME } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Pro",
-  description:
-    "Spatial Video Studio Pro: lower prices on every 3D video on the web, usage credit when you join, free previews, and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
-  alternates: { canonical: "/pro" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerTr();
+  return {
+    // the product's name, the same in every language
+    title: "Pro",
+    description: t("meta.pro.description", { site: SITE_NAME, pro: "Pro" }),
+    alternates: { canonical: "/pro" },
+  };
+}
 
 export default function ProPage() {
   return (

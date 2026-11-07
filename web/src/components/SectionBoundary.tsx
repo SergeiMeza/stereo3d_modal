@@ -7,9 +7,9 @@
  */
 
 import { Component } from "react";
-import type { ErrorInfo, ReactNode } from "react";
+import type { ErrorInfo, JSX, ReactNode } from "react";
 
-export const SECTION_FAILED = "This part couldn't be shown.";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 interface Props {
   /** "Payment methods", for the line and the log */
@@ -32,28 +32,42 @@ export class SectionBoundary extends Component<Props, { failed: boolean }> {
 
   override render(): ReactNode {
     if (!this.state.failed) return this.props.children;
-    const Tag = this.props.listItem ? "li" : "div";
     return (
-      <Tag
-        role="alert"
-        data-testid="section-failed"
-        className={
-          this.props.listItem
-            ? "flex items-center gap-3 border-t border-edge py-2.5 text-sm"
-            : "flex items-center gap-3 rounded-xl border border-edge bg-surface-1 px-5 py-4 text-sm"
-        }
-      >
-        <span className="text-fg-muted">
-          {this.props.name}: {SECTION_FAILED}
-        </span>
-        <button
-          type="button"
-          onClick={() => this.setState({ failed: false })}
-          className="ml-auto text-primary hover:underline"
-        >
-          Try again
-        </button>
-      </Tag>
+      <SectionFailed
+        name={this.props.name}
+        listItem={this.props.listItem}
+        onRetry={() => this.setState({ failed: false })}
+      />
     );
   }
+}
+
+/** The fallback line (a function component, for the translator). */
+function SectionFailed({
+  name,
+  listItem,
+  onRetry,
+}: {
+  name: string;
+  listItem?: boolean;
+  onRetry: () => void;
+}): JSX.Element {
+  const t = useT();
+  const Tag = listItem ? "li" : "div";
+  return (
+    <Tag
+      role="alert"
+      data-testid="section-failed"
+      className={
+        listItem
+          ? "flex items-center gap-3 border-t border-edge py-2.5 text-sm"
+          : "flex items-center gap-3 rounded-xl border border-edge bg-surface-1 px-5 py-4 text-sm"
+      }
+    >
+      <span className="text-fg-muted">{t("common.sectionBoundary.failed", { name })}</span>
+      <button type="button" onClick={onRetry} className="ml-auto text-primary hover:underline">
+        {t("common.sectionBoundary.tryAgain")}
+      </button>
+    </Tag>
+  );
 }

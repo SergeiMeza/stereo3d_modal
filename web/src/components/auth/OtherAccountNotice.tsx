@@ -13,16 +13,20 @@ import type { JSX } from "react";
 import { CodeInput } from "@/components/auth/CodeInput";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth";
+import { errorText } from "@/lib/authErrors";
 import { CODE_LENGTH } from "@/lib/emailCode";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { EN, type Tr } from "@/lib/i18n/t";
 
 import { providersWords } from "./identityState";
 
-export function otherAccountLine(providers: string[]): string {
-  const how = providersWords(providers.length > 0 ? providers : ["email"]);
-  return `Another account uses this email (it signs in with ${how}).`;
+export function otherAccountLine(providers: string[], t: Tr = EN): string {
+  const how = providersWords(providers.length > 0 ? providers : ["email"], t);
+  return t("auth.otherAccount.line", { how });
 }
 
 export function OtherAccountNotice({ email, providers }: { email: string; providers: string[] }): JSX.Element {
+  const t = useT();
   const { sendEmailCode, signInWithEmailCode } = useAuth();
   const [step, setStep] = useState<"idle" | "code">("idle");
   const [code, setCode] = useState("");
@@ -36,7 +40,7 @@ export function OtherAccountNotice({ email, providers }: { email: string; provid
       await op();
       if (next) setStep(next);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That didn't work. Try again.");
+      setError(errorText(e, t, "auth.errors.didntWork"));
     } finally {
       setBusy(false);
     }
@@ -44,17 +48,17 @@ export function OtherAccountNotice({ email, providers }: { email: string; provid
 
   return (
     <div data-testid="other-account" className="flex flex-col gap-2 rounded-lg border border-amber-500/40 bg-amber-500/10 p-3 text-sm">
-      <p className="text-fg">{otherAccountLine(providers)}</p>
+      <p className="text-fg">{otherAccountLine(providers, t)}</p>
       {step === "idle" ? (
         <Button size="sm" variant="outline" className="self-start" disabled={busy} onClick={() => void run(() => sendEmailCode(email), "code")}>
-          {busy ? "Sending…" : "Sign in to that account"}
+          {busy ? t("auth.signIn.sending") : t("auth.emails.signInThere")}
         </Button>
       ) : (
         <div className="flex flex-col gap-2">
-          <p className="text-xs text-fg-muted">Enter the code we sent to {email}.</p>
+          <p className="text-xs text-fg-muted">{t("auth.emails.codeSentTo", { email })}</p>
           <CodeInput value={code} onChange={setCode} onComplete={(d) => void run(() => signInWithEmailCode(email, d))} disabled={busy} invalid={error !== null} />
           <Button size="sm" className="self-start" disabled={busy || code.length !== CODE_LENGTH} onClick={() => void run(() => signInWithEmailCode(email, code))}>
-            {busy ? "Checking…" : "Sign in"}
+            {busy ? t("auth.emails.checking") : t("auth.signIn.title")}
           </Button>
         </div>
       )}

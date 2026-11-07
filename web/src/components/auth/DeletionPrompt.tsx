@@ -28,10 +28,12 @@ import { deleteAfterDay, deletionPromptAtom } from "@/lib/accountDeletion";
 import { GatewayError } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { ReauthCancelledError } from "@/lib/reauth";
 import { useAppAtom } from "@/lib/state/stores";
 
 export function DeletionPrompt(): JSX.Element | null {
+  const t = useT();
   const { user, signOutUser } = useAuth();
   const gateway = useGateway();
   const router = useRouter();
@@ -73,7 +75,7 @@ export function DeletionPrompt(): JSX.Element | null {
       if (e instanceof GatewayError && e.code === "not_pending_deletion") {
         setPrompt(null); // nothing waits any more
       } else if (!(e instanceof ReauthCancelledError)) {
-        setError("We couldn't keep your account just now. Try again.");
+        setError(t("account.deletionPrompt.keepFailed"));
       }
     } finally {
       setBusy(null);
@@ -95,9 +97,9 @@ export function DeletionPrompt(): JSX.Element | null {
     <AlertDialog open>
       <AlertDialogContent data-testid="deletion-prompt" onEscapeKeyDown={(e) => e.preventDefault()}>
         <AlertDialogHeader>
-          <AlertDialogTitle>Your account is set to be deleted on {deleteAfterDay(prompt.deleteAfter)}.</AlertDialogTitle>
+          <AlertDialogTitle>{t("account.deletionPrompt.title", { date: deleteAfterDay(prompt.deleteAfter, t) })}</AlertDialogTitle>
           <AlertDialogDescription>
-            Keep it, and everything stays as it was. Or let it go: we delete it then.
+            {t("account.deletionPrompt.description")}
           </AlertDialogDescription>
         </AlertDialogHeader>
         {error ? (
@@ -107,10 +109,10 @@ export function DeletionPrompt(): JSX.Element | null {
         ) : null}
         <AlertDialogFooter>
           <Button variant="outline" disabled={busy !== null} onClick={() => void leave()}>
-            {busy === "delete" ? "Signing out…" : "Delete it"}
+            {busy === "delete" ? t("account.deletionPrompt.signingOut") : t("account.deletionPrompt.deleteIt")}
           </Button>
           <Button disabled={busy !== null} onClick={() => void keep()} data-testid="deletion-keep">
-            {busy === "keep" ? "Keeping…" : "Keep my account"}
+            {busy === "keep" ? t("account.deletionPrompt.keeping") : t("account.deletionPrompt.keep")}
           </Button>
         </AlertDialogFooter>
       </AlertDialogContent>

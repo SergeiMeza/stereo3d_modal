@@ -31,6 +31,8 @@ import type { FeedbackKind } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { SUPPORT_EMAIL } from "@/lib/contact";
+import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 
 const OPEN_EVENT = "svs:feedback";
 const DRAFT_KEY = "svs-feedback-draft";
@@ -41,11 +43,7 @@ export function openFeedback(): void {
   window.dispatchEvent(new Event(OPEN_EVENT));
 }
 
-const KINDS: readonly { id: FeedbackKind; label: string }[] = [
-  { id: "idea", label: "Idea" },
-  { id: "problem", label: "Problem" },
-  { id: "other", label: "Something else" },
-];
+const KINDS: readonly FeedbackKind[] = ["idea", "problem", "other"];
 
 interface Draft {
   kind: FeedbackKind;
@@ -108,6 +106,7 @@ export function pageContext(
 }
 
 export function FeedbackLink(): JSX.Element {
+  const t = useT();
   const gateway = useGateway();
   const { user } = useAuth();
   const pathname = usePathname() ?? "/";
@@ -174,7 +173,7 @@ export function FeedbackLink(): JSX.Element {
     <>
       <button
         type="button"
-        aria-label="Send feedback"
+        aria-label={t("common.feedback.openLabel")}
         data-testid="feedback-open"
         onClick={() => {
           if (state === "sent") setState("idle");
@@ -183,7 +182,7 @@ export function FeedbackLink(): JSX.Element {
         className="flex shrink-0 items-center gap-1.5 rounded-md border border-edge px-2.5 py-1 text-xs text-fg-muted transition-colors hover:border-primary/60 hover:text-fg"
       >
         <MessageSquare aria-hidden className="size-3.5" />
-        <span className="hidden sm:inline">Feedback</span>
+        <span className="hidden sm:inline">{t("common.feedback.open")}</span>
       </button>
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
@@ -193,13 +192,13 @@ export function FeedbackLink(): JSX.Element {
           {state === "sent" ? (
             <>
               <DialogHeader>
-                <DialogTitle>Thanks, we read every message.</DialogTitle>
+                <DialogTitle>{t("common.feedback.sentTitle")}</DialogTitle>
                 <DialogDescription className="sr-only">
-                  Your feedback was sent.
+                  {t("common.feedback.sentDescription")}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
-                <Button onClick={() => setOpen(false)}>Done</Button>
+                <Button onClick={() => setOpen(false)}>{t("common.feedback.done")}</Button>
               </DialogFooter>
             </>
           ) : (
@@ -211,36 +210,36 @@ export function FeedbackLink(): JSX.Element {
               }}
             >
               <DialogHeader>
-                <DialogTitle>Send feedback</DialogTitle>
+                <DialogTitle>{t("common.feedback.title")}</DialogTitle>
                 <DialogDescription>
-                  Ideas, problems, anything. A person reads it.
+                  {t("common.feedback.description")}
                 </DialogDescription>
               </DialogHeader>
               <div
                 role="radiogroup"
-                aria-label="Kind"
+                aria-label={t("common.feedback.kindLabel")}
                 className="flex flex-wrap gap-2"
               >
                 {KINDS.map((k) => (
                   <button
-                    key={k.id}
+                    key={k}
                     type="button"
                     role="radio"
-                    aria-checked={draft.kind === k.id}
-                    data-testid={`feedback-kind-${k.id}`}
-                    onClick={() => change({ kind: k.id })}
+                    aria-checked={draft.kind === k}
+                    data-testid={`feedback-kind-${k}`}
+                    onClick={() => change({ kind: k })}
                     className={`min-h-9 rounded-full border px-3.5 text-sm ${
-                      draft.kind === k.id
+                      draft.kind === k
                         ? "border-primary bg-primary/10 text-fg"
                         : "border-edge text-fg-muted hover:text-fg"
                     }`}
                   >
-                    {k.label}
+                    {t(`common.feedback.kinds.${k}`)}
                   </button>
                 ))}
               </div>
               <label className="flex flex-col gap-1 text-xs text-fg-muted">
-                Message
+                {t("common.feedback.message")}
                 <textarea
                   required
                   rows={5}
@@ -252,7 +251,7 @@ export function FeedbackLink(): JSX.Element {
                 />
               </label>
               <label className="flex flex-col gap-1 text-xs text-fg-muted">
-                {signedIn ? "Email" : "Your email"}
+                {signedIn ? t("common.feedback.email") : t("common.feedback.yourEmail")}
                 <input
                   type="email"
                   required={!signedIn}
@@ -270,7 +269,7 @@ export function FeedbackLink(): JSX.Element {
                   onChange={(e) => change({ ok: e.target.checked })}
                   className="size-4 accent-primary"
                 />
-                It&apos;s OK to contact me
+                {t("common.feedback.okToContact")}
               </label>
               <label className="flex items-center gap-2 text-sm text-fg">
                 <input
@@ -280,7 +279,7 @@ export function FeedbackLink(): JSX.Element {
                   onChange={(e) => change({ page: e.target.checked })}
                   className="size-4 accent-primary"
                 />
-                Include this page
+                {t("common.feedback.includePage")}
               </label>
               {state === "failed" ? (
                 <p
@@ -288,10 +287,18 @@ export function FeedbackLink(): JSX.Element {
                   data-testid="feedback-error"
                   className="text-sm text-destructive"
                 >
-                  Couldn&apos;t send. You can also write to{" "}
-                  <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
-                    {SUPPORT_EMAIL}
-                  </a>
+                  {rich(
+                    t,
+                    "common.feedback.failed",
+                    {
+                      mail: (c) => (
+                        <a href={`mailto:${SUPPORT_EMAIL}`} className="underline">
+                          {c}
+                        </a>
+                      ),
+                    },
+                    { email: SUPPORT_EMAIL },
+                  )}
                 </p>
               ) : null}
               <DialogFooter>
@@ -300,7 +307,7 @@ export function FeedbackLink(): JSX.Element {
                   data-testid="feedback-send"
                   disabled={!canSend}
                 >
-                  {state === "sending" ? "Sending…" : "Send"}
+                  {state === "sending" ? t("common.feedback.sending") : t("common.feedback.send")}
                 </Button>
               </DialogFooter>
             </form>

@@ -39,7 +39,9 @@ import type {
   RegistrationResponseJSON,
 } from "@simplewebauthn/browser";
 
+import { copyKey, keyed } from "@/lib/authErrors";
 import { GatewayAuthError } from "@/lib/gatewayAuth";
+import { EN } from "@/lib/i18n/t";
 import { gatewayBaseUrl } from "@/lib/region";
 
 export const PASSKEY_ROUTES = {
@@ -72,26 +74,29 @@ export interface PasskeySignInAnswer {
   expires_in?: number;
 }
 
-export const NOT_REGISTERED_MESSAGE = "This passkey isn't registered here. Sign in another way.";
+export const NOT_REGISTERED_MESSAGE = EN("auth.passkeyErrors.notRegistered");
 
-/** The gateway's sign-in refusals in plain words (rev 00113). */
+/** The gateway's sign-in refusals in plain words (rev 00113), as message keys. */
 const SIGN_IN_MESSAGES: Record<string, string> = {
-  passkey_not_registered: NOT_REGISTERED_MESSAGE,
-  passkey_invalid: "That didn't work. Try again.",
-  challenge_invalid: "That didn't work. Try again.",
-  passkey_clone_suspected: "This passkey can't be used. Sign in another way.",
-  account_unavailable: "This account has been disabled.",
-  sign_in_unavailable: "Sign-in isn't available right now. Try again.",
-  rate_limited: "Too many tries. Wait a few minutes.",
+  passkey_not_registered: "auth.passkeyErrors.notRegistered",
+  passkey_invalid: "auth.passkeyErrors.didntWork",
+  challenge_invalid: "auth.passkeyErrors.didntWork",
+  passkey_clone_suspected: "auth.passkeyErrors.cloneSuspected",
+  account_unavailable: "auth.errors.accountDisabled",
+  sign_in_unavailable: "auth.passkeyErrors.unavailable",
+  rate_limited: "auth.passkeyErrors.rateLimited",
 };
-const CLOSED_MESSAGE = "The passkey prompt was closed before it finished. Try again.";
-export const DIDNT_FINISH = "That didn't finish. Try again.";
+export const DIDNT_FINISH = EN("auth.passkeyErrors.didntFinish");
 /** our own cap on a passkey prompt (the gateway's options say 5 minutes) */
 export const CEREMONY_TIMEOUT_MS = 60_000;
 /** how long a prompt waits for the autofill request to let go */
 const SETTLE_WAIT_MS = 250;
 
-const UNSUPPORTED_MESSAGE = "This browser can't use passkeys. Sign in another way.";
+/** A PasskeyError with its message from a key (English; the key travels
+ * with it for the screen, lib/authErrors). */
+function passkeyError(code: string, key: string, status: number, cancelled = false): PasskeyError {
+  return keyed(new PasskeyError(code, EN(key), status, cancelled), key);
+}
 
 /** A passkey step that didn't work, with the gateway's code when it said one. */
 export class PasskeyError extends GatewayAuthError {
@@ -136,23 +141,23 @@ export async function passkeyAutofillSupported(): Promise<boolean> {
 /** Plain words for the browser's and the gateway's refusals. */
 export function toPasskeyError(err: unknown): PasskeyError {
   if (err instanceof PasskeyError) return err;
-  if (err instanceof GatewayAuthError) return new PasskeyError(err.code, err.message, err.status);
+  if (err instanceof GatewayAuthError) return copyKey(new PasskeyError(err.code, err.message, err.status), err);
   const e = err as { name?: string; code?: string; cause?: { name?: string }; message?: string } | null;
   const name = e?.cause?.name ?? e?.name;
   if (name === "NotAllowedError" || name === "AbortError" || e?.code === "ERROR_CEREMONY_ABORTED") {
-    return new PasskeyError("cancelled", CLOSED_MESSAGE, 0, true);
+    return passkeyError("cancelled", "auth.passkeyErrors.closed", 0, true);
   }
   if (e?.code === "ERROR_AUTHENTICATOR_PREVIOUSLY_REGISTERED" || name === "InvalidStateError") {
-    return new PasskeyError("passkey_exists", "This device already has a passkey for your account.", 0);
+    return passkeyError("passkey_exists", "auth.passkeyErrors.exists", 0);
   }
   if (name === "SecurityError") {
-    return new PasskeyError("security", "Passkeys don't work on this address. Sign in another way.", 0);
+    return passkeyError("security", "auth.passkeyErrors.security", 0);
   }
   // an already plain message (e.g. the sign-in after the passkey)
   if (err instanceof Error && err.name === "Error" && err.message) {
-    return new PasskeyError("failed", err.message, 0);
+    return copyKey(new PasskeyError("failed", err.message, 0), err);
   }
-  return new PasskeyError("passkey_failed", "The passkey didn't work. Try again or sign in another way.", 0);
+  return passkeyError("passkey_failed", "auth.passkeyErrors.failed", 0);
 }
 
 async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
@@ -164,7 +169,7 @@ async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
       body: JSON.stringify(body),
     });
   } catch {
-    throw new PasskeyError("network", "Couldn't reach the server. Check the connection and try again.", 0);
+    throw passkeyError("network", "auth.passkeyErrors.network", 0);
   }
   let parsed: Record<string, unknown> = {};
   try {
@@ -174,8 +179,9 @@ async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
   }
   if (!res.ok) {
     const code = typeof parsed.error === "string" ? parsed.error : "passkey_failed";
-    const message =
-      SIGN_IN_MESSAGES[code] ?? (typeof parsed.message === "string" ? parsed.message : `request failed (${res.status})`);
+    const key = SIGN_IN_MESSAGES[code];
+    if (key !== undefined) throw passkeyError(code, key, res.status);
+    const message = typeof parsed.message === "string" ? parsed.message : `request failed (${res.status})`;
     throw new PasskeyError(code, message, res.status);
   }
   return parsed as T;
@@ -222,7 +228,7 @@ async function ceremony<T>(run: () => Promise<T>): Promise<T> {
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
       abortCeremony();
-      reject(new PasskeyError("timeout", DIDNT_FINISH, 0));
+      reject(passkeyError("timeout", "auth.passkeyErrors.didntFinish", 0));
     }, CEREMONY_TIMEOUT_MS);
   });
   try {
@@ -254,7 +260,7 @@ export async function passkeySignIn(
   opts: { autofill?: boolean; session?: boolean } = {},
   retried = false,
 ): Promise<PasskeySignInAnswer> {
-  if (!passkeysSupported()) throw new PasskeyError("unsupported", UNSUPPORTED_MESSAGE, 0);
+  if (!passkeysSupported()) throw passkeyError("unsupported", "auth.passkeyErrors.unsupported", 0);
   let response: AuthenticationResponseJSON;
   if (opts.autofill === true) {
     // one autofill request at a time
@@ -262,7 +268,7 @@ export async function passkeySignIn(
     const mine = generation;
     const optionsJSON = await fetchSignInOptions();
     // cancelled while its options loaded: never start it
-    if (mine !== generation) throw new PasskeyError("cancelled", CLOSED_MESSAGE, 0, true);
+    if (mine !== generation) throw passkeyError("cancelled", "auth.passkeyErrors.closed", 0, true);
     const request = startAuthentication({ optionsJSON, useBrowserAutofill: true });
     conditional = request;
     try {
@@ -307,7 +313,7 @@ function fetchRegisterOptions(api: PasskeyAccountApi, name: string): Promise<Pub
 
 /** Create a passkey on this device and save it on the account. */
 export async function addPasskey(api: PasskeyAccountApi, name: string): Promise<Passkey | null> {
-  if (!passkeysSupported()) throw new PasskeyError("unsupported", "This browser can't add passkeys.", 0);
+  if (!passkeysSupported()) throw passkeyError("unsupported", "auth.passkeyErrors.cantAdd", 0);
   // a sign-in page's autofill request must not hold this prompt
   await settleAutofill();
   const optionsJSON = capped(await fetchRegisterOptions(api, name));

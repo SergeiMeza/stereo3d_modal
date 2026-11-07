@@ -13,7 +13,9 @@ import type { JSX } from "react";
 import { Button } from "@/components/ui/button";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
+import { errorText } from "@/lib/authErrors";
 import { billingUidAtom } from "@/lib/billing";
+import { useT } from "@/lib/i18n/I18nProvider";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
 import { AddEmailForm } from "./AddEmailForm";
@@ -21,6 +23,7 @@ import { emailsAtom, loadEmailsAtom, MAX_EMAILS, makeMainEmailAtom, removeEmailA
 import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
 
 export function AccountEmails(): JSX.Element | null {
+  const t = useT();
   const gateway = useGateway();
   const { reloadUser } = useAuth();
   const uid = useAppAtomValue(billingUidAtom);
@@ -45,7 +48,7 @@ export function AccountEmails(): JSX.Element | null {
     try {
       await op();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "That didn't work. Try again.");
+      setError(errorText(e, t, "auth.errors.didntWork"));
     } finally {
       setBusy(null);
     }
@@ -53,17 +56,17 @@ export function AccountEmails(): JSX.Element | null {
 
   return (
     <div data-testid="account-emails" className="space-y-2">
-      <p className="text-xs text-fg-muted">Emails · each one signs in with a code</p>
+      <p className="text-xs text-fg-muted">{t("auth.emails.heading")}</p>
       {data.plan_email_needed ? <PlanEmailPrompt /> : null}
       <ul className="divide-y divide-edge rounded-lg border border-edge">
         {list.map((e) => (
           <li key={e.id} data-testid={`email-${e.email}`} className="flex flex-wrap items-center gap-3 px-3 py-2.5 text-sm">
             <span className="min-w-0 flex-1">
               <span className="block truncate text-fg">{e.email}</span>
-              {e.relay ? <span className="block text-xs text-fg-muted">Hidden Apple address</span> : null}
+              {e.relay ? <span className="block text-xs text-fg-muted">{t("auth.emails.hiddenApple")}</span> : null}
             </span>
             {e.main ? (
-              <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[11px] text-primary">Main</span>
+              <span className="rounded-full border border-primary/40 px-2 py-0.5 text-[11px] text-primary">{t("auth.emails.main")}</span>
             ) : (
               <Button
                 size="sm"
@@ -71,18 +74,18 @@ export function AccountEmails(): JSX.Element | null {
                 disabled={busy !== null}
                 onClick={() => void run(e.id, () => makeMain({ client: gateway, id: e.id, reloadUser }))}
               >
-                {busy === e.id ? "Saving…" : "Make main"}
+                {busy === e.id ? t("account.profile.saving") : t("auth.emails.makeMain")}
               </Button>
             )}
             <Button
               size="sm"
               variant="ghost"
               disabled={busy !== null}
-              aria-label={`Remove ${e.email}`}
+              aria-label={t("auth.emails.removeLabel", { email: e.email })}
               onClick={() => void run(e.id, () => remove({ client: gateway, id: e.id, reloadUser }))}
               className="text-fg-muted hover:text-destructive"
             >
-              Remove
+              {t("auth.emails.remove")}
             </Button>
           </li>
         ))}
@@ -96,10 +99,10 @@ export function AccountEmails(): JSX.Element | null {
         <AddEmailForm idPrefix="add-email" mainChoice onDone={() => setAdding(false)} onCancel={() => setAdding(false)} />
       ) : list.length < MAX_EMAILS ? (
         <Button size="sm" variant="outline" onClick={() => setAdding(true)}>
-          Add another email
+          {t("auth.emails.addAnother")}
         </Button>
       ) : (
-        <p className="text-xs text-fg-muted">Your account has {MAX_EMAILS} emails. Remove one to add another.</p>
+        <p className="text-xs text-fg-muted">{t("auth.emails.full", { count: MAX_EMAILS })}</p>
       )}
     </div>
   );

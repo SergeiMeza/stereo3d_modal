@@ -21,10 +21,12 @@ import {
   storeConsent,
   storedConsent,
 } from "@/lib/analytics";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 type Mode = "loading" | "banner" | "switch";
 
 export function AnalyticsChoice() {
+  const t = useT();
   const [mode, setMode] = useState<Mode>("loading");
   // read once on the client (the page renders before any choice shows)
   const [on, setOn] = useState(() =>
@@ -52,7 +54,7 @@ export function AnalyticsChoice() {
           type="button"
           role="switch"
           aria-checked={on}
-          aria-label="Analytics"
+          aria-label={t("common.analytics.switchLabel")}
           data-testid="analytics-switch"
           onClick={() => {
             if (on) {
@@ -75,7 +77,7 @@ export function AnalyticsChoice() {
             }`}
           />
         </button>
-        <span className="text-fg">Analytics {on ? "on" : "off"}</span>
+        <span className="text-fg">{on ? t("common.analytics.switchOn") : t("common.analytics.switchOff")}</span>
       </span>
     );
   }
@@ -89,7 +91,7 @@ export function AnalyticsChoice() {
       }}
       className="text-primary hover:underline"
     >
-      reset your analytics choice
+      {t("common.analytics.reset")}
     </button>
   );
 }

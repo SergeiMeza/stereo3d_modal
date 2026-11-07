@@ -17,8 +17,10 @@ import { usePathname, useRouter } from "next/navigation";
 import { useEffect } from "react";
 
 import { useAuth } from "@/lib/auth";
+import { useT } from "@/lib/i18n/I18nProvider";
 
 export function RequireAuth({ children }: { children: React.ReactNode }) {
+  const t = useT();
   const { user, ready } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
@@ -34,7 +36,7 @@ export function RequireAuth({ children }: { children: React.ReactNode }) {
   if (!ready) {
     return (
       <div className="flex flex-1 items-center justify-center py-24 text-fg-muted">
-        Checking session…
+        {t("common.checkingSession")}
       </div>
     );
   }

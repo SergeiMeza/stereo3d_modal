@@ -7,12 +7,17 @@
 import type { Metadata } from "next";
 
 import { PlansScreen } from "@/components/pricing/PlansScreen";
+import { getServerTr } from "@/lib/i18n/server";
+import { SITE_NAME } from "@/lib/site";
 
-export const metadata: Metadata = {
-  title: "Plans",
-  description: "Spatial Video Studio on the web, Business and Studio plans: usage included every month, lower prices, free previews and Express.",
-  alternates: { canonical: "/plans" },
-};
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerTr();
+  return {
+    title: t("meta.plans.title"),
+    description: t("meta.plans.description", { site: SITE_NAME, business: "Business", studio: "Studio" }),
+    alternates: { canonical: "/plans" },
+  };
+}
 
 export default function PlansPage() {
   return <PlansScreen />;

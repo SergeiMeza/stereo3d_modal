@@ -1,7 +1,13 @@
 import { RequireAuth } from "@/components/auth/RequireAuth";
-import { BusinessSetup } from "@/components/business/BusinessSetup";
+import type { Metadata } from "next";
 
-export const metadata = { title: "Set up Business or Studio" };
+import { BusinessSetup } from "@/components/business/BusinessSetup";
+import { getServerTr } from "@/lib/i18n/server";
+
+export async function generateMetadata(): Promise<Metadata> {
+  const t = await getServerTr();
+  return { title: t("meta.businessSetup.title", { business: "Business", studio: "Studio" }) };
+}
 
 export default function BusinessSetupPage() {
   return (

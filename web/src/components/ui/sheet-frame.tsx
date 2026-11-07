@@ -18,6 +18,8 @@ import { XIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 import type { JSX, ReactNode } from "react";
 
+import { useT } from "@/lib/i18n/I18nProvider";
+
 import { useClient } from "@/components/steps/ViewIn3D";
 import { isHeadset } from "@/lib/headset";
 
@@ -78,6 +80,7 @@ export function SheetFrame({
   footer?: ReactNode;
   testId?: string;
 }): JSX.Element {
+  const t = useT();
   const frame = useSheetFrame();
   const big = frame === "headset";
   return (
@@ -116,7 +119,7 @@ export function SheetFrame({
             </div>
             <DialogPrimitive.Close
               disabled={locked}
-              aria-label="Close"
+              aria-label={t("common.ui.close")}
               className={`-mr-1 flex shrink-0 items-center justify-center rounded-full text-fg-muted transition-colors hover:bg-foreground/10 hover:text-fg disabled:opacity-40 ${
                 big ? "size-14" : "size-8"
               }`}
