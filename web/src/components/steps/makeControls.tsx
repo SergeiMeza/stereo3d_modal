@@ -521,15 +521,21 @@ export function partsEstimate(outputSeconds: number, maxSeconds: number): string
 export const BITRATES: readonly { value: Bitrate; label: string }[] = [
   { value: "auto", label: "Automatic" },
   { value: "match_source", label: "Match the source" },
-  { value: 20, label: "20 Mbit/s" },
   { value: 40, label: "40 Mbit/s" },
   { value: 60, label: "60 Mbit/s" },
   { value: 100, label: "100 Mbit/s" },
 ];
 
+/** A saved choice the list no longer offers (20 Mbit/s, owner 2026-11-07)
+ * reads as Automatic; the gateway still accepts 20 from older clients. */
+export function offeredBitrate(b: Bitrate): Bitrate {
+  return BITRATES.some((x) => x.value === b) ? b : "auto";
+}
+
 /** The request field: absent for Automatic (the gateway's default). */
 export function bitrateField(b: Bitrate): { bitrate?: Bitrate } {
-  return b === "auto" ? {} : { bitrate: b };
+  const offered = offeredBitrate(b);
+  return offered === "auto" ? {} : { bitrate: offered };
 }
 
 export function BitrateControl({
@@ -553,7 +559,7 @@ export function BitrateControl({
       <select
         id="make-bitrate"
         disabled={disabled}
-        value={String(value)}
+        value={String(offeredBitrate(value))}
         onChange={(e) => {
           const v = e.target.value;
           onChange(

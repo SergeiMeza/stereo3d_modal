@@ -1080,7 +1080,6 @@ describe("Bitrate under Advanced (S3D-56)", () => {
     expect([...select.options].map((o) => o.textContent)).toEqual([
       "Automatic",
       "Match the source",
-      "20 Mbit/s",
       "40 Mbit/s",
       "60 Mbit/s",
       "100 Mbit/s",
