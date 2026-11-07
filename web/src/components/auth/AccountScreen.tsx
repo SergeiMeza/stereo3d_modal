@@ -49,6 +49,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { scheduledLine } from "@/lib/accountDeletion";
 import { useProStatus } from "@/lib/pro/usePro";
+import { LanguagePicker } from "@/lib/i18n/LanguagePicker";
+import { t } from "@/lib/i18n/t";
 
 function CardShell({
   title,
@@ -315,6 +317,10 @@ export default function AccountScreen() {
         </p>
         <AccountScheduledChange />
         <AppStoreProLine />
+      </CardShell>
+
+      <CardShell title={t("common.language")}>
+        <LanguagePicker />
       </CardShell>
 
       <CardShell title="Session">

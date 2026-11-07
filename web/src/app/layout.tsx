@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { cookies, headers } from "next/headers";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
 
@@ -20,6 +21,10 @@ import { SettleProvider } from "@/components/pay/SettleSheet";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import { SITE_NAME, SITE_TAGLINE, SITE_URL } from "@/lib/site";
 import { MswProvider } from "@/mocks/MswProvider";
+import { messagesFor } from "@/lib/i18n/catalogs";
+import { I18nProvider } from "@/lib/i18n/I18nProvider";
+import { HlParamCleanup } from "@/lib/i18n/HlParamCleanup";
+import { dirOf, LOCALE_COOKIE, resolveLocale } from "@/lib/i18n/locales";
 
 import "./globals.css";
 
@@ -70,17 +75,22 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // owner 2026-11-07: NEXT_LOCALE, then Accept-Language, then English
+  const locale = resolveLocale((await cookies()).get(LOCALE_COOKIE)?.value, (await headers()).get("accept-language"));
   return (
     <html
-      lang="en"
+      lang={locale}
+      dir={dirOf(locale)}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="flex min-h-full flex-col bg-surface-0 font-sans text-sm leading-tight text-fg">
+        <I18nProvider locale={locale} messages={messagesFor(locale)}>
+        <HlParamCleanup />
         <AuthProvider>
           {/* BillingProvider sits inside MswProvider so its first
               GET /v1/billing waits for the mock worker in mock mode; the
@@ -138,6 +148,7 @@ export default function RootLayout({
           </BillingProvider>
           </MswProvider>
         </AuthProvider>
+        </I18nProvider>
         <Analytics />
         <VercelAnalytics />
       </body>

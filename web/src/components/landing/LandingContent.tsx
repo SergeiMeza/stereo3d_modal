@@ -35,6 +35,7 @@ import { track } from "@/lib/analytics";
 import { fromPerMinute, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { FORMAT_NAMES } from "@/lib/glossary";
+import { LanguagePicker } from "@/lib/i18n/LanguagePicker";
 
 interface Point {
   icon: LucideIcon;
@@ -321,6 +322,7 @@ export function LandingContent() {
             <button type="button" onClick={openFeedback} className="transition-colors hover:text-fg">
               Feedback
             </button>
+            <LanguagePicker />
           </div>
           <p>© {new Date().getFullYear()} Spatial AI Labs Ltd</p>
         </div>

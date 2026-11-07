@@ -11,6 +11,7 @@
  */
 
 import type { ProPlanDef, PublicPricing } from "@/lib/api/types";
+import { activeIntl } from "@/lib/i18n/t";
 
 export type PlanKind = "weekly" | "monthly" | "yearly";
 
@@ -37,7 +38,7 @@ const INTERVAL_KIND: Record<string, PlanKind> = {
 };
 
 const usd = (cents: number) =>
-  new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(cents / 100);
+  new Intl.NumberFormat(activeIntl(), { style: "currency", currency: "USD" }).format(cents / 100);
 
 /** GET /v1/pricing pro_plans → the page's plans (Stripe checkout). The
  * credit is the plan's own credit_cents, else pro_credit's for its kind,

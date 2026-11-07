@@ -61,13 +61,15 @@ import { useGateway } from "@/lib/api/useGateway";
 import { formatClock, formatTimeLeft } from "@/lib/format";
 import { METHOD_NAMES } from "@/lib/glossary";
 import { useLiveProject } from "@/lib/live/useLive";
+import { activeIntl } from "@/lib/i18n/t";
 
-const DATE_FORMAT = new Intl.DateTimeFormat("en-US", {
+/** "Dec 5, 2026" in the active language */
+const DATE_FORMAT = { format: (d: Date) => new Intl.DateTimeFormat(activeIntl(), {
   year: "numeric",
   month: "short",
   day: "numeric",
   timeZone: "UTC",
-});
+}).format(d) };
 
 /** A card's outcome line (S3D-35): what is happening, or what came out. */
 export interface CardState {

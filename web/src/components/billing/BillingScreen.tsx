@@ -83,6 +83,7 @@ import {
   loadCompanyAtom,
   loadInvoicesAtom,
 } from "./billingHistoryAtoms";
+import { activeIntl } from "@/lib/i18n/t";
 
 const STATUS: Record<BillingRowStatus, { label: string; cls: string; help?: string }> = {
   paid: { label: "Paid", cls: "text-emerald-300" },
@@ -137,7 +138,7 @@ export function noMoneyStatus(row: BillingRow): string {
 }
 
 function shortDate(iso: string): string {
-  return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return new Date(iso).toLocaleDateString(activeIntl(), { month: "short", day: "numeric" });
 }
 
 /** "Kyoto walk · 3D video · 4K", with the launch offer when the run had

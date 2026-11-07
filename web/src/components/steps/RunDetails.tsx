@@ -28,6 +28,7 @@ import { formatCents } from "./money";
 import { runPrice } from "./PreviousRuns";
 import { useRunFiles } from "./RunFiles";
 import { runDetailsOpenAtom, runReceiptsAtom } from "./runDetailsAtoms";
+import { activeIntl } from "@/lib/i18n/t";
 
 const TERMINAL: ReadonlySet<Conversion["state"]> = new Set(["succeeded", "failed", "canceled", "expired"]);
 
@@ -49,7 +50,7 @@ function fileWords(format: string): string {
 function when(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return "";
-  return d.toLocaleString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+  return d.toLocaleString(activeIntl(), { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
 }
 
 /** "Scene 3" / "Scenes 3–5", only while the cuts are the ones it ran with. */

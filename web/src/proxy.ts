@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+import { isLocale, LOCALE_COOKIE, LOCALE_COOKIE_MAX_AGE, LOCALE_PARAM } from "@/lib/i18n/locales";
 import {
   REGION_COOKIE,
   REGION_COOKIE_MAX_AGE,
@@ -21,7 +22,20 @@ export function proxy(request: NextRequest): NextResponse {
     pin: request.cookies.get(REGION_PIN_COOKIE)?.value,
     country: request.headers.get("x-vercel-ip-country"),
   });
-  const response = NextResponse.next();
+  // ?hl=<code> (the site's links): this request renders in it, and the
+  // cookie keeps it; the page then takes the param off the address
+  const hl = request.nextUrl.searchParams.get(LOCALE_PARAM);
+  const lang = isLocale(hl) ? hl : null;
+  if (lang !== null) request.cookies.set(LOCALE_COOKIE, lang);
+  const response = lang !== null ? NextResponse.next({ request }) : NextResponse.next();
+  if (lang !== null) {
+    response.cookies.set(LOCALE_COOKIE, lang, {
+      path: "/",
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+      sameSite: "lax",
+      secure: request.nextUrl.protocol === "https:",
+    });
+  }
   const options = {
     path: "/",
     maxAge: REGION_COOKIE_MAX_AGE,

@@ -21,6 +21,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "firebase": "^12.15.0",
+    "intl-messageformat": "10.7.16",
     "jotai": "^2.20.1",
     "jotai-family": "^1.1.0",
     "lucide-react": "^1.23.0",

@@ -19,6 +19,7 @@ import { DownloadsList, stepDownloads } from "./DownloadsList";
 import { formatCents } from "./money";
 import { StateChip } from "./StateChip";
 import { loadErrorText, useIsSample } from "./loadError";
+import { activeIntl } from "@/lib/i18n/t";
 
 export interface PriorRunsProps {
   title: string;
@@ -86,7 +87,7 @@ function PriorRunRow({
         <span className="font-mono text-xs text-fg-muted">{meta}</span>
         <span className="font-mono text-xs">{formatCents(c.quote.amount_cents)}</span>
         <time dateTime={c.created_at} className="ml-auto text-[11px] text-fg-muted">
-          {new Date(c.created_at).toLocaleString()}
+          {new Date(c.created_at).toLocaleString(activeIntl())}
         </time>
       </div>
       {c.state === "succeeded" ? (

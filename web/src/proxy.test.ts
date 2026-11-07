@@ -62,3 +62,19 @@ describe("proxy region cookie", () => {
     expect(res.cookies.get("s3d_region_pin")?.value).toBe("");
   });
 });
+
+describe("proxy ?hl= (owner 2026-11-07: the site's links carry their language)", () => {
+  it("sets NEXT_LOCALE from a known ?hl= for a year, and the request reads it", () => {
+    const req = request("/projects?hl=ja", { country: "JP" });
+    const res = proxy(req);
+    const c = res.cookies.get("NEXT_LOCALE");
+    expect(c?.value).toBe("ja");
+    expect(c?.maxAge).toBe(60 * 60 * 24 * 365);
+    expect(req.cookies.get("NEXT_LOCALE")?.value).toBe("ja");
+  });
+
+  it("ignores an unknown ?hl= and leaves no cookie", () => {
+    expect(proxy(request("/?hl=xx")).cookies.get("NEXT_LOCALE")).toBeUndefined();
+    expect(proxy(request("/")).cookies.get("NEXT_LOCALE")).toBeUndefined();
+  });
+});
