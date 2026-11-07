@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}：−{pct}%。",
       "onOnly": "{label}：適用 {on}。",
       "labelOnly": "{label}。"
-    }
+    },
+    "label": "上市優惠 −{pct}%",
+    "until": "上市優惠至 {date}"
   },
   "workspace": {
     "analyze": {

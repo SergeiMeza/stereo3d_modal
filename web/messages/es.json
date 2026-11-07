@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: −{pct}%.",
       "onOnly": "{label}: en {on}.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "Oferta de lanzamiento −{pct}%",
+    "until": "Oferta de lanzamiento hasta el {date}"
   },
   "workspace": {
     "analyze": {

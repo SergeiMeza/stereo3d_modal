@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: −{pct}%.",
       "onOnly": "{label}: на {on}.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "Предложение к запуску −{pct}%",
+    "until": "Предложение к запуску до {date}"
   },
   "workspace": {
     "analyze": {

@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: %{pct} indirim.",
       "onOnly": "{label}: {on} için.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "Lansman teklifi %{pct} indirim",
+    "until": "Lansman teklifi {date} tarihine kadar"
   },
   "workspace": {
     "analyze": {

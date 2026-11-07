@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}：−{pct}%。",
       "onOnly": "{label}：{on}が対象。",
       "labelOnly": "{label}。"
-    }
+    },
+    "label": "ローンチ特典 −{pct}%",
+    "until": "ローンチ特典：{date}まで"
   },
   "workspace": {
     "analyze": {

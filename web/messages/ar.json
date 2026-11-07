@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: −{pct}%.",
       "onOnly": "{label}: على {on}.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "عرض الإطلاق −{pct}%",
+    "until": "عرض الإطلاق حتى {date}"
   },
   "workspace": {
     "analyze": {

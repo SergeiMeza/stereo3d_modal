@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: −{pct}%.",
       "onOnly": "{label}: {on}.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "출시 기념 할인 −{pct}%",
+    "until": "출시 기념 할인 {date}까지"
   },
   "workspace": {
     "analyze": {

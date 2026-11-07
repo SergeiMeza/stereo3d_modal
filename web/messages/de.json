@@ -2451,7 +2451,9 @@
       "pctOnly": "{label}: −{pct} %.",
       "onOnly": "{label}: auf {on}.",
       "labelOnly": "{label}."
-    }
+    },
+    "label": "Einführungsangebot −{pct} %",
+    "until": "Einführungsangebot bis {date}"
   },
   "workspace": {
     "analyze": {
