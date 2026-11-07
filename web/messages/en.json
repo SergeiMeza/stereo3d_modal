@@ -641,7 +641,8 @@
         "dispute_freeze": "On hold while a payment is reviewed",
         "dispute_unfreeze": "Released after review",
         "dispute_loss": "Removed after a bank dispute",
-        "topup_bonus": "Top-up bonus"
+        "topup_bonus": "Top-up bonus",
+        "topup_bonus_removed": "Top-up bonus removed"
       }
     },
     "balance": {

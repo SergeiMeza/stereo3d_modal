@@ -841,7 +841,7 @@ export interface PublicPricing {
   /** BUX-23 (proposal): bonus usage credit on bigger top-ups (+5% at $50,
    * +10% at $100), never refunded or paid out; missing, null or no tiers:
    * off */
-  topup_bonus?: TopupBonus | null;
+  topup_bonus?: TopupBonusTier[] | null;
   /** BUX-25 (proposal): Business billed yearly at 10× its month
    * (plans.business_yearly); missing or false: Business bills monthly only */
   business_yearly?: boolean;
@@ -1364,16 +1364,18 @@ export interface UsagePage {
   has_more?: boolean;
 }
 
-/** BUX-23 (proposal): a top-up of at least min_cents gets pct of it as
- * bonus usage credit (the highest tier that fits). */
-export interface TopupBonus {
-  tiers: { min_cents: number; pct: number }[];
+/** BUX-23 (gateway 7ab83ee): a top-up of at least min_cents gets pct of
+ * it as bonus usage credit (the highest tier that fits; pct over 0.5 is
+ * ignored). /v1/pricing topup_bonus is a list, [] when off. */
+export interface TopupBonusTier {
+  min_cents: number;
+  pct: number;
 }
 
 /** spec v7 N1: the ledger, for "Balance history" */
 export interface BalanceEntry {
   id: string;
-  kind: "topup" | "topup_bonus" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
+  kind: "topup" | "topup_bonus" | "topup_bonus_removed" | "auto_reload" | "refund_to_balance" | "debt_payment" | "cash_refund" | "expiry" | "adjustment" | "dispute_freeze" | "dispute_unfreeze" | "dispute_loss";
   cents: number;
   at: string;
   /** "Visa •••• 4242", "CASE-0062" */

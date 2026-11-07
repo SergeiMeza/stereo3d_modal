@@ -73,6 +73,7 @@ const PAID_WITH: Record<string, string> = { balance: "Balance", card: "Payment m
 const ENTRY_KINDS: ReadonlySet<string> = new Set<BalanceEntry["kind"]>([
   "topup",
   "topup_bonus",
+  "topup_bonus_removed",
   "auto_reload",
   "refund_to_balance",
   "debt_payment",

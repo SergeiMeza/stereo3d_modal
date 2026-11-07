@@ -469,6 +469,21 @@ describe("Usage tab (P10)", () => {
     expect((await screen.findByTestId("balance-history")).textContent).toContain("Top-up");
   });
 
+  it("BUX-23: the bonus and its removal read by name in the balance history", async () => {
+    topped(5000);
+    const pp = mockDb.billing.prepaid;
+    pp.entries.push(
+      { id: "e3", kind: "topup_bonus_removed", cents: -1000, at: "2026-11-03T00:00:00Z", topup_id: "tu_a" },
+      { id: "e2", kind: "topup_bonus", cents: 1000, at: "2026-11-02T00:00:00Z", topup_id: "tu_a" },
+      { id: "e1", kind: "topup", cents: 10000, at: "2026-11-02T00:00:00Z", topup_id: "tu_a" },
+    );
+    renderBilling();
+    fireEvent.mouseDown(await screen.findByRole("tab", { name: "Usage" }));
+    const history = await screen.findByTestId("balance-history");
+    expect(history.textContent).toContain("Top-up bonus removed−$10.00");
+    expect(history.textContent).toContain("Top-up bonus+$10.00");
+  });
+
   it("helpers: months, clock and statuses", () => {
     const m = recentMonths(new Date("2026-01-15T00:00:00Z"));
     expect(m.slice(0, 2)).toEqual(["2026-01", "2025-12"]);

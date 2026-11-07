@@ -9,7 +9,7 @@
  */
 
 import { formatCents, formatCentsShort, formatUsdLabeled } from "@/components/steps/money";
-import type { TopupBonus } from "@/lib/api/types";
+import type { TopupBonusTier } from "@/lib/api/types";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export const CHARGED_IN_USD = EN("pay.copy.chargedInUsd");
@@ -170,20 +170,25 @@ export function topupDone(added: number, balance: number, t: Tr = EN, bonus = 0)
   return t("balance.copy.topupDone", { added: formatCents(added, t), balance: formatCents(balance, t) });
 }
 
-/** BUX-23 (proposal): the bonus a top-up of `amount` would get from GET
- * /v1/pricing topup_bonus (the highest tier it reaches); 0 when off. The
- * paid top-up's own bonus_cents is what's credited. */
-export function topupBonusCents(amount: number, bonus: TopupBonus | null | undefined): number {
-  const tier = (bonus?.tiers ?? [])
-    .filter((x) => amount >= x.min_cents && x.pct > 0)
+/** BUX-23 (gateway 7ab83ee): the bonus a top-up of `amount` would get
+ * from GET /v1/pricing topup_bonus, as the gateway reckons it: the
+ * highest tier reached, pct in (0, 0.5], whole cents rounded down; 0 when
+ * off ([]). The paid top-up's own bonus_cents is what's credited. */
+export function topupBonusCents(amount: number, tiers: readonly TopupBonusTier[] | null | undefined): number {
+  const tier = validTiers(tiers)
+    .filter((x) => amount >= x.min_cents)
     .sort((a, b) => b.min_cents - a.min_cents)[0];
-  return tier ? Math.round(amount * tier.pct) : 0;
+  return tier ? Math.floor(amount * tier.pct) : 0;
 }
 
 /** The smallest tier, for "Add $50 or more and get 5% bonus credit." */
-export function firstBonusTier(bonus: TopupBonus | null | undefined): { min_cents: number; pct: number } | null {
-  const tiers = (bonus?.tiers ?? []).filter((x) => x.pct > 0).sort((a, b) => a.min_cents - b.min_cents);
-  return tiers[0] ?? null;
+export function firstBonusTier(tiers: readonly TopupBonusTier[] | null | undefined): TopupBonusTier | null {
+  return validTiers(tiers).sort((a, b) => a.min_cents - b.min_cents)[0] ?? null;
+}
+
+/** the tiers the gateway honours (it ignores the rest) */
+function validTiers(tiers: readonly TopupBonusTier[] | null | undefined): TopupBonusTier[] {
+  return Array.isArray(tiers) ? tiers.filter((x) => x.pct > 0 && x.pct <= 0.5 && x.min_cents > 0) : [];
 }
 
 /** P18 consent line */

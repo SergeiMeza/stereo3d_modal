@@ -303,13 +303,14 @@ function businessYearlyMock() {
   return { ...m, interval: "year", price_cents: m.monthly_cents * 10 };
 }
 
-/** BUX-23 (proposal): the bonus a top-up gets, as the gateway would
- * (the highest tier it reaches, rounded to the cent); 0 while off. */
+/** BUX-23 (gateway 7ab83ee): the bonus a top-up gets, as the gateway
+ * reckons it (the highest tier it reaches, pct in (0, 0.5], rounded
+ * down); 0 while off ([]). */
 function mockTopupBonus(cents: number): number {
-  const tier = (mockDb.topupBonus?.tiers ?? [])
-    .filter((x) => cents >= x.min_cents && x.pct > 0)
+  const tier = mockDb.topupBonus
+    .filter((x) => cents >= x.min_cents && x.pct > 0 && x.pct <= 0.5)
     .sort((a, b) => b.min_cents - a.min_cents)[0];
-  return tier ? Math.round(cents * tier.pct) : 0;
+  return tier ? Math.floor(cents * tier.pct) : 0;
 }
 
 function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string, topupId?: string) {
@@ -528,7 +529,7 @@ interface DB {
   webProWeeklyHidden: boolean;
   /** GET /v1/pricing topup_bonus (BUX-23 proposal): off (null) everywhere,
    * the mock included; tests set the tiers */
-  topupBonus: import("@/lib/api/types").TopupBonus | null;
+  topupBonus: import("@/lib/api/types").TopupBonusTier[];
   /** GET /v1/pricing business_yearly (BUX-25 proposal): off everywhere, the
    * mock included; on, plans.business_yearly is sold at 10× the month */
   businessYearly: boolean;
@@ -1164,7 +1165,7 @@ function seed(): DB {
     payRequests: new Map(),
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     webProWeeklyHidden: false,
-    topupBonus: null,
+    topupBonus: [],
     businessYearly: false,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
@@ -3477,7 +3478,7 @@ export const handlers = [
       topup_id,
       checkout: { client_secret: secret, expires_at: mockDb.billing.checkouts.get(secret)!.expires_at },
       publishable_key: "pk_test_mock",
-      ...(mockTopupBonus(body.amount_cents) > 0 ? { bonus_cents: mockTopupBonus(body.amount_cents) } : {}),
+      bonus_cents: mockTopupBonus(body.amount_cents),
     });
   }),
 
@@ -4581,7 +4582,7 @@ export const handlers = [
       const bonus = mockTopupBonus(ch.amount_cents);
       if (bonus > 0) {
         b.prepaid.balance_cents += bonus;
-        b.prepaid.entries.unshift({ id: `be_${b.prepaid.entries.length + 1}`, kind: "topup_bonus", cents: bonus, at: new Date().toISOString() });
+        b.prepaid.entries.unshift({ id: `be_${b.prepaid.entries.length + 1}`, kind: "topup_bonus", cents: bonus, at: new Date().toISOString(), ...(ch.topup_id ? { topup_id: ch.topup_id } : {}) });
       }
       b.hasPaymentMethod = true;
       if (b.methods.length === 0) {

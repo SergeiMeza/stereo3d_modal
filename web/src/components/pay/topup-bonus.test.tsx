@@ -1,7 +1,9 @@
 /**
- * BUX-23 (proposal): bonus usage credit on bigger top-ups (+5% at $50,
- * +10% at $100), behind GET /v1/pricing topup_bonus, off by default (the
- * mock too). Never refunded or paid out, and it says so.
+ * BUX-23 (gateway 7ab83ee): bonus usage credit on bigger top-ups (+5% at
+ * $50, +10% at $100): GET /v1/pricing topup_bonus is a list of {min_cents,
+ * pct}, [] when off (the mock too); POST …/topup says bonus_cents; the
+ * ledger has topup_bonus (with its topup_id) and topup_bonus_removed.
+ * Never refunded or paid out, and it says so.
  */
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
@@ -22,7 +24,10 @@ vi.mock("next/navigation", () => ({
 }));
 vi.mock("@/lib/paymentRegion", () => ({ chinaPayments: () => false }));
 
-const TIERS = { tiers: [{ min_cents: 5000, pct: 0.05 }, { min_cents: 10000, pct: 0.1 }] };
+const TIERS = [
+  { min_cents: 5000, pct: 0.05 },
+  { min_cents: 10000, pct: 0.1 },
+];
 
 beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => resetPricingCache());
@@ -44,7 +49,11 @@ function sheet(): void {
 }
 
 describe("top-up bonus (BUX-23 proposal)", () => {
-  it("the tiers: the highest reached, to the cent; nothing while off", () => {
+  it("the tiers as the gateway reckons them: the highest reached, rounded down, pct over 0.5 ignored; nothing while off", () => {
+    expect(topupBonusCents(5099, TIERS)).toBe(254);
+    expect(topupBonusCents(20000, [...TIERS, { min_cents: 20000, pct: 0.9 }])).toBe(2000);
+    expect(topupBonusCents(10000, [])).toBe(0);
+    expect(firstBonusTier([])).toBeNull();
     expect(topupBonusCents(2500, TIERS)).toBe(0);
     expect(topupBonusCents(5000, TIERS)).toBe(250);
     expect(topupBonusCents(7500, TIERS)).toBe(375);
@@ -55,7 +64,7 @@ describe("top-up bonus (BUX-23 proposal)", () => {
   });
 
   it("off by default (the mock too): no bonus line, the top-up as today", async () => {
-    expect(mockDb.topupBonus).toBeNull();
+    expect(mockDb.topupBonus).toEqual([]);
     sheet();
     const s = await screen.findByTestId("add-funds-sheet");
     fireEvent.click(within(s).getByRole("radio", { name: "$50" }));
@@ -78,5 +87,19 @@ describe("top-up bonus (BUX-23 proposal)", () => {
     fireEvent.click(screen.getByTestId("add-funds-main"));
     expect(await screen.findByText("Added $50.00 + $2.50 bonus. Your balance is $52.50.")).toBeTruthy();
     expect(mockDb.billing.prepaid.entries[0]).toMatchObject({ kind: "topup_bonus", cents: 250 });
+    // the bonus row names its top-up, like the top-up's own row
+    expect(mockDb.billing.prepaid.entries[0].topup_id).toBe(mockDb.billing.prepaid.entries[1].topup_id);
+    expect(mockDb.billing.prepaid.entries[0].topup_id).toMatch(/^tu_/);
+  });
+
+  it("the top-up answer says bonus_cents, 0 while off", async () => {
+    const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
+    const post = () =>
+      fetch(`${GATEWAY}/v1/billing/balance/topup`, { method: "POST", body: JSON.stringify({ amount_cents: 10000, ui: "elements" }) }).then(
+        (r) => r.json() as Promise<{ bonus_cents?: number }>,
+      );
+    expect((await post()).bonus_cents).toBe(0);
+    mockDb.topupBonus = TIERS;
+    expect((await post()).bonus_cents).toBe(1000);
   });
 });
