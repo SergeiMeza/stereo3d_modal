@@ -11,6 +11,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 
 import type { PayRequest } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
+import { I18nProvider } from "@/lib/i18n/I18nProvider";
 import { mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
@@ -264,5 +265,58 @@ describe("the pay page after a payment that's still being confirmed (REV-06)", (
     expect(screen.queryByTestId("pay-request-confirm")).toBeNull();
     mockDb.payRequests.get("tok_form_proc")!.state = "paid";
     expect(await screen.findByText("Paid. Thank you.")).toBeTruthy();
+  });
+});
+
+describe("the pay page heading in the reader's language (REV-13)", () => {
+  // stand-in German words: the real ones come with the translations
+  const DE = {
+    pay: {
+      request: {
+        heading: {
+          payment: "Zahlung",
+          topup: "Guthaben aufladen",
+          settle: "Deine letzten Läufe",
+          renewal: "Verlängerung des Plans {plan}",
+          stepUp: "Plan {plan}",
+        },
+      },
+    },
+  };
+  function inGerman(token: string): void {
+    render(
+      <I18nProvider locale="de" messages={DE}>
+        <AuthProvider>
+          <PayRequestPage token={token} />
+        </AuthProvider>
+      </I18nProvider>,
+    );
+  }
+
+  it.each([
+    ["topup", undefined, "Guthaben aufladen"],
+    ["settle", undefined, "Deine letzten Läufe"],
+    ["invoice", "Business", "Verlängerung des Plans Business"],
+    ["stepup", "Studio", "Plan Studio"],
+    ["invoice", undefined, "Zahlung"],
+  ] as const)("kind %s (plan %s) reads %s, not the English label", async (kind, plan, heading) => {
+    request("tok_de", { kind, ...(plan ? { plan_name: plan } : {}), label: "Spatial Video Studio Business renewal" });
+    inGerman("tok_de");
+    expect((await screen.findByTestId("pay-request-label")).textContent).toBe(heading);
+  });
+
+  it("without a kind (an older gateway): English keeps the label, another language says Payment", async () => {
+    request("tok_old", { label: "Balance top-up · $25.00" });
+    page("tok_old");
+    expect((await screen.findByTestId("pay-request-label")).textContent).toBe("Balance top-up · $25.00");
+    cleanup();
+    inGerman("tok_old");
+    expect((await screen.findByTestId("pay-request-label")).textContent).toBe("Zahlung");
+  });
+
+  it("English words for each kind", async () => {
+    request("tok_en", { kind: "invoice", plan_name: "Business", label: "x" });
+    page("tok_en");
+    expect((await screen.findByTestId("pay-request-label")).textContent).toBe("Business plan renewal");
   });
 });

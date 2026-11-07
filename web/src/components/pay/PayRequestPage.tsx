@@ -34,6 +34,7 @@ import type { PayRequest } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
+import type { Tr } from "@/lib/i18n/t";
 import { SITE_NAME } from "@/lib/site";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
@@ -184,7 +185,7 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
   const head = (info: PayRequest) => (
     <div className="flex flex-col gap-1">
       <p data-testid="pay-request-label" className="text-sm text-fg-muted">
-        {info.label}
+        {headingOf(info, t)}
       </p>
       <p data-testid="pay-request-amount" className="text-4xl font-semibold text-fg tabular-nums">
         {amount(info)}
@@ -285,4 +286,22 @@ export function PayRequestPage({ token }: { token: string }): JSX.Element {
       )}
     </section>
   );
+}
+
+/** REV-13: the heading in the reader's language from the link's kind;
+ * without one (gateways before it), English keeps the gateway's label and
+ * other languages say "Payment". */
+function headingOf(info: PayRequest, t: Tr): string {
+  switch (info.kind) {
+    case "topup":
+      return t("pay.request.heading.topup");
+    case "settle":
+      return t("pay.request.heading.settle");
+    case "invoice":
+      return info.plan_name ? t("pay.request.heading.renewal", { plan: info.plan_name }) : t("pay.request.heading.payment");
+    case "stepup":
+      return info.plan_name ? t("pay.request.heading.stepUp", { plan: info.plan_name }) : t("pay.request.heading.payment");
+    default:
+      return t.locale === "en" ? info.label : t("pay.request.heading.payment");
+  }
 }

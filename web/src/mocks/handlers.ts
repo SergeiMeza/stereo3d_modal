@@ -4274,7 +4274,14 @@ export const handlers = [
   http.get(`${GATEWAY}/v1/pay-requests/:token`, ({ params }) => {
     const r = mockDb.payRequests.get(String(params.token));
     if (!r) return err(404, "pay_link_not_found", "no such payment link");
-    return HttpResponse.json({ label: r.label, amount_cents: r.amount_cents, currency: r.currency, state: r.state });
+    return HttpResponse.json({
+      label: r.label,
+      amount_cents: r.amount_cents,
+      currency: r.currency,
+      state: r.state,
+      ...(r.kind ? { kind: r.kind } : {}),
+      ...(r.plan_name ? { plan_name: r.plan_name } : {}),
+    });
   }),
   http.post(`${GATEWAY}/v1/pay-requests/:token/checkout`, ({ params }) => {
     const token = String(params.token);

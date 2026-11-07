@@ -1380,7 +1380,14 @@
       "processing": "Processing…",
       "confirming": "Your payment is being confirmed. This page updates when it's done.",
       "loadFailed": "We couldn't load this payment. Try again in a moment.",
-      "tryAgain": "Try again"
+      "tryAgain": "Try again",
+      "heading": {
+        "payment": "Payment",
+        "topup": "Balance top-up",
+        "settle": "Your last runs",
+        "renewal": "{plan} plan renewal",
+        "stepUp": "{plan} plan"
+      }
     }
   },
   "balance": {

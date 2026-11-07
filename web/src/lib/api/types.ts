@@ -526,10 +526,16 @@ export interface Presentment {
 /** D7 (owner 2026-11-07): GET /v1/pay-requests/{token}, public: the one
  * payment a failure mail links to (/pay/{token}). Never carries an email. */
 export interface PayRequest {
+  /** the gateway's English label ("Balance top-up · $25.00") */
   label: string;
   amount_cents: number;
   currency: string;
   state: "open" | "paid" | "void" | "expired";
+  /** REV-13 (asked of the gateway): what it pays, so the page words the
+   * heading in the reader's language */
+  kind?: "topup" | "settle" | "invoice" | "stepup";
+  /** the plan a renewal or step-up is for ("Business", "Studio") */
+  plan_name?: string;
 }
 
 /** POST /v1/pay-requests/{token}/checkout {ui, return_url}: our payment
