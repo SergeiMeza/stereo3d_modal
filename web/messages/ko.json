@@ -1370,13 +1370,33 @@
       "opening": "여는 중…",
       "continue": "결제 계속하기"
     },
+    "oneTap": {
+      "pay": "{method}(으)로 {amount} 결제",
+      "changeMethod": "결제 수단 변경",
+      "anotherWay": "다른 방법으로 결제",
+      "amountChanged": "금액이 {amount}(으)로 바뀌었어요. 확인한 뒤 다시 탭하세요.",
+      "inProgress": "이 결제는 이미 확인 중이에요.",
+      "failed": "결제가 완료되지 않았어요. 다시 시도하거나 다른 방법으로 결제하세요.",
+      "bankFailed": "은행에서 결제를 승인하지 않았어요. 다시 시도하거나 다른 방법으로 결제하세요."
+    },
     "request": {
       "pay": "{amount} 결제",
       "paid": "결제가 완료됐어요. 감사합니다.",
       "void": "이 결제는 더 이상 필요하지 않아요.",
       "expired": "이 결제 링크가 만료됐어요. 로그인한 뒤 결제 내역에서 결제하세요.",
       "bad": "유효하지 않은 결제 링크예요.",
-      "inProgress": "이미 결제가 진행 중이에요. 1분 뒤에 다시 시도해 주세요."
+      "inProgress": "이미 결제가 진행 중이에요. 1분 뒤에 다시 시도해 주세요.",
+      "processing": "처리 중…",
+      "confirming": "결제를 확인하고 있어요. 완료되면 이 페이지가 업데이트돼요.",
+      "loadFailed": "이 결제를 불러오지 못했어요. 잠시 후 다시 시도해 주세요.",
+      "tryAgain": "다시 시도",
+      "heading": {
+        "payment": "결제",
+        "topup": "잔액 충전",
+        "settle": "지난 변환",
+        "renewal": "{plan} 플랜 갱신",
+        "stepUp": "{plan} 플랜"
+      }
     }
   },
   "balance": {

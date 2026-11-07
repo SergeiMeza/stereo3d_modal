@@ -1370,13 +1370,33 @@
       "opening": "Açılıyor…",
       "continue": "Ödemeye devam et"
     },
+    "oneTap": {
+      "pay": "{amount} tutarını {method} ile öde",
+      "changeMethod": "Ödeme yöntemini değiştir",
+      "anotherWay": "Başka bir yolla öde",
+      "amountChanged": "Tutar artık {amount}. Kontrol edip tekrar dokunun.",
+      "inProgress": "Bunun için bir ödeme zaten onaylanıyor.",
+      "failed": "Ödeme tamamlanmadı. Tekrar deneyin veya başka bir yolla ödeyin.",
+      "bankFailed": "Bankanız ödemeyi onaylamadı. Tekrar deneyin veya başka bir yolla ödeyin."
+    },
     "request": {
       "pay": "{amount} öde",
       "paid": "Ödendi. Teşekkürler!",
       "void": "Bu ödemeye artık gerek yok.",
       "expired": "Bu ödeme bağlantısının süresi doldu. Ödemek için oturum açıp Faturalandırma’yı açın.",
       "bad": "Bu ödeme bağlantısı geçerli değil.",
-      "inProgress": "Bir ödeme zaten sürüyor. Bir dakika sonra tekrar deneyin."
+      "inProgress": "Bir ödeme zaten sürüyor. Bir dakika sonra tekrar deneyin.",
+      "processing": "İşleniyor…",
+      "confirming": "Ödemeniz onaylanıyor. İşlem bitince bu sayfa güncellenir.",
+      "loadFailed": "Bu ödeme yüklenemedi. Biraz sonra tekrar deneyin.",
+      "tryAgain": "Tekrar dene",
+      "heading": {
+        "payment": "Ödeme",
+        "topup": "Bakiye yükleme",
+        "settle": "Son dönüştürmeleriniz",
+        "renewal": "{plan} planı yenileme",
+        "stepUp": "{plan} planı"
+      }
     }
   },
   "balance": {

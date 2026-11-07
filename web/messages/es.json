@@ -1370,13 +1370,33 @@
       "opening": "Abriendo…",
       "continue": "Continuar al pago"
     },
+    "oneTap": {
+      "pay": "Pagar {amount} con {method}",
+      "changeMethod": "Cambiar método de pago",
+      "anotherWay": "Pagar de otra forma",
+      "amountChanged": "El importe ahora es {amount}. Revísalo y toca de nuevo.",
+      "inProgress": "Ya se está confirmando un pago para esto.",
+      "failed": "El pago no se completó. Inténtalo de nuevo o paga de otra forma.",
+      "bankFailed": "Tu banco no confirmó el pago. Inténtalo de nuevo o paga de otra forma."
+    },
     "request": {
       "pay": "Pagar {amount}",
       "paid": "Pagado. ¡Gracias!",
       "void": "Este pago ya no es necesario.",
       "expired": "Este enlace de pago venció. Inicia sesión y abre Facturación para pagar.",
       "bad": "Este enlace de pago no es válido.",
-      "inProgress": "Ya hay un pago en curso. Inténtalo de nuevo en un minuto."
+      "inProgress": "Ya hay un pago en curso. Inténtalo de nuevo en un minuto.",
+      "processing": "Procesando…",
+      "confirming": "Estamos confirmando tu pago. Esta página se actualiza cuando termine.",
+      "loadFailed": "No pudimos cargar este pago. Inténtalo de nuevo en un momento.",
+      "tryAgain": "Reintentar",
+      "heading": {
+        "payment": "Pago",
+        "topup": "Recarga de saldo",
+        "settle": "Tus últimas conversiones",
+        "renewal": "Renovación del plan {plan}",
+        "stepUp": "Plan {plan}"
+      }
     }
   },
   "balance": {

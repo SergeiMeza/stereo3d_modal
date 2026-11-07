@@ -1370,13 +1370,33 @@
       "opening": "開啟中…",
       "continue": "前往付款"
     },
+    "oneTap": {
+      "pay": "使用 {method} 支付 {amount}",
+      "changeMethod": "變更付款方式",
+      "anotherWay": "改用其他方式付款",
+      "amountChanged": "金額已變為 {amount}。請確認後再點一次。",
+      "inProgress": "這筆付款已在確認中。",
+      "failed": "付款未成功。請重試或改用其他方式付款。",
+      "bankFailed": "您的銀行未確認這筆付款。請重試或改用其他方式付款。"
+    },
     "request": {
       "pay": "支付 {amount}",
       "paid": "已付款，謝謝。",
       "void": "這筆付款已不再需要。",
       "expired": "此付款連結已過期。請登入並開啟「帳務」付款。",
       "bad": "此付款連結無效。",
-      "inProgress": "已有一筆付款正在處理。請一分鐘後再試。"
+      "inProgress": "已有一筆付款正在處理。請一分鐘後再試。",
+      "processing": "處理中…",
+      "confirming": "正在確認您的付款。完成後此頁面會自動更新。",
+      "loadFailed": "無法載入這筆付款。請稍後再試。",
+      "tryAgain": "重試",
+      "heading": {
+        "payment": "付款",
+        "topup": "餘額儲值",
+        "settle": "最近的轉換",
+        "renewal": "{plan}方案續訂",
+        "stepUp": "{plan}方案"
+      }
     }
   },
   "balance": {

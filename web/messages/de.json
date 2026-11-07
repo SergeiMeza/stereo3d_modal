@@ -1370,13 +1370,33 @@
       "opening": "Wird geöffnet…",
       "continue": "Weiter zur Zahlung"
     },
+    "oneTap": {
+      "pay": "{amount} mit {method} bezahlen",
+      "changeMethod": "Zahlungsmethode ändern",
+      "anotherWay": "Anders bezahlen",
+      "amountChanged": "Der Betrag ist jetzt {amount}. Prüf ihn und tippe noch einmal.",
+      "inProgress": "Eine Zahlung dafür wird bereits bestätigt.",
+      "failed": "Die Zahlung ist nicht durchgegangen. Versuch es noch einmal oder bezahl anders.",
+      "bankFailed": "Deine Bank hat die Zahlung nicht bestätigt. Versuch es noch einmal oder bezahl anders."
+    },
     "request": {
       "pay": "{amount} bezahlen",
       "paid": "Bezahlt. Danke!",
       "void": "Diese Zahlung ist nicht mehr nötig.",
       "expired": "Dieser Zahlungslink ist abgelaufen. Melde dich an und öffne „Abrechnung“, um zu bezahlen.",
       "bad": "Dieser Zahlungslink ist ungültig.",
-      "inProgress": "Eine Zahlung läuft bereits. Versuche es in einer Minute erneut."
+      "inProgress": "Eine Zahlung läuft bereits. Versuche es in einer Minute erneut.",
+      "processing": "Wird verarbeitet…",
+      "confirming": "Deine Zahlung wird bestätigt. Diese Seite aktualisiert sich, sobald es fertig ist.",
+      "loadFailed": "Diese Zahlung konnte nicht geladen werden. Versuch es gleich noch einmal.",
+      "tryAgain": "Erneut versuchen",
+      "heading": {
+        "payment": "Zahlung",
+        "topup": "Guthaben aufladen",
+        "settle": "Deine letzten Umwandlungen",
+        "renewal": "Verlängerung des {plan}-Plans",
+        "stepUp": "{plan}-Plan"
+      }
     }
   },
   "balance": {

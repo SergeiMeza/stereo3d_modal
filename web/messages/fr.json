@@ -1370,13 +1370,33 @@
       "opening": "Ouverture…",
       "continue": "Continuer vers le paiement"
     },
+    "oneTap": {
+      "pay": "Payer {amount} avec {method}",
+      "changeMethod": "Changer de moyen de paiement",
+      "anotherWay": "Payer autrement",
+      "amountChanged": "Le montant est maintenant de {amount}. Vérifiez-le et touchez à nouveau.",
+      "inProgress": "Un paiement est déjà en cours de confirmation.",
+      "failed": "Le paiement n’a pas abouti. Réessayez ou payez autrement.",
+      "bankFailed": "Votre banque n’a pas confirmé le paiement. Réessayez ou payez autrement."
+    },
     "request": {
       "pay": "Payer {amount}",
       "paid": "Paiement effectué. Merci.",
       "void": "Ce paiement n’est plus nécessaire.",
       "expired": "Ce lien de paiement a expiré. Connectez-vous et ouvrez Facturation pour payer.",
       "bad": "Ce lien de paiement n’est pas valide.",
-      "inProgress": "Un paiement est déjà en cours. Réessayez dans une minute."
+      "inProgress": "Un paiement est déjà en cours. Réessayez dans une minute.",
+      "processing": "Traitement…",
+      "confirming": "Votre paiement est en cours de confirmation. Cette page se met à jour une fois terminé.",
+      "loadFailed": "Impossible de charger ce paiement. Réessayez dans un instant.",
+      "tryAgain": "Réessayer",
+      "heading": {
+        "payment": "Paiement",
+        "topup": "Recharge du solde",
+        "settle": "Vos dernières conversions",
+        "renewal": "Renouvellement du forfait {plan}",
+        "stepUp": "Forfait {plan}"
+      }
     }
   },
   "balance": {
