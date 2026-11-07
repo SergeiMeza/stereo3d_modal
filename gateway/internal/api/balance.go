@@ -9,7 +9,9 @@ import (
 	"log/slog"
 	"math"
 	"net/http"
+	"net/url"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/stripe/stripe-go/v78"
@@ -159,6 +161,8 @@ func (s *Service) topupRange(ctx context.Context, uid string, b *store.Balance) 
 // → {checkout {client_secret, expires_at}, topup_id, publishable_key,
 // amount_cents}; China {amount_cents, method: alipay, return_url?} →
 // {topup_id, redirect_url, next_action}. 422 amount_out_of_range {min, max}.
+// The payment returns to return_url (on the site; default /billing) with
+// topup={topup_id} set (topupReturnURL).
 func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	var req struct {
@@ -223,10 +227,7 @@ func (s *Service) HandleTopup(w http.ResponseWriter, r *http.Request, user *Auth
 		httpx.WriteErr(ctx, w, err)
 		return
 	}
-	returnURL := s.Cfg.SiteURL + "/billing?topup=" + t.ID
-	if req.ReturnURL != "" && len(req.ReturnURL) > len(s.Cfg.SiteURL) && req.ReturnURL[:len(s.Cfg.SiteURL)+1] == s.Cfg.SiteURL+"/" {
-		returnURL = req.ReturnURL
-	}
+	returnURL := s.topupReturnURL(req.ReturnURL, t.ID)
 	if (req.Method != "" || chinaMode(r)) && s.chinaPaymentsOff(ctx) {
 		httpx.WriteErr(ctx, w, errChinaPaymentsUnavailable())
 		return
@@ -1187,7 +1188,30 @@ func ledgerRow(e store.Entry) map[string]any {
 	if detail != "" {
 		row["detail"] = detail
 	}
+	if e.Kind == store.EntryTopup && e.TopupID != "" {
+		row["topup_id"] = e.TopupID // REV-14: the return page matches its own top-up
+	}
 	return row
+}
+
+// topupReturnURL (REV-14): where a top-up's payment returns, naming the
+// top-up. The default is SiteURL/billing?topup={id}; a client's
+// return_url (on the site) gets {TOPUP_ID} replaced and its topup query
+// parameter set to the id (any value it had, such as topup=1, replaced).
+func (s *Service) topupReturnURL(client, topupID string) string {
+	def := s.Cfg.SiteURL + "/billing?topup=" + url.QueryEscape(topupID)
+	if client == "" || !strings.HasPrefix(client, s.Cfg.SiteURL+"/") {
+		return def
+	}
+	client = strings.NewReplacer("{TOPUP_ID}", topupID, "%7BTOPUP_ID%7D", topupID, "%7btopup_id%7d", topupID).Replace(client)
+	u, err := url.Parse(client)
+	if err != nil {
+		return def
+	}
+	q := u.Query()
+	q.Set("topup", topupID)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 
 // GET /v1/billing/usage?month=YYYY-MM&limit=50&starting_after={conversion_id}
