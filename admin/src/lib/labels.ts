@@ -74,5 +74,10 @@ export const REASONS = [
   "dashboard_unassigned",
   "unpaid_run",
   "topup_withdrawal",
-  "closure_balance",
 ];
+
+/** Reasons no longer opened or filtered for, kept so old cases still read
+ * and act as before. closure_balance: the balance refund at account
+ * deletion, gone with the refund policy of 2026-11-07 (an unspent balance
+ * isn't refunded at deletion; the customer may ask first). */
+export const RETIRED_REASONS = ["closure_balance"];

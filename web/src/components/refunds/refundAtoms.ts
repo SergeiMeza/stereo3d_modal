@@ -1,9 +1,9 @@
 "use client";
 
 /**
- * Refund requests (owner 2026-11-06: no automatic refunds unless the
- * customer asks; a person reviews every request; within 30 days of the
- * payment, runs and plan invoices, a cancelled plan too). ADR 0138: what
+ * Refund requests (owner 2026-11-07: people can ask, and a person decides
+ * case by case; nothing is promised): runs, plan invoices (a cancelled
+ * plan too) and an unspent balance, as the gateway lists them. ADR 0138: what
  * can be asked for, the account's requests and the open sheet are
  * app-store atoms for the account they were read for; the gateway client
  * is an action argument. The send needs a fresh sign-in, which the client
@@ -42,15 +42,21 @@ export interface RefundSheetState {
   open: boolean;
   plan: boolean;
   conversionIds: string[];
+  balance: boolean;
 }
 
-export const CLOSED_SHEET: RefundSheetState = { open: false, plan: false, conversionIds: [] };
+export const CLOSED_SHEET: RefundSheetState = { open: false, plan: false, conversionIds: [], balance: false };
 export const refundSheetAtom = atom<RefundSheetState>(CLOSED_SHEET);
 
 export const openRefundSheetAtom = atom(
   null,
-  (_get, set, pick: { plan?: boolean; conversionIds?: string[] } = {}) => {
-    set(refundSheetAtom, { open: true, plan: pick.plan === true, conversionIds: pick.conversionIds ?? [] });
+  (_get, set, pick: { plan?: boolean; conversionIds?: string[]; balance?: boolean } = {}) => {
+    set(refundSheetAtom, {
+      open: true,
+      plan: pick.plan === true,
+      conversionIds: pick.conversionIds ?? [],
+      balance: pick.balance === true,
+    });
   },
 );
 
@@ -88,10 +94,11 @@ export const sendRefundRequestAtom = atom(
   async (
     _get,
     set,
-    a: { client: Client; plan: boolean; conversionIds: string[]; text: string },
+    a: { client: Client; plan: boolean; conversionIds: string[]; balance?: boolean; text: string },
   ): Promise<{ merged: boolean }> => {
     const r = await a.client.requestRefund({
       ...(a.plan ? { plan: true } : {}),
+      ...(a.balance ? { balance: true } : {}),
       ...(a.conversionIds.length > 0 ? { conversion_ids: a.conversionIds } : {}),
       ...(a.text.trim() ? { text: a.text.trim().slice(0, NOTE_MAX) } : {}),
     });

@@ -202,6 +202,13 @@ export interface RefundOptions {
     amount_cents: number;
     open_request_id: string | null;
   }[];
+  /** RF-02: top-ups with an unspent part someone may ask about (a person
+   * decides); the gateway's window_days stays internal, never shown */
+  balance?: {
+    window_days?: number;
+    unspent_cents: number;
+    topups: { topup_id: string; paid_at: string; paid_cents: number; unspent_cents: number; open_request_id: string | null }[];
+  } | null;
 }
 
 export type SupportRequestState = "looking" | "asked" | "refunded" | "not_refunded" | "waived" | "closed";
@@ -566,7 +573,7 @@ export class GatewayClient {
    * (the shared Confirm it's you). 400 not_refundable, text_too_long; 409
    * too_many_open; 429 rate_limited; 403 account_deleted /
    * deletion_pending. */
-  requestRefund(body: { plan?: boolean; conversion_ids?: string[]; text?: string }): Promise<{
+  requestRefund(body: { plan?: boolean; conversion_ids?: string[]; balance?: boolean; text?: string }): Promise<{
     requests: { id: string; state: SupportRequestState; status: string; merged?: boolean }[];
   }> {
     return this.request("POST", "/v1/support/refund-requests", body);

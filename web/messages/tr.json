@@ -987,10 +987,8 @@
       "typeToConfirm": "Hesabınızı kalıcı olarak silmek için {word} yazın",
       "deleting": "Siliniyor…",
       "button": "Hesabı sil",
-      "refundFirst": "Önce {amount} bakiyenizi ödeme yönteminize iade ederiz.",
-      "refundAndDelete": "İade et ve sil",
-      "returning": "{amount} tutarını iade ediyoruz; bu bitince hesabınız silinir.",
       "note": "Borcunuz varsa önce kayıtlı ödeme yönteminizden tahsil edilir. Projeleriniz, videolarınız ve 3D dosyalarınız hesabınızdan hemen kaldırılır; faturalandırma kayıtları destek için saklanır.",
+      "balanceLost": "Hesabınız silindiğinde harcanmamış {amount} bakiyeniz kaybolur.",
       "paymentNeededAmount": "Ödeme gerekli ({amount}): Faturalandırma’da ödeme yönteminizi güncelleyin, sonra hesabınızı silin.",
       "paymentNeeded": "Ödeme gerekli: Faturalandırma’da ödeme yönteminizi güncelleyin, sonra hesabınızı silin.",
       "failed": "Hesap silinemedi."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "Bakiyenizden ödendi",
       "spendLimitReached": "Aylık harcama sınırınıza ulaştınız.",
-      "topupSmallPrint": "Harcanmamış tutarlar 14 gün içinde iade edilebilir. Bakiyeniz son yüklemenizden 12 ay sonra sona erer.",
+      "topupSmallPrint": "Bakiyeniz son yüklemenizden 12 ay sonra sona erer.",
       "topupMin": "En az {amount} olmalıdır.",
       "settleFailed": "Bakiyeniz artık bunu karşılamıyor. Başka bir yolla ödeyin.",
       "paymentMethodBlocked": "Bu ödeme yöntemi kullanılamaz. Başka bir tane ekleyin.",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "Planı iptal et",
       "done": "Bitti",
       "title": "İade iste",
-      "intro": "Neyle ilgili olduğunu seçin. Her talebi bir kişi inceler. Bir ödemenin ardından {days} gün içinde talep edebilirsiniz.",
-      "nothing": "Son {days} günde yapılan hiçbir ödeme iade edilemez.",
+      "intro": "Neyle ilgili olduğunu seçin ve ne olduğunu bize anlatın. Her talebi tek tek inceleriz.",
+      "nothing": "Şu anda burada seçilecek bir şey yok. Bir sorun varsa <link>sorun bildirin</link>.",
       "planLabel": "{name} planı",
       "paidDetail": "{amount} · {date} tarihinde ödendi",
+      "balanceLabel": "Harcanmamış bakiye",
+      "balanceDetail": "{amount} harcanmamış",
       "alreadyAsked": "· zaten talep edildi",
       "noteLabel": "Ne oldu? (isteğe bağlı)",
       "cancel": "Vazgeç",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "İadeler",
       "reportProblem": "Bir ödemede veya dönüştürmede sorun mu var? <link>Sorun bildirin</link>",
       "reportSubject": "{app}: sorun bildirimi",
-      "needRefund": "İade mi gerekiyor? <button>İade iste</button> · bir ödemenin ardından {days} gün içinde, iptal ettikten sonra da talep edebilirsiniz. Her talebi bir kişi inceler.",
-      "askWithin": "Bir ödemenin ardından {days} gün içinde, iptal ettikten sonra da iade talep edebilirsiniz. Her talebi bir kişi inceler.",
+      "needRefund": "İade mi gerekiyor? <button>İade iste</button>. Her talebi tek tek inceleriz.",
       "appStore": "App Store’dan alınan {pro} iadesini Apple yapar. <link>Apple’dan iade isteyin</link>",
       "yourRequests": "Talepleriniz",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "Her biri {seconds} sn.",
       "eachNoRollover": "Her biri {seconds} sn, devretmez.",
       "balance": "Bakiye",
-      "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin.",
-      "refundable": "Harcanmamış para {days} gün içinde iade edilebilir."
+      "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin."
     }
   },
   "meta": {

@@ -9,7 +9,9 @@
  * usual typed confirmation, not a Radix dialog). The gateway deletes it:
  * it charges what is owed first and refuses while a balance is unpaid or a
  * run is going; a bank's 3DS challenge is completed here and the delete
- * retried once.
+ * retried once. Refund policy (owner 2026-11-07): an unspent balance isn't
+ * returned at deletion; the danger zone says it will be lost (no refund
+ * wording there, owner).
  */
 
 import { useRouter } from "next/navigation";
@@ -22,9 +24,11 @@ import { SignInMethods } from "@/components/auth/SignInMethods";
 import { AccountEmails } from "@/components/auth/AccountEmails";
 import { UserAvatar } from "@/components/auth/UserAvatar";
 import { completeChargeAction } from "@/components/billing/settleAction";
+import { prepaidCents } from "@/components/billing/BalanceCard";
 import { DeleteDues } from "@/components/pay/DeleteDues";
 import { formatCents } from "@/components/steps/money";
 import { GatewayError } from "@/lib/api/client";
+import { prepaidOf } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
@@ -114,10 +118,11 @@ export default function AccountScreen() {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   /** P13: what's owed when delete answered 402 balance_due */
   const [dues, setDues] = useState<number | null>(null);
-  /** 00081: a prepaid balance to refund before the account goes */
-  const [refund, setRefund] = useState<number | null>(null);
-  /** 00081: deletion waits for that refund */
-  const [pending, setPending] = useState<number | null>(null);
+  /** an older gateway's 409 balance_remaining {cents}, when the page
+   * didn't know the balance: say it's lost, then Delete again */
+  const [lostFromGateway, setLostFromGateway] = useState<number | null>(null);
+  const prepaid = prepaidOf(billing.status);
+  const lost = lostFromGateway ?? (prepaid ? prepaidCents(prepaid, billing.status?.plan) : 0);
 
   if (user === null) return null;
 
@@ -145,7 +150,10 @@ export default function AccountScreen() {
     router.replace("/");
   }
 
-  async function onDelete(balanceConfirmed = false) {
+  async function onDelete() {
+    // the line saying the balance is lost is on screen: that's the
+    // confirmation an older gateway asks for (a newer one ignores it)
+    const balanceConfirmed = lost > 0;
     setDeletePending(true);
     setDeleteError(null);
     setDues(null);
@@ -157,13 +165,8 @@ export default function AccountScreen() {
         setScheduled(r.delete_after);
         return;
       }
-      if (r.deletion_pending) {
-        // 00081: the balance is refunded first; the account goes after
-        setDeletePending(false);
-        setRefund(null);
-        setPending(r.refund_cents ?? 0);
-        return;
-      }
+      // an older gateway's deletion_pending (it settles the balance first)
+      // ends the same way: signed out, the account goes
       await signOutUser();
       router.replace("/");
     } catch (err) {
@@ -182,7 +185,7 @@ export default function AccountScreen() {
         return;
       }
       if (typeof owed === "number" && owed > 0) setDues(owed);
-      else if (typeof cash === "number" && cash > 0) setRefund(cash);
+      else if (typeof cash === "number" && cash > 0) setLostFromGateway(cash);
       else setDeleteError(deleteErrorMessage(err, tr));
     }
   }
@@ -348,6 +351,11 @@ export default function AccountScreen() {
         <h2 className="font-medium text-destructive">{tr("account.delete.dangerZone")}</h2>
         <div className="mt-3 space-y-3">
           <DeletePlanNotice state={planState} />
+          {mustCancel || lost <= 0 ? null : (
+            <p data-testid="delete-balance-lost" className="text-sm text-fg">
+              {tr("account.delete.balanceLost", { amount: formatCents(lost, tr) })}
+            </p>
+          )}
           {mustCancel ? null : (
             <div className="space-y-1">
               <label
@@ -366,7 +374,7 @@ export default function AccountScreen() {
                 />
                 <button
                   type="button"
-                  disabled={confirmText !== "DELETE" || deletePending || pending !== null || !planKnown}
+                  disabled={confirmText !== "DELETE" || deletePending || !planKnown}
                   onClick={() => void onDelete()}
                   className="shrink-0 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive transition-colors hover:bg-destructive/20 disabled:opacity-50"
                 >
@@ -374,27 +382,6 @@ export default function AccountScreen() {
                 </button>
               </div>
             </div>
-          )}
-          {refund !== null && (
-            // 00081: confirm the balance refund, then delete
-            <div data-testid="delete-refund" className="flex flex-wrap items-center gap-3 text-sm">
-              <span className="text-fg">
-                {tr("account.delete.refundFirst", { amount: formatCents(refund, tr) })}
-              </span>
-              <button
-                type="button"
-                disabled={deletePending}
-                onClick={() => void onDelete(true)}
-                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-1.5 text-destructive hover:bg-destructive/20 disabled:opacity-50"
-              >
-                {tr("account.delete.refundAndDelete")}
-              </button>
-            </div>
-          )}
-          {pending !== null && (
-            <p data-testid="deletion-pending" className="text-sm text-fg">
-              {tr("account.delete.returning", { amount: formatCents(pending, tr) })}
-            </p>
           )}
           {dues !== null && (
             // P13: pay what's owed in the settle sheet, then delete again

@@ -131,3 +131,29 @@ describe("cases preview: excerpt and runs (BL-29, gateway cf7c121)", () => {
     expect(calls.some((c) => /^\/v1\/admin\/cases\/CASE-/.test(c.path))).toBe(false);
   });
 });
+
+describe("refund policy 2026-11-07: no balance refund at account closure", () => {
+  it("the Reason filter no longer offers closure balance; an old closure case still lists and opens", async () => {
+    const old = {
+      ...casesResponse.cases![1],
+      id: "CASE-0007",
+      type: "balance_refund",
+      reason: "closure_balance",
+    };
+    renderApp("/cases", {
+      "GET /v1/admin/cases": () => ({ json: { ...casesResponse, cases: [old, ...casesResponse.cases!] } }),
+      "GET /v1/admin/cases/CASE-0007": () => apiError(404, "not_found", "case not found"),
+      "GET /v1/admin/mail-previews": () => ({ json: { mails: [] } }),
+    });
+    await screen.findAllByText("CASE-0007");
+    const row = screen.getAllByTestId("case-row").find((r) => r.textContent?.includes("CASE-0007"))!;
+    expect(within(row).getByText(/closure balance/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("combobox", { name: "Reason" }));
+    const options = (await screen.findAllByRole("option")).map((o) => o.textContent);
+    expect(options).toContain("topup withdrawal");
+    expect(options).not.toContain("closure balance");
+    await userEvent.keyboard("{Escape}");
+    await userEvent.click(within(row).getByText("CASE-0007"));
+    expect(window.location.pathname).toBe("/cases/CASE-0007");
+  });
+});

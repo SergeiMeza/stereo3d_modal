@@ -987,10 +987,8 @@
       "typeToConfirm": "Escribe {word} para eliminar tu cuenta de forma permanente",
       "deleting": "Eliminando…",
       "button": "Eliminar cuenta",
-      "refundFirst": "Primero devolvemos tu saldo de {amount} a tu método de pago.",
-      "refundAndDelete": "Reembolsar y eliminar",
-      "returning": "Estamos devolviendo tus {amount}; tu cuenta se elimina cuando termine.",
       "note": "Lo que aún debas se cobra primero a tu método de pago guardado. Tus proyectos, videos y archivos 3D se quitan de tu cuenta de inmediato; los registros de facturación se conservan para soporte.",
+      "balanceLost": "Tu saldo sin gastar de {amount} se perderá al eliminar tu cuenta.",
       "paymentNeededAmount": "Se necesita un pago ({amount}): actualiza tu método de pago en Facturación y luego elimina tu cuenta.",
       "paymentNeeded": "Se necesita un pago: actualiza tu método de pago en Facturación y luego elimina tu cuenta.",
       "failed": "No se pudo eliminar la cuenta."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "Pagado con tu saldo",
       "spendLimitReached": "Alcanzaste tu límite de gasto mensual.",
-      "topupSmallPrint": "Los fondos no gastados se pueden reembolsar en un plazo de 14 días. Tu saldo caduca 12 meses después de tu última recarga.",
+      "topupSmallPrint": "Tu saldo caduca 12 meses después de tu última recarga.",
       "topupMin": "El mínimo es {amount}.",
       "settleFailed": "Tu saldo ya no lo cubre. Paga de otra forma.",
       "paymentMethodBlocked": "No se puede usar este método de pago. Agrega otro.",
@@ -1599,10 +1597,12 @@
       "cancelPlan": "Cancelar plan",
       "done": "Listo",
       "title": "Solicitar un reembolso",
-      "intro": "Elige de qué se trata. Una persona revisa cada solicitud. Puedes pedirlo dentro de {days} días después de un pago.",
-      "nothing": "No se puede reembolsar nada pagado en los últimos {days} días.",
+      "intro": "Elige de qué se trata y cuéntanos qué pasó. Revisamos cada solicitud.",
+      "nothing": "Ahora mismo no hay nada que elegir aquí. <link>Reporta un problema</link> si algo falla.",
       "planLabel": "Plan {name}",
       "paidDetail": "{amount} · pagado el {date}",
+      "balanceLabel": "Saldo sin gastar",
+      "balanceDetail": "{amount} sin gastar",
       "alreadyAsked": "· ya solicitado",
       "noteLabel": "¿Qué pasó? (opcional)",
       "cancel": "Cancelar",
@@ -1617,8 +1617,7 @@
       "ariaLabel": "Reembolsos",
       "reportProblem": "¿Algo falla con un pago o una conversión? <link>Reportar un problema</link>",
       "reportSubject": "{app}: reportar un problema",
-      "needRefund": "¿Necesitas un reembolso? <button>Solicitar un reembolso</button> · pídelo dentro de {days} días después de un pago, también tras cancelar. Una persona revisa cada solicitud.",
-      "askWithin": "Pide un reembolso dentro de {days} días después de un pago, también tras cancelar. Una persona revisa cada solicitud.",
+      "needRefund": "¿Necesitas un reembolso? <button>Solicitar un reembolso</button>. Revisamos cada solicitud.",
       "appStore": "Apple reembolsa el {pro} de la App Store. <link>Pedir un reembolso a Apple</link>",
       "yourRequests": "Tus solicitudes",
       "about": {
@@ -1719,8 +1718,7 @@
       "each": "{seconds} s cada una.",
       "eachNoRollover": "{seconds} s cada una, sin acumulación.",
       "balance": "Saldo",
-      "addFunds": "Añade fondos desde {amount} y paga conversiones con tu saldo.",
-      "refundable": "Los fondos sin gastar se pueden reembolsar dentro de {days} días."
+      "addFunds": "Añade fondos desde {amount} y paga conversiones con tu saldo."
     }
   },
   "meta": {

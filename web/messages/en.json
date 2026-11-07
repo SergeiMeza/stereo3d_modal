@@ -987,10 +987,8 @@
       "typeToConfirm": "Type {word} to permanently delete your account",
       "deleting": "Deleting…",
       "button": "Delete account",
-      "refundFirst": "We return your {amount} balance to your payment method first.",
-      "refundAndDelete": "Refund and delete",
-      "returning": "We're returning your {amount}; your account is deleted once that's done.",
       "note": "Anything you still owe is charged to your saved payment method first. Your projects, videos and 3D files are removed from your account at once; billing records are kept for support.",
+      "balanceLost": "Your unspent balance of {amount} will be lost when your account is deleted.",
       "paymentNeededAmount": "Payment needed ({amount}): update your payment method on Billing, then delete your account.",
       "paymentNeeded": "Payment needed: update your payment method on Billing, then delete your account.",
       "failed": "Failed to delete account."
@@ -1405,7 +1403,7 @@
     "copy": {
       "paidFromBalance": "Paid from your balance",
       "spendLimitReached": "You've reached your monthly spend limit.",
-      "topupSmallPrint": "Unspent funds can be refunded within 14 days. Your balance expires 12 months after your last top-up.",
+      "topupSmallPrint": "Your balance expires 12 months after your last top-up.",
       "topupMin": "The minimum is {amount}.",
       "settleFailed": "Your balance doesn't cover it any more. Pay another way.",
       "paymentMethodBlocked": "This payment method can't be used. Add another one.",
@@ -1735,10 +1733,12 @@
       "cancelPlan": "Cancel plan",
       "done": "Done",
       "title": "Request a refund",
-      "intro": "Pick what it's about. A person reviews every request. You can ask within {days} days of a payment.",
-      "nothing": "Nothing paid in the last {days} days can be refunded.",
+      "intro": "Pick what it's about and tell us what happened. We look at each request.",
+      "nothing": "There's nothing to pick here right now. <link>Report a problem</link> if something's wrong.",
       "planLabel": "{name} plan",
       "paidDetail": "{amount} · paid {date}",
+      "balanceLabel": "Unspent balance",
+      "balanceDetail": "{amount} unspent",
       "alreadyAsked": "· already asked for",
       "noteLabel": "What happened? (optional)",
       "cancel": "Cancel",
@@ -1753,8 +1753,7 @@
       "ariaLabel": "Refunds",
       "reportProblem": "Something wrong with a payment or a run? <link>Report a problem</link>",
       "reportSubject": "{app}: report a problem",
-      "needRefund": "Need a refund? <button>Request a refund</button> · ask within {days} days of a payment, also after cancelling. A person reviews every request.",
-      "askWithin": "Ask for a refund within {days} days of a payment, also after cancelling. A person reviews every request.",
+      "needRefund": "Need a refund? <button>Ask for a refund</button>. We look at each request.",
       "appStore": "{pro} from the App Store is refunded by Apple. <link>Ask Apple for a refund</link>",
       "yourRequests": "Your requests",
       "about": {
@@ -1855,8 +1854,7 @@
       "each": "{seconds} s each.",
       "eachNoRollover": "{seconds} s each, no rollover.",
       "balance": "Balance",
-      "addFunds": "Add funds from {amount} and pay runs from your balance.",
-      "refundable": "Unspent funds can be refunded within {days} days."
+      "addFunds": "Add funds from {amount} and pay runs from your balance."
     }
   },
   "meta": {
