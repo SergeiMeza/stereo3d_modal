@@ -18,9 +18,11 @@ import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import type { HandoffInfo } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { SITE_NAME } from "@/lib/site";
 
+import { checkoutCurrencyLine } from "./payCopy";
 import { Success } from "./PaySheet";
 import { useSheetFrame } from "./SheetFrame";
 
@@ -44,6 +46,7 @@ type State =
 export function HandoffPage({ code }: { code: string }): JSX.Element {
   const gateway = useGateway();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const back = useSearchParams().get("back") === "1";
   const phone = useSheetFrame() === "phone";
   const [state, setState] = useState<State>({ kind: "loading" });
@@ -135,7 +138,9 @@ export function HandoffPage({ code }: { code: string }): JSX.Element {
             <p className="text-xs text-fg-muted">{t("pay.copy.refundedIfFails")}</p>
           </div>
           <ul className="flex flex-col gap-1 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
-            <li>{t("pay.copy.chargedInUsd")}</li>
+            {/* owner 2026-11-07: the card path's Checkout offers the local
+                price while the gateway does; Alipay and WeChat Pay stay USD */}
+            <li>{state.info.china ? t("pay.copy.chargedInUsd") : checkoutCurrencyLine(localPrice, t)}</li>
             <li>{t("pay.copy.withdrawal")}</li>
           </ul>
           {state.info.email_masked ? (

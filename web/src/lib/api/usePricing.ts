@@ -24,6 +24,12 @@ export function usePricing(): PublicPricing | null {
   return pricing.use(() => gateway.getPricing());
 }
 
+/** owner 2026-11-07 (Option B): whether checkout offers the local currency
+ * (GET /v1/pricing adaptive_pricing; false until it says so). */
+export function useLocalPriceAtCheckout(): boolean {
+  return usePricing()?.adaptive_pricing === true;
+}
+
 /** Lifelike's lowest per-minute price ("from $3.82 a minute", S3D-11),
  * over the qualities the gateway enables. */
 export function fromPerMinute(p: PublicPricing): number | null {

@@ -27,6 +27,7 @@ import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { methodLabel, useBillingMethods } from "@/lib/api/usePaymentMethods";
 import { useBilling } from "@/lib/billing";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { chinaPayments } from "@/lib/paymentRegion";
@@ -36,6 +37,7 @@ import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { Success, SUCCESS_CLOSE_MS } from "./PaySheet";
 import {
   autoReloadBlocked,
+  checkoutCurrencyLine,
   reloadConsent,
   topupDayLeft,
   topupDone,
@@ -105,6 +107,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const gateway = useGateway();
   const billing = useBilling();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const big = useSheetFrame() === "headset";
   const prepaid = prepaidOf(billing.status);
   const first = prepaid?.never_topped_up !== false;
@@ -266,7 +269,7 @@ export function AddFundsSheet({ onClose }: { onClose: () => void }): JSX.Element
   const footer = (form?: { ready: boolean; confirm: () => Promise<ConfirmResult> }) => (
     <div className="flex flex-col gap-3">
       <p className="flex items-center gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
-        {t("pay.copy.chargedInUsd")}
+        {checkoutCurrencyLine(localPrice, t)}
       </p>
       <Button
         size="lg"

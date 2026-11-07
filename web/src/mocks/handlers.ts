@@ -404,6 +404,9 @@ interface DB {
    * starts, through the pay-now sheet); on in unit tests, which cover the
    * charged-after path */
   deferredPayments: boolean;
+  /** GET /v1/pricing adaptive_pricing (owner 2026-11-07): off like prod at
+   * launch; tests turn it on */
+  adaptivePricing: boolean;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -1016,6 +1019,7 @@ function seed(): DB {
     methodMaxDurationS: { lifelike: 0, classic: 600 },
     chargeBeforeCents: 2500,
     deferredPayments: typeof process !== "undefined" && !!process.env?.VITEST,
+    adaptivePricing: false,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -1084,6 +1088,7 @@ export const mockDb = {
     this.methodMaxDurationS = fresh.methodMaxDurationS;
     this.chargeBeforeCents = fresh.chargeBeforeCents;
     this.deferredPayments = fresh.deferredPayments;
+    this.adaptivePricing = fresh.adaptivePricing;
     this.nextWaitsForGpu = fresh.nextWaitsForGpu;
     this.methodAvailable = fresh.methodAvailable;
     this.lifelikeFoveation = fresh.lifelikeFoveation;
@@ -4700,6 +4705,7 @@ export const handlers = [
       pro_discount: { ...MOCK_PRO, pct: mockProPct() },
       ...(mockDb.tierPricing ? publicTiers() : {}),
       campaign: publicCampaign(),
+      adaptive_pricing: mockDb.adaptivePricing,
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
       pro_credit: MOCK_PRO_CREDIT,

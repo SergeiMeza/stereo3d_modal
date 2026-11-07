@@ -18,6 +18,7 @@ import { GatewayError } from "@/lib/api/client";
 import type { PlanDef } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { awaitPlanCredit } from "@/lib/billing";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { proSourceKind, useProStatus, type ProStatus } from "@/lib/pro/usePro";
@@ -25,6 +26,7 @@ import { SITE_NAME } from "@/lib/site";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { checkoutEmailAtom } from "./payAtoms";
+import { checkoutCurrencyLine } from "./payCopy";
 import { PlanEmailPrompt } from "@/components/billing/PlanEmailPrompt";
 import { useAppAtomValue } from "@/lib/state/stores";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
@@ -97,6 +99,7 @@ export function PlanSheet({
 }): JSX.Element {
   const gateway = useGateway();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const pro = useProStatus();
   const proNote = proNoteFor(pro, def.name, t);
   const big = useSheetFrame() === "headset";
@@ -184,7 +187,7 @@ export function PlanSheet({
             footer={
               <MainButtonArea
                 big={big}
-                lines={[t("pay.copy.chargedInUsd"), renewsLine]}
+                lines={[checkoutCurrencyLine(localPrice, t), renewsLine]}
                 button={
                   <Button
                     size="lg"

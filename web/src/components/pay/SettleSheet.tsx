@@ -20,11 +20,12 @@ import { Button } from "@/components/ui/button";
 import { prepaidOf, type CheckoutStart } from "@/lib/api/types";
 import { useGateway } from "@/lib/api/useGateway";
 import { useBilling } from "@/lib/billing";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { MainButtonArea, StateLine, Success, SUCCESS_CLOSE_MS } from "./PaySheet";
-import { paidMoreWaiting, settleSubtitle } from "./payCopy";
+import { checkoutCurrencyLine, paidMoreWaiting, settleSubtitle } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -75,6 +76,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
   const gateway = useGateway();
   const billing = useBilling();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const big = useSheetFrame() === "headset";
   const [phase, setPhase] = useState<Phase>({ kind: "loading" });
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -178,7 +180,7 @@ export function SettleSheet({ onClose }: { onClose: (paid: boolean) => void }): 
             footer={
               <MainButtonArea
                 big={big}
-                lines={[t("pay.copy.chargedInUsd")]}
+                lines={[checkoutCurrencyLine(localPrice, t)]}
                 button={
                   <Button
                     size="lg"

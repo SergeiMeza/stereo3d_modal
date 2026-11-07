@@ -12,6 +12,14 @@ import { formatCents, formatCentsShort } from "@/components/steps/money";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export const CHARGED_IN_USD = EN("pay.copy.chargedInUsd");
+export const LOCAL_AT_CHECKOUT = EN("pay.copy.localAtCheckout");
+
+/** The currency line on a checkout sheet (owner 2026-11-07, Option B):
+ * "You'll see your local price at checkout." while the gateway offers the
+ * local currency (Adaptive Pricing), else "Charged in US dollars." */
+export function checkoutCurrencyLine(localPrice: boolean, t: Tr = EN): string {
+  return localPrice ? t("pay.copy.localAtCheckout") : t("pay.copy.chargedInUsd");
+}
 export const WITHDRAWAL_LINE = EN("pay.copy.withdrawal");
 export const REFUNDED_IF_FAILS = EN("pay.copy.refundedIfFails");
 export const SAVE_LINE = EN("pay.copy.saveLine");

@@ -14,7 +14,7 @@ import { qualityName } from "@/lib/glossary";
 import { fpsLabel, quotedFps } from "./frameRate";
 import { formatCents, formatCentsShort } from "./money";
 import { proPercent, ProSaveLink } from "@/components/pricing/ProOffer";
-import { usePricing } from "@/lib/api/usePricing";
+import { useLocalPriceAtCheckout, usePricing } from "@/lib/api/usePricing";
 import { foveatedDetail, foveationIncludedApplied } from "@/lib/foveation";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
@@ -168,6 +168,7 @@ export function QuoteView({
   bare?: boolean;
 }): JSX.Element {
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const b: QuoteBreakdown = result.quote.breakdown ?? {};
   const total = result.quote.amount_cents;
   // pricing 2026-11: one discount line (the tier's price or bulk, never
@@ -451,6 +452,13 @@ export function QuoteView({
           {formatCents(total, t)}
         </span>
       </div>
+      {/* owner 2026-11-07 (Option B): Stripe shows the local price when
+          paying, while the gateway offers it */}
+      {localPrice && total > 0 && !freePreview ? (
+        <p data-testid="quote-local-note" className="text-end text-xs text-fg-muted">
+          {t("pay.copy.localAtCheckout")}
+        </p>
+      ) : null}
       {/* gateway 00166: how it'd be paid, in the gateway's words */}
       {result.pay_split?.text && !freePreview ? (
         <p data-testid="quote-pay-split" className="text-end text-xs text-fg-muted tabular-nums">

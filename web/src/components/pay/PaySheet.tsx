@@ -24,11 +24,12 @@ import type { CheckoutHandle, Conversion, ConversionBilling } from "@/lib/api/ty
 import { useGateway } from "@/lib/api/useGateway";
 import { versionOf, type LiveRun } from "@/lib/live/events";
 import { useLiveRunById } from "@/lib/live/useLive";
+import { useLocalPriceAtCheckout } from "@/lib/api/usePricing";
 import { useT } from "@/lib/i18n/I18nProvider";
 
 import { CheckoutPane, type ConfirmResult } from "./CheckoutPane";
 import { HandoffSheet } from "./HandoffSheet";
-import { declinedChoose, payAndStart } from "./payCopy";
+import { checkoutCurrencyLine, declinedChoose, payAndStart } from "./payCopy";
 import { SheetFrame, useSheetFrame } from "./SheetFrame";
 
 type Phase =
@@ -111,6 +112,7 @@ export function PaySheet({
 }): JSX.Element {
   const gateway = useGateway();
   const t = useT();
+  const localPrice = useLocalPriceAtCheckout();
   const frame = useSheetFrame();
   const big = frame === "headset";
   // The form needs the gateway's publishable key: Stripe given an empty
@@ -266,7 +268,9 @@ export function PaySheet({
               footer={
                 <MainButtonArea
                   big={big}
-                  lines={[t("pay.copy.chargedInUsd"), t("pay.copy.withdrawal")]}
+                  // owner 2026-11-07 (Option B): the local price while the
+                  // gateway offers it, else "Charged in US dollars"
+                  lines={[checkoutCurrencyLine(localPrice, t), t("pay.copy.withdrawal")]}
                   extra={alipay ? t("pay.copy.alipayLine") : undefined}
                   button={
                     elsewhereFirst ? (

@@ -775,6 +775,9 @@ export interface BillingBalance {
 export interface PublicPricing {
   rate_version?: string;
   currency: string;
+  /** owner 2026-11-07 (Option B): checkout offers the customer's local
+   * currency (Stripe Adaptive Pricing); missing means off */
+  adaptive_pricing?: boolean;
   methods: {
     lifelike?: {
       presets: Preset[];
