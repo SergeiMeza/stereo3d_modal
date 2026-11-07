@@ -1345,6 +1345,16 @@
       "notFinished": "Payment not finished.",
       "opening": "Opening…",
       "continue": "Continue to payment"
+    },
+    "request": {
+      "pay": "Pay {amount}",
+      "paid": "Paid. Thank you.",
+      "void": "This payment isn't needed any more.",
+      "expired": "This payment link has expired. Sign in and open Billing to pay.",
+      "bad": "This payment link isn't valid.",
+      "confirmWithBank": "Confirm your payment with your bank.",
+      "bankDidntConfirm": "Your bank didn't confirm the payment.",
+      "payOnInvoice": "Pay on the invoice page"
     }
   },
   "balance": {
@@ -1822,6 +1832,9 @@
     },
     "pro": {
       "description": "{site} {pro}: lower prices on every 3D video on the web, usage credit when you join, free previews, and {pro} in the app on iPhone, iPad, Mac and Vision Pro."
+    },
+    "payRequest": {
+      "title": "Make a payment"
     }
   },
   "onboarding": {

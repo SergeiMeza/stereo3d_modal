@@ -9,6 +9,8 @@ import { EN, type Tr } from "@/lib/i18n/t";
 import { isReauthCode } from "@/lib/reauth";
 import type {
   AccountDeleteResult,
+  PayRequest,
+  PayRequestCheckout,
   AccountDeletionCancel,
   AccountPlan,
   AccountSettings,
@@ -789,6 +791,21 @@ export class GatewayClient {
   }
 
   /** P8 (public): what the link pays for; 404 bad link, 429 too many */
+  /** D7 (public): the payment a failure mail links to */
+  getPayRequest(token: string): Promise<PayRequest> {
+    return this.request("GET", `/v1/pay-requests/${encodeURIComponent(token)}`, undefined, undefined, {
+      anonymous: true,
+    });
+  }
+
+  /** D7 (public): our payment form, the hosted invoice, or a step-up's
+   * bank confirmation */
+  startPayRequest(token: string): Promise<PayRequestCheckout> {
+    return this.request("POST", `/v1/pay-requests/${encodeURIComponent(token)}/checkout`, {}, undefined, {
+      anonymous: true,
+    });
+  }
+
   getHandoff(code: string): Promise<HandoffInfo> {
     return this.request("GET", `/v1/handoff/${encodeURIComponent(code)}`, undefined, undefined, {
       anonymous: true,

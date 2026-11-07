@@ -523,6 +523,43 @@ export interface Presentment {
   currency: string;
 }
 
+/** D7 (owner 2026-11-07): GET /v1/pay-requests/{token}, public: the one
+ * payment a failure mail links to (/pay/{token}). Never carries an email. */
+export interface PayRequest {
+  kind: "topup" | "settle" | "stepup" | "invoice";
+  amount_cents: number;
+  currency: string;
+  label: string;
+  state: "open" | "paid" | "void" | "expired";
+  expires_at?: string | null;
+}
+
+/** POST /v1/pay-requests/{token}/checkout: our payment form, the hosted
+ * invoice, or a step-up's bank confirmation. */
+export interface PayRequestCheckout {
+  checkout?: { client_secret: string; expires_at: string };
+  publishable_key?: string;
+  url?: string;
+  state?: "requires_action";
+  client_secret?: string;
+  hosted_invoice_url?: string;
+}
+
+/** An off-session charge being retried (owner 2026-11-07, D):
+ * prepaid.auto_reload.retry, dues_retry on the deletion and account
+ * reads, and the admin views. */
+export interface PaymentRetry {
+  state: "pending" | "final" | "paid" | "canceled";
+  reason?: "soft_decline" | "authentication_required" | "hard_decline" | "stop_code" | "config";
+  attempts?: number;
+  max_attempts?: number;
+  next_attempt_at?: string | null;
+  final_at?: string | null;
+  amount_cents: number;
+  pay_url?: string | null;
+  last_error_message?: string | null;
+}
+
 export interface Conversion {
   conversion_id: string;
   /** owner 2026-11-07: what the card was charged in its own currency */
@@ -1012,6 +1049,15 @@ export interface AccountPlan {
    * either name is read) */
   restored_from?: string | null;
   renewable?: boolean;
+  /** owner 2026-11-07 (D): the renewal didn't go through; the plan's
+   * benefits continue meanwhile */
+  past_due?: boolean;
+  payment_failed_at?: string | null;
+  next_payment_attempt_at?: string | null;
+  /** the bank wants the customer to confirm (3DS) */
+  action_required?: boolean;
+  amount_due_cents?: number | null;
+  pay_url?: string | null;
 }
 
 export interface ProDiscount {
@@ -1242,6 +1288,8 @@ export interface BalanceSummary {
      * the reload in the currency the account last paid in; the charge
      * itself is in US dollars. Missing: no estimate shown. */
     estimate?: Presentment | null;
+    /** owner 2026-11-07 (D): a reload being retried (paused meanwhile) */
+    retry?: PaymentRetry | null;
   };
   /** owner 2026-11-07 (name to be confirmed): the currency the account's
    * last card payment was in ("jpy"); off-session charges stay USD */
@@ -1538,6 +1586,8 @@ export interface BillingStatus {
   plan?: AccountPlan | null;
   /** owner 2026-11-07: the account's Pro credit (null: none) */
   pro_credit?: ProCreditStatus | null;
+  /** owner 2026-11-07 (D): what the account owes, being retried */
+  dues_retry?: PaymentRetry | null;
 }
 
 /** POST /v1/billing/restore: Restore Purchases (owner 2026-11-06). The

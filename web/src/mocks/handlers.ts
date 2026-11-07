@@ -312,7 +312,9 @@ function addTopup(cents: number, kind: "topup" | "auto_reload", detail?: string)
 
 /** spec v6: one open payment (a run's, or the settle's). */
 interface MockCheckout {
-  kind: "run" | "settle" | "setup" | "topup" | "plan";
+  kind: "run" | "settle" | "setup" | "topup" | "plan" | "pay_request";
+  /** kind "pay_request": its token */
+  token?: string;
   /** kind "plan": business | studio */
   plan?: "business" | "studio";
   conversion_id?: string;
@@ -410,6 +412,9 @@ interface DB {
   /** GET /v1/pricing adaptive_pricing (owner 2026-11-07): off like prod at
    * launch; tests turn it on */
   adaptivePricing: boolean;
+  /** D7 pay requests by token (tests add them); flow: what POST checkout
+   * answers */
+  payRequests: Map<string, import("@/lib/api/types").PayRequest & { flow: "checkout" | "url" | "requires_action"; secret?: string }>;
   /** GET /v1/pricing china_payments: off in the dev mock like the gateway
    * at launch ("coming soon"), on in unit tests (the Alipay paths) */
   chinaPayments: boolean;
@@ -1027,6 +1032,7 @@ function seed(): DB {
     chargeBeforeCents: 2500,
     deferredPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     adaptivePricing: false,
+    payRequests: new Map(),
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
@@ -4222,12 +4228,45 @@ export const handlers = [
 
   // spec v6: what our sheet's confirm does in the mock (in place of the
   // processor): paid / declined / processing / too_many
+  // D7: the payment a failure mail links to (public)
+  http.get(`${GATEWAY}/v1/pay-requests/:token`, ({ params }) => {
+    const r = mockDb.payRequests.get(String(params.token));
+    if (!r) return err(404, "not_found", "no such payment");
+    const { flow: _f, secret: _s, ...body } = r;
+    void _f;
+    void _s;
+    return HttpResponse.json(body);
+  }),
+  http.post(`${GATEWAY}/v1/pay-requests/:token/checkout`, ({ params }) => {
+    const token = String(params.token);
+    const r = mockDb.payRequests.get(token);
+    if (!r) return err(404, "not_found", "no such payment");
+    if (r.state === "paid") return err(409, "already_paid", "already paid");
+    if (r.state !== "open") return err(410, r.state, "this payment is closed");
+    if (r.flow === "url") return HttpResponse.json({ url: `https://invoice.stripe.com/i/mock/${token}` });
+    if (r.flow === "requires_action") {
+      r.secret = `pi_mock_${token}_secret`;
+      return HttpResponse.json({ state: "requires_action", client_secret: r.secret, hosted_invoice_url: `https://invoice.stripe.com/i/mock/${token}` });
+    }
+    const secret = `cs_mock_pr_${token}_${newId()}`;
+    const expires = new Date(Date.now() + 30 * 60_000).toISOString();
+    mockDb.billing.checkouts.set(secret, { kind: "pay_request", token, amount_cents: r.amount_cents, state: "open", expires_at: expires });
+    return HttpResponse.json({ checkout: { client_secret: secret, expires_at: expires } });
+  }),
+
   http.post(`${GATEWAY}/__mock__/checkout/:secret/confirm`, ({ params }) => {
     const b = mockDb.billing;
     const ch = b.checkouts.get(params.secret as string);
     if (!ch) return err(404, "not_found", "no such payment");
     if (ch.state === "expired") return HttpResponse.json({ result: "expired" });
     if (ch.state === "paid") return HttpResponse.json({ result: "already_paid" });
+    if (ch.kind === "pay_request") {
+      if (b.nextConfirm !== "paid") return HttpResponse.json({ result: b.nextConfirm });
+      ch.state = "paid";
+      const r = mockDb.payRequests.get(ch.token ?? "");
+      if (r) r.state = "paid";
+      return HttpResponse.json({ result: "paid" });
+    }
     if (ch.kind === "plan" && String(ch.plan).startsWith("pro_")) {
       ch.state = "paid";
       startMockPro(String(ch.plan));
@@ -4569,6 +4608,9 @@ export const handlers = [
     }
     mockDb.billing.unpaid = [];
     mockDb.billing.settleOutcome = "success";
+    for (const r of mockDb.payRequests.values()) {
+      if (r.secret !== undefined && r.secret === client_secret) r.state = "paid";
+    }
     return HttpResponse.json({ ok: true });
   }),
 
