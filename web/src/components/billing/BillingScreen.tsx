@@ -38,7 +38,7 @@ import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTa
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
-import { PaymentIssues } from "./PaymentIssues";
+import { groupRetryLine, PaymentIssues } from "./PaymentIssues";
 import { useBillingVersion, useFallbackTick } from "@/lib/live/useLive";
 import { formatCents, formatUsdLabeled, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
@@ -284,6 +284,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
   const t = useT();
   const [open, setOpen] = useState(false);
   const { openSettle } = useSettle();
+  const billingStatus = useBilling().status;
   if (isNoMoney(row)) return <NoMoneyRow row={row} />;
   // plan rows come without run items
   const items = row.items ?? [];
@@ -323,6 +324,8 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
   // beside another currency the US dollars say so ("USD 49.72")
   const usdLabeled = `${minus}${formatUsdLabeled(usdAbs, t.intl)}`;
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
+  // ffa5785: a failed web group's schedule on the runs' Payment needed row
+  const retryLine = row.status === "payment_needed" && !planRow ? groupRetryLine(billingStatus, t) : null;
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
       <div className="grid grid-cols-[auto_1fr_auto] items-center gap-x-3 gap-y-1 py-2.5 text-sm sm:grid-cols-[3.5rem_1fr_6rem_9rem_8rem_auto_auto]">
@@ -365,7 +368,13 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
         <span data-testid="row-status" className={`col-span-2 text-xs sm:col-span-1 ${s.cls}`}>
           <span aria-hidden className="me-1.5 inline-block size-1.5 -translate-y-px rounded-full bg-current" />
           {s.label}
-          {s.help ? <span className="block text-[11px] text-fg-muted">{s.help}</span> : null}
+          {retryLine ? (
+            <span data-testid="row-retry" className="block text-[11px] text-fg-muted">
+              {retryLine}
+            </span>
+          ) : s.help ? (
+            <span className="block text-[11px] text-fg-muted">{s.help}</span>
+          ) : null}
         </span>
         <span className="flex items-center gap-3 text-xs">
           {row.status === "payment_needed" && planRow && row.invoice?.hosted_invoice_url ? (

@@ -15,7 +15,11 @@
  *
  * - what the account owes (an open settle, unpaid runs): "You have $3.75
  *   to pay. Your downloads come back as soon as it's paid." (QA
- *   2026-11-07: it showed only inside the History row).
+ *   2026-11-07: it showed only inside the History row). A failed web
+ *   group being retried (billing.retry, gateway ffa5785) says "We'll try
+ *   again on Nov 9." instead while pending; once final, the owed line
+ *   with the reason under it. Pay now opens the settle sheet either way
+ *   (one tap there when the gateway offers it).
  *
  * Each has Pay now: the settle sheet for what's owed, else the pay page
  * its pay_url names (/pay/{token}).
@@ -33,7 +37,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 
 export interface PaymentIssue {
-  id: "owed" | "past_due" | "reload_retry" | "dues_retry";
+  id: "owed" | "batch_retry" | "past_due" | "reload_retry" | "dues_retry";
   text: string;
   /** "owed": Pay now opens the settle sheet (no pay_url) */
   settle?: boolean;
@@ -67,7 +71,15 @@ export function paymentIssues(status: BillingStatus | null, t: Tr = EN): Payment
   // and a review has its own line.
   const owed = outstandingCents(status);
   if (owed > 0 && status.outstanding?.settling !== true && status.flow_state !== "under_review") {
-    out.push({ id: "owed", text: t("billing.issues.owed", { amount: formatCents(owed, t) }), detail: null, payUrl: null, settle: true });
+    // ffa5785: a failed web group's schedule (app accounts have none)
+    const group = status.retry ?? null;
+    const groupText = group?.state === "pending" ? retryText(group, t) : null;
+    if (group && groupText) {
+      out.push({ id: "batch_retry", text: groupText, detail: group.last_error_message ?? null, payUrl: group.pay_url ?? null, settle: true });
+    } else {
+      const reason = group?.state === "final" ? (group.last_error_message ?? null) : null;
+      out.push({ id: "owed", text: t("billing.issues.owed", { amount: formatCents(owed, t) }), detail: reason, payUrl: null, settle: true });
+    }
   }
   const plan = status.plan;
   if (plan?.past_due) {
@@ -137,4 +149,17 @@ export function PaymentIssues(): JSX.Element | null {
       ))}
     </div>
   );
+}
+
+/** ffa5785: the "Payment needed" row's line from its groups' schedules:
+ * the next try while one is pending, else the newest final reason; null
+ * for app groups (no schedule). */
+export function groupRetryLine(status: BillingStatus | null, t: Tr = EN): string | null {
+  const retries = (status?.unpaid ?? []).map((u) => u.retry).filter((r): r is PaymentRetry => !!r);
+  const pending = retries
+    .filter((r) => r.state === "pending")
+    .sort((a, b) => String(a.next_attempt_at ?? "").localeCompare(String(b.next_attempt_at ?? "")))[0];
+  if (pending) return retryText(pending, t);
+  const final = retries.find((r) => r.state === "final");
+  return final ? (final.last_error_message ?? t("billing.issues.failed")) : null;
 }

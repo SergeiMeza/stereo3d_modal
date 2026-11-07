@@ -10,7 +10,7 @@ import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest
 import AccountScreen from "@/components/auth/AccountScreen";
 import { BalanceDialogsProvider } from "@/components/pay/BalanceDialogs";
 import { SettleProvider } from "@/components/pay/SettleSheet";
-import type { AccountPlan } from "@/lib/api/types";
+import type { AccountPlan, PaymentRetry } from "@/lib/api/types";
 import { AuthProvider } from "@/lib/auth";
 import { BillingProvider } from "@/lib/billing";
 import { makeTr } from "@/lib/i18n/t";
@@ -225,5 +225,88 @@ describe("payments being retried", () => {
     const issue = await screen.findByTestId("payment-issue-dues_retry");
     expect(within(issue).getByTestId("payment-issue-detail-dues_retry").textContent).toBe("Your card has insufficient funds.");
     expect(issue.textContent).not.toContain("insufficient_funds");
+  });
+});
+
+describe("a failed web group being retried (gateway ffa5785)", () => {
+  const pending: PaymentRetry & { state: "pending" } = {
+    state: "pending",
+    reason: "soft_decline",
+    attempts: 1,
+    max_attempts: 3,
+    next_attempt_at: NEXT,
+    last_error_message: "Your card was declined.",
+    amount_cents: 375,
+    pay_url: "/pay/tok_owed",
+  };
+  function failedGroup(retry: PaymentRetry | null): void {
+    mockDb.billing.unpaid.push({
+      batch_id: "bgroup000001",
+      amount_cents: 375,
+      currency: "usd",
+      needs_action: false,
+      ...(retry ? { retry } : {}),
+    });
+    mockDb.billing.batchRetry = retry;
+  }
+  function screenWithSettle(): void {
+    render(
+      <AuthProvider>
+        <BillingProvider>
+          <SettleProvider>
+            <BalanceDialogsProvider>
+              <BillingScreen />
+            </BalanceDialogsProvider>
+          </SettleProvider>
+        </BillingProvider>
+      </AuthProvider>,
+    );
+  }
+
+  it("pending: the banner says when we'll try again, with the reason, and Pay now opens the settle sheet", async () => {
+    failedGroup(pending);
+    screenWithSettle();
+    const issue = await screen.findByTestId("payment-issue-batch_retry");
+    expect(issue.textContent).toContain("A payment didn't go through. We'll try again on Nov 9.");
+    expect(within(issue).getByTestId("payment-issue-detail-batch_retry").textContent).toBe("Your card was declined.");
+    // one line for the debt, not two
+    expect(screen.queryByTestId("payment-issue-owed")).toBeNull();
+    fireEvent.click(within(issue).getByTestId("payment-issue-pay-batch_retry"));
+    expect(await screen.findByTestId("settle-sheet")).toBeTruthy();
+  });
+
+  it("pending with one tap offered: Pay now leads with it", async () => {
+    failedGroup(pending);
+    mockDb.oneTap = { ...mockDb.oneTap, enabled: true };
+    screenWithSettle();
+    fireEvent.click(await screen.findByTestId("payment-issue-pay-batch_retry"));
+    expect((await screen.findByTestId("one-tap-pay")).textContent).toBe("Pay US$3.75 with Visa •••• 4242");
+  });
+
+  it("final: the owed banner with the reason and Pay now", async () => {
+    failedGroup({ ...pending, state: "final", next_attempt_at: null });
+    banner();
+    const issue = await screen.findByTestId("payment-issue-owed");
+    expect(issue.textContent).toContain("You have $3.75 to pay.");
+    expect(within(issue).getByTestId("payment-issue-detail-owed").textContent).toBe("Your card was declined.");
+    expect(within(issue).getByTestId("payment-issue-pay-owed").textContent).toBe("Pay now");
+    expect(screen.queryByTestId("payment-issue-batch_retry")).toBeNull();
+  });
+
+  it("the Payment needed row says when we'll try again", async () => {
+    failedGroup(pending);
+    screenWithSettle();
+    const line = await screen.findByTestId("row-retry");
+    expect(line.textContent).toBe("A payment didn't go through. We'll try again on Nov 9.");
+  });
+
+  it("an app account (no retry anywhere): the owed banner and the row as before", async () => {
+    failedGroup(null);
+    screenWithSettle();
+    const issue = await screen.findByTestId("payment-issue-owed");
+    expect(within(issue).queryByTestId("payment-issue-detail-owed")).toBeNull();
+    await screen.findByTestId("row-row_outstanding");
+    expect(screen.queryByTestId("row-retry")).toBeNull();
+    expect(screen.queryByTestId("payment-issue-batch_retry")).toBeNull();
   });
 });

@@ -1565,6 +1565,9 @@ export interface UnpaidCharge {
   currency: string;
   needs_action: boolean;
   client_secret?: string;
+  /** deferred-ready (gateway ffa5785): a failed web group's retry
+   * schedule (never on app groups) */
+  retry?: PaymentRetry | null;
 }
 
 /** The account's open billing batch: succeeded steps accumulate here and
@@ -1620,6 +1623,9 @@ export interface BillingStatus {
   pro_credit?: ProCreditStatus | null;
   /** owner 2026-11-07 (D): what the account owes, being retried */
   dues_retry?: PaymentRetry | null;
+  /** deferred-ready (gateway ffa5785): the newest failed web group's
+   * retry schedule, for the banner; absent for app accounts */
+  retry?: PaymentRetry | null;
 }
 
 /** POST /v1/billing/restore: Restore Purchases (owner 2026-11-06). The
