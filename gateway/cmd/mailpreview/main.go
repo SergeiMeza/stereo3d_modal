@@ -121,7 +121,7 @@ var refundMailRows = []copyRow{
 		Note:   "Kept: a failed 3D video is refunded in full."},
 	{Key: "E6 / E9-E12 (refund requests)", Surface: "Mail",
 		Before: "Your case: CASE-0042.",
-		After:  "Reference: CASE-0042",
+		After:  "Reference: REF-0042",
 		Note:   "Kept; a refund is decided one request at a time. \"Case\" became \"Reference\"."},
 }
 

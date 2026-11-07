@@ -123,7 +123,7 @@ func (r runInfo) rows(lang string) []mail.Row {
 	} else {
 		made.Value = joinDot(r.product(), made.Value)
 	}
-	rows := []mail.Row{{Label: t(lang, "label.video"), Value: r.name(lang)}, made}
+	rows := []mail.Row{{Label: t(lang, lifelikeKey(r.Lifelike, "label.video")), Value: r.name(lang)}, made}
 	if r.Offer != "" {
 		rows = append(rows, mail.Row{Label: t(lang, "label.offer"), Value: r.Offer})
 	}
@@ -156,11 +156,11 @@ func orderConfirmationMail(run runInfo, amount, link string, consumer bool) cust
 		l := mail.Layout{Lang: lang, Subject: t(lang, lifelikeKey(run.Lifelike, "e1.subject")), Title: t(lang, lifelikeKey(run.Lifelike, "e1.title")),
 			Lifelike: run.Lifelike}
 		l.Preheader = t(lang, "e1.preheader")
-		l.Paras = []string{t(lang, "e1.body")}
+		l.Paras = []string{t(lang, lifelikeKey(run.Lifelike, "e1.body"))}
 		l.Rows = append(run.rows(lang), mail.Row{Label: t(lang, "label.paid"), Value: amount, Total: true})
 		l.After = []string{t(lang, "e1.reassure")}
 		if consumer {
-			l.Notes = append(l.Notes, t(lang, "e1.consent"))
+			l.Notes = append(l.Notes, t(lang, lifelikeKey(run.Lifelike, "e1.consent")))
 		}
 		l.Button, l.ButtonURL = t(lang, "e1.button"), link
 		l.Reason = t(lang, "common.reason.purchase")
@@ -528,7 +528,7 @@ func (w caseWhat) text(lang string) string {
 }
 
 func refRow(lang, ref string) []mail.Row {
-	return []mail.Row{{Label: t(lang, "label.reference"), Value: ref}}
+	return []mail.Row{{Label: t(lang, "label.reference"), Value: store.CaseRef(ref)}}
 }
 
 // refundedMail is E6: to the payment method (card), to the balance,

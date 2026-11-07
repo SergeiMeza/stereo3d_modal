@@ -266,7 +266,7 @@ func readyMail(items []readyItem, keep *time.Time, link string) customerMail {
 			l.Notes = append(l.Notes, mail.T(lang, "ready.keep", mail.Args{"date": mail.FormatDate(lang, *keep)}))
 		}
 		l.Button, l.ButtonURL = t(lang, "ready.button"), link
-		l.Reason = t(lang, "common.reason.ready")
+		l.Reason = t(lang, lifelikeKey(allLifelike, "common.reason.ready"))
 		return l
 	}}
 }
