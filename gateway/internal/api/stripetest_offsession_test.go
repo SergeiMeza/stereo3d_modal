@@ -689,3 +689,37 @@ func TestStripeTestRenewalDunning(t *testing.T) {
 	}
 	_, _ = subscription.Cancel(sub, nil)
 }
+
+// Web groups (deferred-ready) on real Stripe: under pmc_web; a refused
+// default (another customer's method: invalid_request, no PaymentIntent)
+// goes on to the backup under its own key. A real Link or PayPal default
+// can't be made in test mode (publishable-key tokenization is off): 3DS
+// verifies that one in a browser after the merge.
+func TestStripeTestWebBatch(t *testing.T) {
+	s := stService(t)
+	ctx := context.Background()
+	_, _, foreign := stCustomer(t, s, "batch-foreign", "pm_card_visa")
+	for _, tc := range []struct {
+		name string
+		pms  []string
+	}{
+		{"batch-visa", []string{"pm_card_visa"}},
+		{"batch-refused-backup", []string{"unsaved:" + foreign[0], "pm_card_mastercard"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			uid, cus, _ := stCustomer(t, s, tc.name, tc.pms...)
+			b := offBatch(t, s, uid, "proj_stripetest", 1000, 700)
+			got, err := s.chargeBatch(ctx, b)
+			pis := stPIs(t, cus)
+			t.Logf("evidence: batch %s state %s pi %s", b.ID, got.State, got.PaymentIntentID)
+			if err != nil || got.State != store.BatchPaid || countStatus(pis, stripe.PaymentIntentStatusSucceeded) != 1 {
+				t.Fatalf("%v %s", err, got.State)
+			}
+			for _, pi := range pis {
+				if pi.PaymentMethodConfigurationDetails == nil || pi.PaymentMethodConfigurationDetails.ID != s.Cfg.StripePMCWeb {
+					t.Fatalf("PI %s not under pmc_web", pi.ID)
+				}
+			}
+		})
+	}
+}
