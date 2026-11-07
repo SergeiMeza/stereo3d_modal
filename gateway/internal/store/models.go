@@ -350,6 +350,11 @@ type Modal struct {
 	// Experimental: the job says its output is experimental (Lifelike
 	// 5K-8K, metadata.experimental).
 	Experimental bool `firestore:"experimental,omitempty" json:"-"`
+	// OutputBitDepth / OutputBitDepthReason: the job's
+	// metadata.output_bit_depth (the spatial file's 8 or 10) and why 10
+	// didn't apply when Master asked for it.
+	OutputBitDepth       int    `firestore:"output_bit_depth,omitempty" json:"-"`
+	OutputBitDepthReason string `firestore:"output_bit_depth_reason,omitempty" json:"-"`
 	// WaitingForGPU / QueuedS are copied from the job record (both
 	// pipelines): a GPU call is queued and none runs / total seconds spent
 	// so. Queued time is not the run's fault, so overdue judging adds it.
@@ -1025,6 +1030,10 @@ type RepackPart struct {
 	Frames     int        `firestore:"frames,omitempty"`
 	Level      string     `firestore:"level,omitempty"`
 	FinishedAt *time.Time `firestore:"finished_at,omitempty"`
+	// Media: the new file's measured rates (the repack's
+	// metadata.outputs_media.<target_format>), copied to the run's
+	// outputs_media when the format is done.
+	Media *OutputMedia `firestore:"media,omitempty"`
 }
 
 // OutputMedia is one output's measured rates. VideoKbps is the video

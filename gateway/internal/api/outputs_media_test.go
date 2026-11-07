@@ -18,7 +18,10 @@ func TestOutputsMedia(t *testing.T) {
 		"mvhevc":   json.RawMessage(`{"url":"https://storage.googleapis.com/b/stereo3d/test/o/mvhevc.mov","video_kbps":38250.5,"audio_codec":"aac","audio_kbps":192}`),
 		"sbs":      json.RawMessage(`"https://storage.googleapis.com/b/stereo3d/test/o/sbs.mp4"`),
 		"half_sbs": json.RawMessage(`{"url":"https://storage.googleapis.com/b/stereo3d/test/o/half_sbs.mp4","video_kbps":null}`),
-	}, Metadata: json.RawMessage(`{"outputs_media":{"sbs":{"video_kbps":20100,"audio_codec":null,"audio_kbps":null}}}`)}
+	}, Metadata: json.RawMessage(`{"outputs_media":{"sbs":{"video_kbps":20100,"audio_codec":null,"audio_kbps":null}},"output_bit_depth":8,"output_bit_depth_reason":"10-bit encoder unavailable"}`)}
+	if d, why := job.BitDepth(); d != 8 || why != "10-bit encoder unavailable" {
+		t.Fatalf("bit depth %d %q", d, why)
+	}
 	kept := map[string]string{"mvhevc": "k1", "sbs": "k2", "half_sbs": "k3"}
 	got := workerOutputsMedia(job, kept)
 	if got["mvhevc"].VideoKbps != 38250.5 || got["mvhevc"].AudioCodec != "aac" || got["mvhevc"].Source != "worker" ||
@@ -33,7 +36,8 @@ func TestOutputsMedia(t *testing.T) {
 	s.GCS = gcsx.NewWithSigner("x", "stereo3d/test/", nil, nil)
 	ctx := context.Background()
 	c := &store.Conversion{ID: store.NewID(), UID: "u" + store.NewID(), Kind: "video", ProjectID: "p1", State: store.StateSucceeded,
-		Outputs: kept, OutputsMedia: got}
+		Outputs: kept, OutputsMedia: got, Params: store.Params{OutputQuality: "master", Bitrate: bitrateMaster}}
+	c.Modal.OutputBitDepth = 10
 	if err := s.Store.CreateConversion(ctx, c); err != nil {
 		t.Fatal(err)
 	}
@@ -53,7 +57,7 @@ func TestOutputsMedia(t *testing.T) {
 	}
 	resp := s.conversionResponse(after, nil)
 	om, _ := json.Marshal(resp["outputs_media"])
-	if string(om) == "null" || resp["bitrate_requested"] != "auto" {
+	if string(om) == "null" || resp["bitrate_requested"] != bitrateMaster || resp["output_bit_depth"] != 10 || resp["quality"] != "master" {
 		t.Fatalf("run JSON %s %v", om, resp["bitrate_requested"])
 	}
 	var shaped map[string]map[string]any
@@ -86,5 +90,43 @@ func TestCollectOutputsToleratesNumbers(t *testing.T) {
 	out := s.collectOutputs(context.Background(), "c1", job)
 	if len(out) != 1 {
 		t.Fatalf("outputs %v", out)
+	}
+}
+
+// A Standard run's repack goes at the stored file's measured rate (repack
+// has no cap), at most the cap; High and Master keep their own target.
+func TestRepackBitrate(t *testing.T) {
+	std := &store.Conversion{Params: store.Params{OutputQuality: "standard", MaxBitrateBps: 40_000_000},
+		OutputsMedia: map[string]store.OutputMedia{"mvhevc": {VideoKbps: 18000}}}
+	if b := repackBitrate(std, "mvhevc"); b != 18_000_000 {
+		t.Fatalf("measured %d", b)
+	}
+	if b := repackBitrate(std, "sbs"); b != 20_000_000 {
+		t.Fatalf("unmeasured %d", b)
+	}
+	std.OutputsMedia["sbs"] = store.OutputMedia{VideoKbps: 90000}
+	if b := repackBitrate(std, "sbs"); b != 40_000_000 {
+		t.Fatalf("capped %d", b)
+	}
+	master := &store.Conversion{Params: store.Params{OutputQuality: "master", OutputBitrateBps: 60_000_000, BitDepth: 10}}
+	if b := repackBitrate(master, "mvhevc"); b != 60_000_000 {
+		t.Fatalf("master %d", b)
+	}
+	if b := repackBitrate(&store.Conversion{}, "mvhevc"); b != 0 {
+		t.Fatalf("app run %d", b)
+	}
+}
+
+// The console's run rows carry quality, bitrate_requested and
+// outputs_media.
+func TestAdminRunMedia(t *testing.T) {
+	c := &store.Conversion{ID: "r1", ProjectID: "p1", Params: store.Params{OutputQuality: "high"},
+		OutputsMedia: map[string]store.OutputMedia{"sbs": {VideoKbps: 40000, Source: "worker"}}}
+	out := adminRunJSON(c)
+	if out["quality"] != "high" || out["bitrate_requested"] != "auto" || out["outputs_media"] == nil {
+		t.Fatalf("%v", out)
+	}
+	if out := adminRunJSON(&store.Conversion{ID: "r2"}); out["quality"] != nil || out["bitrate_requested"] != nil || out["outputs_media"] != nil {
+		t.Fatalf("%v", out)
 	}
 }

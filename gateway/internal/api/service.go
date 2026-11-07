@@ -467,6 +467,7 @@ func (s *Service) settleSuccess(ctx context.Context, conv *store.Conversion, job
 		c.Modal.CostUSD = job.CostSummary.TotalUSD
 		c.Modal.CostUSDRaw = job.CostSummary.TotalUSDRaw
 		c.Modal.Experimental = job.Experimental()
+		c.Modal.OutputBitDepth, c.Modal.OutputBitDepthReason = job.BitDepth()
 		c.Modal.WaitingForGPU = false
 		c.Modal.QueuedS = max(c.Modal.QueuedS, job.QueuedS)
 		c.Modal.LastPolledAt = &now

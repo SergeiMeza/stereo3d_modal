@@ -121,6 +121,28 @@ func (j *Job) Experimental() bool {
 	return json.Unmarshal(j.Metadata, &m) == nil && m.Experimental
 }
 
+// BitDepth is metadata.output_bit_depth (what the spatial file is: 8 or
+// 10, 0 without one) and output_bit_depth_reason (why 10 didn't apply).
+func (j *Job) BitDepth() (depth int, reason string) {
+	if len(j.Metadata) == 0 {
+		return 0, ""
+	}
+	var m struct {
+		Depth  *float64 `json:"output_bit_depth"`
+		Reason *string  `json:"output_bit_depth_reason"`
+	}
+	if json.Unmarshal(j.Metadata, &m) != nil {
+		return 0, ""
+	}
+	if m.Depth != nil {
+		depth = int(*m.Depth)
+	}
+	if m.Reason != nil {
+		reason = *m.Reason
+	}
+	return depth, reason
+}
+
 // Scheduling is what a Lifelike job echoes of its scheduling inputs
 // (metadata.priority, metadata.max_gpu_workers); zero values when absent.
 func (j *Job) Scheduling() (priority string, gpus int) {

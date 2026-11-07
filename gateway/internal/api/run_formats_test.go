@@ -57,6 +57,8 @@ func (l *lifelikeStub) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		}
 		if status == "done" || status == "completed" {
 			out["output"] = map[string]any{"bytes": 1000, "width": 3840, "height": 2160, "frames": 240, "level": "5.1"}
+			out["metadata"] = map[string]any{"outputs_media": map[string]any{"mvhevc": map[string]any{"video_kbps": 41000, "audio_codec": "aac", "audio_kbps": 250},
+				"sbs": map[string]any{"video_kbps": 52000, "audio_codec": nil, "audio_kbps": nil}}}
 		}
 		if status == "failed" {
 			out["error"] = "decoder"
@@ -166,6 +168,9 @@ func TestRunFormatsRepack(t *testing.T) {
 	got, _ := s.Store.GetConversion(ctx, c.ID)
 	if got.Outputs["mvhevc"] != "stereo3d/test/outputs/"+c.Modal.JobID+"/repack_mvhevc.mov" || got.RepackPending || got.Repacks["mvhevc"].Width != 3840 {
 		t.Fatalf("after %+v %+v", got.Outputs, got.Repacks["mvhevc"])
+	}
+	if m := got.OutputsMedia["mvhevc"]; m.Source != "worker" || m.VideoKbps != 41000 || m.AudioCodec != "aac" { // the repack's metadata.outputs_media.<target>
+		t.Fatalf("repack media %+v", got.OutputsMedia)
 	}
 	if names := projectDownloadNames(nil, []*store.Conversion{got}); names[c.ID]["mvhevc"] == "" {
 		t.Fatalf("download name %v", names)

@@ -60,6 +60,7 @@ func (s *Service) evidenceFor(ctx context.Context, cs *store.Case) map[string]an
 			"brand_intro_usd": c.Modal.BrandIntroUSD, "intro_frames": c.Modal.IntroFrames,
 			"priority": c.Modal.Priority, "max_gpu_workers": c.Modal.GPUWorkers, "express_cost_factor": c.Modal.ExpressCostFactor,
 		}
+		addRunMedia(r, c)
 		if c.Error != nil {
 			r["error"] = map[string]string{"code": c.Error.Code, "message": c.Error.UserMessage, "internal": c.Error.InternalMessage}
 		}

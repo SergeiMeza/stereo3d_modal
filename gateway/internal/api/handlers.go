@@ -1082,6 +1082,12 @@ func (s *Service) conversionResponse(c *store.Conversion, sheet any) map[string]
 	if len(c.OutputsMedia) > 0 {
 		resp["outputs_media"] = c.OutputsMedia // {name: {video_kbps, overall_kbps?, audio_codec?, audio_kbps?, source}}
 	}
+	if c.Modal.OutputBitDepth > 0 {
+		resp["output_bit_depth"] = c.Modal.OutputBitDepth // the spatial file's, from the worker
+	}
+	if c.Modal.OutputBitDepthReason != "" {
+		resp["output_bit_depth_reason"] = c.Modal.OutputBitDepthReason // why 10 didn't apply
+	}
 	if c.ProjectID != "" {
 		req := c.Params.Bitrate // what was asked: auto, match_source, a number of Mbit/s or master
 		if req == "" {

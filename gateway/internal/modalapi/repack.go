@@ -2,6 +2,7 @@ package modalapi
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/url"
 )
@@ -39,6 +40,9 @@ type RepackStatus struct {
 	// Progress: 0-1 (download 0.05, encode to 0.9, upload, 1); nil when
 	// the record doesn't say.
 	Progress *float64 `json:"progress,omitempty"`
+	// Metadata: metadata.outputs_media.<target_format> = the new file's
+	// measured {video_kbps, audio_codec, audio_kbps} (only when done).
+	Metadata json.RawMessage `json:"metadata,omitempty"`
 }
 
 // RepackOutput describes the new file.

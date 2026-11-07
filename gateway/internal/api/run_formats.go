@@ -15,6 +15,7 @@ import (
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
 	"spatial-ai-labs/stereo3d-gateway/internal/modalapi"
+	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
@@ -431,7 +432,7 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 		if err == nil {
 			id, err = cl.SubmitRepack(ctx, modalapi.RepackRequest{JobID: c.Modal.JobID, Source: modalapi.RepackSource{URL: get, Format: src},
 				TargetFormat: req.Format, OutputUploadURL: put, Preset: c.Params.Preset, FPS: fps,
-				OutputBitrateBps: c.Params.OutputBitrateBps}) // the run's own bitrate when it chose one
+				OutputBitrateBps: repackBitrate(c, p.Source)}) // the run's own bitrate when it chose one
 		}
 		if err != nil {
 			slog.WarnContext(ctx, "repack not started", "conversion_id", c.ID, "format", req.Format, "part", p.Index, "err", err)
@@ -457,6 +458,40 @@ func (s *Service) HandleRunFormatAdd(w http.ResponseWriter, r *http.Request, use
 	writeJSON(w, http.StatusAccepted, out)
 }
 
+// repackBitrate is a repack's output_bitrate_bps: the run's own target
+// (High, Master, a fixed choice); for a Standard run (CRF capped, and
+// repack has no cap) the stored file's measured video rate, else the
+// typical share of the cap, at most the cap, so the new format isn't made
+// at the preset's Master rate. 0 leaves the pipeline's default.
+func repackBitrate(c *store.Conversion, source string) int64 {
+	if c.Params.OutputBitrateBps > 0 || c.Params.OutputQuality != pricing.QualityStandard || c.Params.MaxBitrateBps <= 0 {
+		return c.Params.OutputBitrateBps
+	}
+	bps := int64(float64(c.Params.MaxBitrateBps) * (&pricing.Rates{}).QualityTypicalShare())
+	if m, ok := c.OutputsMedia[source]; ok && m.VideoKbps > 0 {
+		bps = int64(m.VideoKbps * 1000)
+	}
+	return min(max(bps, 1_000_000), c.Params.MaxBitrateBps)
+}
+
+// repackMedia reads a done repack's metadata.outputs_media.<format>.
+func repackMedia(st *modalapi.RepackStatus, format string) *store.OutputMedia {
+	if st == nil || len(st.Metadata) == 0 {
+		return nil
+	}
+	var md struct {
+		OutputsMedia map[string]workerMedia `json:"outputs_media"`
+	}
+	if json.Unmarshal(st.Metadata, &md) != nil {
+		return nil
+	}
+	if m, ok := md.OutputsMedia[format]; ok && m.usable() {
+		rec := m.record()
+		return &rec
+	}
+	return nil
+}
+
 func formatUnavailableText(reason string) string {
 	switch reason {
 	case "files_erased":
@@ -474,7 +509,8 @@ func formatUnavailableText(reason string) string {
 type partResult struct {
 	started  string
 	done     *modalapi.RepackOutput
-	progress *float64 // still running: its new progress
+	media    *store.OutputMedia // done: the worker's measured rates
+	progress *float64           // still running: its new progress
 	failed   string
 }
 
@@ -508,6 +544,7 @@ func (s *Service) applyRepackResults(ctx context.Context, convID, format string,
 				one := 1.0
 				p.Status, p.Error, p.FinishedAt, p.Progress = "succeeded", "", &now, &one
 				p.Bytes, p.Width, p.Height, p.Frames, p.Level = res.done.Bytes, res.done.Width, res.done.Height, res.done.Frames, res.done.Level
+				p.Media = res.media
 			case res.progress != nil:
 				p.Status, p.Progress = "processing", res.progress
 			default:
@@ -542,6 +579,12 @@ func (s *Service) applyRepackResults(ctx context.Context, convID, format string,
 			for _, p := range parts {
 				x.Outputs[p.Name] = p.Key
 				r.Bytes += p.Bytes
+				if p.Media != nil {
+					if x.OutputsMedia == nil {
+						x.OutputsMedia = map[string]store.OutputMedia{}
+					}
+					x.OutputsMedia[p.Name] = *p.Media // the rest: ffprobe after
+				}
 			}
 			r.Width, r.Height, r.Level = parts[0].Width, parts[0].Height, parts[0].Level
 			event = "run_format_added"
@@ -596,7 +639,7 @@ func (s *Service) pollRepacks(ctx context.Context, c *store.Conversion) *store.C
 					results[p.Index] = partResult{failed: "timed out"}
 				}
 			case st.Done() && st.Output != nil:
-				results[p.Index] = partResult{done: st.Output}
+				results[p.Index] = partResult{done: st.Output, media: repackMedia(st, f)}
 			case st.Done():
 				results[p.Index] = partResult{failed: "finished without a file"}
 			case st.Failed():

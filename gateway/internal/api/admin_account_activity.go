@@ -43,9 +43,37 @@ func signInMethod(provider string) string {
 }
 
 func adminRunJSON(c *store.Conversion) map[string]any {
-	return map[string]any{"id": c.ID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State, "kind": c.Kind,
+	out := map[string]any{"id": c.ID, "project_id": nilIfEmpty(c.ProjectID), "status": c.State, "kind": c.Kind,
 		"created_at": c.CreatedAt, "amount_cents": c.Quote.AmountCents, "formats_added": repacksHistory(c),
 		"bars_removed": runBarsJSON(c)}
+	addRunMedia(out, c)
+	return out
+}
+
+// addRunMedia adds what the run read sends of its encode (the console's
+// run rows): quality (standard | high | master, web Lifelike),
+// bitrate_requested (projects' runs: auto, match_source, Mbit/s or
+// master), outputs_media and the worker's output_bit_depth (+ reason).
+func addRunMedia(out map[string]any, c *store.Conversion) {
+	out["quality"] = nilIfEmpty(c.Params.OutputQuality)
+	out["bitrate_requested"] = nil
+	if c.ProjectID != "" {
+		req := c.Params.Bitrate
+		if req == "" {
+			req = "auto"
+		}
+		out["bitrate_requested"] = req
+	}
+	out["outputs_media"] = nil
+	if len(c.OutputsMedia) > 0 {
+		out["outputs_media"] = c.OutputsMedia
+	}
+	if c.Modal.OutputBitDepth > 0 {
+		out["output_bit_depth"] = c.Modal.OutputBitDepth
+	}
+	if c.Modal.OutputBitDepthReason != "" {
+		out["output_bit_depth_reason"] = c.Modal.OutputBitDepthReason
+	}
 }
 
 func (s *Service) adminAccountActivity(r *http.Request, uid string, cust *store.Customer, passkeys int, out map[string]any) {
