@@ -461,6 +461,9 @@ func (s *Service) applySettlePayment(ctx context.Context, settleID string, p sto
 	if st.Trigger == settleSoftRety {
 		s.mailDownloadsBack(ctx, "E5_"+settleID, st.UID, out.AmountReceived)
 	}
+	if st.Trigger == settleWebRetry {
+		s.mailSettleReceipt(ctx, done) // E20: a web group's debt the retry collected
+	}
 	return settleResult{Settle: done, Paid: true}, nil
 }
 
