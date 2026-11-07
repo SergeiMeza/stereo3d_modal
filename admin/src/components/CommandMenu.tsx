@@ -67,6 +67,7 @@ const PAGES: Recent[] = [
   { label: "Accounts", to: paths.accounts() },
   { label: "Disputes", to: paths.disputes() },
   { label: "Grants", to: paths.grants() },
+  { label: "Credits", to: paths.credits() },
   { label: "Deletions", to: paths.deletions() },
   { label: "Feedback", to: paths.feedback() },
   { label: "Security", to: paths.security() },

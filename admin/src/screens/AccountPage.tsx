@@ -31,6 +31,7 @@ import { useQuery } from "@/state/query";
 import { cn } from "../lib/utils";
 import { grantSheetAtom, GrantsSection, PromoRegrants } from "./Grants";
 import { ProCreditSection } from "./ProCredit";
+import { CreditGrantsSection } from "./CreditGrants";
 import { DeletionSection } from "./Deletion";
 import { PlanMoveSheet } from "./PlanMove";
 
@@ -398,6 +399,7 @@ export function AccountPage({ uid }: { uid: string }) {
       <GrantsSection uid={a.uid} grants={p.grants ?? []} />
       <PromoRegrants uid={a.uid} rows={p.promo_regrants ?? []} />
       <ProCreditSection credit={p.pro_credit} />
+      <CreditGrantsSection uid={a.uid} email={a.email} />
 
       <Panel title="Balance ledger" note="latest 50">
         {ledger.length === 0 ? (

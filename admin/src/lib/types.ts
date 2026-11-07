@@ -780,6 +780,78 @@ export interface Passkey {
 
 /** GET /v1/admin/passkey-adoption (gateway rev 00113): customer passkeys
  * (ADR 0136) and sign-ins by method over 7 and 30 days. */
+/** Grant credit (owner 2026-11-07, gateway 00178): usage credit an admin
+ * adds to an account. */
+export type CreditGrantReason = "support_goodwill" | "refund_as_credit" | "promo" | "test" | "other";
+
+export interface CreditGrant {
+  id: string;
+  uid?: string;
+  amount_cents: number;
+  reason: CreditGrantReason | string;
+  reason_text?: string | null;
+  expires_at?: string | null;
+  over_cap?: boolean;
+  admin?: string;
+  request_id?: string;
+  notify_user?: boolean;
+  message?: string | null;
+  /** sent | dry_run | skipped | null */
+  mail_state?: string | null;
+  /** pending | active | revoked */
+  state: string;
+  /** what's left of it; null on the all-grants list */
+  unspent_cents?: number | null;
+  revoked_cents?: number;
+  revoked_at?: string | null;
+  revoked_by?: string | null;
+  created_at: string;
+}
+
+export interface CreditGrantBody {
+  amount_cents: number;
+  reason: CreditGrantReason;
+  reason_text?: string;
+  /** absent = 90, null = no end */
+  expires_days?: number | null;
+  notify_user?: boolean;
+  message?: string;
+  request_id: string;
+  confirm_over_cap?: boolean;
+}
+
+export interface CreditGrantPreview {
+  amount_cents: number;
+  cap_cents: number;
+  over_cap: boolean;
+  expires_at: string | null;
+  balance_before_cents: number;
+  balance_after_cents: number;
+}
+
+export interface CreditBalanceAfter {
+  balance_cents: number;
+  credits: { kind: string; cents: number; expires_at?: string | null }[];
+}
+
+export interface CreditGrantResult {
+  grant: CreditGrant;
+  balance_after: CreditBalanceAfter | null;
+  replay?: boolean;
+}
+
+export interface CreditGrantRevokeResult {
+  grant: CreditGrant;
+  revoked_cents: number;
+  balance_after: CreditBalanceAfter | null;
+}
+
+export interface AllCreditGrants {
+  grants: CreditGrant[];
+  months: { month: string; grants: number; cents: number; revoked_cents: number }[];
+  truncated?: boolean;
+}
+
 /** GET /v1/admin/campaign (owner 2026-11-07, gateway 00175): discounted =
  * succeeded runs; quoted = every run the offer was on, by state (lowercase). */
 export interface CampaignSummary {

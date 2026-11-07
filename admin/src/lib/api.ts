@@ -31,6 +31,12 @@ import type {
   AdminGrant,
   RunLookup,
   CampaignSummary,
+  AllCreditGrants,
+  CreditGrant,
+  CreditGrantBody,
+  CreditGrantPreview,
+  CreditGrantResult,
+  CreditGrantRevokeResult,
   PasskeyAdoption,
   PolicyResponse,
   Tab,
@@ -254,6 +260,37 @@ export class AdminApi {
     );
     const body = (await res.json()) as RevokeResult;
     return { ...body, partial: res.status === 202 };
+  }
+
+  /** Grant credit (gateway 00178): what a grant would do; nothing granted. */
+  creditGrantPreview(uid: string, body: Pick<CreditGrantBody, "amount_cents" | "reason" | "expires_days">): Promise<CreditGrantPreview> {
+    return this.json("POST", `/v1/admin/accounts/${encodeURIComponent(uid)}/credit-grants/preview`, body);
+  }
+
+  /** Fresh sign-in; once per request_id. 409 over_cap without
+   * confirm_over_cap; 409 request_id_reused. */
+  createCreditGrant(uid: string, body: CreditGrantBody): Promise<CreditGrantResult> {
+    return this.json("POST", `/v1/admin/accounts/${encodeURIComponent(uid)}/credit-grants`, body);
+  }
+
+  async listCreditGrants(uid: string): Promise<CreditGrant[]> {
+    const r = await this.json<{ grants: CreditGrant[] | null }>("GET", `/v1/admin/accounts/${encodeURIComponent(uid)}/credit-grants`);
+    return r.grants ?? [];
+  }
+
+  /** Fresh sign-in: removes only what's left of the grant. */
+  revokeCreditGrant(uid: string, id: string): Promise<CreditGrantRevokeResult> {
+    return this.json(
+      "POST",
+      `/v1/admin/accounts/${encodeURIComponent(uid)}/credit-grants/${encodeURIComponent(id)}/revoke`,
+      {},
+    );
+  }
+
+  /** Every credit grant (newest 500) with monthly totals. */
+  async allCreditGrants(): Promise<AllCreditGrants> {
+    const r = await this.json<AllCreditGrants>("GET", "/v1/admin/credit-grants");
+    return { ...r, grants: r.grants ?? [], months: r.months ?? [] };
   }
 
   /** One account; `runs` pages its runs list (gateway rev 00114). */

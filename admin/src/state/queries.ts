@@ -20,6 +20,9 @@ export const campaignQuery = createQuery((get, _: null) => apiOf(get(servicesAto
 export const passkeyAdoptionQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).passkeyAdoption());
 export const disputesQuery = createQuery((get, months: number) => apiOf(get(servicesAtom)).disputes(months));
 export const efwsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).openEfws());
+/** Grant credit (gateway 00178): an account's grants, and all of them */
+export const creditGrantsQuery = createQuery((get, uid: string) => apiOf(get(servicesAtom)).listCreditGrants(uid));
+export const allCreditGrantsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).allCreditGrants());
 export const grantsQuery = createQuery((get, _: null) => apiOf(get(servicesAtom)).allGrants());
 /** gateway 00166: the 48-hour deletions in one state */
 export const deletionsQuery = createQuery((get, state: "pending" | "cancelled" | "done") =>

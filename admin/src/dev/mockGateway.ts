@@ -49,6 +49,12 @@ const passkeys = [
   { id: "pk_2", name: "A passkey with a rather long name for the edge", created_at: "2026-11-02T10:00:00Z", last_used_at: null },
 ];
 
+const devCreditGrant = {
+  id: "cg_dev1", uid: "uid_123", amount_cents: 2500, reason: "support_goodwill", reason_text: null, expires_at: "2027-02-05T00:00:00Z",
+  over_cap: false, admin: "owner@example.com", request_id: "dev-request-1", notify_user: false, message: null, mail_state: null,
+  state: "active", unspent_cents: 1800, revoked_cents: 0, revoked_at: null, revoked_by: null, created_at: "2026-11-07T00:00:00Z",
+};
+
 const ROUTES: Record<string, (path: string) => unknown> = {
   "GET /v1/admin/runs/c_7Hk2Qm": () => ({
     run: { id: "c_7Hk2Qm", uid: "uid_123", project_id: "p1", status: "SUCCEEDED", created_at: "2026-11-03T21:40:00Z", amount_cents: 4972, currency: "usd", kind: "lifelike", method: "card" },
@@ -86,6 +92,17 @@ const ROUTES: Record<string, (path: string) => unknown> = {
   }),
   "GET /v1/admin/accounts/uid_123": () => account,
   "GET /v1/admin/passkeys": () => ({ passkeys }),
+  // Grant credit (gateway 00178), synthetic
+  "GET /v1/admin/accounts/uid_123/credit-grants": () => ({ grants: [devCreditGrant] }),
+  "POST /v1/admin/accounts/uid_123/credit-grants/preview": () => ({
+    amount_cents: 2500, cap_cents: 50000, over_cap: false, expires_at: "2027-02-05T00:00:00Z", balance_before_cents: 1200, balance_after_cents: 3700,
+  }),
+  "POST /v1/admin/accounts/uid_123/credit-grants": () => ({ grant: { ...devCreditGrant, id: "cg_dev2", created_at: new Date().toISOString() }, balance_after: null, replay: false }),
+  "POST /v1/admin/accounts/uid_123/credit-grants/cg_dev1/revoke": () => ({
+    grant: { ...devCreditGrant, state: "revoked", unspent_cents: 0, revoked_cents: 1800, revoked_at: new Date().toISOString(), revoked_by: "owner@example.com" },
+    revoked_cents: 1800, balance_after: null,
+  }),
+  "GET /v1/admin/credit-grants": () => ({ grants: [devCreditGrant], months: [{ month: "2026-11", grants: 1, cents: 2500, revoked_cents: 0 }], truncated: false }),
   "GET /v1/admin/campaign": () => ({
     campaign: { active: true, pct: 0.25, percent: 25, max_preset: "qhd", presets: ["1080p", "qhd"], starts_at: "2026-11-07T00:00:00Z", ends_at: "2027-01-11T07:59:59Z", label: "Launch offer until Jan 10" },
     totals: { runs: 4, quoted_cents: 1850, discounted_runs: 3, discounted_cents: 1425, by_state: { succeeded: { runs: 3, cents: 1425 }, processing: { runs: 1, cents: 425 } } },

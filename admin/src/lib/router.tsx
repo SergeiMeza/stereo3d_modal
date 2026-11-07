@@ -15,6 +15,7 @@ import {
 export type Route =
   | { name: "overview" }
   | { name: "grants" }
+  | { name: "credits" }
   | { name: "deletions" }
   | { name: "cases" }
   | { name: "case"; id: string }
@@ -35,6 +36,7 @@ export function parseRoute(pathname: string): Route {
   const [a, b] = parts;
   if (a === "overview" && parts.length === 1) return { name: "overview" };
   if (a === "grants" && parts.length === 1) return { name: "grants" };
+  if (a === "credits" && parts.length === 1) return { name: "credits" };
   if (a === "deletions" && parts.length === 1) return { name: "deletions" };
   if (a === "cases" && parts.length === 1) return { name: "cases" };
   if (a === "cases" && parts.length === 2 && b) return { name: "case", id: b };
@@ -53,6 +55,7 @@ export function parseRoute(pathname: string): Route {
 export const paths = {
   overview: () => "/",
   grants: () => "/grants",
+  credits: () => "/credits",
   deletions: () => "/deletions",
   cases: () => "/cases",
   case: (id: string, opts?: { decide?: boolean }) => `/cases/${encodeURIComponent(id)}${opts?.decide ? "?decide=1" : ""}`,
