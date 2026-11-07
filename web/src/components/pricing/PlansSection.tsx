@@ -5,6 +5,9 @@
  * that much usage included at the plan's own prices, free previews and
  * Express. Every number comes from GET /v1/pricing; Choose opens our
  * payment sheet (PlanSheet).
+ *
+ * BUX-11 (owner 2026-11-07): Business carries "Recommended", and Studio
+ * leads with what it comes to a month, billed yearly.
  */
 
 import { CheckIcon } from "lucide-react";
@@ -30,6 +33,25 @@ import { qualitySteps } from "@/components/steps/FileQuality";
 
 const PLAN_KEYS = ["business", "studio"] as const;
 type PlanKey = (typeof PLAN_KEYS)[number];
+
+/** BUX-11 (owner 2026-11-07): the plan the page recommends. */
+export const RECOMMENDED_PLAN: PlanKey = "business";
+
+/** BUX-11: a yearly plan's headline is what it comes to a month, with the
+ * yearly charge beside it ("$999 a month", "billed yearly ($11,988)");
+ * a monthly plan shows its price. */
+export function planHeadline(
+  def: PlanDef,
+  t: Tr = EN,
+): { cents: number; per: string; billedYearly: string | null } {
+  const price = planPrice(def, t);
+  if (!price.yearly) return { cents: price.cents, per: price.per, billedYearly: null };
+  return {
+    cents: Math.round(price.cents / 12),
+    per: t("pricing.per.month"),
+    billedYearly: t("pricing.plans.billedYearly", { amount: formatCentsShort(price.cents, t) }),
+  };
+}
 
 /** The few lines a plan card shows. */
 /** Owner 2026-11-07: Business and Studio name the File quality steps for
@@ -104,20 +126,32 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
           const def = plans[k];
           if (!def) return null;
           const pct = pricing.tiers?.classic_pct?.[k];
+          const recommended = k === RECOMMENDED_PLAN;
+          const head = planHeadline(def, t);
           return (
             <div
               key={k}
               data-testid={`plan-${k}`}
-              className={`flex flex-col gap-4 rounded-xl border bg-card p-6 ${
-                k === "studio" ? "border-primary/50" : "border-edge"
+              className={`relative flex flex-col gap-4 rounded-xl border bg-card p-6 ${
+                recommended ? "border-primary/50" : "border-edge"
               }`}
             >
+              {recommended ? (
+                <span data-testid={`plan-recommended-${k}`} className="ll-tag-new absolute -top-2.5 start-6">
+                  {t("pricing.plans.recommended")}
+                </span>
+              ) : null}
               <div>
                 <h3 className="text-base font-semibold">{def.name}</h3>
                 <p data-testid={`plan-price-${k}`} className="mt-1 text-2xl font-semibold tabular-nums">
-                  {formatCentsShort(planPrice(def, t).cents, t)}
-                  <span className="text-sm font-normal text-fg-muted"> {planPrice(def, t).per}</span>
+                  {formatCentsShort(head.cents, t)}
+                  <span className="text-sm font-normal text-fg-muted"> {head.per}</span>
                 </p>
+                {head.billedYearly ? (
+                  <p data-testid={`plan-billed-${k}`} className="mt-1 text-xs text-fg-muted tabular-nums">
+                    {head.billedYearly}
+                  </p>
+                ) : null}
               </div>
               <ul className="flex flex-col gap-2 text-sm">
                 {planLines(def, pct, pricing.fps.max_fps_with_plan, qualitySteps(pricing).length > 2, t).map((l) => (
@@ -134,7 +168,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
               ) : user ? (
                 <Button
                   data-testid={`choose-${k}`}
-                  variant={k === "studio" ? "default" : "outline"}
+                  variant={recommended ? "default" : "outline"}
                   className="mt-auto w-full"
                   onClick={() =>
                     setOpen({ plan: k, from: mineName ?? (webPro ? proName : null), change: mineName !== null || webPro, team: mineName !== null })
@@ -143,7 +177,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                   {mine ? t("pricing.plans.changeTo", { name: def.name }) : t("pricing.plans.choose", { name: def.name })}
                 </Button>
               ) : (
-                <Button asChild variant={k === "studio" ? "default" : "outline"} className="mt-auto w-full">
+                <Button asChild variant={recommended ? "default" : "outline"} className="mt-auto w-full">
                   <Link href="/signin?next=/pricing">{t("pricing.plans.choose", { name: def.name })}</Link>
                 </Button>
               )}

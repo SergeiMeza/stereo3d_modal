@@ -18,6 +18,7 @@ import { InfoPopover } from "@/components/ui/info-popover";
 import { fpsRule, usePricing } from "@/lib/api/usePricing";
 import { useAuth } from "@/lib/auth";
 import { FirstTimeHint } from "@/components/onboarding/FirstTimeHint";
+import { PayPerVideoAndPro } from "@/components/plans/PlansIntro";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 
@@ -90,6 +91,8 @@ export function PricingScreen(): JSX.Element {
       )}
       {pricing?.plans ? (
         <div className="mt-12">
+          {/* BUX-11: Pro has its own card here too, as on /plans */}
+          <PayPerVideoAndPro pricing={pricing} />
           <PlansSection pricing={pricing} />
         </div>
       ) : null}

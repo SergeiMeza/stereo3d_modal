@@ -227,9 +227,16 @@ describe("Pricing 2026-11", () => {
     // owner 2026-11-07: the plans name File quality's High and Master
     expect(biz.textContent).toContain("High and Master file quality for client reviews and editing");
     expect(screen.getByTestId("plan-studio").textContent).toContain("High and Master file quality for client reviews and editing");
-    // Studio bills yearly (gateway 00089): "$11,988 a year", usage monthly
-    expect(screen.getByTestId("plan-price-studio").textContent).toBe("$11,988 a year");
-    expect(screen.getByTestId("plan-studio").textContent).toContain("$11,988 a year$1,500 of usage every month");
+    // Studio bills yearly (gateway 00089), usage monthly; BUX-11: it leads
+    // with what that comes to a month, and says it's billed yearly
+    expect(screen.getByTestId("plan-price-studio").textContent).toBe("$999 a month");
+    expect(screen.getByTestId("plan-billed-studio").textContent).toBe("billed yearly ($11,988)");
+    expect(screen.getByTestId("plan-studio").textContent).toContain("billed yearly ($11,988)$1,500 of usage every month");
+    // BUX-11: Business is the recommended plan, Studio isn't; Pro has a card
+    expect(within(biz).getByTestId("plan-recommended-business").textContent).toBe("Recommended");
+    expect(screen.queryByTestId("plan-recommended-studio")).toBeNull();
+    const proCard = screen.getByTestId("plan-pro");
+    expect(within(proCard).getByRole("link", { name: "Get Pro" }).getAttribute("href")).toBe("/pro");
     fireEvent.click(await within(biz).findByTestId("choose-business"));
     const main = await screen.findByTestId("plan-main");
     await waitFor(() => expect((screen.getByTestId("plan-main") as HTMLButtonElement).disabled).toBe(false));

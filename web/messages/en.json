@@ -1788,7 +1788,9 @@
         "fileQuality": "{high} and {master} file quality for client reviews and editing",
         "fps": "Up to {fps} fps",
         "invoices": "Invoices"
-      }
+      },
+      "recommended": "Recommended",
+      "billedYearly": "billed yearly ({amount})"
     },
     "table": {
       "perEye": "{size} per eye",
