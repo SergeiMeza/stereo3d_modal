@@ -253,6 +253,19 @@ func main() {
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}", admin(adminID(svc.HandleAdminAccount, "uid")))
 	mux.HandleFunc("GET /v1/admin/deletions", admin(svc.HandleAdminDeletions)) // ?state=pending|cancelled|done
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/actions", admin(adminID(svc.HandleAdminAccountAction, "uid")))
+	// Grant credit (owner 2026-11-07): usage credit on the balance, fresh sign-in for the writes
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants/preview", admin(adminID(svc.HandleAdminCreditGrantPreview, "uid")))
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants", admin(adminID(svc.HandleAdminCreditGrant, "uid")))
+	mux.HandleFunc("GET /v1/admin/accounts/{uid}/credit-grants", admin(adminID(svc.HandleAdminAccountCreditGrants, "uid")))
+	mux.HandleFunc("POST /v1/admin/accounts/{uid}/credit-grants/{id}/revoke", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {
+		uid, id := r.PathValue("uid"), r.PathValue("id")
+		if len(id) != 18 || id[:2] != "cg" {
+			httpx.WriteErr(r.Context(), w, httpx.ErrNotFound("grant"))
+			return
+		}
+		svc.HandleAdminCreditGrantRevoke(w, r, a, uid, id)
+	}))
+	mux.HandleFunc("GET /v1/admin/credit-grants", admin(svc.HandleAdminAllCreditGrants))
 	mux.HandleFunc("GET /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrants, "uid")))    // Grant Pro 2026-11-04
 	mux.HandleFunc("POST /v1/admin/accounts/{uid}/grants", admin(adminID(svc.HandleAdminGrantPro, "uid"))) // fresh sign-in
 	mux.HandleFunc("DELETE /v1/admin/accounts/{uid}/grants/{id}", admin(func(w http.ResponseWriter, r *http.Request, a *api.AdminUser) {

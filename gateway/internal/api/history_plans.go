@@ -200,8 +200,14 @@ func creditRows(entries []store.Entry) []historyRow {
 				cents = -cents
 			}
 		}
+		label := words[k]
+		if strings.HasPrefix(e.Ref, "admin:") { // an admin's grant: who gave it, never why
+			label = map[string]string{"granted": "Credit from Spatial Video Studio", "expired": "Credit from Spatial Video Studio expired",
+				"removed": "Credit from Spatial Video Studio ended", "frozen": "Credit from Spatial Video Studio on hold",
+				"unfrozen": "Credit from Spatial Video Studio released"}[k]
+		}
 		out = append(out, historyRow{RowID: "credit_" + e.ID, Kind: "credit", CreatedAt: e.At.UTC(), Currency: "usd", Status: "applied",
-			Label: words[k] + " · " + money(abs64(cents)), amounts: map[string]int64{}, Credit: &creditInfo{Cents: cents, Kind: k}})
+			Label: label + " · " + money(abs64(cents)), amounts: map[string]int64{}, Credit: &creditInfo{Cents: cents, Kind: k}})
 	}
 	return out
 }

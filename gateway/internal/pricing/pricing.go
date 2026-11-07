@@ -229,8 +229,14 @@ type Rates struct {
 	// Off unless pro_discount_enabled (test defaults it on).
 	ProDiscountEnabled bool `firestore:"pro_discount_enabled"`
 	// Campaign: the launch offer (campaign.go); nil = none.
-	Campaign       *CampaignDef `firestore:"campaign"`
-	ProDiscountPct float64      `firestore:"pro_discount_pct"`
+	Campaign *CampaignDef `firestore:"campaign"`
+	// AdminCreditGrantCapCents: one "Grant credit" above this needs
+	// confirm_over_cap (0 = 50000, $500). CreditGrantMailAllowUIDs: off
+	// prod, the only accounts a grant's notify mail really reaches (empty:
+	// a dry run, logged).
+	AdminCreditGrantCapCents int64    `firestore:"admin_credit_grant_cap_cents"`
+	CreditGrantMailAllowUIDs []string `firestore:"credit_grant_mail_allow_uids"`
+	ProDiscountPct           float64  `firestore:"pro_discount_pct"`
 	// GPUCapPerWorkspace overrides it per Modal workspace id (S3D-40).
 	GPUCapPerWorkspace map[string]int `firestore:"gpu_cap_per_workspace"`
 	// File keeping (S3D-24), see the accessors: days without use before a
@@ -1583,4 +1589,12 @@ func withBillableMinutes(q *Quote, err error) func(StepInputs) (*Quote, error) {
 		}
 		return q, err
 	}
+}
+
+// AdminCreditGrantCap is one grant's cap before confirm_over_cap.
+func (r *Rates) AdminCreditGrantCap() int64 {
+	if r.AdminCreditGrantCapCents > 0 {
+		return r.AdminCreditGrantCapCents
+	}
+	return 50000
 }

@@ -955,6 +955,44 @@ processing anywhere, 100 newest; a run that leaves it gets its final
 A viewer's ticket is refused there and an admin ticket on `/v1/events`;
 each open is audited (`events_stream`).
 
+### Grant credit (owner 2026-11-07)
+
+Usage credit an admin adds to an account, on the same ledger as the Pro
+credit (spent before the card, never paid out; ref `admin:grant:<id>`,
+`balance.credits` kind `grant`). Writes need the passkey session plus a
+fresh sign-in (5 min).
+
+- `POST /v1/admin/accounts/{uid}/credit-grants/preview {amount_cents,
+  reason, expires_days?}` → `{amount_cents, cap_cents, over_cap,
+  expires_at, balance_before_cents, balance_after_cents}`.
+- `POST /v1/admin/accounts/{uid}/credit-grants {amount_cents, reason:
+  support_goodwill | refund_as_credit | promo | test | other,
+  reason_text? (required for other), expires_days? (default 90, null =
+  no end), notify_user?, message?, request_id, confirm_over_cap?}` →
+  `{grant, balance_after {balance_cents, credits}, replay}`. Once per
+  request_id (the same id with another body: 409 `request_id_reused`).
+  Above `admin_credit_grant_cap_cents` (default 50000) without
+  `confirm_over_cap: true`: 409 `over_cap`. Audited `credit_grant` (admin,
+  time, amount, reason, over_cap, IP hash).
+- `GET /v1/admin/accounts/{uid}/credit-grants` → `{grants: [{id, amount_cents,
+  reason, reason_text, expires_at, over_cap, admin, request_id,
+  notify_user, message, mail_state, state, unspent_cents, revoked_cents,
+  revoked_at, revoked_by, created_at}]}`.
+- `POST /v1/admin/accounts/{uid}/credit-grants/{id}/revoke` (fresh
+  sign-in) → `{grant, revoked_cents, balance_after}`: only that grant's
+  unspent cents; again changes nothing. Audited `credit_grant_revoke`.
+- `GET /v1/admin/credit-grants` → `{grants, months [{month, grants, cents,
+  revoked_cents}], truncated}`.
+- The user sees "Credit from Spatial Video Studio · $X" in Billing
+  history, never the reason. `notify_user` mails the account's own email
+  (subject names the app); off prod only the uids in
+  `credit_grant_mail_allow_uids` get it, others are a dry run
+  (`mail_state: dry_run`).
+- Grants outlive the plan's credit: a new period, a plan refund or
+  change and a lost plan dispute leave them; a block for good and a
+  deleted account take them. Plan refunds and changes value the period's
+  own credit only.
+
 ### Launch campaign (owner 2026-11-07, TEST)
 
 Config `campaign {enabled, pct, max_preset, starts_at, ends_at?, label}`
