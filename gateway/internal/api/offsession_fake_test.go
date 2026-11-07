@@ -41,6 +41,10 @@ type offFake struct {
 	// lostAnswers: the next n creates charge, then answer 500 (a timeout
 	// after Stripe took the money).
 	lostAnswers int
+	// keptAnswers: like lostAnswers, but Stripe keeps the key: a replay
+	// with the same parameters gets the first answer, other parameters an
+	// idempotency_error.
+	keptAnswers int
 	subs        map[string]map[string]any // subscription id → {customer, status, metadata, default_payment_method}
 	subSets     []map[string]string       // POST /v1/subscriptions/{id} forms
 	invoices    map[string]map[string]any // invoice id → {status, amount_due, hosted_invoice_url}
@@ -57,7 +61,10 @@ func (f *offFake) charge(pi map[string]any, pm string) (int, map[string]any) {
 	case o == "":
 		pi["status"], pi["amount_received"] = "succeeded", pi["amount"]
 		return 200, f.piJSON(pi)
-	case o == "config": // Stripe refuses the request: no PaymentIntent
+	case o == "needs_pmc" && pi["pmc"] != "": // a Link: allowed only under pmc_web
+		pi["status"], pi["amount_received"] = "succeeded", pi["amount"]
+		return 200, f.piJSON(pi)
+	case o == "config" || o == "needs_pmc": // Stripe refuses the request: no PaymentIntent
 		delete(f.pis, pi["id"].(string))
 		return 400, map[string]any{"error": map[string]any{"type": "invalid_request_error",
 			"message": "The PaymentMethod provided (link) is not allowed for this PaymentIntent."}}
@@ -110,16 +117,23 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(code)
 		_ = json.NewEncoder(w).Encode(v)
 	}
+	form := map[string]string{"key": key}
+	for k := range r.Form {
+		form[k] = r.Form.Get(k)
+	}
 	if key != "" && r.Method == http.MethodPost {
 		if prev, ok := f.idem[key]; ok {
+			if p, _ := f.idem[key+"#params"][1].(string); p != "" && p != r.PostForm.Encode() {
+				w.WriteHeader(400)
+				_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"type": "idempotency_error",
+					"message": "Keys for idempotent requests can only be used with the same parameters they were first used with."}})
+				return
+			}
 			w.WriteHeader(prev[0].(int))
 			_ = json.NewEncoder(w).Encode(prev[1])
 			return
 		}
-	}
-	form := map[string]string{"key": key}
-	for k := range r.Form {
-		form[k] = r.Form.Get(k)
+		f.idem[key+"#params"] = [2]any{0, r.PostForm.Encode()}
 	}
 	switch {
 	case p == "/v1/payment_intents" && r.Method == http.MethodPost:
@@ -134,10 +148,18 @@ func (f *offFake) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		var amount int64
 		fmt.Sscan(form["amount"], &amount)
 		pi := map[string]any{"id": id, "amount": amount, "currency": form["currency"], "customer": form["customer"], "metadata": md,
+			"pmc":           form["payment_method_configuration"],
 			"client_secret": id + "_secret_x", "created": time.Now().Unix()}
 		f.pis[id] = pi
 		f.creates = append(f.creates, form)
 		code, body := f.charge(pi, form["payment_method"])
+		if f.keptAnswers > 0 {
+			f.keptAnswers--
+			f.idem[key] = [2]any{code, body}
+			w.WriteHeader(500)
+			_ = json.NewEncoder(w).Encode(map[string]any{"error": map[string]any{"type": "api_error", "message": "timeout"}})
+			return
+		}
 		if f.lostAnswers > 0 {
 			f.lostAnswers--
 			delete(f.idem, key) // Stripe would replay; the gateway never asks

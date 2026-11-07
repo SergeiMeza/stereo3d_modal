@@ -272,6 +272,8 @@ func (s *Service) chargeBatch(ctx context.Context, b *store.Batch) (*store.Batch
 		return s.recordBatchFailure(ctx, b, stripex.ChargeFailure{
 			Code: "no_payment_method", Message: "no default payment method on file",
 		})
+	case webBatch(b):
+		return s.chargeWebBatch(ctx, b, cust)
 	default:
 		pi, chErr = s.Stripe.ChargeSaved(cust.StripeCustomerID, cust.DefaultPaymentMethod,
 			b.TotalCents, b.Currency, stripex.Job{
@@ -492,6 +494,9 @@ func (s *Service) recordBatchFailure(ctx context.Context, b *store.Batch, fail s
 				bb.State = store.BatchFailed
 				bb.FailedAt = &now
 				bb.SoftDecline = !fail.Stop && !fail.NeedsAction && !hardDeclines[fail.DeclineCode] && fail.Code != "no_payment_method"
+				if fail.Config && webBatch(b) {
+					bb.SoftDecline = false // B2 (web): Stripe refused the request; no retry, the owner was alerted
+				}
 				bb.PIStatus = ""
 			}
 			return nil

@@ -28,6 +28,10 @@ const (
 	settleIOS      = "ios_settle"
 	settleSoftRety = "soft_retry"
 	settleDelete   = "delete"
+	// settleWebRetry is the 24 h retry of a failed WEB group (charge-after
+	// runs of web projects): the web's charge rules (pmc_web, the web
+	// backups), where the app's groups keep soft_retry (D1).
+	settleWebRetry = "web_retry"
 
 	iosBankCheckLease = 30 * time.Minute
 )
@@ -57,6 +61,10 @@ func settleItemRuns(st *store.Settle) []string {
 	}
 	return ids
 }
+
+// webSettle: a settle trigger charged under the web's rules (D1): the
+// deletion's dues and a web group's retry.
+func webSettle(trigger string) bool { return trigger == settleDelete || trigger == settleWebRetry }
 
 // collectOutstanding is C11. opts carry the sheet's device and IP.
 func (s *Service) collectOutstanding(ctx context.Context, uid, trigger string, pc payContext) (settleResult, error) {
@@ -261,7 +269,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 	}
 	params := stripex.Job{Web: true, UID: st.UID, Description: fmt.Sprintf("Your last runs (%d)", st.Runs()),
 		ReceiptEmail: cust.Email, Metadata: map[string]string{"settle_id": st.ID, "payment_flow": "settle"}}
-	if st.Trigger == settleDelete {
+	if webSettle(st.Trigger) {
 		params.PMC = s.Cfg.StripePMCWeb // B1, web only: a saved Link or PayPal can pay
 	}
 	// B5 (every trigger, D8): the charge is on the record before it goes
@@ -292,7 +300,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 	}
 	piID := fail.PaymentIntentID
 	switch {
-	case st.Trigger == settleDelete:
+	case webSettle(st.Trigger):
 		// stripe-go hands back an empty PaymentIntent with an error: the
 		// declined one is the error's, so the backups and the cancel below
 		// work on it (web; audit 2026-11-07).
@@ -324,7 +332,7 @@ func (s *Service) chargeSettle(ctx context.Context, st *store.Settle, dropped []
 			return settleResult{Settle: updated, RequiresAction: true, ClientSecret: secret}, uerr
 		}
 		paid := false
-		if st.Trigger == settleDelete {
+		if webSettle(st.Trigger) {
 			// Web (D1): a bank check goes on to the backups too, and a charge
 			// Stripe refused before making a PaymentIntent (B3) still tries
 			// them; a configuration error alerts (B2).
@@ -507,6 +515,22 @@ func (s *Service) settleSweep(ctx context.Context) (released, retried int) {
 		}
 		age := now.Sub(*b.FailedAt)
 		switch {
+		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour && webBatch(b):
+			// A web group (D1): retried under the web's rules, and marked
+			// retried only once the retry ran (a transient error tries again).
+			seen[b.UID] = true
+			res, rerr := s.collectOutstanding(ctx, b.UID, settleWebRetry, payContext{})
+			if rerr != nil {
+				continue
+			}
+			_, _ = s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchFailed, store.BatchSettling, store.BatchPaid}, func(bb *store.Batch) error {
+				bb.SoftRetried = true
+				return nil
+			}, nil, nil)
+			if !res.Paid && !res.Live && !res.Nothing {
+				s.mailOwed(ctx, "E3", "E3_"+b.ID, b.UID, s.owedCents(ctx, b.UID))
+			}
+			retried++
 		case b.SoftDecline && !b.SoftRetried && age >= 24*time.Hour:
 			seen[b.UID] = true
 			_, _ = s.Store.TransitionBatch(ctx, b.ID, []string{store.BatchFailed}, func(bb *store.Batch) error {

@@ -93,3 +93,11 @@ func (s *Store) ListUserReloadRetries(ctx context.Context, uid string) ([]*Topup
 		}
 	}
 }
+
+// ClosedAtOr is when the group closed (its charge went out), or def.
+func (b *Batch) ClosedAtOr(def time.Time) time.Time {
+	if b.ClosedAt != nil {
+		return *b.ClosedAt
+	}
+	return def
+}

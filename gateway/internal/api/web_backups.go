@@ -100,3 +100,15 @@ func (s *Service) alertConfigError(ctx context.Context, what, id, uid string, f 
 	s.Slack.Alert(ctx, "offsession_config_error", fmt.Sprintf("Stripe refused the %s charge `%s` for `%s` (%s): %s — a configuration error, not a decline",
 		what, id, uid, f.Code, f.Message))
 }
+
+// webBatch: a group holding a web project's runs (the web's charge-after,
+// deferred) — charged under the web's rules; a group of app runs only
+// keeps the app's (D1).
+func webBatch(b *store.Batch) bool {
+	for _, it := range b.Items {
+		if it.ProjectID != "" {
+			return true
+		}
+	}
+	return false
+}

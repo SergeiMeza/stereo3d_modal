@@ -786,16 +786,41 @@ func (c *Client) SettleChargeKey(settleID string) string { return "settle_" + c.
 // `since` (B5: an answer lost to a timeout). nil when there is none. A
 // list read, never a create: re-driving a settle never charges again.
 func (c *Client) FindSettleCharge(customerID, settleID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "settle_id", settleID, since)
+}
+
+// FindBatchCharge is FindSettleCharge for a group (metadata batch_id): a
+// web group re-driven after its answer was lost (B6). A succeeded one wins.
+func (c *Client) FindBatchCharge(customerID, batchID string, since time.Time) (*stripe.PaymentIntent, error) {
+	return c.findCharge(customerID, "batch_id", batchID, since)
+}
+
+func (c *Client) findCharge(customerID, key, value string, since time.Time) (*stripe.PaymentIntent, error) {
 	params := &stripe.PaymentIntentListParams{Customer: stripe.String(customerID)}
-	params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Add(-5 * time.Minute).Unix()}
+	if !since.IsZero() {
+		params.CreatedRange = &stripe.RangeQueryParams{GreaterThanOrEqual: since.Add(-5 * time.Minute).Unix()}
+	}
 	params.AddExpand("data.payment_method")
 	it := paymentintent.List(params)
+	var found *stripe.PaymentIntent
 	for it.Next() {
-		if pi := it.PaymentIntent(); pi.Metadata["settle_id"] == settleID && pi.Metadata["env"] == c.env {
-			return pi, nil
+		if pi := it.PaymentIntent(); pi.Metadata[key] == value && pi.Metadata["env"] == c.env {
+			if pi.Status == stripe.PaymentIntentStatusSucceeded {
+				return pi, nil
+			}
+			if found == nil {
+				found = pi
+			}
 		}
 	}
-	return nil, it.Err()
+	return found, it.Err()
+}
+
+// ChargeBatchWith charges a web group on another saved method when the
+// default's charge made no PaymentIntent (B3): key batch_{env}_{id}{suffix}.
+func (c *Client) ChargeBatchWith(customerID, paymentMethodID string, amountCents int64, currency, batchID, keySuffix string, job Job) (*stripe.PaymentIntent, error) {
+	job.BatchID = batchID
+	return c.chargeKeyed(customerID, paymentMethodID, amountCents, currency, "batch_"+c.env+"_"+batchID+keySuffix, job)
 }
 
 // ChargeSettleWith charges a settle on another saved method when the

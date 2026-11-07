@@ -760,8 +760,11 @@ type Batch struct {
 	ChargedCents int64      `firestore:"charged_cents,omitempty" json:"charged_cents,omitempty"`
 	ChargedAt    *time.Time `firestore:"charged_at,omitempty" json:"charged_at,omitempty"`
 	SettleError  string     `firestore:"settle_error,omitempty" json:"-"`
-	CreatedAt    time.Time  `firestore:"created_at" json:"created_at"`
-	UpdatedAt    time.Time  `firestore:"updated_at" json:"updated_at"`
+	// ChargePM: the method a web group's first charge went to (B6),
+	// recorded before it is sent: a re-drive replays that same request.
+	ChargePM  string    `firestore:"charge_pm,omitempty" json:"-"`
+	CreatedAt time.Time `firestore:"created_at" json:"created_at"`
+	UpdatedAt time.Time `firestore:"updated_at" json:"updated_at"`
 }
 
 // ---------------------------------------------------------------- projects
