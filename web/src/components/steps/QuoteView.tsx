@@ -453,8 +453,11 @@ export function QuoteView({
         </span>
       </div>
       {/* owner 2026-11-07 (Option B): Stripe shows the local price when
-          paying, while the gateway offers it */}
-      {localPrice && total > 0 && !freePreview ? (
+          paying, while the gateway offers it. Only when the next step is
+          the payment form (QA 2026-11-07): a balance, a saved method
+          charged before or after the run, or a free preview never opens
+          one, so they don't promise a local price. */}
+      {localPrice && total > 0 && !freePreview && result.payment_flow === "paynow" ? (
         <p data-testid="quote-local-note" className="text-end text-xs text-fg-muted">
           {t("pay.copy.localAtCheckout")}
         </p>

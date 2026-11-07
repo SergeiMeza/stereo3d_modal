@@ -71,10 +71,12 @@ function paySheet(): void {
   );
 }
 
+// paid through the payment form (no saved method)
 const quote: StepQuoteResponse = {
   step: "production",
   params: { preset: "4k", formats: ["mvhevc"] },
   quote: { amount_cents: 4972, currency: "usd" },
+  payment_flow: "paynow",
 };
 
 describe("the pay sheet's currency line follows adaptive_pricing", () => {
@@ -130,6 +132,52 @@ describe("the quote's note under the USD total", () => {
     render(<QuoteView result={{ ...quote, quote: { amount_cents: 0, currency: "usd" } }} />);
     await new Promise((r) => setTimeout(r, 50));
     expect(screen.queryByTestId("quote-local-note")).toBeNull();
+  });
+});
+
+describe("the quote's note only where the payment form comes next (QA 2026-11-07)", () => {
+  async function noteFor(flow: StepQuoteResponse["payment_flow"], extra: Partial<StepQuoteResponse> = {}): Promise<boolean> {
+    mockDb.adaptivePricing = true;
+    render(<QuoteView result={{ ...quote, payment_flow: flow, ...extra }} />);
+    await screen.findByTestId("quote-total");
+    // after /v1/pricing has answered
+    await new Promise((r) => setTimeout(r, 50));
+    return screen.queryByTestId("quote-local-note") !== null;
+  }
+
+  it("paynow: the payment form opens, so the note shows", async () => {
+    expect(await noteFor("paynow")).toBe(true);
+  });
+
+  it("balance: paid from the balance, no note", async () => {
+    expect(
+      await noteFor("balance", { balance: { available_cents: 10_000, enough: true } }),
+    ).toBe(false);
+  });
+
+  it("balance from a plan's usage credit: no note", async () => {
+    expect(
+      await noteFor("balance", {
+        balance: { available_cents: 6_000, enough: true },
+        pay_split: { credit_cents: 4972, balance_cents: 0, card_cents: 0, covered_cents: 4972, text: "Paid from your plan's credit." },
+      }),
+    ).toBe(false);
+  });
+
+  it("free_preview: nothing to pay, no note", async () => {
+    expect(await noteFor("free_preview")).toBe(false);
+  });
+
+  it("precharge: the saved method is charged when the run starts, no note", async () => {
+    expect(await noteFor("precharge", { charge_timing: "before" })).toBe(false);
+  });
+
+  it("after: the saved method is charged after the run, no note", async () => {
+    expect(await noteFor("after", { charge_timing: "after" })).toBe(false);
+  });
+
+  it("no payment_flow (an older gateway): no note", async () => {
+    expect(await noteFor(undefined)).toBe(false);
   });
 });
 
