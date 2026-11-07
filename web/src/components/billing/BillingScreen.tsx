@@ -38,7 +38,7 @@ import { UsageTab, UsageTools, recentMonths } from "@/components/billing/UsageTa
 import { AddMethodSheet } from "@/components/pay/AddMethodSheet";
 import { companySummary } from "@/lib/company";
 import { useSettle } from "@/components/pay/SettleSheet";
-import { formatCents, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
+import { formatCents, formatUsdLabeled, groupMoney, localAmount, paidLocal } from "@/components/steps/money";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -311,6 +311,8 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
   // with the US dollars under it ("Paid ¥1,234 ($8.25)" for screen readers)
   const local = localAmount(row.presentment, t);
   const localText = local === null ? null : refund ? `−${local}` : local;
+  // beside another currency the US dollars say so ("USD 49.72")
+  const usdLabeled = refund ? `−${formatUsdLabeled(row.amount_cents, t.intl)}` : formatUsdLabeled(row.amount_cents, t.intl);
   const paid = row.status !== "payment_needed" && row.status !== "processing" && row.status !== "failed";
   return (
     <li data-testid={`row-${row.row_id}`} className="border-t border-edge">
@@ -343,7 +345,7 @@ function Row({ row }: { row: BillingRow }): JSX.Element {
           >
             {localText}
             <span data-testid="row-amount-usd" className="block text-[11px] text-fg-muted">
-              {amount}
+              {usdLabeled}
             </span>
           </span>
         )}

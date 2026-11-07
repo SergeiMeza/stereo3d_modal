@@ -55,11 +55,11 @@ function usdFormat(tag: string, digits: number): Intl.NumberFormat {
 }
 
 const money = new Map<string, Intl.NumberFormat>();
-function moneyFormat(locale: string, currency: string): Intl.NumberFormat {
-  const id = `${locale}|${currency}`;
+function moneyFormat(locale: string, currency: string, display: "symbol" | "code" = "symbol"): Intl.NumberFormat {
+  const id = `${locale}|${currency}|${display}`;
   let f = money.get(id);
   if (!f) {
-    f = new Intl.NumberFormat(locale, { style: "currency", currency });
+    f = new Intl.NumberFormat(locale, { style: "currency", currency, currencyDisplay: display });
     money.set(id, f);
   }
   return f;
@@ -77,14 +77,33 @@ const RTL_LANGUAGES = new Set(["ar", "he", "fa", "ur"]);
  */
 export function formatMoney(amountMinor: number, currency: string, locale: string): string {
   const f = moneyFormat(locale, currency.toUpperCase());
-  const digits = f.resolvedOptions().maximumFractionDigits ?? 2;
-  const text = f.format(Math.trunc(amountMinor) / 10 ** digits);
+  return isolateFor(locale, f.format(Math.trunc(amountMinor) / 10 ** digitsOf(f)));
+}
+
+/** US dollars that can't pass for local dollars beside another currency
+ * (owner 2026-11-07: a bare "$" reads as pesos, AUD, TWD or HKD): the
+ * language's own symbol when it already says US ("US$8.25", "8,25 $US"),
+ * else Intl's code form ("USD 8.25", "8,25 USD"). */
+export function formatUsdLabeled(cents: number, locale: string): string {
+  const value = Math.trunc(cents) / 100;
+  const symbol = moneyFormat(locale, "USD");
+  const sign = symbol.formatToParts(value).find((p) => p.type === "currency")?.value ?? "";
+  const f = /US/.test(sign) ? symbol : moneyFormat(locale, "USD", "code");
+  return isolateFor(locale, f.format(value));
+}
+
+function digitsOf(f: Intl.NumberFormat): number {
+  return f.resolvedOptions().maximumFractionDigits ?? 2;
+}
+
+function isolateFor(locale: string, text: string): string {
   const lang = locale.split("-")[0].toLowerCase();
   return RTL_LANGUAGES.has(lang) ? `\u2066${text}\u2069` : text;
 }
 
 /** A charge paid in another currency (Stripe Adaptive Pricing): "Paid
- * ¥1,234 ($8.25)". null when it was paid in US dollars (no presentment,
+ * ¥1,234 (USD 8.25)", the US dollars always marked as such. null when it
+ * was paid in US dollars (no presentment,
  * or a USD one): the caller shows the USD amount as before. */
 export function paidLocal(
   presentment: Presentment | null | undefined,
@@ -93,7 +112,7 @@ export function paidLocal(
 ): string | null {
   const local = localAmount(presentment, t);
   if (local === null) return null;
-  return t("common.money.paidLocal", { local, usd: formatMoney(usdCents, "usd", t.intl) });
+  return t("common.money.paidLocal", { local, usd: formatUsdLabeled(usdCents, t.intl) });
 }
 
 /** The local amount alone ("¥1,234"), or null when paid in US dollars. */
