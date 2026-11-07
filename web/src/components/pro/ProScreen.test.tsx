@@ -217,3 +217,27 @@ describe("Business and Studio include Pro (owner, 2026-11)", () => {
     expect(screen.queryByTestId("pro-save-link")).toBeNull();
   });
 });
+
+describe("/pro with Weekly hidden on the web (BUX-24 proposal)", () => {
+  it("off (the default, mock included): Weekly is there", async () => {
+    expect(mockDb.webProWeeklyHidden).toBe(false);
+    render(
+      <AuthProvider>
+        <ProScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByTestId("pro-plan-weekly")).toBeTruthy();
+  });
+
+  it("on: Monthly and Yearly only", async () => {
+    mockDb.webProWeeklyHidden = true;
+    render(
+      <AuthProvider>
+        <ProScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByTestId("pro-plan-yearly")).toBeTruthy();
+    expect(screen.queryByTestId("pro-plan-weekly")).toBeNull();
+    expect(screen.getByTestId("pro-plan-monthly")).toBeTruthy();
+  });
+});

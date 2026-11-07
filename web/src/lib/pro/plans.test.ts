@@ -112,3 +112,19 @@ describe("/pro's default and labels (owner 2026-11-07, BUX-10)", () => {
     expect(perMonthLine(by("monthly"))).toBeNull();
   });
 });
+
+describe("Pro Weekly on the web (BUX-24 proposal, off by default)", () => {
+  it("sold as today while the flag is off or missing; hidden only while it's on", async () => {
+    const { webPlansFromPricing } = await import("@/lib/pro/plans");
+    expect(webPlansFromPricing({ pro_plans: DEFS }).map((p) => p.kind)).toEqual(["weekly", "monthly", "yearly"]);
+    expect(webPlansFromPricing({ pro_plans: DEFS, web_pro_weekly_hidden: false }).map((p) => p.kind)).toEqual([
+      "weekly",
+      "monthly",
+      "yearly",
+    ]);
+    expect(webPlansFromPricing({ pro_plans: DEFS, web_pro_weekly_hidden: true }).map((p) => p.kind)).toEqual([
+      "monthly",
+      "yearly",
+    ]);
+  });
+});

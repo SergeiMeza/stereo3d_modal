@@ -65,6 +65,13 @@ export function plansFromPricing(
   return ORDER.flatMap((k) => out.filter((p) => p.kind === k));
 }
 
+/** The Pro plans the web sells: pro_plans, without Weekly while
+ * web_pro_weekly_hidden is on (BUX-24, off by default; the app keeps it). */
+export function webPlansFromPricing(pricing: Pick<PublicPricing, "pro_plans" | "pro_credit" | "web_pro_weekly_hidden">): ProPlan[] {
+  const plans = plansFromPricing(pricing.pro_plans ?? [], pricing.pro_credit);
+  return pricing.web_pro_weekly_hidden === true ? plans.filter((p) => p.kind !== "weekly") : plans;
+}
+
 /** "Weekly" (pro.plans.name.*) */
 export function planName(p: ProPlan, t: Tr = EN): string {
   return t(`pro.plans.name.${p.kind}`);

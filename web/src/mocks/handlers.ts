@@ -420,6 +420,9 @@ interface DB {
   /** GET /v1/pricing china_payments: off in the dev mock like the gateway
    * at launch ("coming soon"), on in unit tests (the Alipay paths) */
   chinaPayments: boolean;
+  /** GET /v1/pricing web_pro_weekly_hidden (BUX-24 proposal): off
+   * everywhere, the mock included; tests turn it on */
+  webProWeeklyHidden: boolean;
   /** the NEXT conversion's first poll waits for a free GPU (Classic runs;
    * Lifelike runs always wait one poll) */
   nextWaitsForGpu: boolean;
@@ -1037,6 +1040,7 @@ function seed(): DB {
     adaptivePricing: false,
     payRequests: new Map(),
     chinaPayments: typeof process !== "undefined" && !!process.env?.VITEST,
+    webProWeeklyHidden: false,
     nextWaitsForGpu: false,
     methodAvailable: { lifelike: true, classic: true },
     classicNewProjects: false,
@@ -4712,6 +4716,7 @@ export const handlers = [
       campaign: publicCampaign(),
       adaptive_pricing: mockDb.adaptivePricing,
       china_payments: mockDb.chinaPayments,
+      web_pro_weekly_hidden: mockDb.webProWeeklyHidden,
       // gateway 00102: web Pro on our own Stripe subscriptions
       pro_plans: MOCK_PRO_PLANS,
       pro_credit: MOCK_PRO_CREDIT,

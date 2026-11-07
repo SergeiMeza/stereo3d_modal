@@ -818,6 +818,9 @@ export interface PublicPricing {
   /** owner 2026-11-07: China-mode payments (Alipay, WeChat Pay, plans);
    * missing means off ("coming soon") */
   china_payments?: boolean;
+  /** BUX-24 (proposal, owner 2026-11-07): the web doesn't sell Pro Weekly
+   * (the app keeps it); missing or false: Weekly is sold as today */
+  web_pro_weekly_hidden?: boolean;
   methods: {
     lifelike?: {
       presets: Preset[];

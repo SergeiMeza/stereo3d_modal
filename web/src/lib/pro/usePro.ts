@@ -21,7 +21,7 @@ import type { GatewayClient } from "@/lib/api/client";
 import { useGateway } from "@/lib/api/useGateway";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { openProCheckout, proCheckoutAtom } from "@/lib/pro/checkoutStore";
-import { anchorLine, anchorPlan, plansFromPricing } from "@/lib/pro/plans";
+import { anchorLine, anchorPlan, webPlansFromPricing } from "@/lib/pro/plans";
 import { appStore, useAppAtomValue } from "@/lib/state/stores";
 import type { ProPlan } from "@/lib/pro/plans";
 
@@ -185,7 +185,7 @@ export function useProStatus(): ProStatus | null {
  * pro_plans); nothing on sale when the list is empty. */
 async function loadPlansFor(gateway: GatewayClient): Promise<ProPlan[]> {
   const pricing = await gateway.getPricing();
-  return plansFromPricing(pricing.pro_plans ?? [], pricing.pro_credit);
+  return webPlansFromPricing(pricing);
 }
 
 export type PlansState =
