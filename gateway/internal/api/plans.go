@@ -153,6 +153,7 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 		out["current_period_end"] = p.CurrentPeriodEnd.Format(time.RFC3339)
 	}
 	out["scheduled_change"] = scheduledChangeJSON(p) // {to, effective_at} or null
+	s.addDunningJSON(out, p)                         // D5: past_due, payment_failed_at, next_payment_attempt_at, action_required, amount_due_cents, pay_url
 	if b, berr := s.Store.GetBalance(ctx, uid); berr == nil {
 		out["credit_left_cents"] = b.PeriodCreditCents() // the plan's own; grants are in balance.credits
 	}
@@ -190,6 +191,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			next.PeriodPaidCents = c.Plan.PeriodPaidCents
 			next.ScheduleID, next.ScheduledTo, next.ScheduledAt = c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt
 			next.RestoredFrom = c.Plan.RestoredFrom
+			next.Dunning = c.Plan.Dunning
 		}
 		c.Plan = next
 		return nil
@@ -210,6 +212,7 @@ func (s *Service) handleSubscriptionEvent(ctx context.Context, raw json.RawMessa
 		sub = *fresh // events can arrive out of order: read the current one
 	}
 	s.syncPlan(ctx, &sub)
+	s.endDunnedPlan(ctx, &sub) // D5: a renewal never paid ends the app's entitlement at the cancel
 }
 
 // handlePlanInvoicePaid grants a period's credit when its invoice is paid
@@ -261,6 +264,7 @@ func (s *Service) handlePlanInvoicePaid(ctx context.Context, raw json.RawMessage
 	}
 	s.syncPlan(ctx, sub)
 	uid, tier := sub.Metadata["user_id"], sub.Metadata["plan"]
+	s.dunningPaid(ctx, uid, sub.ID, inv.ID) // D5: the renewal (or any plan invoice) paid
 	// A deleted account's subscription only runs out (cancel_at_period_end
 	// at the deletion): nothing is granted again, quietly.
 	if cust, cerr := s.Store.GetCustomer(ctx, uid); cerr == nil && cust.AccountDeleted {

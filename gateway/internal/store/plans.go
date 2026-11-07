@@ -59,6 +59,9 @@ type Plan struct {
 	// RestoredFrom: the deleted account this plan was restored from
 	// (Restore Purchases): credit it was granted there isn't granted again.
 	RestoredFrom string `firestore:"restored_from,omitempty" json:"-"`
+	// Dunning: a renewal that didn't go through (D5), cleared when an
+	// invoice of the plan is paid.
+	Dunning *PlanDunning `firestore:"dunning,omitempty" json:"-"`
 }
 
 // Key is the plan's id: PlanID, else Tier.
@@ -275,4 +278,20 @@ func (s *Store) ListPlanCustomers(ctx context.Context, limit int) (map[string]*C
 		}
 	}
 	return out, nil
+}
+
+// PlanDunning is a failed renewal while Stripe's Smart Retries run (D5):
+// the plan's benefits stay on until the subscription is canceled; its
+// period credit waits for the invoice to be paid.
+type PlanDunning struct {
+	InvoiceID      string     `firestore:"invoice_id"`
+	AmountDueCents int64      `firestore:"amount_due_cents"`
+	Currency       string     `firestore:"currency,omitempty"`
+	FirstFailedAt  time.Time  `firestore:"first_failed_at"`
+	LastFailedAt   time.Time  `firestore:"last_failed_at"`
+	AttemptCount   int        `firestore:"attempt_count"`
+	NextAttemptAt  *time.Time `firestore:"next_attempt_at,omitempty"`
+	ActionRequired bool       `firestore:"action_required,omitempty"`
+	PayRequestID   string     `firestore:"pay_request_id,omitempty"`
+	RevokedAt      *time.Time `firestore:"revoked_at,omitempty"` // the app's entitlement ended at the cancel
 }
