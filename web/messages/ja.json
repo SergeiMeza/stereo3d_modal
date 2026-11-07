@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "{site}を仕事で使いますか？{business}や{studio}を設定",
+      "setUp": "設定する",
+      "proLine": "クライアントやチームで使いますか？{business}と{studio}なら{range}お得で、商用利用も含まれます。<link>プランを見る</link>",
+      "appStoreActive": "App Storeの{pro}は引き続き有効です。",
+      "howToCancel": "解約の方法"
+    },
+    "setup": {
+      "steps": {
+        "aria": "ステップ",
+        "item": "{n}. {label}",
+        "plan": "プラン",
+        "questions": "あなたについて",
+        "checkout": "お支払い"
+      },
+      "mainUses": {
+        "clientWork": "クライアントワーク",
+        "ownChannel": "自分のチャンネル",
+        "stockFootage": "ストック映像",
+        "other": "その他"
+      },
+      "includes": {
+        "pctOff": "すべての動画が{pct}%オフ",
+        "usage": "毎月{amount}分の利用額",
+        "commercial": "動画の商用利用",
+        "frameRates": "最大{fps} fpsのフレームレート",
+        "intro": "{site}のイントロのオン/オフ",
+        "invoices": "会社情報入りの請求書",
+        "express": "Express付き"
+      },
+      "price": {
+        "year": "年{price}",
+        "month": "月{price}",
+        "week": "週{price}"
+      },
+      "terms": {
+        "yearly": "年1回のお支払いです。毎月{amount}分の利用額が付与されます。解約するまで毎年更新されます。",
+        "monthly": "毎月のお支払いです。解約するまで毎月更新されます。"
+      },
+      "appStoreProNote": "お使いの{pro}はAppleに請求されます。{business}には{pro}のすべてが含まれるため、二重払いを避けるにはiPhoneの「設定」→［あなたの名前］→「サブスクリプション」で{pro}を解約してください。",
+      "studio": {
+        "title": "{studio}をご利用中です",
+        "onBilling": "プランは<link>お支払い</link>で確認できます。"
+      },
+      "eyebrow": "{business}と{studio}",
+      "title": "{site}を仕事用に設定",
+      "planAria": "プラン",
+      "yourPlan": "あなたのプラン",
+      "yearlyPlan": "年間プラン",
+      "monthlyPlan": "月間プラン",
+      "questionsFirst": "先に質問がありますか？",
+      "talkToUs": "相談する",
+      "notNow": "今はしない",
+      "continueWith": "{plan}で続ける",
+      "questions": {
+        "title": "いくつかの質問",
+        "hint": "すべて任意です。仕事向けの改善に役立てます。",
+        "teamSize": "チームの人数",
+        "teamSizePlaceholder": "例：4",
+        "mainUse": "主な用途",
+        "headsets": "ヘッドセット"
+      },
+      "back": "戻る",
+      "skip": "スキップ",
+      "continue": "続ける",
+      "checkout": {
+        "termsTail": "{terms} 価格は米ドル、税別です。確定するまで請求されません。",
+        "asksOnly": "決済で聞かれるのはお支払い方法と国だけです。会社名、住所、税IDは後から追加できます。",
+        "whatHappensBusiness": "{business}はどうなるか",
+        "whatHappensPro": "{pro}はどうなるか",
+        "manageAppStore": "App Storeの契約を管理",
+        "workingOut": "本日の料金を計算中…",
+        "previewFailed": "本日の料金を計算できませんでした。確定するまで請求されません。",
+        "changing": "変更中…",
+        "confirmAndPay": "確定して{amount}を支払う",
+        "confirm": "確定",
+        "continueToPayment": "お支払いへ進む"
+      },
+      "welcome": {
+        "eyebrow": "ようこそ",
+        "title": "{plan}が有効になりました",
+        "commercial": "商用利用：3D動画をクライアント、広告、有料チャンネルに使えます。",
+        "frameRates": "高フレームレート：動画が対応していれば最大{fps} fps。",
+        "usage": "毎月{amount}分の利用額、超えた分は{plan}の料金です。",
+        "make": "3D動画を作る"
+      },
+      "talk": {
+        "title": "相談する",
+        "description": "担当者がメールで返信します。通常は1営業日以内です。",
+        "sent": "ありがとうございます。{email}に返信します。",
+        "accountEmail": "アカウントのメールアドレス"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "Apple Vision Pro向け。写真アプリでは空間ビデオとして表示されます。",
+      "sbsDetail": "Meta Quest、Pico、Samsung Galaxy XR、Steam Frame、XRグラス、3Dテレビ向け。"
+    },
+    "points": {
+      "depthTitle": "リアルな奥行き",
+      "depthDetail": "すべての瞬間を本物の3Dシーンとして再構築します。",
+      "lengthDetail": "短いクリップから長編映画まで。",
+      "originalTitle": "元の映像を片目に",
+      "originalDetail": "5K〜8Kのシネマサイズでは、片目に元のフレームをそのまま表示します。",
+      "foveatedDetail": "見ている場所をより鮮明に。"
+    },
+    "hero": {
+      "new": "新機能",
+      "eyebrow": "Web版{site} · {method}",
+      "title": "どんな動画も<accent>リアルな3D</accent>に",
+      "lede": "シーンごとの形を理解し、左右の目それぞれに向けて撮り直します。",
+      "cta": "最初の3D動画を作る",
+      "fromPrice": "{fps} fpsで1分<b>{price}</b>から",
+      "limits": "{limits}。<link>料金を見る</link>"
+    },
+    "steps": {
+      "uploadTitle": "動画をアップロード",
+      "uploadDetail": "{limits}。",
+      "previewTitle": "ワンシーンをプレビュー",
+      "previewDetail": "数秒間を3Dで確認。",
+      "makeTitle": "3Dにする",
+      "makeDetail": "ヘッドセット用にダウンロード。"
+    },
+    "sections": {
+      "howItLooksEyebrow": "仕上がり",
+      "howItLooksTitle": "アップロードからヘッドセットまで",
+      "stepByStepEyebrow": "ステップ",
+      "stepByStepTitle": "動画に起こること",
+      "watchEyebrow": "観る",
+      "watchTitle": "Vision Proでも、どのヘッドセットでも",
+      "watchLede": "Vision Proと各ヘッドセットのブラウザで使えます。そこでサイトを開き、そのまま観るかダウンロードしてください。"
+    },
+    "final": {
+      "title": "あなたの動画を3Dで",
+      "cta": "3D動画を作る",
+      "teams": "仕事用：{business}と{studio}プラン。<link>プランを見る</link>",
+      "feedback": "足りない点や不具合がありますか？<button>お知らせください</button>。"
+    },
+    "footer": {
+      "byline": "<brand></brand> Web版 · Spatial AI Labs Ltdのプロダクト",
+      "privacy": "プライバシーポリシー",
+      "terms": "利用規約",
+      "feedback": "フィードバック",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "奥行き",
+      "depthTitle": "シーンごとの形を理解",
+      "depthDetail": "すべての瞬間が、フレーム間で安定した本物の3Dシーンになります。",
+      "depthLabel": "光る線が映像を横切り、近くは暖色、遠くは青で示し、そのあと元の映像に戻る",
+      "stereoTag": "3D",
+      "stereoTitle": "1台のカメラから両目の映像へ",
+      "stereoDetail": "そのシーンを左右の目それぞれに向けて、きれいなエッジで撮り直します。ここでは視点を揺らして、どの画面でも奥行きが分かるようにしています。",
+      "stereoLabel": "同じ映像をゆるやかに揺れる視点で見たあと、左目用と右目用の映像を並べて表示",
+      "deliveryTag": "ファイル",
+      "deliveryTitle": "最初から3Dで撮ったように再生",
+      "deliveryDetail": "Vision Proの空間ビデオとサイドバイサイドを、あらゆるヘッドセット向けに。",
+      "deliveryLabel": "3D動画が浮かぶウインドウ、ヘッドセットの大画面、ヘッドセットのレンズ越し、XRグラスで表示される様子"
+    },
+    "tour": {
+      "ariaLabel": "アプリ",
+      "projectsLabel": "プロジェクト",
+      "projectsDetail": "動画をドロップするだけ。プロジェクトを一か所に。",
+      "projectsAlt": "Web版{site}のプロジェクトページ。動画が5本あり、1本に「3D完成」の印",
+      "make3dLabel": "3Dにする",
+      "make3dDetail": "ヘッドセットと画質（最大8K）を選びます。料金が先に表示されます。",
+      "make3dAlt": "Apple Vision ProとMeta Questを選び、1080pから8Kの画質を選べる「3Dにする」ページ",
+      "trackerLabel": "進行状況",
+      "trackerDetail": "各ステップと残り時間を確認。",
+      "trackerAlt": "料金と進行中の変換：準備完了、3D動画を作成中",
+      "filesLabel": "ファイル",
+      "filesDetail": "Vision Proの空間ビデオとサイドバイサイドをダウンロード。",
+      "filesAlt": "Vision Proの空間ビデオとサイドバイサイドのファイルをダウンロードできるファイルページ"
+    },
+    "samples": {
+      "eyebrow": "サンプル",
+      "title": "3Dの仕上がりをヘッドセットで",
+      "lede": "Web版{site}で{method}により作成。ヘッドセットにダウンロードするか、比較用に2Dの元動画もどうぞ。",
+      "video2d": "{title}（2D動画）",
+      "videoRedCyan": "{title}（赤とシアンの3D）",
+      "play": "{title}の短い消音プレビューを再生",
+      "look2d": "2D",
+      "lookRedCyan": "赤とシアン",
+      "facts": "{seconds}秒 · {size}"
+    },
+    "worksWith": {
+      "title": "対応機器",
+      "upcoming": "{name}に対応予定、{upcoming}",
+      "tvs": "3Dテレビ"
+    },
+    "heroLoop": {
+      "label": "夕暮れの屋上で歌うシンガーとバンド：左が2D動画、右が同じ瞬間の{method}で、視点がゆるやかに揺れて奥行きを見せている",
+      "yourVideo": "あなたの動画",
+      "caption": "右側は3Dでの見え方に合わせて動きます。<link>ヘッドセットで観る</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · すべての動画が{pct}%オフ",
+      "perMinute": "{quality}は{list}ではなく1分{pro}です。",
+      "getPro": "{pro} {plan}にする",
+      "keepPaying": "動画ごとの支払いを続ける",
+      "terms": "米ドル、税別 · アカウントからいつでも解約可",
+      "planGroup": "{pro}プラン",
+      "includes": "{pro}には{credit}が含まれます。",
+      "freePreviewsMonthly": "{count, plural, other {毎月無料プレビュー#回}}",
+      "businessTitle": "仕事には{business}",
+      "businessLine": "月{price}、{credit}分の利用額、商用利用、請求書付き",
+      "businessLineFps": "月{price}、{credit}分の利用額、商用利用、{fps} fps、請求書付き"
+    },
+    "quote": {
+      "howToPay": "お支払い方法",
+      "payOnce": "1回だけ支払う",
+      "withPlan": "{plan}の場合",
+      "pctOff": "{pct}%オフ",
+      "fromMonthly": "月{price}から",
+      "hide": "非表示",
+      "checkout": {
+        "title": "申し込んで変換",
+        "paymentFailed": "お支払いが完了しませんでした。",
+        "takesOff": "{pro}で、この動画とこれ以降のすべての動画が{pct}%オフになります。",
+        "takesOffWithCredit": "{pro}で、この動画とこれ以降のすべての動画が{pct}%オフになり、{credit}も含まれます。",
+        "includes": "{pro}には{credit}が含まれます。",
+        "continue": "お支払いへ進む",
+        "payOnce": "1回払い · {price}",
+        "planGroup": "{pro}プラン",
+        "today": "{pro} {plan}、本日分",
+        "thisVideo": "この動画（{pro}料金）",
+        "youSave": "この動画でお得になる額",
+        "terms": "アカウントからいつでも解約できます。価格は米ドル、税別です。"
+      },
+      "note": {
+        "highFps": "高フレームレートは{business}と{studio}に付属し、毎月の利用額も含まれます。",
+        "monthlyUsage": "{business}と{studio}には毎月の利用額が含まれます。",
+        "dismiss": "閉じる",
+        "atBusiness": "{business}料金ならこの動画は{price}です。",
+        "fits": "{business}に毎月含まれる{credit}分の利用額に収まり、月{price}です。",
+        "includes": "{business}には毎月{credit}分の利用額が含まれ、月{price}です。",
+        "withStudio": "{studio}なら{price}です。",
+        "seeBusiness": "{business}を見る",
+        "talk": "相談する"
+      },
+      "cinema": {
+        "share": "{pct}%オフ · 商用利用",
+        "seeBusinessSave": "{business}を見る · {range}お得"
+      }
+    },
+    "intro": {
+      "share": "{plan}で{pct}%",
+      "shareSeparator": "、",
+      "title": "プランを選ぶ必要はありません",
+      "body": "最初は動画ごとの支払いです。プランは1分あたりの料金を下げるだけです。",
+      "bodyWithShares": "最初は動画ごとの支払いです。プランは1分あたりの料金を下げるだけです：{shares}。",
+      "gotIt": "了解",
+      "ppvTitle": "動画ごとの支払い",
+      "aMonth": "月",
+      "ppvBody": "動画が完成してから支払います。最初のプレビューは無料です。",
+      "upToFps": "最大{fps} fps",
+      "yourPlan": "あなたのプラン",
+      "pctOff": "{pct}%オフ",
+      "proPreviews": "{count, plural, other {月間プランでは毎月無料プレビュー#回。}}",
+      "includedIn": "{plan}に含まれます",
+      "getPro": "{pro}にする"
+    },
+    "talkToUs": {
+      "banner": "{site}を仕事で使いますか？{business}なら毎月{amount}分の利用額、商用利用、請求書が付きます。",
+      "open": "相談する",
+      "see": "{business}を見る",
+      "sent": "ありがとうございます。{email}に返信します。",
+      "yourEmail": "アカウントのメールアドレス"
+    },
+    "receipt": {
+      "title": "{pro}なら{amount}お得でした",
+      "wouldHaveBeen": "この動画は{amount}になるはずでした。",
+      "monthly": "{plan}は{price}です。",
+      "monthlyCredit": "{plan}は{price}で、{credit}が付きます。",
+      "monthlyPreviews": "{plan}は{price}で、{count, plural, other {毎月無料プレビュー#回}}が含まれます。",
+      "monthlyCreditPreviews": "{plan}は{price}で、{credit}が付き、{count, plural, other {毎月無料プレビュー#回}}が含まれます。",
+      "see": "{pro}を見る",
+      "notNow": "今はしない"
+    },
+    "banner": {
+      "lineLong": "プランですべての動画が{range}お得。",
+      "lineShort": "プランで{range}お得。",
+      "see": "プランを見る",
+      "proOff": "{pro}ですべての動画が{pct}%オフ。",
+      "proOffCredit": "{pro}ですべての動画が{pct}%オフになり、{credit}も含まれます。",
+      "monthlyPreviews": "{count, plural, other {月間プランには毎月無料プレビュー#回も含まれます。}}"
+    },
+    "nudge": {
+      "dismiss": "閉じる"
+    },
+    "sourceLine": {
+      "fps": "高フレームレートは{business}と{studio}に付属し、{range}お得にもなります。",
+      "size": "{size}で作業しますか？{business}と{studio}なら{range}お得で、商用利用も含まれます。",
+      "see": "{business}を見る"
+    },
+    "header": {
+      "link": "プラン",
+      "save": "{range}お得"
+    },
+    "contact": {
+      "tooMany": "本日のメッセージが多すぎます。サポートにご連絡ください。",
+      "checkMessage": "メッセージを確認して、もう一度お試しください。",
+      "title": "相談する",
+      "intro": "担当者がメールで返信します。通常は1営業日以内です。お待ちの間もプロジェクトは開いたままです。",
+      "messageLabel": "どんな動画を、月にどのくらい作りますか？",
+      "messagePlaceholder": "Vision ProとQuest向けに、4Kの短い音楽ビデオを月に約20本。",
+      "company": "会社名（任意）",
+      "teamSize": "チームの人数（任意）",
+      "teamSizePlaceholder": "例：4",
+      "send": "送信",
+      "cancel": "キャンセル"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "本日の請求はありません。",
+      "today": "本日：{amount}",
+      "upgradeWithCredit": "{today} {to} {newPlan} − 未使用の{from}分{unused}",
+      "upgrade": "{today} {to} {newPlan}",
+      "creditRule": "残りの期間と利用額に対して支払った額のうち、少ない方を差し引きます。",
+      "usageHandover": "今月の{from}の残り利用額は、{to}の{amount}が始まると終了します。",
+      "endOfPeriod": "今期の終了日",
+      "staysOn": "{current}は{until}まで続きます。",
+      "afterPayPerVideo": "その後は動画ごとのお支払いになります。",
+      "startsThenAt": "{name}はその時点から{amount}で始まります。",
+      "startsThenAtPer": "{name}はその時点から{per}{amount}で始まります。",
+      "startsThen": "{name}はその時点から始まります。",
+      "repriced": "料金が更新されました。確認してもう一度確定してください。",
+      "nothingCharged": "請求はされていません。",
+      "quoteChanged": "料金が変わりました。新しい合計を確認してください。",
+      "cardConfirm": "カードの確認が必要です。",
+      "cardDeclined": "カードが承認されませんでした。",
+      "errors": {
+        "samePlan": "すでにそのプランです。",
+        "notRenewable": "このプランは期間満了まで続き、変更できません。",
+        "changeScheduled": "変更がすでに予約されています。先にお支払いで取り消してください。",
+        "changeOnHold": "お客様のアカウントではプラン変更が保留されています。サポートにご連絡ください。",
+        "planUnavailable": "そのプランは現在利用できません。後でもう一度お試しください。",
+        "cantChangeHere": "プランはここでは変更できません。",
+        "tryAgain": "プランを変更できませんでした。もう一度お試しください。",
+        "paymentFailed": "お支払いが完了しませんでした。",
+        "previewFailed": "変更内容を計算できませんでした。請求はされていません。",
+        "keepFailed": "プランを維持できませんでした。もう一度お試しください。"
+      },
+      "per": {
+        "weekly": "週",
+        "monthly": "月",
+        "yearly": "年"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "{current}は{next}に変更されず、{end}に終了します。",
+      "changePlan": "プランを変更",
+      "moveUp": "{name}（アップグレード）",
+      "payPerVideoCancel": "動画ごとの支払い（プランを解約）",
+      "dialogTitleChange": "{name}に変更しますか？",
+      "dialogTitleCancel": "{current}を解約しますか？",
+      "working": "変更内容を計算中…",
+      "keep": "{current}を続ける",
+      "payAndChange": "{amount}を支払って変更",
+      "changeTo": "{name}に変更",
+      "cancelPlan": "プランを解約",
+      "howWeWorkThisOut": "計算方法",
+      "renewsOn": "{date}に更新されます。"
+    },
+    "plan": {
+      "title": "{name}プラン",
+      "creditLeft": "今月の利用額 {credit}のうち残り{left}",
+      "usageResets": "利用額は{date}にリセットされます。",
+      "renewsOn": "{date}に更新されます。",
+      "billedYearlyRenewsOn": "年払いです。{date}に更新されます。",
+      "plansLink": "プラン",
+      "introLabel": "動画に{app}のイントロを付ける",
+      "introHint": "動画の前に{app}の短いタイトルが流れます。",
+      "introSaveFailed": "保存できませんでした。もう一度お試しください。"
+    },
+    "planMove": {
+      "expired": "このオファーは期限切れです。サポートにご連絡ください。",
+      "moveFailed": "現在は移行できません。しばらくしてからもう一度お試しください。",
+      "accepted": "{name}プランが届きました。",
+      "sectionLabel": "サポートから移行されたプラン",
+      "headline": "サポートが{name}プランをこちらに移行しました。受け入れますか？",
+      "validUntil": "{date}まで有効です。",
+      "whatMoves": "移行されるもの",
+      "whatStays": "残るもの",
+      "contactSupport": "サポートに連絡",
+      "accept": "受け入れる"
+    },
+    "planEmail": {
+      "title": "プラン用のメールアドレスを追加",
+      "body": "領収書と購入の復元に使います。非公開のAppleアドレスは使えません。プランは引き続きご利用いただけます。",
+      "submit": "このメールアドレスを使う"
+    },
+    "screen": {
+      "title": "お支払い",
+      "contactSupportToContinue": "続けるにはサポートにご連絡ください。",
+      "sections": {
+        "refundQuestion": "返金のご質問",
+        "balance": "残高",
+        "planMoves": "プランの移行",
+        "plan": "プラン",
+        "proCredit": "{pro}クレジット",
+        "restorePurchases": "購入の復元",
+        "paymentMethods": "お支払い方法",
+        "businessDetails": "会社情報",
+        "usage": "利用状況",
+        "invoices": "請求書",
+        "yourPrices": "あなたの料金",
+        "refunds": "返金",
+        "aRow": "1行"
+      },
+      "records": {
+        "label": "購入と請求書",
+        "tabsLabel": "お支払いの記録",
+        "tabs": {
+          "history": "履歴",
+          "plan": "プラン",
+          "usage": "利用状況",
+          "invoices": "請求書"
+        },
+        "loadFailed": "購入履歴を読み込めませんでした。",
+        "tryAgain": "再試行",
+        "noPlanPayments": "プランのお支払いはまだありません。",
+        "noPurchases": "購入はまだありません。",
+        "loading": "読み込み中…",
+        "showMore": "さらに表示",
+        "currency": "米ドル。",
+        "currencyWithVat": "米ドル。該当する場合、価格にVATを含みます。"
+      },
+      "methods": {
+        "title": "お支払い方法",
+        "saving": "保存中",
+        "add": "お支払い方法を追加",
+        "none": "保存済みのお支払い方法はありません。",
+        "expiredOn": "{date}に期限切れ",
+        "default": "デフォルト",
+        "expired": "期限切れ",
+        "makeDefault": "デフォルトにする",
+        "moveUp": "上へ",
+        "moveDown": "下へ",
+        "remove": "削除",
+        "optionsFor": "{label}のオプション",
+        "chargeOrder": "デフォルトのお支払い方法に請求します。承認されない場合は、この順に他の方法を試します。",
+        "max": "お支払い方法は5件まで保存できます。",
+        "removeBlocked": "支払い待ちの間は、唯一のお支払い方法を削除できません。先に支払うか、別の方法を追加してください。",
+        "saveFailed": "保存できませんでした。もう一度お試しください。",
+        "confirmTitle": "{label}を削除しますか？",
+        "confirmLast": "次回の変換から、毎回お支払い方法を聞かれます。",
+        "confirmDescription": "このお支払い方法を削除",
+        "keep": "残す"
+      },
+      "company": {
+        "title": "会社情報",
+        "loading": "読み込み中…",
+        "empty": "会社情報がありません。追加すると請求書に表示されます。",
+        "reminder": "請求書に会社情報を追加",
+        "edit": "編集"
+      },
+      "invoices": {
+        "loadFailed": "請求書を読み込めませんでした。",
+        "tryAgain": "再試行",
+        "none": "請求書はまだありません。",
+        "pdf": "PDF",
+        "creditNote": "クレジットノート {number}",
+        "loading": "読み込み中…",
+        "showMore": "さらに表示"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "支払い済み",
+        "processing": "処理中",
+        "payment_needed": "お支払いが必要",
+        "refund_requested": "返金申請済み",
+        "refunded": "返金済み",
+        "partially_refunded": "一部返金済み",
+        "disputed": "カード会社に異議申し立て中",
+        "refund_failed": "返金できませんでした",
+        "failed": "お支払い失敗",
+        "applied": "完了",
+        "scheduled": "予約済み"
+      },
+      "statusHelp": {
+        "processing": "お支払いを確認しています。数日かかることがあります。",
+        "refund_requested": "2営業日以内にメールでご連絡します。",
+        "refund_failed": "詳細をメールでお送りしました。"
+      },
+      "credit": {
+        "granted": "追加",
+        "expired": "期限切れ",
+        "removed": "終了",
+        "frozen": "保留中",
+        "unfrozen": "解除"
+      },
+      "done": "完了",
+      "scheduledFor": "{date}に予約",
+      "scheduled": "予約済み",
+      "changed": "変更済み",
+      "usageCredit": "利用クレジット",
+      "planChange": "プラン変更",
+      "plan": "プラン",
+      "items": "{count, plural, other {#件}}",
+      "item": {
+        "untitled": "無題のプロジェクト",
+        "production": "3D動画",
+        "preview": "プレビュー",
+        "launchOffer": "ローンチ特典"
+      },
+      "menu": {
+        "more": "その他",
+        "refundRequested": "返金申請済み",
+        "requestRefund": "返金を申請",
+        "getHelp": "このお支払いについて問い合わせる"
+      },
+      "pay": "{amount}を支払う",
+      "payInvoice": "請求書を支払う",
+      "creditNote": "クレジットノート",
+      "invoice": "請求書",
+      "receipt": "領収書"
+    },
+    "usage": {
+      "month": "月",
+      "downloadCsv": "CSVをダウンロード",
+      "loadFailed": "利用状況を読み込めませんでした。",
+      "tryAgain": "再試行",
+      "none": "利用履歴はまだありません。",
+      "columns": {
+        "date": "日付",
+        "project": "プロジェクト",
+        "method": "方式",
+        "preset": "プリセット",
+        "minutes": "分数",
+        "cost": "料金",
+        "paidWith": "支払い方法",
+        "status": "状態"
+      },
+      "apiKey": "APIキー「{name}」",
+      "paidWith": {
+        "balance": "残高",
+        "card": "お支払い方法",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "実行中",
+        "runningReserved": "実行中、{amount}を確保",
+        "released": "解除済み",
+        "partlyDelivered": "一部納品済み",
+        "returned": "{amount}を残高に戻しました",
+        "done": "完了"
+      },
+      "showMore": "さらに表示",
+      "balanceHistory": "残高の履歴",
+      "entry": {
+        "topup": "チャージ",
+        "auto_reload": "自動チャージ",
+        "refund_to_balance": "残高に返金",
+        "debt_payment": "未払い分の支払い",
+        "cash_refund": "お支払い方法に返金",
+        "expiry": "期限切れ",
+        "adjustment": "調整",
+        "dispute_freeze": "お支払いの確認中のため保留",
+        "dispute_unfreeze": "確認後に解除",
+        "dispute_loss": "カード会社への異議申し立てにより差し引き"
+      }
+    },
+    "balance": {
+      "title": "残高",
+      "available": "利用可能",
+      "availableWithCredits": "利用可能 · {credits}",
+      "creditWords": {
+        "grant": "利用クレジット",
+        "pro": "{pro}クレジット",
+        "plan": "プランの利用額"
+      },
+      "creditItem": "{words}{amount}",
+      "creditItemUseBy": "{words}{amount}（{date}まで）",
+      "creditsAnd": "{rest}、{last}",
+      "includes": "{credits}を含む",
+      "reserved": "実行中の{count, plural, other {#件}}の変換用に{amount}を確保",
+      "frozen": "お支払いの確認中のため{amount}を保留しています。",
+      "expired": "残高は{date}に期限切れになりました。",
+      "addFundsHint": "チャージすると、残高から変換の料金を支払えます。",
+      "expires": "チャージしない場合、{date}に期限切れになります。",
+      "addFunds": "チャージ",
+      "prepaid": "プリペイド{amount}",
+      "paused": {
+        "declined": "お支払いが完了しなかったため、自動チャージを一時停止しています。",
+        "limit": "自動チャージを一時停止中：1日の上限に達しました。明日再開します。"
+      },
+      "turnBackOn": "再開する",
+      "autoReload": "自動チャージ",
+      "autoReloadValue": "{below}を下回ったら{add}をチャージ",
+      "off": "オフ",
+      "edit": "編集",
+      "setUp": "設定する",
+      "set": "設定",
+      "spendLimit": "月間の利用上限",
+      "spendLimitValue": "月{limit} · {used}利用済み",
+      "none": "なし",
+      "balanceAlert": "残高アラート",
+      "balanceAlertValue": "{amount}未満",
+      "rowAction": "{label}を{action}"
+    },
+    "banner": {
+      "contactSupport": "サポートに連絡",
+      "pay": "{amount}を支払う",
+      "portalFailed": "お支払い方法のページを開けませんでした",
+      "supportSubject": "アカウントのお支払いについて"
+    },
+    "requireBilling": {
+      "loading": "読み込み中…"
+    },
+    "payReturn": {
+      "checking": "お支払いを確認中…",
+      "paidRun": "お支払いを確認しました。3D動画の作成を開始します。",
+      "backToApp": "{app}に戻る",
+      "backToProject": "プロジェクトに戻る",
+      "notPaid": "お支払いが完了しませんでした。",
+      "tryAgain": "再試行",
+      "chooseAnother": "別のお支払い方法を選ぶ",
+      "slow": "通常より時間がかかっています。お支払いが確認でき次第、開始します。",
+      "startAgain": "最初からやり直す"
+    },
+    "settle": {
+      "nothingToPay": "お支払いはありません。"
+    },
+    "restore": {
+      "title": "購入の復元",
+      "intro": "Webでプランや{pro}を購入したのに表示されませんか？ここで復元できます。",
+      "restoring": "復元中…",
+      "button": "購入を復元",
+      "appStoreNote": "App Storeでの購入は、アプリにサインインすると表示されます。",
+      "failed": "購入を確認できませんでした。しばらくしてからもう一度お試しください。"
+    },
+    "restoreMove": {
+      "findOther": "別のメールアドレスの購入を探す",
+      "looking": "検索中…",
+      "emailLabel": "購入時のメールアドレス",
+      "sending": "送信中…",
+      "sendCode": "コードを送信",
+      "codeSent": "購入が見つかった場合、{email}にコードを送ります。",
+      "checking": "確認中…",
+      "findPurchases": "購入を探す",
+      "useAnother": "別のメールアドレスを使う",
+      "restored": "購入を復元しました",
+      "notFound": "購入が見つかりませんでした",
+      "tryAnother": "別のメールアドレスを試す",
+      "signsInWith": "（{providers}でサインインします。）",
+      "contactSupport": "サポートに連絡",
+      "supportSubject": "プランをこのアカウントに移行",
+      "signInThere": "そのアカウントにサインイン",
+      "hasOwnPlan": "このアカウントにはすでにプランがあります。移行するにはサポートにご連絡ください。",
+      "checkFailed": "確認できませんでした。しばらくしてからもう一度お試しください。",
+      "offerTitle": "{plan}プラン · {date}まで有効",
+      "movesHere": "移行されるもの",
+      "stays": "残るもの",
+      "restoring": "復元中…",
+      "restoreHere": "{plan}をここに復元",
+      "moves": {
+        "plan": "その日までのプラン",
+        "appAccess": "アプリの{pro}",
+        "currentUsage": "今月の未使用の利用額",
+        "monthsNotYetGiven": "今後付与される月ごとの利用額"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "使用済みの利用額",
+        "balance": "元のアカウントの残高",
+        "appStorePurchases": "App Storeでの購入",
+        "pastRunsAndFiles": "過去の動画とファイル",
+        "adminGrants": "サポートが元のアカウントに付与したもの"
+      }
+    },
+    "yourPrices": {
+      "title": "1分あたりの料金",
+      "yourPrices": "あなたの料金",
+      "payPerVideo": "動画ごとの支払い",
+      "withPlanOff": "{plan}なら{pct}%オフ",
+      "withPlan": "{plan}の場合",
+      "pctOff": "1分ごとに{pct}%オフ",
+      "upgradeTo": "{plan}にアップグレード"
+    }
+  },
+  "look": {
+    "analysisRunning": "解析中です。完了すると見積もりが利用できます。",
+    "requestFailed": "リクエストに失敗しました",
+    "heading": "ステレオプレビュー",
+    "follower": {
+      "depthLabel": "深度マップ",
+      "depthTitle": "奥行き変換の深度マップ。ステレオはこれをもとに作られます",
+      "outputTitle": "最新の変換のステレオ出力。元映像の再生位置に同期"
+    },
+    "profile": {
+      "jobFailed": "ジョブに失敗しました",
+      "retry": "プロファイルを再実行（無料）",
+      "start": "ショットをプロファイル（無料）",
+      "hint": "各シーンの奥行きを測定してこれらのコントロールに反映します。無料、約1分。",
+      "failed": "プロファイルに失敗しました：{error}",
+      "stale": "このプロファイルの計算後にシーンの切れ目が変わりました。デフォルト値がずれている可能性があります。次の変換で現在の切れ目に合わせて再プロファイルします。",
+      "adaptiveNote": "シーンプロファイルはまだありません。最初の変換でシーンごとの奥行きパラメータを自動で計算するため（アダプティブ）、上書きは任意です。成功すると、計算値が各シーンの自動デフォルトとしてここに表示されます。"
+    },
+    "compare": {
+      "output": "3D出力",
+      "depth": "深度マップ",
+      "noneYet": "ステレオプレビューを実行すると、元映像の隣に3D出力が表示されます。",
+      "showingDepth": "奥行き変換の深度マップを表示中。ステレオプレビューを実行すると、ここに3D出力が表示されます。"
+    },
+    "import": {
+      "fileLabel": "シーンプロファイルのファイル",
+      "title": "このページから書き出したシーンプロファイルを読み込みます。シーンごとの調整と深度スケールが置き換わります",
+      "button": "プロファイルを読み込む…",
+      "readFailed": "シーンプロファイルを読み取れませんでした。",
+      "failed": "読み込みに失敗しました：{error}",
+      "dialogTitle": "シーンプロファイルを読み込む",
+      "dialogBody": "シーンごとの調整を、{count, plural, other {読み込んだ#件の上書き}}と深度スケール×{scale}に置き換えますか？上書きのないシーンは自動に戻ります。3Dにするも同じ値を使います。",
+      "replace": "置き換える"
+    },
+    "export": {
+      "title": "シーンプロファイル（各シーンの自動値、上書き、深度スケール）をJSONでダウンロード",
+      "button": "プロファイルを書き出す"
+    },
+    "depth": {
+      "reuseLabel": "再利用する深度マップ",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "アップロード済み：{name}",
+      "uploadedFallback": "深度マップ",
+      "uploadedChip": "{hasName, select, yes {アップロードした深度マップ：{name}（そのまま使用、深度の計算なし）} other {アップロードした深度マップ（そのまま使用、深度の計算なし）}}",
+      "inheritedChip": "深度マップ {res} px（奥行きページから再利用、再計算なし）",
+      "useDefault": "パイプラインのデフォルトの深度解像度を使う",
+      "none": "奥行き変換はまだありません。この変換ではプリセットのデフォルト解像度で深度マップを計算します。"
+    },
+    "strength": {
+      "label": "全体の3D強度（深度スケール）：<value>×{scale}</value> <muted>— すべてのシーンに反映</muted>",
+      "aria": "全体の3D強度（深度スケール）"
+    },
+    "preset": {
+      "label": "解像度プリセット",
+      "hint": "出力の画質。3Dにすると同じ選択肢です。"
+    },
+    "edgeLabel": "エッジのスタイル",
+    "formats": "フォーマット",
+    "selectFormat": "フォーマットを1つ以上選択してください",
+    "priorRuns": "過去のステレオ変換",
+    "scenes": {
+      "aria": "シーン",
+      "heading": "シーンごとの3D · {count, plural, other {#シーン}}",
+      "hint": "シーンをクリックするとプレビューがそこへ移動します。再生中のシーンが先頭に来ます。変更した行だけが上書きとして送られます。"
+    },
+    "row": {
+      "jumpTitle": "プレビューをシーン{n}（フレーム{frame}）へ移動",
+      "thumbAlt": "シーン{n}のキーフレーム",
+      "name": "シーン{n}",
+      "convertAria": "シーン{n}を3Dに変換",
+      "shotTypeAria": "シーン{n}のショットタイプ",
+      "auto": "自動",
+      "autoWith": "自動（{type}）",
+      "passthrough": "2Dのまま出力（両目とも同一）",
+      "overridden": "上書き済み",
+      "resetAria": "シーン{n}を自動に戻す",
+      "reset": "リセット"
+    },
+    "shotTypes": {
+      "closeUp": "クローズアップ",
+      "standard": "標準",
+      "dynamic": "ダイナミック",
+      "wide": "ワイド"
+    },
+    "profileErrors": {
+      "notJson": "ファイルが正しいJSONではありません。このページからシーンプロファイルを書き出して、期待される形式を確認してください。",
+      "notProfile": "シーンプロファイルのファイルではありません。'{'\"kind\": \"{kind}\"'}'が必要です。",
+      "depthScale": "depth_scaleは[0.3, 1.5]の範囲の数値にしてください。",
+      "noScenes": "プロファイルにscenes配列がありません。読み込む内容がありません。",
+      "versionNote": "（このファイルはシーンの切れ目v{fileVersion}に対して書き出されました。このプロジェクトはv{currentVersion}です）",
+      "entryNotObject": "scenes[]の項目がオブジェクトではありません。",
+      "missingFirst": "シーンの上書きに整数の`first`フレームがありません。上書きにはソースフレームの整数番号のみ使えます。",
+      "notSceneStart": "フレーム{frame}の上書きは、現在のカットリスト上でシーンの開始位置ではありません{note}。",
+      "shotType": "フレーム{frame}のシーン：shot_typeは{types}のいずれかにしてください。",
+      "displacement": "フレーム{frame}のシーン：displacementは(0, 0.03]の範囲にしてください。"
+    }
+  },
+  "depth": {
+    "analysisRunning": "解析中です。完了すると見積もりが利用できます。",
+    "res": {
+      "label": "深度マップの解像度",
+      "hint": "詳細度が高いほど料金がかかります。詳細度、シーンの切れ目、2Dシーンが一致している間は、3Dにするがこの深度処理を割引価格で再利用します。動画の解像度が上限です。"
+    },
+    "heading": "深度マップ",
+    "uploadFailedFallback": "アップロードに失敗しました",
+    "requestFailed": "リクエストに失敗しました",
+    "imported": {
+      "preview": "（プレビュー）",
+      "clearAria": "読み込んだ深度マップを消去"
+    },
+    "noRunYet": "奥行きプレビューを実行すると、元映像の隣に深度マップが表示されます。",
+    "uploading": "アップロード中… {percent}%",
+    "uploadFailed": "アップロードに失敗しました：{error}",
+    "onFile": "使用中のファイル：{name}",
+    "onFileFallback": "アップロードした深度マップ",
+    "removeAria": "アップロードした深度マップを削除",
+    "fileAria": "深度マップのファイル",
+    "upload": {
+      "title": "ローカルの深度ビデオを元映像の隣でプレビューし、プロジェクトに登録します。3Dの見た目や3Dにするの変換で、深度を計算せずに使えます。書き出しと同様に、全長・元のフレームレートでフレーム単位に一致している必要があります。",
+      "button": "深度マップをアップロード…"
+    },
+    "export": {
+      "titleDisabled": "先に奥行きプレビューを実行してください。書き出しでは生の深度ファイルをダウンロードします",
+      "titleEnabled": "最新の変換から、フル精度の生の深度ファイルをダウンロード",
+      "button": "深度マップを書き出す",
+      "dialogTitle": "深度マップを書き出す",
+      "dialogBody": "最新の変換から生の<mono>depth</mono>ファイルをダウンロードします。このページで再生している8ビットの<mono>depth_vis</mono>プレビューではなく、後続の処理が使うフル精度の10ビット深度マップです。通常のプレーヤーでは平坦または真っ黒に見えることがありますが、高ビット深度のグレースケールでは正常です。",
+      "download": "10ビット深度をダウンロード"
+    },
+    "follower": {
+      "importedLabel": "読み込んだ深度",
+      "importedTitle": "{name}のローカルプレビュー。同じファイルがステレオ/納品の変換用にプロジェクトへアップロードされます",
+      "visTitle": "この変換の8ビット深度ビジュアライゼーション。書き出しではフル精度の生ファイルを取得できます"
+    },
+    "missingVis": "直近の奥行き変換には、ブラウザで再生できる深度ビデオ（depth_vis）がありません。代わりに生の深度ファイルを書き出してください。",
+    "scenes": {
+      "aria": "シーン",
+      "heading": "シーン · 3Dに変換",
+      "hint": "チェックを外したシーンは2Dのままです（エンドクレジット、ロゴなど）。奥行きプレビューを含むすべての変換でそのシーンの深度処理を省略し、料金は変わりません。"
+    },
+    "scene": {
+      "thumbAlt": "シーン{n}のキーフレーム",
+      "name": "シーン{n}",
+      "convertAria": "シーン{n}を3Dに変換"
+    }
+  },
+  "preview": {
+    "analyzing": "動画を解析中です。完了するとプレビューを開けます。",
+    "heading": "あなたの動画",
+    "band": {
+      "running": "作成中",
+      "failed": "完了しませんでした"
+    },
+    "card": {
+      "title": "プレビュー",
+      "backToLatest": "最新に戻る",
+      "back": "戻る",
+      "failed": "このプレビューは完了しませんでした。料金はかかっていません。",
+      "running": "このプレビューを作成中です。完了するとここに表示されます。",
+      "empty": "プレビューはここに表示されます。",
+      "fetching": "プレビューを取得中…",
+      "makeWhole": "動画全体を3Dにする",
+      "viewAria": "表示",
+      "freeCheck": "この画面で3Dを無料チェック"
+    },
+    "quality": "画質",
+    "length": "長さ",
+    "shorter": "短く",
+    "longer": "長く",
+    "lengthValue": "{seconds}秒",
+    "quickLook": "クイックルック <muted>· 半額</muted>",
+    "frameRate": "フレームレート · この動画は{fps}",
+    "cta": "この場面をプレビュー",
+    "explain": {
+      "frames": "{quality}のレートで{frames}フレーム：動画全体と同じフレーム単価です。",
+      "quickLook": "{hasMinimum, select, yes {クイックルックはフレームレートが半分で、料金も半額です。最低料金は{minimum}です。失敗した場合は料金がかかりません。} other {クイックルックはフレームレートが半分で、料金も半額です。失敗した場合は料金がかかりません。}}"
+    },
+    "timeline": {
+      "heading": "場面を選ぶ",
+      "hintWithBands": "バーをクリックするとプレビューが移動します。上部のバーは過去のプレビューです。",
+      "hint": "バーをクリックするとプレビューが移動します。"
+    },
+    "past": {
+      "heading": "過去のプレビュー"
+    },
+    "rangeNote": "プレビュー <mono>{from} – {to}</mono> · シーン{scene}/{scenes}",
+    "row": {
+      "showing": "表示中",
+      "show": "表示"
+    },
+    "check": {
+      "redCyan": "赤とシアン",
+      "wiggle": "ゆらし",
+      "sideBySide": "サイドバイサイド",
+      "redCyanView": "赤とシアン表示",
+      "wiggleView": "ゆらし表示",
+      "leftEye": "左目",
+      "rightEye": "右目"
+    },
+    "player": {
+      "mute": "ミュート",
+      "unmute": "ミュート解除",
+      "speed": "速度"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "保存しました。今後の請求書にはこの情報が使われます。",
+      "saveFailed": "保存できませんでした。もう一度お試しください。",
+      "loadFailed": "保存済みの情報を読み込めませんでした。引き続き入力できます。",
+      "companyName": "会社名",
+      "billingAddress": "請求先住所",
+      "country": "国",
+      "line1": "住所1行目",
+      "line2": "住所2行目（任意）",
+      "city": "市区町村",
+      "postalCode": "郵便番号",
+      "state": "都道府県・州",
+      "taxId": "税ID（任意）",
+      "taxType": "種類",
+      "taxNumber": "番号",
+      "noTaxId": "この国では税IDは不要です。",
+      "billingEmail": "請求書のコピーを受け取るメールアドレス",
+      "poReference": "発注書の参照番号（任意）",
+      "saving": "保存中…",
+      "save": "保存",
+      "billingLink": "お支払い"
+    },
+    "country": {
+      "search": "国を検索",
+      "none": "国が見つかりません。",
+      "yours": "お住まいの国",
+      "all": "すべての国"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "2営業日以内に確認します。",
+      "mergedLine": "一部はすでに申請済みのため、その申請にまとめました。",
+      "sentTitle": "申請を送信しました",
+      "cancelToo": "プランも解約しますか？",
+      "cancelPlan": "プランを解約",
+      "done": "完了",
+      "title": "返金を申請",
+      "intro": "対象を選んでください。すべての申請を担当者が確認します。お支払いから{days}日以内に申請できます。",
+      "nothing": "過去{days}日以内に支払ったもので、返金できるものはありません。",
+      "planLabel": "{name}プラン",
+      "paidDetail": "{amount} · {date}にお支払い",
+      "alreadyAsked": "· 申請済み",
+      "noteLabel": "何がありましたか？（任意）",
+      "cancel": "キャンセル",
+      "sending": "送信中…",
+      "send": "送信",
+      "sendFailed": "申請を送信できませんでした。しばらくしてからもう一度お試しください。",
+      "optionsLoadFailed": "返金できる項目を読み込めませんでした。",
+      "requestsLoadFailed": "申請を読み込めませんでした。"
+    },
+    "section": {
+      "questionNotice": "返金申請についてご質問があります。<link>回答する</link>",
+      "ariaLabel": "返金",
+      "reportProblem": "お支払いや変換に問題がありますか？<link>問題を報告</link>",
+      "reportSubject": "{app}：問題の報告",
+      "needRefund": "返金が必要ですか？<button>返金を申請</button> · お支払いから{days}日以内、解約後でも申請できます。すべての申請を担当者が確認します。",
+      "askWithin": "お支払いから{days}日以内、解約後でも返金を申請できます。すべての申請を担当者が確認します。",
+      "appStore": "App Storeの{pro}の返金はAppleが行います。<link>Appleに返金を依頼</link>",
+      "yourRequests": "あなたの申請",
+      "about": {
+        "plan": "プランのお支払い",
+        "runs": "変換",
+        "balance": "残高",
+        "other": "申請"
+      },
+      "answerLabel": "あなたの回答",
+      "messageLabel": "あなたのメッセージ",
+      "sending": "送信中…",
+      "sendAnswer": "回答を送信",
+      "send": "送信",
+      "cancel": "キャンセル",
+      "askAgain": "この件をもう一度問い合わせる",
+      "addMessage": "メッセージを追加",
+      "replyFailed": "送信できませんでした。しばらくしてからもう一度お試しください。"
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "動画ごとの支払い。<plans>プラン</plans>なら{range}お得。",
+      "noRange": "動画ごとの支払い、または<plans>プラン</plans>でお得に。"
+    },
+    "per": {
+      "year": "年",
+      "month": "月",
+      "week": "週"
+    },
+    "screen": {
+      "title": "料金",
+      "loading": "料金を読み込み中…",
+      "howItWorks": "料金のしくみ",
+      "perMinute": "<b>{fps} fpsの動画1分あたり。</b>{fpsRule}。{roundedUp} 動画の一部だけ作れば、その分だけのお支払いです。",
+      "discount": "<b>{pct}%オフ</b>：{threshold}を超える変換が対象。",
+      "minimumPerRun": "1回の変換につき<b>最低料金{min}</b>。",
+      "minimumPerPreview": "<b>最低料金</b>：プレビューは{previewMin}、その他の変換は{min}。",
+      "paidBefore": "<b>開始前にお支払い。</b>順番待ちの間か最初の1分以内なら、全額返金でキャンセルできます。失敗した場合も全額返金されます。",
+      "currency": "米ドル、税別。すべてのファイル形式が含まれます。",
+      "startProject": "プロジェクトを始める"
+    },
+    "plansScreen": {
+      "loading": "プランを読み込み中…",
+      "unavailable": "プランはまだ利用できません。",
+      "perMinuteLink": "1分あたりの料金"
+    },
+    "proOffer": {
+      "saveLine": "{pro}会員は{pct}%お得",
+      "title": "すべての3D動画が{pct}%オフ",
+      "description": "Web版{site}とアプリで使える1つのメンバーシップ。",
+      "descriptionWithCredit": "Web版{site}とアプリで使える1つのメンバーシップ。{credit}付き。",
+      "get": "{pro}にする"
+    },
+    "plans": {
+      "title": "仕事向けプラン",
+      "subtitle": "毎月の利用額込み。{business}は月払い、{studio}は年払い。",
+      "yourPlan": "あなたのプラン",
+      "changeTo": "{name}に変更",
+      "choose": "{name}を選ぶ",
+      "lines": {
+        "usage": "毎月{amount}分の利用額",
+        "off": "すべての変換が{pct}%オフ",
+        "commercial": "動画の商用利用",
+        "freePreviews": "{count, plural, other {毎月無料プレビュー#回}}",
+        "express": "Express付き",
+        "fileQuality": "クライアント確認や編集向けの{high}と{master}のファイル品質",
+        "fps": "最大{fps} fps",
+        "invoices": "請求書"
+      }
+    },
+    "table": {
+      "perEye": "片目{size}",
+      "from": "{price}から",
+      "aMinuteAt": "1分、{fps} fps",
+      "quality": "画質",
+      "perMinute": "1分あたり、{fps} fps",
+      "withPro": "{pro}の場合",
+      "withProOff": "{pro}の場合（−{pct}%）",
+      "proCredit": "{pro}には{credit}も含まれます。",
+      "limitAndPreviews": "{limit} · プレビューは{price}から"
+    },
+    "extras": {
+      "foveated": "見ている場所をより詳細に",
+      "foveatedIncludedAt": "見ている場所をより詳細に · {at}で付属",
+      "fileQuality": "{quality}のファイル品質",
+      "express": "Express",
+      "expressWhat": "優先して処理",
+      "addons": "オプション",
+      "freePreviews": "無料プレビュー",
+      "perMonth": "月{count}",
+      "firstFree": "最初のプレビューは無料です。",
+      "each": "1回{seconds}秒。",
+      "eachNoRollover": "1回{seconds}秒、繰り越しなし。",
+      "balance": "残高",
+      "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。",
+      "refundable": "使わなかった残高は{days}日以内なら返金できます。"
+    }
+  }
+}

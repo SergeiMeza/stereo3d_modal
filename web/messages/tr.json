@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "{site} uygulamasını iş için mi kullanıyorsunuz? {business} veya {studio} kurun",
+      "setUp": "Kur",
+      "proLine": "Müşteriler veya bir ekip için mi çalışıyorsunuz? {business} ve {studio} {range} tasarruf sağlar ve ticari kullanımı içerir. <link>Planlara bakın</link>",
+      "appStoreActive": "App Store’dan aldığınız {pro} hâlâ etkin.",
+      "howToCancel": "Nasıl iptal edilir"
+    },
+    "setup": {
+      "steps": {
+        "aria": "Adımlar",
+        "item": "{n}. {label}",
+        "plan": "Plan",
+        "questions": "Sizin hakkınızda",
+        "checkout": "Ödeme"
+      },
+      "mainUses": {
+        "clientWork": "Müşteri işleri",
+        "ownChannel": "Kendi kanalım",
+        "stockFootage": "Stok görüntü",
+        "other": "Başka bir şey"
+      },
+      "includes": {
+        "pctOff": "Her videoda %{pct} indirim",
+        "usage": "Her ay {amount} kullanım",
+        "commercial": "Videolarınızın ticari kullanımı",
+        "frameRates": "{fps} fps’e kadar kare hızları",
+        "intro": "{site} tanıtımını açın veya kapatın",
+        "invoices": "Şirket bilgilerinizle faturalar",
+        "express": "Express dahil"
+      },
+      "price": {
+        "year": "Yıllık {price}",
+        "month": "Aylık {price}",
+        "week": "Haftalık {price}"
+      },
+      "terms": {
+        "yearly": "Yılda bir faturalandırılır. Her ay {amount} kullanım gelir. İptal edene kadar her yıl yenilenir.",
+        "monthly": "Aylık faturalandırılır. İptal edene kadar her ay yenilenir."
+      },
+      "appStoreProNote": "{pro} planınızın faturasını Apple keser. {business}, {pro} planının sunduğu her şeyi içerir; ikisi için de ödeme yapmamak üzere {pro} planını iPhone’unuzda Ayarlar → [adınız] → Abonelikler bölümünden iptal edin.",
+      "studio": {
+        "title": "{studio} planınız var",
+        "onBilling": "Planınız <link>Faturalandırma</link> sayfasında."
+      },
+      "eyebrow": "{business} ve {studio}",
+      "title": "{site} uygulamasını iş için kurun",
+      "planAria": "Plan",
+      "yourPlan": "Planınız",
+      "yearlyPlan": "Yıllık plan",
+      "monthlyPlan": "Aylık plan",
+      "questionsFirst": "Önce sorularınız mı var?",
+      "talkToUs": "Bizimle konuşun",
+      "notNow": "Şimdi değil",
+      "continueWith": "{plan} ile devam et",
+      "questions": {
+        "title": "Birkaç soru",
+        "hint": "Hepsi isteğe bağlı. Ürünü iş için daha iyi hâle getirmemize yardımcı olur.",
+        "teamSize": "Ekip büyüklüğü",
+        "teamSizePlaceholder": "ör. 4",
+        "mainUse": "Ana kullanım",
+        "headsets": "Başlıklar"
+      },
+      "back": "Geri",
+      "skip": "Atla",
+      "continue": "Devam",
+      "checkout": {
+        "termsTail": "{terms} Fiyatlar USD cinsindendir, vergi hariç. Siz onaylayana kadar hiçbir şey tahsil edilmez.",
+        "asksOnly": "Ödeme adımında yalnızca ödeme yönteminiz ve ülkeniz istenir. Şirket adı, adres ve vergi numaranızı sonra ekleyebilirsiniz.",
+        "whatHappensBusiness": "{business} planınıza ne olacak",
+        "whatHappensPro": "{pro} planınıza ne olacak",
+        "manageAppStore": "App Store planını yönet",
+        "workingOut": "Bugünkü fiyat hesaplanıyor…",
+        "previewFailed": "Bugünkü fiyat hesaplanamadı. Siz onaylayana kadar hiçbir şey tahsil edilmez.",
+        "changing": "Değiştiriliyor…",
+        "confirmAndPay": "Onayla ve {amount} öde",
+        "confirm": "Onayla",
+        "continueToPayment": "Ödemeye geç"
+      },
+      "welcome": {
+        "eyebrow": "Hoş geldiniz",
+        "title": "{plan} etkin",
+        "commercial": "Ticari kullanım: 3D videolarınızı müşterilere, reklamlara ve ücretli kanallara verebilirsiniz.",
+        "frameRates": "Daha yüksek kare hızları: videonuzda varsa {fps} fps’e kadar.",
+        "usage": "Her ay {amount} kullanım, sonrasında {plan} fiyatları.",
+        "make": "3D videonuzu yapın"
+      },
+      "talk": {
+        "title": "Bizimle konuşun",
+        "description": "Bir kişi e-postayla yanıtlar, genellikle bir iş günü içinde.",
+        "sent": "Teşekkürler. {email} adresine yanıt vereceğiz.",
+        "accountEmail": "hesap e-postanız"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "Apple Vision Pro için. Fotoğraflar’da uzamsal video olarak görünür.",
+      "sbsDetail": "Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR gözlükleri ve 3D TV’ler için."
+    },
+    "points": {
+      "depthTitle": "Gerçeğe yakın derinlik",
+      "depthDetail": "Her an gerçek bir 3D sahne olarak yeniden kurulur.",
+      "lengthDetail": "Kısa bir klipten tam bir filme.",
+      "originalTitle": "Orijinaliniz tek gözde",
+      "originalDetail": "5K–8K Cinema boyutlarında, bir göz kendi karelerinizi gösterir.",
+      "foveatedDetail": "Baktığınız yerde daha keskin."
+    },
+    "hero": {
+      "new": "Yeni",
+      "eyebrow": "Web’de {site} · {method}",
+      "title": "Her videoyu <accent>gerçeğe yakın 3D</accent>’ye çevirin",
+      "lede": "Her sahnenin şeklini anlıyor, sonra her göz için yeniden çekiyoruz.",
+      "cta": "İlk 3D videonuzu yapın",
+      "fromPrice": "dakikası {fps} fps’te <b>{price}</b>’den başlayan fiyatlarla",
+      "limits": "{limits}. <link>Fiyatlara bakın</link>"
+    },
+    "steps": {
+      "uploadTitle": "Video yükleyin",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "Bir anı önizleyin",
+      "previewDetail": "3D olarak birkaç saniye.",
+      "makeTitle": "3D yapın",
+      "makeDetail": "Başlığınız için indirin."
+    },
+    "sections": {
+      "howItLooksEyebrow": "Nasıl görünür",
+      "howItLooksTitle": "Yüklemeden başlığa",
+      "stepByStepEyebrow": "Adım adım",
+      "stepByStepTitle": "Videonuza ne olur",
+      "watchEyebrow": "İzleyin",
+      "watchTitle": "Vision Pro’da ve her başlıkta",
+      "watchLede": "Vision Pro’da ve her başlık tarayıcısında çalışır: siteyi orada açın, izleyin veya doğrudan başlığa indirin."
+    },
+    "final": {
+      "title": "Kendi videonuzu 3D izleyin",
+      "cta": "3D videonuzu yapın",
+      "teams": "İş için: {business} ve {studio} planları. <link>Planlara bakın</link>",
+      "feedback": "Eksik veya bozuk bir şey mi var? <button>Bize söyleyin</button>."
+    },
+    "footer": {
+      "byline": "Web’de <brand></brand> · Spatial AI Labs Ltd ürünü",
+      "privacy": "Gizlilik Politikası",
+      "terms": "Kullanım Koşulları",
+      "feedback": "Geri bildirim",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "Derinlik",
+      "depthTitle": "Her sahnenin şeklini anlıyoruz",
+      "depthDetail": "Her an gerçek bir 3D sahneye dönüşür, kareden kareye kararlı.",
+      "depthLabel": "Parlayan bir çizgi görüntünün üzerinden geçer; yakın şeyleri sıcak, uzak şeyleri mavi gösterir, sonra yine görüntü",
+      "stereoTag": "3D",
+      "stereoTitle": "Tek kameradan iki göz",
+      "stereoDetail": "Sonra o sahneyi her göz için yeniden çekiyoruz, temiz kenarlarla. Burada bakış noktası sallanır; derinliği her ekranda görebilirsiniz.",
+      "stereoLabel": "Aynı görüntü hafifçe sallanan bir bakış noktasından, ardından sol göz ve sağ göz görünümleri yan yana",
+      "deliveryTag": "Dosyalar",
+      "deliveryTitle": "Sanki 3D çekilmiş gibi oynar",
+      "deliveryDetail": "Vision Pro uzamsal videosu ve yan yana, her başlığa hazır.",
+      "deliveryLabel": "3D video; yüzen bir pencere olarak, başlıkta büyük bir ekranda, başlığın merceklerinden ve XR gözlüklerinde"
+    },
+    "tour": {
+      "ariaLabel": "Uygulama",
+      "projectsLabel": "Projeler",
+      "projectsDetail": "Bir video bırakın. Tüm projeler tek yerde.",
+      "projectsAlt": "Web’de {site} Projeler sayfası; beş video var, biri 3D hazır olarak işaretli",
+      "make3dLabel": "3D yap",
+      "make3dDetail": "Başlıklarınızı ve kaliteyi seçin, 8K’ya kadar. Fiyat önce görünür.",
+      "make3dAlt": "Apple Vision Pro ve Meta Quest seçili, 1080p’den 8K’ya kalite seçenekleri olan 3D yap sayfası",
+      "trackerLabel": "İlerleme",
+      "trackerDetail": "Her adımı ve kalan süreyi izleyin.",
+      "trackerAlt": "Fiyat ve devam eden bir dönüştürme: hazırlık tamam, şimdi 3D video yapılıyor",
+      "filesLabel": "Dosyalar",
+      "filesDetail": "Vision Pro uzamsal videosu ve yan yana, indirmeye hazır.",
+      "filesAlt": "İndirmeye hazır bir Vision Pro uzamsal videosu ve bir yan yana dosyası olan Dosyalar sayfası"
+    },
+    "samples": {
+      "eyebrow": "Örnekler",
+      "title": "3D sonucu başlığınızda izleyin",
+      "lede": "Web’de {site} ile {method} kullanılarak yapıldı. Birini başlığınıza indirin veya karşılaştırmak için 2D orijinali indirin.",
+      "video2d": "{title}, 2D video",
+      "videoRedCyan": "{title}, kırmızı-camgöbeği 3D",
+      "play": "{title} için kısa, sessiz bir önizleme oynat",
+      "look2d": "2D",
+      "lookRedCyan": "Kırmızı-camgöbeği",
+      "facts": "{seconds} sn · {size}"
+    },
+    "worksWith": {
+      "title": "Şunlarla çalışır",
+      "upcoming": "{name} için hazır, {upcoming}",
+      "tvs": "3D TV’ler"
+    },
+    "heroLoop": {
+      "label": "Gün batımında bir çatıda bir şarkıcı ve grubu: solda 2D video, sağda aynı an {method} ile; bakış noktası derinliği göstermek için hafifçe sallanıyor",
+      "yourVideo": "Videonuz",
+      "caption": "Sağ taraf, 3D’de görüneceği gibi hareket eder. <link>Başlığınızda izleyin</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · her videoda %{pct} indirim",
+      "perMinute": "{quality} dakikası {list} yerine {pro} ile.",
+      "getPro": "{pro} {plan} al",
+      "keepPaying": "Video başına ödemeye devam et",
+      "terms": "USD, vergi hariç · Hesap’tan istediğiniz zaman iptal edin",
+      "planGroup": "{pro} planı",
+      "includes": "{pro} şunu içerir: {credit}.",
+      "freePreviewsMonthly": "{count, plural, other {Ayda # ücretsiz önizleme}}",
+      "businessTitle": "İş için {business}",
+      "businessLine": "Aylık {price}; {credit} kullanım, ticari kullanım, faturalar",
+      "businessLineFps": "Aylık {price}; {credit} kullanım, ticari kullanım, {fps} fps, faturalar"
+    },
+    "quote": {
+      "howToPay": "Nasıl ödenir",
+      "payOnce": "Bir kez öde",
+      "withPlan": "{plan} ile",
+      "pctOff": "%{pct} indirim",
+      "fromMonthly": "aylık {price}’den",
+      "hide": "Bunu gizle",
+      "checkout": {
+        "title": "Plana katıl ve dönüştür",
+        "paymentFailed": "Ödeme gerçekleşmedi.",
+        "takesOff": "{pro}, bu videoda ve sonraki her videoda %{pct} indirim sağlar.",
+        "takesOffWithCredit": "{pro}, bu videoda ve sonraki her videoda %{pct} indirim sağlar ve {credit} içerir.",
+        "includes": "{pro} şunu içerir: {credit}.",
+        "continue": "Ödemeye geç",
+        "payOnce": "Bir kez öde · {price}",
+        "planGroup": "{pro} planı",
+        "today": "{pro} {plan}, bugün",
+        "thisVideo": "Bu video, {pro} fiyatıyla",
+        "youSave": "Bu videoda tasarruf edersiniz",
+        "terms": "Hesap’tan istediğiniz zaman iptal edin. Fiyatlar USD cinsindendir, vergi hariç."
+      },
+      "note": {
+        "highFps": "Yüksek kare hızları {business} ve {studio} ile gelir; bunlar ayrıca aylık kullanım içerir.",
+        "monthlyUsage": "{business} ve {studio} aylık kullanım içerir.",
+        "dismiss": "Kapat",
+        "atBusiness": "{business} fiyatıyla bu video {price}.",
+        "fits": "Bu, {business} planının her ay içerdiği {credit} kullanıma sığar; aylık {price}.",
+        "includes": "{business}, her ay {credit} kullanım içerir; aylık {price}.",
+        "withStudio": "{studio} ile {price}.",
+        "seeBusiness": "{business} planına bakın",
+        "talk": "Bizimle konuşun"
+      },
+      "cinema": {
+        "share": "%{pct} indirim · ticari kullanım",
+        "seeBusinessSave": "{business} planına bakın · {range} tasarruf"
+      }
+    },
+    "intro": {
+      "share": "{plan} ile %{pct}",
+      "shareSeparator": ", ",
+      "title": "Plan seçmek zorunda değilsiniz",
+      "body": "Herkes video başına ödemeyle başlar. Plan yalnızca dakika fiyatını düşürür.",
+      "bodyWithShares": "Herkes video başına ödemeyle başlar. Plan yalnızca dakika fiyatını düşürür: {shares}.",
+      "gotIt": "Anladım",
+      "ppvTitle": "Video başına öde",
+      "aMonth": "aylık",
+      "ppvBody": "Her videonun ücretini bittikten sonra ödersiniz. İlk önizleme ücretsiz.",
+      "upToFps": "{fps} fps’e kadar",
+      "yourPlan": "Planınız",
+      "pctOff": "%{pct} indirim",
+      "proPreviews": "{count, plural, other {Aylık planda ayda # ücretsiz önizleme.}}",
+      "includedIn": "{plan} içinde dahil",
+      "getPro": "{pro} al"
+    },
+    "talkToUs": {
+      "banner": "{site} uygulamasını iş yerinde mi kullanıyorsunuz? {business} size ayda {amount} kullanım, ticari kullanım ve faturalar sunar.",
+      "open": "Bizimle konuşun",
+      "see": "{business} planına bakın",
+      "sent": "Teşekkürler. {email} adresine yanıt vereceğiz.",
+      "yourEmail": "hesap e-postanız"
+    },
+    "receipt": {
+      "title": "{pro} ile {amount} tasarruf ederdiniz",
+      "wouldHaveBeen": "Bu video {amount} olurdu.",
+      "monthly": "{plan} {price}.",
+      "monthlyCredit": "{plan} {price}; {credit} ile.",
+      "monthlyPreviews": "{plan} {price} ve ayda {count, plural, other {# ücretsiz önizleme}} içerir.",
+      "monthlyCreditPreviews": "{plan} {price}; {credit} ile ve ayda {count, plural, other {# ücretsiz önizleme}} içerir.",
+      "see": "{pro} planına bakın",
+      "notNow": "Şimdi değil"
+    },
+    "banner": {
+      "lineLong": "Bir planla her videoda {range} tasarruf edin.",
+      "lineShort": "Bir planla {range} tasarruf edin.",
+      "see": "Planlara bakın",
+      "proOff": "{pro}, her videoda %{pct} indirim sağlar.",
+      "proOffCredit": "{pro}, her videoda %{pct} indirim sağlar ve {credit} içerir.",
+      "monthlyPreviews": "{count, plural, other {Aylık plan ayrıca ayda # ücretsiz önizleme içerir.}}"
+    },
+    "nudge": {
+      "dismiss": "Kapat"
+    },
+    "sourceLine": {
+      "fps": "Yüksek kare hızları {business} ve {studio} ile gelir; bunlar ayrıca {range} tasarruf sağlar.",
+      "size": "{size} ile mi çalışıyorsunuz? {business} ve {studio} {range} tasarruf sağlar ve ticari kullanımı içerir.",
+      "see": "{business} planına bakın"
+    },
+    "header": {
+      "link": "Planlar",
+      "save": "{range} tasarruf"
+    },
+    "contact": {
+      "tooMany": "Bugün çok fazla mesaj gönderildi. Lütfen bunun yerine destek ekibine yazın.",
+      "checkMessage": "Lütfen mesajı kontrol edip tekrar deneyin.",
+      "title": "Bizimle konuşun",
+      "intro": "Bir kişi e-postayla yanıtlar, genellikle bir iş günü içinde. Bekledikçe projeleriniz açık kalır.",
+      "messageLabel": "Ne yapıyorsunuz ve ayda ne kadar?",
+      "messagePlaceholder": "Ayda yaklaşık 20 kısa müzik videosu, 4K, Vision Pro ve Quest için.",
+      "company": "Şirket (isteğe bağlı)",
+      "teamSize": "Ekip büyüklüğü (isteğe bağlı)",
+      "teamSizePlaceholder": "ör. 4",
+      "send": "Gönder",
+      "cancel": "Vazgeç"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "Bugün hiçbir şey tahsil edilmez.",
+      "today": "Bugün: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − kullanılmayan {from} için {unused}.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "Kalan süre ve kullanım için ödediğiniz tutarın küçük olanını hesabınıza yansıtırız.",
+      "usageHandover": "Bu ayki kalan {from} kullanımınız, {to} planının {amount} kullanımı başladığında sona erer.",
+      "endOfPeriod": "bu dönemin sonu",
+      "staysOn": "{current} planınız {until} tarihine kadar geçerli kalır.",
+      "afterPayPerVideo": "Sonrasında video başına ödersiniz.",
+      "startsThenAt": "{name} o zaman {amount} fiyatıyla başlar.",
+      "startsThenAtPer": "{name} o zaman {per} {amount} fiyatıyla başlar.",
+      "startsThen": "{name} o zaman başlar.",
+      "repriced": "Fiyat güncellendi. Kontrol edip yeniden onaylayın.",
+      "nothingCharged": "Hiçbir şey tahsil edilmedi.",
+      "quoteChanged": "Fiyat değişti, yeni toplamı kontrol edin.",
+      "cardConfirm": "Kartınızın onaylanması gerekiyor.",
+      "cardDeclined": "Kartınız reddedildi.",
+      "errors": {
+        "samePlan": "Zaten bu plandasınız.",
+        "notRenewable": "Bu plan süresi dolana kadar sürer ve değiştirilemez.",
+        "changeScheduled": "Bekleyen bir değişiklik zaten var. Önce Faturalandırma’dan geri alın.",
+        "changeOnHold": "Hesabınızda plan değişiklikleri beklemede. Destek ekibiyle iletişime geçin.",
+        "planUnavailable": "Bu plan şu anda kullanılamıyor. Daha sonra tekrar deneyin.",
+        "cantChangeHere": "Planınız burada değiştirilemez.",
+        "tryAgain": "Planınız değiştirilemedi. Tekrar deneyin.",
+        "paymentFailed": "Ödemeniz gerçekleşmedi.",
+        "previewFailed": "Değişiklik hesaplanamadı. Hiçbir şey tahsil edilmedi.",
+        "keepFailed": "Planınız korunamadı. Tekrar deneyin."
+      },
+      "per": {
+        "weekly": "haftalık",
+        "monthly": "aylık",
+        "yearly": "yıllık"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "{current} planınız {next} planına geçmek yerine {end} tarihinde sona erer.",
+      "changePlan": "Planı değiştir",
+      "moveUp": "{name} (yükselt)",
+      "payPerVideoCancel": "Video başına öde (planı iptal et)",
+      "dialogTitleChange": "{name} planına geçilsin mi?",
+      "dialogTitleCancel": "{current} iptal edilsin mi?",
+      "working": "Değişiklik hesaplanıyor…",
+      "keep": "{current} planını koru",
+      "payAndChange": "{amount} öde ve değiştir",
+      "changeTo": "{name} planına geç",
+      "cancelPlan": "Planı iptal et",
+      "howWeWorkThisOut": "Bunu nasıl hesaplıyoruz",
+      "renewsOn": "{date} tarihinde yenilenir."
+    },
+    "plan": {
+      "title": "{name} planı",
+      "creditLeft": "Bu ay {credit} kullanımdan {left} kaldı",
+      "usageResets": "Kullanım {date} tarihinde sıfırlanır.",
+      "renewsOn": "{date} tarihinde yenilenir.",
+      "billedYearlyRenewsOn": "Yıllık faturalandırılır. {date} tarihinde yenilenir.",
+      "plansLink": "Planlar",
+      "introLabel": "Videolarıma {app} tanıtımını ekle",
+      "introHint": "Videolarınızdan önce kısa bir {app} başlığı oynar.",
+      "introSaveFailed": "Kaydedilemedi. Tekrar deneyin."
+    },
+    "planMove": {
+      "expired": "Bu teklifin süresi doldu. Destek ekibiyle iletişime geçin.",
+      "moveFailed": "Şu anda taşıyamadık. Biraz sonra tekrar deneyin.",
+      "accepted": "{name} planınız geldi.",
+      "sectionLabel": "Destek ekibinin size taşıdığı bir plan",
+      "headline": "Destek ekibi {name} planınızı buraya taşıdı. Kabul ediyor musunuz?",
+      "validUntil": "{date} tarihine kadar geçerli.",
+      "whatMoves": "Buraya taşınanlar",
+      "whatStays": "Kalanlar",
+      "contactSupport": "Destekle iletişime geç",
+      "accept": "Kabul et"
+    },
+    "planEmail": {
+      "title": "Planınız için bir e-posta ekleyin",
+      "body": "Makbuzlar ve Satın Alımları Geri Yükle bunu kullanır. Gizlenmiş bir Apple adresi olmaz. Bu arada planınız çalışmaya devam eder.",
+      "submit": "Bu e-postayı kullan"
+    },
+    "screen": {
+      "title": "Faturalandırma",
+      "contactSupportToContinue": "Devam etmek için destekle iletişime geçin.",
+      "sections": {
+        "refundQuestion": "İade sorusu",
+        "balance": "Bakiye",
+        "planMoves": "Plan taşımaları",
+        "plan": "Plan",
+        "proCredit": "{pro} kredisi",
+        "restorePurchases": "Satın Alımları Geri Yükle",
+        "paymentMethods": "Ödeme yöntemleri",
+        "businessDetails": "İşletme bilgileri",
+        "usage": "Kullanım",
+        "invoices": "Faturalar",
+        "yourPrices": "Fiyatlarınız",
+        "refunds": "İadeler",
+        "aRow": "Bir satır"
+      },
+      "records": {
+        "label": "Satın alımlar ve faturalar",
+        "tabsLabel": "Faturalandırma kayıtları",
+        "tabs": {
+          "history": "Geçmiş",
+          "plan": "Plan",
+          "usage": "Kullanım",
+          "invoices": "Faturalar"
+        },
+        "loadFailed": "Satın alımlarınız yüklenemedi.",
+        "tryAgain": "Tekrar dene",
+        "noPlanPayments": "Henüz plan ödemesi yok.",
+        "noPurchases": "Henüz satın alım yok.",
+        "loading": "Yükleniyor…",
+        "showMore": "Daha fazla göster",
+        "currency": "ABD doları.",
+        "currencyWithVat": "ABD doları. Geçerli olduğu yerlerde fiyatlara KDV dahildir."
+      },
+      "methods": {
+        "title": "Ödeme yöntemleri",
+        "saving": "Kaydediliyor",
+        "add": "Ödeme yöntemi ekle",
+        "none": "Kayıtlı ödeme yöntemi yok.",
+        "expiredOn": "{date} tarihinde süresi doldu",
+        "default": "Varsayılan",
+        "expired": "Süresi doldu",
+        "makeDefault": "Varsayılan yap",
+        "moveUp": "Yukarı taşı",
+        "moveDown": "Aşağı taşı",
+        "remove": "Kaldır",
+        "optionsFor": "{label} seçenekleri",
+        "chargeOrder": "Varsayılan ödeme yönteminizden tahsil ederiz. Reddedilirse diğerlerini bu sırayla deneriz.",
+        "max": "En fazla 5 ödeme yöntemi kaydedebilirsiniz.",
+        "removeBlocked": "Bekleyen bir ödeme varken tek ödeme yönteminizi kaldıramazsınız. Önce ödemeyi yapın veya başka bir yöntem ekleyin.",
+        "saveFailed": "Kaydedilemedi. Tekrar deneyin.",
+        "confirmTitle": "{label} kaldırılsın mı?",
+        "confirmLast": "Sonraki dönüştürmelerde her seferinde nasıl ödeyeceğiniz sorulur.",
+        "confirmDescription": "Bu ödeme yöntemini kaldır",
+        "keep": "Kalsın"
+      },
+      "company": {
+        "title": "İşletme bilgileri",
+        "loading": "Yükleniyor…",
+        "empty": "İşletme bilgisi yok. Faturalarda görünmesi için ekleyin.",
+        "reminder": "Faturalarınıza şirket bilgilerini ekleyin",
+        "edit": "Düzenle"
+      },
+      "invoices": {
+        "loadFailed": "Faturalarınız yüklenemedi.",
+        "tryAgain": "Tekrar dene",
+        "none": "Henüz fatura yok.",
+        "pdf": "PDF",
+        "creditNote": "Alacak dekontu {number}",
+        "loading": "Yükleniyor…",
+        "showMore": "Daha fazla göster"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "Ödendi",
+        "processing": "İşleniyor",
+        "payment_needed": "Ödeme gerekli",
+        "refund_requested": "İade istendi",
+        "refunded": "İade edildi",
+        "partially_refunded": "Kısmen iade edildi",
+        "disputed": "Bankanızla uyuşmazlık",
+        "refund_failed": "İade gerçekleşmedi",
+        "failed": "Ödeme başarısız",
+        "applied": "Bitti",
+        "scheduled": "Planlandı"
+      },
+      "statusHelp": {
+        "processing": "Ödemeniz onaylanıyor. Bu birkaç gün sürebilir.",
+        "refund_requested": "2 iş günü içinde size e-posta göndereceğiz.",
+        "refund_failed": "Bu konuda size e-posta gönderdik."
+      },
+      "credit": {
+        "granted": "Eklendi",
+        "expired": "Süresi doldu",
+        "removed": "Sona erdi",
+        "frozen": "Beklemede",
+        "unfrozen": "Serbest bırakıldı"
+      },
+      "done": "Bitti",
+      "scheduledFor": "{date} için planlandı",
+      "scheduled": "Planlandı",
+      "changed": "Değiştirildi",
+      "usageCredit": "Kullanım kredisi",
+      "planChange": "Plan değişikliği",
+      "plan": "Plan",
+      "items": "{count, plural, other {# öğe}}",
+      "item": {
+        "untitled": "Adsız proje",
+        "production": "3D video",
+        "preview": "Önizleme",
+        "launchOffer": "Lansman teklifi"
+      },
+      "menu": {
+        "more": "Daha fazla",
+        "refundRequested": "İade istendi",
+        "requestRefund": "İade iste",
+        "getHelp": "Bu ödeme için yardım al"
+      },
+      "pay": "{amount} öde",
+      "payInvoice": "Faturayı öde",
+      "creditNote": "Alacak dekontu",
+      "invoice": "Fatura",
+      "receipt": "Makbuz"
+    },
+    "usage": {
+      "month": "Ay",
+      "downloadCsv": "CSV indir",
+      "loadFailed": "Kullanımınız yüklenemedi.",
+      "tryAgain": "Tekrar dene",
+      "none": "Henüz kullanım yok.",
+      "columns": {
+        "date": "Tarih",
+        "project": "Proje",
+        "method": "Yöntem",
+        "preset": "Ön ayar",
+        "minutes": "Dakika",
+        "cost": "Ücret",
+        "paidWith": "Ödeme şekli",
+        "status": "Durum"
+      },
+      "apiKey": "API anahtarı \"{name}\"",
+      "paidWith": {
+        "balance": "Bakiye",
+        "card": "Ödeme yöntemi",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "Çalışıyor",
+        "runningReserved": "Çalışıyor, {amount} ayrıldı",
+        "released": "Serbest bırakıldı",
+        "partlyDelivered": "Kısmen teslim edildi",
+        "returned": "Bakiyeye iade edildi {amount}",
+        "done": "Bitti"
+      },
+      "showMore": "Daha fazla göster",
+      "balanceHistory": "Bakiye geçmişi",
+      "entry": {
+        "topup": "Bakiye yükleme",
+        "auto_reload": "Otomatik yükleme",
+        "refund_to_balance": "Bakiyeye iade edildi",
+        "debt_payment": "Borç ödendi",
+        "cash_refund": "Ödeme yönteminize iade edildi",
+        "expiry": "Süresi doldu",
+        "adjustment": "Düzeltme",
+        "dispute_freeze": "Bir ödeme incelenirken beklemede",
+        "dispute_unfreeze": "İncelemeden sonra serbest bırakıldı",
+        "dispute_loss": "Banka uyuşmazlığı sonrası kaldırıldı"
+      }
+    },
+    "balance": {
+      "title": "Bakiye",
+      "available": "kullanılabilir",
+      "availableWithCredits": "kullanılabilir · {credits}",
+      "creditWords": {
+        "grant": "kullanım kredisi",
+        "pro": "{pro} kredisi",
+        "plan": "plan kullanımı"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words} (son kullanım: {date})",
+      "creditsAnd": "{rest} ve {last}",
+      "includes": "şunları içerir: {credits}",
+      "reserved": "Devam eden {count, plural, other {# dönüştürme}} için {amount} ayrıldı",
+      "frozen": "Bir ödeme incelenirken {amount} beklemede.",
+      "expired": "Bakiyenizin süresi {date} tarihinde doldu.",
+      "addFundsHint": "Dönüştürmeleri bakiyenizden ödemek için para ekleyin.",
+      "expires": "Para eklemezseniz {date} tarihinde sona erer.",
+      "addFunds": "Para ekle",
+      "prepaid": "Ön ödemeli {amount}",
+      "paused": {
+        "declined": "Bir ödeme gerçekleşmediği için otomatik yükleme duraklatıldı.",
+        "limit": "Otomatik yükleme duraklatıldı: günlük sınıra ulaşıldı. Yarın devam eder."
+      },
+      "turnBackOn": "Yeniden aç",
+      "autoReload": "Otomatik yükleme",
+      "autoReloadValue": "{below} altına düşünce {add} ekle",
+      "off": "Kapalı",
+      "edit": "Düzenle",
+      "setUp": "Kur",
+      "set": "Ayarla",
+      "spendLimit": "Aylık harcama sınırı",
+      "spendLimitValue": "Aylık {limit} · {used} kullanıldı",
+      "none": "Yok",
+      "balanceAlert": "Bakiye uyarısı",
+      "balanceAlertValue": "{amount} altında",
+      "rowAction": "{label}: {action}"
+    },
+    "banner": {
+      "contactSupport": "Destekle iletişime geç",
+      "pay": "{amount} öde",
+      "portalFailed": "Ödeme yöntemi sayfası açılamadı",
+      "supportSubject": "Hesabımdaki ödeme"
+    },
+    "requireBilling": {
+      "loading": "Yükleniyor…"
+    },
+    "payReturn": {
+      "checking": "Ödemeniz kontrol ediliyor…",
+      "paidRun": "Ödeme alındı. 3D videonuz başlıyor.",
+      "backToApp": "{app} uygulamasına dön",
+      "backToProject": "Projenize dön",
+      "notPaid": "Ödeme gerçekleşmedi.",
+      "tryAgain": "Tekrar dene",
+      "chooseAnother": "Başka bir ödeme yolu seç",
+      "slow": "Bu her zamankinden uzun sürüyor. Ödeme onaylanır onaylanmaz başlayacağız.",
+      "startAgain": "Baştan başla"
+    },
+    "settle": {
+      "nothingToPay": "Ödenecek bir şey yok."
+    },
+    "restore": {
+      "title": "Satın Alımları Geri Yükle",
+      "intro": "Web’den bir plan veya {pro} aldınız ve görünmüyor mu? Buradan geri yükleyin.",
+      "restoring": "Geri yükleniyor…",
+      "button": "Satın Alımları Geri Yükle",
+      "appStoreNote": "App Store satın alımları, uygulamada oturum açtığınızda görünür.",
+      "failed": "Satın alımlarınızı şu anda kontrol edemedik. Biraz sonra tekrar deneyin."
+    },
+    "restoreMove": {
+      "findOther": "Başka bir e-postayla yapılan satın alımları bul",
+      "looking": "Aranıyor…",
+      "emailLabel": "Satın alırken kullandığınız e-posta",
+      "sending": "Gönderiliyor…",
+      "sendCode": "Kod gönder",
+      "codeSent": "Satın alım bulursak {email} adresine bir kod göndereceğiz.",
+      "checking": "Kontrol ediliyor…",
+      "findPurchases": "Satın alımları bul",
+      "useAnother": "Başka bir e-posta kullan",
+      "restored": "Satın alımlarınız geri yüklendi",
+      "notFound": "Satın alım bulamadık",
+      "tryAnother": "Başka bir e-posta dene",
+      "signsInWith": "(Şununla oturum açar: {providers}.)",
+      "contactSupport": "Destekle iletişime geç",
+      "supportSubject": "Bir planı hesabıma taşı",
+      "signInThere": "O hesapta oturum aç",
+      "hasOwnPlan": "Bu hesapta zaten bir plan var. Taşımak için destekle iletişime geçin.",
+      "checkFailed": "Şu anda kontrol edemedik. Biraz sonra tekrar deneyin.",
+      "offerTitle": "{plan} planı · {date} tarihine kadar geçerli",
+      "movesHere": "Buraya taşınanlar",
+      "stays": "Kalanlar",
+      "restoring": "Geri yükleniyor…",
+      "restoreHere": "{plan} planını buraya geri yükle",
+      "moves": {
+        "plan": "Planınız, o tarihe kadar",
+        "appAccess": "Uygulamada {pro}",
+        "currentUsage": "Bu ayın kullanılmamış kullanımı",
+        "monthsNotYetGiven": "Henüz verilmemiş aylık kullanımlar"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "Önceden kullanılmış kullanım",
+        "balance": "Eski hesabın bakiyesi",
+        "appStorePurchases": "App Store satın alımları",
+        "pastRunsAndFiles": "Geçmiş videolar ve dosyalar",
+        "adminGrants": "Destek ekibinin eski hesaba verdiği her şey"
+      }
+    },
+    "yourPrices": {
+      "title": "Dakika başına fiyatlarınız",
+      "yourPrices": "Fiyatlarınız",
+      "payPerVideo": "Video başına öde",
+      "withPlanOff": "{plan} ile %{pct} indirim",
+      "withPlan": "{plan} ile",
+      "pctOff": "Her dakikada %{pct} indirim",
+      "upgradeTo": "{plan} planına geç"
+    }
+  },
+  "look": {
+    "analysisRunning": "Analiz hâlâ sürüyor — teklifler bittiğinde açılır.",
+    "requestFailed": "istek başarısız oldu",
+    "heading": "Stereo önizleme",
+    "follower": {
+      "depthLabel": "derinlik haritası",
+      "depthTitle": "Derinlik dönüştürmenizden gelen derinlik haritası — stereo bundan kurulur",
+      "outputTitle": "Son dönüştürmenin stereo çıktısı, kaynağın oynatmasıyla eşzamanlı"
+    },
+    "profile": {
+      "jobFailed": "iş başarısız oldu",
+      "retry": "Profillemeyi yeniden dene (ücretsiz)",
+      "start": "Çekimleri profille (ücretsiz)",
+      "hint": "Her sahnenin derinliğini ölçer ve bu denetimleri doldurur — ücretsiz, yaklaşık 1 dk.",
+      "failed": "Profilleme başarısız oldu — {error}",
+      "stale": "Bu profil hesaplandığından beri sahne kesmeleri değişti — varsayılanlar uyumsuz olabilir. Sonraki dönüştürme, güncel kesmelere göre yeniden profiller.",
+      "adaptiveNote": "Henüz sahne profili yok — ilk dönüştürme sahne başına derinlik ayarlarını otomatik hesaplar (uyarlanabilir), bu yüzden geçersiz kılmalar isteğe bağlıdır. Başarılı olunca hesaplanan değerler burada her sahnenin Otomatik varsayılanları olarak görünür."
+    },
+    "compare": {
+      "output": "3D çıktı",
+      "depth": "Derinlik haritası",
+      "noneYet": "3D çıktıyı kaynağın yanında görmek için bir stereo önizleme çalıştırın.",
+      "showingDepth": "Derinlik dönüştürmesinin derinlik haritası gösteriliyor — 3D çıktıyı burada görmek için bir stereo önizleme çalıştırın."
+    },
+    "import": {
+      "fileLabel": "Sahne profili dosyası",
+      "title": "Bu sayfadan dışa aktarılmış bir sahne profili yükleyin — sahne başına ayarları ve derinlik ölçeğini değiştirir",
+      "button": "Profili içe aktar…",
+      "readFailed": "Sahne profili okunamadı.",
+      "failed": "İçe aktarma başarısız oldu — {error}",
+      "dialogTitle": "Sahne profilini içe aktar",
+      "dialogBody": "Sahne başına ayarlarınız, {count, plural, other {# içe aktarılan geçersiz kılma}} ve ×{scale} derinlik ölçeğiyle değiştirilsin mi? Geçersiz kılması olmayan sahneler Otomatik’e döner. 3D yap aynı değerleri kullanır.",
+      "replace": "Değiştir"
+    },
+    "export": {
+      "title": "Sahne profilini JSON olarak indirin — her sahnenin Otomatik değerleri, geçersiz kılmalarınız ve derinlik ölçeği",
+      "button": "Profili dışa aktar"
+    },
+    "depth": {
+      "reuseLabel": "Yeniden kullanılacak derinlik haritası",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "Yüklendi — {name}",
+      "uploadedFallback": "derinlik haritası",
+      "uploadedChip": "{hasName, select, yes {Yüklenen derinlik haritası — {name} (olduğu gibi kullanılır, derinlik hesaplanmaz)} other {Yüklenen derinlik haritası (olduğu gibi kullanılır, derinlik hesaplanmaz)}}",
+      "inheritedChip": "Derinlik haritası {res} px (Derinlik sayfasından — yeniden kullanıldı, yeniden hesaplanmadı)",
+      "useDefault": "İşlem hattının varsayılan derinlik çözünürlüğünü kullan",
+      "none": "Henüz derinlik dönüştürmesi yok — bu dönüştürme, ön ayarın varsayılan çözünürlüğünde kendi derinlik haritasını hesaplar."
+    },
+    "strength": {
+      "label": "Genel 3D gücü (derinlik ölçeği): <value>×{scale}</value> <muted>— her sahneyi ölçekler</muted>",
+      "aria": "Genel 3D gücü (derinlik ölçeği)"
+    },
+    "preset": {
+      "label": "Çözünürlük ön ayarı",
+      "hint": "Çıktı kalitesi — 3D yap ile aynı seçenekler."
+    },
+    "edgeLabel": "Kenar stili",
+    "formats": "Biçimler",
+    "selectFormat": "En az bir biçim seçin",
+    "priorRuns": "Önceki stereo dönüştürmeler",
+    "scenes": {
+      "aria": "Sahneler",
+      "heading": "Sahne başına 3D · {count, plural, other {# sahne}}",
+      "hint": "Önizlemeyi o sahneye götürmek için bir sahneye tıklayın — oynayan sahne listenin başında olur. Yalnızca değiştirdiğiniz satırlar geçersiz kılma olarak gönderilir."
+    },
+    "row": {
+      "jumpTitle": "Önizlemeyi {n}. sahneye götür (kare {frame})",
+      "thumbAlt": "{n}. sahne anahtar karesi",
+      "name": "Sahne {n}",
+      "convertAria": "{n}. sahneyi 3D’ye çevir",
+      "shotTypeAria": "{n}. sahne çekim türü",
+      "auto": "Otomatik",
+      "autoWith": "Otomatik ({type})",
+      "passthrough": "2D geçiş — olduğu gibi teslim edilir (iki göz aynı)",
+      "overridden": "geçersiz kılındı",
+      "resetAria": "{n}. sahneyi otomatiğe sıfırla",
+      "reset": "Sıfırla"
+    },
+    "shotTypes": {
+      "closeUp": "Yakın plan",
+      "standard": "Standart",
+      "dynamic": "Dinamik",
+      "wide": "Geniş"
+    },
+    "profileErrors": {
+      "notJson": "Dosya geçerli bir JSON değil — beklenen biçimi görmek için bu sayfadan bir sahne profili dışa aktarın.",
+      "notProfile": "Sahne profili dosyası değil — beklenen: '{'\"kind\": \"{kind}\"'}'.",
+      "depthScale": "depth_scale, [0.3, 1.5] aralığında bir sayı olmalı.",
+      "noScenes": "Profilde scenes dizisi yok — içe aktarılacak bir şey yok.",
+      "versionNote": " (dosya sahne kesmeleri v{fileVersion} ile dışa aktarıldı; bu proje v{currentVersion} sürümünde)",
+      "entryNotObject": "scenes[] girdisi bir nesne değil.",
+      "missingFirst": "Bir sahne geçersiz kılmasında tamsayı `first` karesi eksik — geçersiz kılmalar yalnızca tam kaynak kare numaraları taşır.",
+      "notSceneStart": "{frame}. karedeki geçersiz kılma, güncel kesme listesinde bir sahne başlatmıyor{note}.",
+      "shotType": "{frame}. karedeki sahne: shot_type şunlardan biri olmalı: {types}.",
+      "displacement": "{frame}. karedeki sahne: displacement, (0, 0.03] aralığında olmalı."
+    }
+  },
+  "depth": {
+    "analysisRunning": "Analiz hâlâ sürüyor — teklifler bittiğinde açılır.",
+    "res": {
+      "label": "Derinlik haritası çözünürlüğü",
+      "hint": "Daha fazla ayrıntı daha pahalıdır. Ayrıntı, sahne kesmeleri ve 2D sahneler eşleştiği sürece 3D yap bu derinlik çalışmasını indirimle yeniden kullanır. Videonuzun çözünürlüğüyle sınırlıdır."
+    },
+    "heading": "Derinlik haritası",
+    "uploadFailedFallback": "yükleme başarısız oldu",
+    "requestFailed": "istek başarısız oldu",
+    "imported": {
+      "preview": "(önizleme)",
+      "clearAria": "İçe aktarılan derinlik haritasını temizle"
+    },
+    "noRunYet": "Derinlik haritasını kaynağın yanında görmek için bir derinlik önizlemesi çalıştırın.",
+    "uploading": "Yükleniyor… %{percent}",
+    "uploadFailed": "Yükleme başarısız oldu — {error}",
+    "onFile": "Dosya: {name}",
+    "onFileFallback": "yüklenen derinlik haritası",
+    "removeAria": "Yüklenen derinlik haritasını kaldır",
+    "fileAria": "Derinlik haritası dosyası",
+    "upload": {
+      "title": "Yerel bir derinlik videosunu kaynağın yanında önizleyin VE projeye kaydedin — 3D görünümü ve 3D yap dönüştürmeleri derinliği hesaplamak yerine bunu kullanabilir. Dışa aktarma gibi kare kare tam olmalı (tam uzunluk, kaynak kare hızı).",
+      "button": "Derinlik haritası yükle…"
+    },
+    "export": {
+      "titleDisabled": "Önce bir derinlik önizlemesi çalıştırın — dışa aktarma ham derinlik dosyasını indirir",
+      "titleEnabled": "Son dönüştürmenin ham, tam hassasiyetli derinlik dosyasını indirin",
+      "button": "Derinlik haritasını dışa aktar",
+      "dialogTitle": "Derinlik haritasını dışa aktar",
+      "dialogBody": "Bu, son dönüştürmenin ham <mono>depth</mono> dosyasını indirir — sonraki adımların kullandığı tam hassasiyetli 10 bit derinlik haritası; bu sayfada oynayan 8 bit <mono>depth_vis</mono> önizlemesi değil. Sıradan oynatıcılarda düz veya siyah görünebilir; yüksek bit derinlikli gri tonlamada bu beklenen bir durumdur.",
+      "download": "10 bit derinliği indir"
+    },
+    "follower": {
+      "importedLabel": "içe aktarılan derinlik",
+      "importedTitle": "{name} yerel önizlemesi — aynı dosya, Stereo/Teslim dönüştürmeleri için projeye yüklenir",
+      "visTitle": "Dönüştürmenin 8 bit derinlik görselleştirmesi — Dışa aktar ham tam hassasiyetli dosyayı verir"
+    },
+    "missingVis": "Son derinlik dönüştürmesinde tarayıcıda oynatılabilir derinlik videosu (depth_vis) yok — bunun yerine ham derinlik dosyasını dışa aktarın.",
+    "scenes": {
+      "aria": "Sahneler",
+      "heading": "Sahneler · 3D’ye çevir",
+      "hint": "İşaretlenmeyen sahneler 2D kalır (bitiş jenerikleri, logolar): her dönüştürme, derinlik önizlemeleri dahil, bunların derinliğini atlar ve fiyat aynı kalır."
+    },
+    "scene": {
+      "thumbAlt": "{n}. sahne anahtar karesi",
+      "name": "Sahne {n}",
+      "convertAria": "{n}. sahneyi 3D’ye çevir"
+    }
+  },
+  "preview": {
+    "analyzing": "Videonuzu hâlâ analiz ediyoruz. Önizlemeler bitince açılır.",
+    "heading": "Videonuz",
+    "band": {
+      "running": "yapılıyor",
+      "failed": "bitmedi"
+    },
+    "card": {
+      "title": "Önizlemeniz",
+      "backToLatest": "En sona dön",
+      "back": "Geri",
+      "failed": "Bu önizleme bitmedi. Bunun için hiçbir şey ödemediniz.",
+      "running": "Bu önizleme yapılıyor. Bitince burada görünür.",
+      "empty": "Önizlemeniz burada görünür.",
+      "fetching": "Önizleme getiriliyor…",
+      "makeWhole": "Videonun tamamını 3D yap",
+      "viewAria": "Görüntüle",
+      "freeCheck": "Bu ekranda ücretsiz 3D kontrol"
+    },
+    "quality": "Kalite",
+    "length": "Uzunluk",
+    "shorter": "Daha kısa",
+    "longer": "Daha uzun",
+    "lengthValue": "{seconds} sn",
+    "quickLook": "Hızlı bakış <muted>· yarı fiyat</muted>",
+    "frameRate": "Kare hızı · videonuz {fps}",
+    "cta": "Bu anı önizle",
+    "explain": {
+      "frames": "{quality} hızında {frames} kare: tüm videoyla aynı kare başı fiyat.",
+      "quickLook": "{hasMinimum, select, yes {Hızlı bakış, yarı fiyata yarı kare hızı kullanır. Asgari ücret {minimum}. Başarısız olursa hiçbir şey ödemezsiniz.} other {Hızlı bakış, yarı fiyata yarı kare hızı kullanır. Başarısız olursa hiçbir şey ödemezsiniz.}}"
+    },
+    "timeline": {
+      "heading": "Bir an seçin",
+      "hintWithBands": "Önizlemeyi taşımak için şeride tıklayın. Üstteki çubuklar geçmiş önizlemelerinizdir.",
+      "hint": "Önizlemeyi taşımak için şeride tıklayın."
+    },
+    "past": {
+      "heading": "Geçmiş önizlemeler"
+    },
+    "rangeNote": "Önizleme <mono>{from} – {to}</mono> · Sahne {scene}/{scenes}",
+    "row": {
+      "showing": "Gösteriliyor",
+      "show": "Göster"
+    },
+    "check": {
+      "redCyan": "Kırmızı-camgöbeği",
+      "wiggle": "Salınım",
+      "sideBySide": "Yan yana",
+      "redCyanView": "Kırmızı-camgöbeği görünümü",
+      "wiggleView": "Salınım görünümü",
+      "leftEye": "Sol göz",
+      "rightEye": "Sağ göz"
+    },
+    "player": {
+      "mute": "Sessize al",
+      "unmute": "Sesi aç",
+      "speed": "Hız"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "Kaydedildi. Sonraki faturalarınızda bu bilgiler kullanılacak.",
+      "saveFailed": "Kaydedilemedi. Tekrar deneyin.",
+      "loadFailed": "Kayıtlı bilgileriniz yüklenemedi. Yine de doldurabilirsiniz.",
+      "companyName": "Şirket adı",
+      "billingAddress": "Fatura adresi",
+      "country": "Ülke",
+      "line1": "Adres satırı 1",
+      "line2": "Adres satırı 2 (isteğe bağlı)",
+      "city": "Şehir",
+      "postalCode": "Posta kodu",
+      "state": "Eyalet veya bölge",
+      "taxId": "Vergi numarası (isteğe bağlı)",
+      "taxType": "Tür",
+      "taxNumber": "Numara",
+      "noTaxId": "Bu ülke için vergi numarası gerekmez.",
+      "billingEmail": "Fatura kopyaları için fatura e-postası",
+      "poReference": "Satın alma siparişi referansı (isteğe bağlı)",
+      "saving": "Kaydediliyor…",
+      "save": "Kaydet",
+      "billingLink": "Faturalandırma"
+    },
+    "country": {
+      "search": "Ülke ara",
+      "none": "Ülke bulunamadı.",
+      "yours": "Ülkeniz",
+      "all": "Tüm ülkeler"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "2 iş günü içinde inceleyeceğiz.",
+      "mergedLine": "Bunlardan bazıları için daha önce talepte bulunmuştunuz, bu yüzden o talebe ekledik.",
+      "sentTitle": "Talep gönderildi",
+      "cancelToo": "Planınız da iptal edilsin mi?",
+      "cancelPlan": "Planı iptal et",
+      "done": "Bitti",
+      "title": "İade iste",
+      "intro": "Neyle ilgili olduğunu seçin. Her talebi bir kişi inceler. Bir ödemenin ardından {days} gün içinde talep edebilirsiniz.",
+      "nothing": "Son {days} günde yapılan hiçbir ödeme iade edilemez.",
+      "planLabel": "{name} planı",
+      "paidDetail": "{amount} · {date} tarihinde ödendi",
+      "alreadyAsked": "· zaten talep edildi",
+      "noteLabel": "Ne oldu? (isteğe bağlı)",
+      "cancel": "Vazgeç",
+      "sending": "Gönderiliyor…",
+      "send": "Gönder",
+      "sendFailed": "Talebiniz gönderilemedi. Biraz sonra tekrar deneyin.",
+      "optionsLoadFailed": "İade edilebilecekler yüklenemedi.",
+      "requestsLoadFailed": "Talepleriniz yüklenemedi."
+    },
+    "section": {
+      "questionNotice": "İade talebinizle ilgili bir soru sorduk. <link>Yanıtlayın</link>",
+      "ariaLabel": "İadeler",
+      "reportProblem": "Bir ödemede veya dönüştürmede sorun mu var? <link>Sorun bildirin</link>",
+      "reportSubject": "{app}: sorun bildirimi",
+      "needRefund": "İade mi gerekiyor? <button>İade iste</button> · bir ödemenin ardından {days} gün içinde, iptal ettikten sonra da talep edebilirsiniz. Her talebi bir kişi inceler.",
+      "askWithin": "Bir ödemenin ardından {days} gün içinde, iptal ettikten sonra da iade talep edebilirsiniz. Her talebi bir kişi inceler.",
+      "appStore": "App Store’dan alınan {pro} iadesini Apple yapar. <link>Apple’dan iade isteyin</link>",
+      "yourRequests": "Talepleriniz",
+      "about": {
+        "plan": "Plan ödemesi",
+        "runs": "Dönüştürmeler",
+        "balance": "Bakiye",
+        "other": "Talep"
+      },
+      "answerLabel": "Yanıtınız",
+      "messageLabel": "Mesajınız",
+      "sending": "Gönderiliyor…",
+      "sendAnswer": "Yanıtı gönder",
+      "send": "Gönder",
+      "cancel": "Vazgeç",
+      "askAgain": "Bunu yeniden sor",
+      "addMessage": "Mesaj ekle",
+      "replyFailed": "Gönderilemedi. Biraz sonra tekrar deneyin."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "Video başına ödeyin. <plans>Planlar</plans> {range} tasarruf sağlar.",
+      "noRange": "Video başına ödeyin veya bir <plans>planla</plans> tasarruf edin."
+    },
+    "per": {
+      "year": "yıllık",
+      "month": "aylık",
+      "week": "haftalık"
+    },
+    "screen": {
+      "title": "Fiyatlar",
+      "loading": "Fiyatlar yükleniyor…",
+      "howItWorks": "Fiyatlandırma nasıl işler",
+      "perMinute": "<b>{fps} fps’te video dakikası başına.</b> {fpsRule}. {roundedUp} Videonun yalnızca bir kısmını yapın, yalnızca o kısmın ücretini ödeyin.",
+      "discount": "{threshold} üzerindeki her dönüştürmede <b>%{pct} indirim</b>.",
+      "minimumPerRun": "Dönüştürme başına <b>asgari ücret {min}</b>.",
+      "minimumPerPreview": "Önizleme başına <b>asgari ücret</b> {previewMin}, diğer dönüştürmeler için {min}.",
+      "paidBefore": "<b>Başlamadan önce ödenir.</b> Sırada beklerken veya ilk dakikasında iptal ederseniz tam iade alırsınız. Başarısız olursa tam iade edilir.",
+      "currency": "ABD doları, vergi hariç. Her dosya türü dahildir.",
+      "startProject": "Proje başlat"
+    },
+    "plansScreen": {
+      "loading": "Planlar yükleniyor…",
+      "unavailable": "Planlar henüz kullanılamıyor.",
+      "perMinuteLink": "Dakika başına fiyatlar"
+    },
+    "proOffer": {
+      "saveLine": "{pro} üyeleri %{pct} tasarruf eder",
+      "title": "Her 3D videoda %{pct} indirim",
+      "description": "Web’de ve uygulamalarda {site} için tek üyelik.",
+      "descriptionWithCredit": "Web’de ve uygulamalarda {site} için tek üyelik; {credit} ile.",
+      "get": "{pro} al"
+    },
+    "plans": {
+      "title": "İş için planlar",
+      "subtitle": "Kullanım her ay dahil. {business} aylık, {studio} yıllık faturalandırılır.",
+      "yourPlan": "Planınız",
+      "changeTo": "{name} planına geç",
+      "choose": "{name} seç",
+      "lines": {
+        "usage": "Her ay {amount} kullanım",
+        "off": "Her dönüştürmede %{pct} indirim",
+        "commercial": "Videolarınızın ticari kullanımı",
+        "freePreviews": "{count, plural, other {Ayda # ücretsiz önizleme}}",
+        "express": "Express dahil",
+        "fileQuality": "Müşteri incelemeleri ve kurgu için {high} ve {master} dosya kalitesi",
+        "fps": "{fps} fps’e kadar",
+        "invoices": "Faturalar"
+      }
+    },
+    "table": {
+      "perEye": "Göz başına {size}",
+      "from": "{price}’den",
+      "aMinuteAt": "{fps} fps’te dakikası",
+      "quality": "Kalite",
+      "perMinute": "Dakika başına, {fps} fps",
+      "withPro": "{pro} ile",
+      "withProOff": "{pro} ile (−%{pct})",
+      "proCredit": "{pro} ayrıca {credit} içerir.",
+      "limitAndPreviews": "{limit} · önizlemeler {price}’den"
+    },
+    "extras": {
+      "foveated": "Baktığınız yerde daha fazla ayrıntı",
+      "foveatedIncludedAt": "Baktığınız yerde daha fazla ayrıntı · {at} ve üzerinde dahil",
+      "fileQuality": "{quality} dosya kalitesi",
+      "express": "Express",
+      "expressWhat": "Sırada ilk",
+      "addons": "Ek seçenekler",
+      "freePreviews": "Ücretsiz önizlemeler",
+      "perMonth": "Ayda {count}",
+      "firstFree": "İlk önizlemeniz ücretsiz.",
+      "each": "Her biri {seconds} sn.",
+      "eachNoRollover": "Her biri {seconds} sn, devretmez.",
+      "balance": "Bakiye",
+      "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin.",
+      "refundable": "Harcanmamış para {days} gün içinde iade edilebilir."
+    }
+  }
+}

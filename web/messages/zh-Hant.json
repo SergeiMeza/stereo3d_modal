@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "在工作中使用 {site}？設定 {business} 或 {studio}",
+      "setUp": "設定",
+      "proLine": "為客戶或團隊工作？{business} 和 {studio} 可省下 {range}，並包含商業使用。<link>查看方案</link>",
+      "appStoreActive": "您的 App Store {pro} 仍然有效。",
+      "howToCancel": "如何取消"
+    },
+    "setup": {
+      "steps": {
+        "aria": "步驟",
+        "item": "{n}. {label}",
+        "plan": "方案",
+        "questions": "關於您",
+        "checkout": "付款"
+      },
+      "mainUses": {
+        "clientWork": "客戶專案",
+        "ownChannel": "我自己的頻道",
+        "stockFootage": "素材影片",
+        "other": "其他"
+      },
+      "includes": {
+        "pctOff": "每支影片享 {pct}% 折扣",
+        "usage": "每月 {amount} 的用量",
+        "commercial": "影片可商業使用",
+        "frameRates": "影格率最高 {fps} fps",
+        "intro": "可開啟或關閉 {site} 片頭",
+        "invoices": "可開立含公司資料的發票",
+        "express": "含 Express"
+      },
+      "price": {
+        "year": "每年 {price}",
+        "month": "每月 {price}",
+        "week": "每週 {price}"
+      },
+      "terms": {
+        "yearly": "每年收費一次。每月會有 {amount} 的用量。每年自動續訂，直到您取消。",
+        "monthly": "按月收費。每月自動續訂，直到您取消。"
+      },
+      "appStoreProNote": "您的 {pro} 由 Apple 收費。{business} 已包含 {pro} 的所有內容，請在 iPhone 的「設定」→「[您的姓名]」→「訂閱項目」中取消 {pro}，以免重複付費。",
+      "studio": {
+        "title": "您已擁有 {studio}",
+        "onBilling": "您的方案在<link>帳務</link>頁面。"
+      },
+      "eyebrow": "{business} 和 {studio}",
+      "title": "設定 {site} 供工作使用",
+      "planAria": "方案",
+      "yourPlan": "您的方案",
+      "yearlyPlan": "年繳方案",
+      "monthlyPlan": "月繳方案",
+      "questionsFirst": "想先問問題？",
+      "talkToUs": "聯絡我們",
+      "notNow": "稍後再說",
+      "continueWith": "繼續選擇 {plan}",
+      "questions": {
+        "title": "幾個問題",
+        "hint": "都是選填。能幫助我們把產品做得更適合工作使用。",
+        "teamSize": "團隊人數",
+        "teamSizePlaceholder": "例如 4",
+        "mainUse": "主要用途",
+        "headsets": "頭戴裝置"
+      },
+      "back": "返回",
+      "skip": "略過",
+      "continue": "繼續",
+      "checkout": {
+        "termsTail": "{terms} 價格為美元，不含稅。在您確認前不會扣款。",
+        "asksOnly": "結帳時只會詢問付款方式和國家或地區。公司名稱、地址和統一編號可以之後再補。",
+        "whatHappensBusiness": "您的 {business} 會如何處理",
+        "whatHappensPro": "您的 {pro} 會如何處理",
+        "manageAppStore": "管理 App Store 訂閱項目",
+        "workingOut": "正在計算今日價格…",
+        "previewFailed": "無法計算今日價格。在您確認前不會扣款。",
+        "changing": "變更中…",
+        "confirmAndPay": "確認並支付 {amount}",
+        "confirm": "確認",
+        "continueToPayment": "前往付款"
+      },
+      "welcome": {
+        "eyebrow": "歡迎",
+        "title": "{plan} 已啟用",
+        "commercial": "商業使用：您的 3D 影片可交付給客戶、用於廣告和付費頻道。",
+        "frameRates": "更高影格率：影片支援時最高 {fps} fps。",
+        "usage": "每月 {amount} 的用量，之後按 {plan} 價格計費。",
+        "make": "製作您的 3D 影片"
+      },
+      "talk": {
+        "title": "聯絡我們",
+        "description": "會有專人以電子郵件回覆，通常在一個工作日內。",
+        "sent": "謝謝。我們會回覆到 {email}。",
+        "accountEmail": "您的帳號電子郵件"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "適用於 Apple Vision Pro。在「照片」中會顯示為空間影片。",
+      "sbsDetail": "適用於 Meta Quest、Pico、Samsung Galaxy XR、Steam Frame、XR 眼鏡和 3D 電視。"
+    },
+    "points": {
+      "depthTitle": "逼真的深度",
+      "depthDetail": "每個瞬間都重建為真正的 3D 場景。",
+      "lengthDetail": "從短片到整部電影。",
+      "originalTitle": "一隻眼睛看原片",
+      "originalDetail": "在 Cinema 尺寸（5K 到 8K）下，一隻眼睛看到的是您自己的影格。",
+      "foveatedDetail": "視線所到之處更清晰。"
+    },
+    "hero": {
+      "new": "新",
+      "eyebrow": "網頁版 {site} · {method}",
+      "title": "把任何影片變成<accent>逼真的 3D</accent>",
+      "lede": "我們先理解每個場景的形狀，再為每隻眼睛重新拍攝一次。",
+      "cta": "製作您的第一支 3D 影片",
+      "fromPrice": "{fps} fps 每分鐘 <b>{price}</b> 起",
+      "limits": "{limits}。<link>查看價格</link>"
+    },
+    "steps": {
+      "uploadTitle": "上傳影片",
+      "uploadDetail": "{limits}。",
+      "previewTitle": "預覽片段",
+      "previewDetail": "幾秒鐘的 3D。",
+      "makeTitle": "製作 3D",
+      "makeDetail": "下載到您的頭戴裝置。"
+    },
+    "sections": {
+      "howItLooksEyebrow": "效果如何",
+      "howItLooksTitle": "從上傳到頭戴裝置",
+      "stepByStepEyebrow": "步驟說明",
+      "stepByStepTitle": "您的影片會經歷什麼",
+      "watchEyebrow": "觀看",
+      "watchTitle": "在 Vision Pro 和各種頭戴裝置上",
+      "watchLede": "支援 Vision Pro 和各種頭戴裝置的瀏覽器：在裝置上開啟網站，即可直接觀看或下載到頭戴裝置。"
+    },
+    "final": {
+      "title": "用 3D 看見您自己的影片",
+      "cta": "製作您的 3D 影片",
+      "teams": "工作使用：{business} 和 {studio} 方案。<link>查看方案</link>",
+      "feedback": "缺少功能或有問題？<button>告訴我們</button>。"
+    },
+    "footer": {
+      "byline": "網頁版 <brand></brand> · Spatial AI Labs Ltd 的產品",
+      "privacy": "隱私權政策",
+      "terms": "使用條款",
+      "feedback": "意見回饋",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "深度",
+      "depthTitle": "我們理解每個場景的形狀",
+      "depthDetail": "每個瞬間都成為真正的 3D 場景，影格之間保持穩定。",
+      "depthLabel": "一道發光的線掃過影片，近處呈暖色、遠處呈藍色，接著再顯示原始畫面",
+      "stereoTag": "3D",
+      "stereoTitle": "一支鏡頭，兩隻眼睛",
+      "stereoDetail": "接著我們為每隻眼睛重新拍攝該場景，邊緣乾淨。這裡視角會輕輕擺動，讓您在任何螢幕上都能看出深度。",
+      "stereoLabel": "同一段影片從輕輕擺動的視角呈現，接著是左眼和右眼畫面並排顯示",
+      "deliveryTag": "檔案",
+      "deliveryTitle": "播放起來就像原生 3D 拍攝",
+      "deliveryDetail": "Vision Pro 空間影片和左右格式，適用於各種頭戴裝置。",
+      "deliveryLabel": "3D 影片以懸浮視窗、頭戴裝置中的大螢幕、透過頭戴裝置鏡片以及在 XR 眼鏡中呈現"
+    },
+    "tour": {
+      "ariaLabel": "App",
+      "projectsLabel": "專案",
+      "projectsDetail": "拖入影片。所有專案集中一處。",
+      "projectsAlt": "網頁版 {site} 的專案頁面，有五支影片，其中一支標示為 3D 已完成",
+      "make3dLabel": "製作 3D",
+      "make3dDetail": "選擇頭戴裝置和畫質，最高 8K。價格會先顯示。",
+      "make3dAlt": "製作 3D 頁面，已選擇 Apple Vision Pro 和 Meta Quest，畫質選項從 1080p 到 8K",
+      "trackerLabel": "進度",
+      "trackerDetail": "追蹤每個步驟和剩餘時間。",
+      "trackerAlt": "價格和進行中的轉換：準備完成，現在正在製作 3D 影片",
+      "filesLabel": "檔案",
+      "filesDetail": "Vision Pro 空間影片和左右格式，可直接下載。",
+      "filesAlt": "檔案頁面，有一個 Vision Pro 空間影片和一個左右格式檔案可供下載"
+    },
+    "samples": {
+      "eyebrow": "範例",
+      "title": "在頭戴裝置中觀看 3D 成果",
+      "lede": "以網頁版 {site} 的 {method} 製作。下載一個到您的頭戴裝置，或下載 2D 原片來比較。",
+      "video2d": "{title}，2D 影片",
+      "videoRedCyan": "{title}，紅藍 3D",
+      "play": "播放 {title} 的靜音短預覽",
+      "look2d": "2D",
+      "lookRedCyan": "紅藍",
+      "facts": "{seconds} 秒 · {size}"
+    },
+    "worksWith": {
+      "title": "支援裝置",
+      "upcoming": "已支援 {name}，{upcoming}",
+      "tvs": "3D 電視"
+    },
+    "heroLoop": {
+      "label": "一位歌手和她的樂團在日落時分的屋頂上：左邊是 2D 影片，右邊是同一時刻的 {method}，視角輕輕擺動以呈現深度",
+      "yourVideo": "您的影片",
+      "caption": "右側的移動方式就是 3D 中的樣子。<link>在頭戴裝置中觀看</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · 每支影片享 {pct}% 折扣",
+      "perMinute": "{quality} 每分鐘 {pro}，原價 {list}。",
+      "getPro": "取得 {pro} {plan}",
+      "keepPaying": "繼續依影片付費",
+      "terms": "美元，不含稅 · 隨時可在帳號中取消",
+      "planGroup": "{pro} 方案",
+      "includes": "{pro} 包含 {credit}。",
+      "freePreviewsMonthly": "{count, plural, other {每月 # 次免費預覽}}",
+      "businessTitle": "工作用 {business}",
+      "businessLine": "每月 {price}，含 {credit} 用量、商業使用、發票",
+      "businessLineFps": "每月 {price}，含 {credit} 用量、商業使用、{fps} fps、發票"
+    },
+    "quote": {
+      "howToPay": "付款方式",
+      "payOnce": "單次付款",
+      "withPlan": "使用 {plan}",
+      "pctOff": "{pct}% 折扣",
+      "fromMonthly": "每月 {price} 起",
+      "hide": "隱藏",
+      "checkout": {
+        "title": "訂閱並轉換",
+        "paymentFailed": "付款未成功。",
+        "takesOff": "{pro} 讓這支影片和之後每支影片都享 {pct}% 折扣。",
+        "takesOffWithCredit": "{pro} 讓這支影片和之後每支影片都享 {pct}% 折扣，並包含 {credit}。",
+        "includes": "{pro} 包含 {credit}。",
+        "continue": "前往付款",
+        "payOnce": "單次付款 · {price}",
+        "planGroup": "{pro} 方案",
+        "today": "{pro} {plan}，今日",
+        "thisVideo": "這支影片，{pro} 價格",
+        "youSave": "這支影片您可省下",
+        "terms": "隨時可在帳號中取消。價格為美元，不含稅。"
+      },
+      "note": {
+        "highFps": "高影格率隨 {business} 和 {studio} 提供，兩者也包含每月用量。",
+        "monthlyUsage": "{business} 和 {studio} 包含每月用量。",
+        "dismiss": "關閉",
+        "atBusiness": "以 {business} 價格計算，這支影片為 {price}。",
+        "fits": "這在 {business} 每月包含的 {credit} 用量之內，每月 {price}。",
+        "includes": "{business} 每月包含 {credit} 用量，每月 {price}。",
+        "withStudio": "使用 {studio} 則為 {price}。",
+        "seeBusiness": "查看 {business}",
+        "talk": "聯絡我們"
+      },
+      "cinema": {
+        "share": "{pct}% 折扣 · 商業使用",
+        "seeBusinessSave": "查看 {business} · 省下 {range}"
+      }
+    },
+    "intro": {
+      "share": "{plan} {pct}%",
+      "shareSeparator": "、",
+      "title": "您不必選擇方案",
+      "body": "每個人都從依影片付費開始。方案只是讓每分鐘價格更低。",
+      "bodyWithShares": "每個人都從依影片付費開始。方案只是讓每分鐘價格更低：{shares}。",
+      "gotIt": "知道了",
+      "ppvTitle": "依影片付費",
+      "aMonth": "每月",
+      "ppvBody": "影片完成後再付費。第一次預覽免費。",
+      "upToFps": "最高 {fps} fps",
+      "yourPlan": "您的方案",
+      "pctOff": "{pct}% 折扣",
+      "proPreviews": "{count, plural, other {月繳方案每月 # 次免費預覽。}}",
+      "includedIn": "包含於 {plan}",
+      "getPro": "取得 {pro}"
+    },
+    "talkToUs": {
+      "banner": "在工作中使用 {site}？{business} 提供每月 {amount} 用量、商業使用和發票。",
+      "open": "聯絡我們",
+      "see": "查看 {business}",
+      "sent": "謝謝。我們會回覆到 {email}。",
+      "yourEmail": "您的帳號電子郵件"
+    },
+    "receipt": {
+      "title": "使用 {pro} 本可省下 {amount}",
+      "wouldHaveBeen": "這支影片原本是 {amount}。",
+      "monthly": "{plan} 為 {price}。",
+      "monthlyCredit": "{plan} 為 {price}，含 {credit}。",
+      "monthlyPreviews": "{plan} 為 {price}，每月含 {count, plural, other {# 次免費預覽}}。",
+      "monthlyCreditPreviews": "{plan} 為 {price}，含 {credit}，每月含 {count, plural, other {# 次免費預覽}}。",
+      "see": "查看 {pro}",
+      "notNow": "稍後再說"
+    },
+    "banner": {
+      "lineLong": "使用方案，每支影片可省下 {range}。",
+      "lineShort": "使用方案可省下 {range}。",
+      "see": "查看方案",
+      "proOff": "{pro} 讓每支影片享 {pct}% 折扣。",
+      "proOffCredit": "{pro} 讓每支影片享 {pct}% 折扣，並包含 {credit}。",
+      "monthlyPreviews": "{count, plural, other {月繳方案另含每月 # 次免費預覽。}}"
+    },
+    "nudge": {
+      "dismiss": "關閉"
+    },
+    "sourceLine": {
+      "fps": "高影格率隨 {business} 和 {studio} 提供，兩者也可省下 {range}。",
+      "size": "使用 {size}？{business} 和 {studio} 可省下 {range}，並包含商業使用。",
+      "see": "查看 {business}"
+    },
+    "header": {
+      "link": "方案",
+      "save": "省下 {range}"
+    },
+    "contact": {
+      "tooMany": "今天的訊息太多了。請改寫信給客服。",
+      "checkMessage": "請檢查訊息後再試一次。",
+      "title": "聯絡我們",
+      "intro": "會有專人以電子郵件回覆，通常在一個工作日內。等待期間您的專案會保持開啟。",
+      "messageLabel": "您製作什麼內容，每月多少？",
+      "messagePlaceholder": "每月約 20 支音樂短片，4K，用於 Vision Pro 和 Quest。",
+      "company": "公司（選填）",
+      "teamSize": "團隊人數（選填）",
+      "teamSizePlaceholder": "例如 4",
+      "send": "傳送",
+      "cancel": "取消"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "今天不會扣款。",
+      "today": "今日：{amount}。",
+      "upgradeWithCredit": "{today} {to} {newPlan} − {unused}（{from} 未使用部分）。",
+      "upgrade": "{today} {to} {newPlan}。",
+      "creditRule": "我們會折抵您已付款項中剩餘時間和用量兩者較小的金額。",
+      "usageHandover": "您本月剩餘的 {from} 用量會在 {to} 的 {amount} 開始時結束。",
+      "endOfPeriod": "本期結束",
+      "staysOn": "您的 {current} 會持續到 {until}。",
+      "afterPayPerVideo": "之後依影片付費。",
+      "startsThenAt": "{name} 屆時以 {amount} 開始。",
+      "startsThenAtPer": "{name} 屆時以 {amount} {per} 開始。",
+      "startsThen": "{name} 屆時開始。",
+      "repriced": "價格已更新。請檢查後再次確認。",
+      "nothingCharged": "未扣款。",
+      "quoteChanged": "價格已變動，請檢查新的總額。",
+      "cardConfirm": "您的信用卡需要確認。",
+      "cardDeclined": "您的信用卡被拒絕。",
+      "errors": {
+        "samePlan": "這已經是您的方案。",
+        "notRenewable": "此方案會持續到期滿，無法變更。",
+        "changeScheduled": "已有待處理的變更。請先在帳務頁面撤回。",
+        "changeOnHold": "您的帳號暫停方案變更。請聯絡客服。",
+        "planUnavailable": "該方案目前無法使用。請稍後再試。",
+        "cantChangeHere": "無法在此變更您的方案。",
+        "tryAgain": "無法變更您的方案。請再試一次。",
+        "paymentFailed": "付款未成功。",
+        "previewFailed": "無法計算變更。未扣款。",
+        "keepFailed": "無法保留您的方案。請再試一次。"
+      },
+      "per": {
+        "weekly": "每週",
+        "monthly": "每月",
+        "yearly": "每年"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "您的 {current} 將於 {end} 結束，不會變更為 {next}。",
+      "changePlan": "變更方案",
+      "moveUp": "{name}（升級）",
+      "payPerVideoCancel": "依影片付費（取消方案）",
+      "dialogTitleChange": "變更為 {name}？",
+      "dialogTitleCancel": "取消 {current}？",
+      "working": "正在計算變更…",
+      "keep": "保留 {current}",
+      "payAndChange": "支付 {amount} 並變更",
+      "changeTo": "變更為 {name}",
+      "cancelPlan": "取消方案",
+      "howWeWorkThisOut": "計算方式",
+      "renewsOn": "於 {date} 續訂。"
+    },
+    "plan": {
+      "title": "{name} 方案",
+      "creditLeft": "本月剩餘 {left}／{credit} 用量",
+      "usageResets": "用量於 {date} 重置。",
+      "renewsOn": "於 {date} 續訂。",
+      "billedYearlyRenewsOn": "按年收費。於 {date} 續訂。",
+      "plansLink": "方案",
+      "introLabel": "在我的影片加上 {app} 片頭",
+      "introHint": "影片前會播放簡短的 {app} 標題。",
+      "introSaveFailed": "無法儲存。請再試一次。"
+    },
+    "planMove": {
+      "expired": "此優惠已過期。請聯絡客服。",
+      "moveFailed": "目前無法移轉。請稍後再試。",
+      "accepted": "您的 {name} 方案已就位。",
+      "sectionLabel": "客服移轉給您的方案",
+      "headline": "客服已將您的 {name} 方案移轉到這裡。要接受嗎？",
+      "validUntil": "有效期限至 {date}。",
+      "whatMoves": "移轉到這裡的內容",
+      "whatStays": "保留在原處的內容",
+      "contactSupport": "聯絡客服",
+      "accept": "接受"
+    },
+    "planEmail": {
+      "title": "為您的方案新增電子郵件",
+      "body": "收據和還原購買會用到。隱藏的 Apple 電子郵件地址不適用。在此期間您的方案仍可使用。",
+      "submit": "使用此電子郵件"
+    },
+    "screen": {
+      "title": "帳務",
+      "contactSupportToContinue": "請聯絡客服以繼續。",
+      "sections": {
+        "refundQuestion": "退款問題",
+        "balance": "餘額",
+        "planMoves": "方案移轉",
+        "plan": "方案",
+        "proCredit": "{pro} 額度",
+        "restorePurchases": "還原購買",
+        "paymentMethods": "付款方式",
+        "businessDetails": "公司資料",
+        "usage": "用量",
+        "invoices": "發票",
+        "yourPrices": "您的價格",
+        "refunds": "退款",
+        "aRow": "一列"
+      },
+      "records": {
+        "label": "購買與發票",
+        "tabsLabel": "帳務紀錄",
+        "tabs": {
+          "history": "紀錄",
+          "plan": "方案",
+          "usage": "用量",
+          "invoices": "發票"
+        },
+        "loadFailed": "無法載入您的購買紀錄。",
+        "tryAgain": "重試",
+        "noPlanPayments": "尚無方案付款。",
+        "noPurchases": "尚無購買紀錄。",
+        "loading": "載入中…",
+        "showMore": "顯示更多",
+        "currency": "美元。",
+        "currencyWithVat": "美元。適用時價格含 VAT。"
+      },
+      "methods": {
+        "title": "付款方式",
+        "saving": "儲存中",
+        "add": "新增付款方式",
+        "none": "沒有已儲存的付款方式。",
+        "expiredOn": "{date} 已過期",
+        "default": "預設",
+        "expired": "已過期",
+        "makeDefault": "設為預設",
+        "moveUp": "上移",
+        "moveDown": "下移",
+        "remove": "移除",
+        "optionsFor": "{label} 的選項",
+        "chargeOrder": "我們會向您的預設付款方式收費。如果被拒絕，會依此順序嘗試其他付款方式。",
+        "max": "最多可儲存 5 種付款方式。",
+        "removeBlocked": "有款項待付時，無法移除您唯一的付款方式。請先付款或新增另一種付款方式。",
+        "saveFailed": "無法儲存。請再試一次。",
+        "confirmTitle": "移除 {label}？",
+        "confirmLast": "之後的轉換每次都會詢問付款方式。",
+        "confirmDescription": "移除此付款方式",
+        "keep": "保留"
+      },
+      "company": {
+        "title": "公司資料",
+        "loading": "載入中…",
+        "empty": "尚無公司資料。新增後會顯示在發票上。",
+        "reminder": "在發票上加入公司資料",
+        "edit": "編輯"
+      },
+      "invoices": {
+        "loadFailed": "無法載入您的發票。",
+        "tryAgain": "重試",
+        "none": "尚無發票。",
+        "pdf": "PDF",
+        "creditNote": "貸項通知單 {number}",
+        "loading": "載入中…",
+        "showMore": "顯示更多"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "已付款",
+        "processing": "處理中",
+        "payment_needed": "需要付款",
+        "refund_requested": "已申請退款",
+        "refunded": "已退款",
+        "partially_refunded": "部分退款",
+        "disputed": "已向銀行爭議",
+        "refund_failed": "退款未成功",
+        "failed": "付款失敗",
+        "applied": "完成",
+        "scheduled": "已排程"
+      },
+      "statusHelp": {
+        "processing": "正在確認您的付款。可能需要幾天。",
+        "refund_requested": "我們會在 2 個工作日內以電子郵件通知您。",
+        "refund_failed": "我們已以電子郵件通知您。"
+      },
+      "credit": {
+        "granted": "已新增",
+        "expired": "已過期",
+        "removed": "已結束",
+        "frozen": "已凍結",
+        "unfrozen": "已解除"
+      },
+      "done": "完成",
+      "scheduledFor": "排程於 {date}",
+      "scheduled": "已排程",
+      "changed": "已變更",
+      "usageCredit": "用量額度",
+      "planChange": "方案變更",
+      "plan": "方案",
+      "items": "{count, plural, other {# 個項目}}",
+      "item": {
+        "untitled": "未命名專案",
+        "production": "3D 影片",
+        "preview": "預覽",
+        "launchOffer": "上線優惠"
+      },
+      "menu": {
+        "more": "更多",
+        "refundRequested": "已申請退款",
+        "requestRefund": "申請退款",
+        "getHelp": "取得此筆付款的協助"
+      },
+      "pay": "支付 {amount}",
+      "payInvoice": "支付發票",
+      "creditNote": "貸項通知單",
+      "invoice": "發票",
+      "receipt": "收據"
+    },
+    "usage": {
+      "month": "月份",
+      "downloadCsv": "下載 CSV",
+      "loadFailed": "無法載入您的用量。",
+      "tryAgain": "重試",
+      "none": "尚無用量。",
+      "columns": {
+        "date": "日期",
+        "project": "專案",
+        "method": "方式",
+        "preset": "預設",
+        "minutes": "分鐘",
+        "cost": "費用",
+        "paidWith": "付款方式",
+        "status": "狀態"
+      },
+      "apiKey": "API 金鑰「{name}」",
+      "paidWith": {
+        "balance": "餘額",
+        "card": "付款方式",
+        "alipay": "支付寶"
+      },
+      "status": {
+        "running": "進行中",
+        "runningReserved": "進行中，已預留 {amount}",
+        "released": "已釋出",
+        "partlyDelivered": "部分交付",
+        "returned": "已退回餘額 {amount}",
+        "done": "完成"
+      },
+      "showMore": "顯示更多",
+      "balanceHistory": "餘額紀錄",
+      "entry": {
+        "topup": "儲值",
+        "auto_reload": "自動儲值",
+        "refund_to_balance": "已退回餘額",
+        "debt_payment": "已付清欠款",
+        "cash_refund": "已退款至您的付款方式",
+        "expiry": "已過期",
+        "adjustment": "調整",
+        "dispute_freeze": "付款審查期間凍結",
+        "dispute_unfreeze": "審查後已解除",
+        "dispute_loss": "銀行爭議後已移除"
+      }
+    },
+    "balance": {
+      "title": "餘額",
+      "available": "可用",
+      "availableWithCredits": "可用 · {credits}",
+      "creditWords": {
+        "grant": "用量額度",
+        "pro": "{pro} 額度",
+        "plan": "方案用量"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words}（{date} 前使用）",
+      "creditsAnd": "{rest}和{last}",
+      "includes": "含 {credits}",
+      "reserved": "已為 {count, plural, other {# 個進行中的轉換}}預留 {amount}",
+      "frozen": "付款審查期間凍結 {amount}。",
+      "expired": "您的餘額已於 {date} 過期。",
+      "addFundsHint": "儲值後即可用餘額支付轉換費用。",
+      "expires": "除非儲值，否則將於 {date} 過期。",
+      "addFunds": "儲值",
+      "prepaid": "已預付 {amount}",
+      "paused": {
+        "declined": "因付款未成功，自動儲值已暫停。",
+        "limit": "自動儲值已暫停：已達每日上限。明天會恢復。"
+      },
+      "turnBackOn": "重新開啟",
+      "autoReload": "自動儲值",
+      "autoReloadValue": "低於 {below} 時儲值 {add}",
+      "off": "關閉",
+      "edit": "編輯",
+      "setUp": "設定",
+      "set": "設定",
+      "spendLimit": "每月消費上限",
+      "spendLimitValue": "每月 {limit} · 已用 {used}",
+      "none": "無",
+      "balanceAlert": "餘額提醒",
+      "balanceAlertValue": "低於 {amount}",
+      "rowAction": "{action}{label}"
+    },
+    "banner": {
+      "contactSupport": "聯絡客服",
+      "pay": "支付 {amount}",
+      "portalFailed": "無法開啟付款方式頁面",
+      "supportSubject": "我帳號的付款"
+    },
+    "requireBilling": {
+      "loading": "載入中…"
+    },
+    "payReturn": {
+      "checking": "正在確認您的付款…",
+      "paidRun": "已收到付款。您的 3D 影片即將開始製作。",
+      "backToApp": "返回 {app}",
+      "backToProject": "返回您的專案",
+      "notPaid": "付款未成功。",
+      "tryAgain": "重試",
+      "chooseAnother": "選擇其他付款方式",
+      "slow": "比平常花的時間長。付款一確認，我們就會開始。",
+      "startAgain": "重新開始"
+    },
+    "settle": {
+      "nothingToPay": "無需付款。"
+    },
+    "restore": {
+      "title": "還原購買",
+      "intro": "在網頁上購買了方案或 {pro} 卻沒看到？在這裡還原。",
+      "restoring": "還原中…",
+      "button": "還原購買",
+      "appStoreNote": "App Store 的購買項目會在您登入 App 時顯示。",
+      "failed": "目前無法檢查您的購買紀錄。請稍後再試。"
+    },
+    "restoreMove": {
+      "findOther": "以其他電子郵件尋找購買項目",
+      "looking": "尋找中…",
+      "emailLabel": "購買時使用的電子郵件",
+      "sending": "傳送中…",
+      "sendCode": "傳送驗證碼",
+      "codeSent": "如果找到購買項目，我們會將驗證碼寄到 {email}。",
+      "checking": "檢查中…",
+      "findPurchases": "尋找購買項目",
+      "useAnother": "使用其他電子郵件",
+      "restored": "您的購買項目已還原",
+      "notFound": "找不到任何購買項目",
+      "tryAnother": "試試其他電子郵件",
+      "signsInWith": "（以 {providers} 登入。）",
+      "contactSupport": "聯絡客服",
+      "supportSubject": "將方案移轉到我的帳號",
+      "signInThere": "登入該帳號",
+      "hasOwnPlan": "此帳號已有方案。請聯絡客服移轉。",
+      "checkFailed": "目前無法檢查。請稍後再試。",
+      "offerTitle": "{plan} 方案 · 有效期限至 {date}",
+      "movesHere": "移轉到這裡的內容",
+      "stays": "保留在原處的內容",
+      "restoring": "還原中…",
+      "restoreHere": "在此還原 {plan}",
+      "moves": {
+        "plan": "您的方案，至該日期為止",
+        "appAccess": "App 中的 {pro}",
+        "currentUsage": "本月未使用的用量",
+        "monthsNotYetGiven": "尚未發放的後續月份用量"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "已使用的用量",
+        "balance": "舊帳號的餘額",
+        "appStorePurchases": "App Store 購買項目",
+        "pastRunsAndFiles": "過去的影片和檔案",
+        "adminGrants": "客服給予舊帳號的任何項目"
+      }
+    },
+    "yourPrices": {
+      "title": "您每分鐘的價格",
+      "yourPrices": "您的價格",
+      "payPerVideo": "依影片付費",
+      "withPlanOff": "使用 {plan}，享 {pct}% 折扣",
+      "withPlan": "使用 {plan}",
+      "pctOff": "每分鐘享 {pct}% 折扣",
+      "upgradeTo": "升級至 {plan}"
+    }
+  },
+  "look": {
+    "analysisRunning": "分析仍在進行中，完成後即可取得報價。",
+    "requestFailed": "要求失敗",
+    "heading": "立體預覽",
+    "follower": {
+      "depthLabel": "深度圖",
+      "depthTitle": "來自深度轉換的深度圖，立體畫面由此建立",
+      "outputTitle": "最近一次轉換的立體輸出，與來源播放同步"
+    },
+    "profile": {
+      "jobFailed": "工作失敗",
+      "retry": "重新分析（免費）",
+      "start": "分析鏡頭（免費）",
+      "hint": "測量每個場景的深度並設定這些控制項的初始值，免費，約 1 分鐘。",
+      "failed": "分析失敗：{error}",
+      "stale": "場景切點在此分析計算後已變更，預設值可能不一致。下次轉換會依目前的切點重新分析。",
+      "adaptiveNote": "尚無場景分析結果：首次轉換會自動計算每個場景的深度參數（自適應），因此覆寫是選用的。成功後，計算出的數值會顯示在這裡，作為各場景的自動預設值。"
+    },
+    "compare": {
+      "output": "3D 輸出",
+      "depth": "深度圖",
+      "noneYet": "執行立體預覽，即可在來源旁看到 3D 輸出。",
+      "showingDepth": "顯示深度轉換的深度圖，執行立體預覽即可在此看到 3D 輸出。"
+    },
+    "import": {
+      "fileLabel": "場景設定檔",
+      "title": "載入從此頁面匯出的場景設定檔，會取代各場景的調整和深度比例",
+      "button": "匯入設定檔…",
+      "readFailed": "無法讀取場景設定檔。",
+      "failed": "匯入失敗：{error}",
+      "dialogTitle": "匯入場景設定檔",
+      "dialogBody": "要將各場景的調整取代為 {count, plural, other {# 個匯入的覆寫}}和深度比例 ×{scale} 嗎？沒有覆寫的場景會恢復為自動。製作 3D 會使用相同的數值。",
+      "replace": "取代"
+    },
+    "export": {
+      "title": "下載場景設定檔（含各場景的自動值、您的覆寫和深度比例），格式為 JSON",
+      "button": "匯出設定檔"
+    },
+    "depth": {
+      "reuseLabel": "要重複使用的深度圖",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "已上傳：{name}",
+      "uploadedFallback": "深度圖",
+      "uploadedChip": "{hasName, select, yes {已上傳深度圖：{name}（直接使用，不計算深度）} other {已上傳深度圖（直接使用，不計算深度）}}",
+      "inheritedChip": "深度圖 {res} px（來自深度頁面，重複使用而非重新計算）",
+      "useDefault": "使用管線預設的深度解析度",
+      "none": "尚無深度轉換：此次轉換會以預設的解析度計算自己的深度圖。"
+    },
+    "strength": {
+      "label": "整體 3D 強度（深度比例）：<value>×{scale}</value> <muted>— 套用至每個場景</muted>",
+      "aria": "整體 3D 強度（深度比例）"
+    },
+    "preset": {
+      "label": "解析度預設",
+      "hint": "輸出畫質，與製作 3D 的選項相同。"
+    },
+    "edgeLabel": "邊緣樣式",
+    "formats": "格式",
+    "selectFormat": "請至少選擇一種格式",
+    "priorRuns": "先前的立體轉換",
+    "scenes": {
+      "aria": "場景",
+      "heading": "各場景 3D · {count, plural, other {# 個場景}}",
+      "hint": "點一下場景即可跳到預覽中的該處，播放中的場景會排在最前。只有您更改的列會作為覆寫送出。"
+    },
+    "row": {
+      "jumpTitle": "將預覽跳到場景 {n}（影格 {frame}）",
+      "thumbAlt": "場景 {n} 關鍵影格",
+      "name": "場景 {n}",
+      "convertAria": "場景 {n} 轉換為 3D",
+      "shotTypeAria": "場景 {n} 鏡頭類型",
+      "auto": "自動",
+      "autoWith": "自動（{type}）",
+      "passthrough": "2D 直通，原樣輸出（雙眼相同）",
+      "overridden": "已覆寫",
+      "resetAria": "將場景 {n} 重設為自動",
+      "reset": "重設"
+    },
+    "shotTypes": {
+      "closeUp": "特寫",
+      "standard": "標準",
+      "dynamic": "動態",
+      "wide": "廣角"
+    },
+    "profileErrors": {
+      "notJson": "檔案不是有效的 JSON，請從此頁面匯出場景設定檔以查看預期格式。",
+      "notProfile": "不是場景設定檔，預期內容為 '{'\"kind\": \"{kind}\"'}'。",
+      "depthScale": "depth_scale 必須是 [0.3, 1.5] 範圍內的數字。",
+      "noScenes": "設定檔沒有 scenes 陣列，沒有可匯入的內容。",
+      "versionNote": "（此檔案匯出時的場景切點為 v{fileVersion}，本專案為 v{currentVersion}）",
+      "entryNotObject": "scenes[] 中有一個項目不是物件。",
+      "missingFirst": "某個場景覆寫缺少整數 `first` 影格，覆寫只接受完整的來源影格編號。",
+      "notSceneStart": "影格 {frame} 的覆寫並不是目前切點清單中的場景起點{note}。",
+      "shotType": "影格 {frame} 的場景：shot_type 必須是 {types} 其中之一。",
+      "displacement": "影格 {frame} 的場景：displacement 必須在 (0, 0.03] 範圍內。"
+    }
+  },
+  "depth": {
+    "analysisRunning": "分析仍在進行中，完成後即可取得報價。",
+    "res": {
+      "label": "深度圖解析度",
+      "hint": "細節越高費用越高。只要細節、場景切點和 2D 場景仍相符，製作 3D 會以折扣重複使用這份深度成果。上限為影片的解析度。"
+    },
+    "heading": "深度圖",
+    "uploadFailedFallback": "上傳失敗",
+    "requestFailed": "要求失敗",
+    "imported": {
+      "preview": "（預覽）",
+      "clearAria": "清除已匯入的深度圖"
+    },
+    "noRunYet": "執行深度預覽，即可在來源旁看到深度圖。",
+    "uploading": "上傳中… {percent}%",
+    "uploadFailed": "上傳失敗：{error}",
+    "onFile": "目前檔案：{name}",
+    "onFileFallback": "已上傳的深度圖",
+    "removeAria": "移除已上傳的深度圖",
+    "fileAria": "深度圖檔案",
+    "upload": {
+      "title": "在來源旁預覽本機深度影片，並將它註冊到專案，之後的 3D 外觀和製作 3D 轉換就能使用它，而不必計算深度。必須與匯出檔一樣影格完全對應（完整長度、來源影格率）。",
+      "button": "上傳深度圖…"
+    },
+    "export": {
+      "titleDisabled": "請先執行深度預覽，匯出會下載其原始深度檔案",
+      "titleEnabled": "從最近一次轉換下載原始的完整精度深度檔案",
+      "button": "匯出深度圖",
+      "dialogTitle": "匯出深度圖",
+      "dialogBody": "這會從最近一次轉換下載原始的 <mono>depth</mono> 檔案，也就是後續步驟使用的完整精度 10 位元深度圖，而不是此頁面播放的 8 位元 <mono>depth_vis</mono> 預覽。在一般播放器中可能看起來平坦或全黑，這對高位元深度灰階來說是正常的。",
+      "download": "下載 10 位元深度"
+    },
+    "follower": {
+      "importedLabel": "匯入的深度",
+      "importedTitle": "{name} 的本機預覽，同一個檔案會上傳到專案，供立體／交付轉換使用",
+      "visTitle": "此次轉換的 8 位元深度視覺化，匯出可取得原始的完整精度檔案"
+    },
+    "missingVis": "最近一次深度轉換沒有可在瀏覽器播放的深度影片 (depth_vis)，請改為匯出原始深度檔案。",
+    "scenes": {
+      "aria": "場景",
+      "heading": "場景 · 轉換為 3D",
+      "hint": "未勾選的場景維持 2D（片尾字幕、標誌）：每次轉換都會略過它們的深度，包括深度預覽，價格不變。"
+    },
+    "scene": {
+      "thumbAlt": "場景 {n} 關鍵影格",
+      "name": "場景 {n}",
+      "convertAria": "場景 {n} 轉換為 3D"
+    }
+  },
+  "preview": {
+    "analyzing": "我們仍在分析您的影片。完成後即可預覽。",
+    "heading": "您的影片",
+    "band": {
+      "running": "製作中",
+      "failed": "未完成"
+    },
+    "card": {
+      "title": "您的預覽",
+      "backToLatest": "回到最新",
+      "back": "返回",
+      "failed": "此預覽未完成。您不需要為它付費。",
+      "running": "此預覽正在製作中。完成後會顯示在這裡。",
+      "empty": "您的預覽會顯示在這裡。",
+      "fetching": "正在取得預覽…",
+      "makeWhole": "將整支影片製作成 3D",
+      "viewAria": "檢視",
+      "freeCheck": "在此螢幕上免費檢查 3D"
+    },
+    "quality": "畫質",
+    "length": "長度",
+    "shorter": "較短",
+    "longer": "較長",
+    "lengthValue": "{seconds} 秒",
+    "quickLook": "快速預覽 <muted>· 半價</muted>",
+    "frameRate": "影格率 · 您的影片為 {fps}",
+    "cta": "預覽此片段",
+    "explain": {
+      "frames": "{frames} 個影格，採 {quality} 的影格率：每個影格的價格與整支影片相同。",
+      "quickLook": "{hasMinimum, select, yes {快速預覽使用一半的影格率，價格也是一半。最低收費 {minimum}。若失敗則不收費。} other {快速預覽使用一半的影格率，價格也是一半。若失敗則不收費。}}"
+    },
+    "timeline": {
+      "heading": "選擇片段",
+      "hintWithBands": "點一下時間軸即可移動預覽。上方的長條是您過去的預覽。",
+      "hint": "點一下時間軸即可移動預覽。"
+    },
+    "past": {
+      "heading": "過去的預覽"
+    },
+    "rangeNote": "預覽 <mono>{from} – {to}</mono> · 第 {scene} 個場景，共 {scenes} 個",
+    "row": {
+      "showing": "顯示中",
+      "show": "顯示"
+    },
+    "check": {
+      "redCyan": "紅藍",
+      "wiggle": "搖擺",
+      "sideBySide": "左右格式",
+      "redCyanView": "紅藍檢視",
+      "wiggleView": "搖擺檢視",
+      "leftEye": "左眼",
+      "rightEye": "右眼"
+    },
+    "player": {
+      "mute": "靜音",
+      "unmute": "取消靜音",
+      "speed": "速度"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "已儲存。之後的發票會使用這些資料。",
+      "saveFailed": "無法儲存。請再試一次。",
+      "loadFailed": "無法載入您已儲存的資料。您仍可自行填寫。",
+      "companyName": "公司名稱",
+      "billingAddress": "帳單地址",
+      "country": "國家或地區",
+      "line1": "地址第 1 行",
+      "line2": "地址第 2 行（選填）",
+      "city": "城市",
+      "postalCode": "郵遞區號",
+      "state": "州或地區",
+      "taxId": "稅號（選填）",
+      "taxType": "類型",
+      "taxNumber": "號碼",
+      "noTaxId": "此國家或地區不需要稅號。",
+      "billingEmail": "接收發票副本的帳務電子郵件",
+      "poReference": "採購單編號（選填）",
+      "saving": "儲存中…",
+      "save": "儲存",
+      "billingLink": "帳務"
+    },
+    "country": {
+      "search": "搜尋國家或地區",
+      "none": "找不到國家或地區。",
+      "yours": "您的國家或地區",
+      "all": "所有國家或地區"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "我們會在 2 個工作日內審核。",
+      "mergedLine": "您之前已就其中一些項目提出申請，因此我們已將它們併入該申請。",
+      "sentTitle": "申請已送出",
+      "cancelToo": "也要取消您的方案嗎？",
+      "cancelPlan": "取消方案",
+      "done": "完成",
+      "title": "申請退款",
+      "intro": "選擇要退款的項目。每項申請都由專人審核。您可在付款後 {days} 天內提出。",
+      "nothing": "過去 {days} 天內沒有可退款的付款。",
+      "planLabel": "{name} 方案",
+      "paidDetail": "{amount} · {date} 付款",
+      "alreadyAsked": "· 已申請",
+      "noteLabel": "發生了什麼事？（選填）",
+      "cancel": "取消",
+      "sending": "傳送中…",
+      "send": "傳送",
+      "sendFailed": "無法送出您的申請。請稍後再試。",
+      "optionsLoadFailed": "無法載入可退款的項目。",
+      "requestsLoadFailed": "無法載入您的申請。"
+    },
+    "section": {
+      "questionNotice": "我們就您的退款申請提出了一個問題。<link>回覆</link>",
+      "ariaLabel": "退款",
+      "reportProblem": "付款或轉換有問題？<link>回報問題</link>",
+      "reportSubject": "{app}：回報問題",
+      "needRefund": "需要退款？<button>申請退款</button> · 付款後 {days} 天內可提出，取消後也可以。每項申請都由專人審核。",
+      "askWithin": "付款後 {days} 天內可申請退款，取消後也可以。每項申請都由專人審核。",
+      "appStore": "App Store 的 {pro} 由 Apple 退款。<link>向 Apple 申請退款</link>",
+      "yourRequests": "您的申請",
+      "about": {
+        "plan": "方案付款",
+        "runs": "轉換",
+        "balance": "餘額",
+        "other": "申請"
+      },
+      "answerLabel": "您的回覆",
+      "messageLabel": "您的訊息",
+      "sending": "傳送中…",
+      "sendAnswer": "傳送回覆",
+      "send": "傳送",
+      "cancel": "取消",
+      "askAgain": "再次詢問此事",
+      "addMessage": "新增訊息",
+      "replyFailed": "無法傳送。請稍後再試。"
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "依影片付費。<plans>方案</plans>可省下 {range}。",
+      "noRange": "依影片付費，或使用<plans>方案</plans>省錢。"
+    },
+    "per": {
+      "year": "每年",
+      "month": "每月",
+      "week": "每週"
+    },
+    "screen": {
+      "title": "價格",
+      "loading": "正在載入價格…",
+      "howItWorks": "計價方式",
+      "perMinute": "<b>{fps} fps 影片每分鐘的價格。</b>{fpsRule}。{roundedUp} 只製作影片的一部分，就只付那一部分的費用。",
+      "discount": "超過 {threshold} 的轉換享 <b>{pct}% 折扣</b>。",
+      "minimumPerRun": "每次轉換<b>最低收費 {min}</b>。",
+      "minimumPerPreview": "每次預覽<b>最低收費</b> {previewMin}，其他轉換 {min}。",
+      "paidBefore": "<b>開始前付款。</b>在排隊等候期間或開始後第一分鐘內取消，可全額退款。若失敗也會全額退款。",
+      "currency": "美元，不含稅。包含所有檔案類型。",
+      "startProject": "開始專案"
+    },
+    "plansScreen": {
+      "loading": "正在載入方案…",
+      "unavailable": "方案尚未開放。",
+      "perMinuteLink": "每分鐘價格"
+    },
+    "proOffer": {
+      "saveLine": "{pro} 會員省 {pct}%",
+      "title": "每支 3D 影片享 {pct}% 折扣",
+      "description": "一個會員資格，通用於網頁版和 App 版 {site}。",
+      "descriptionWithCredit": "一個會員資格，通用於網頁版和 App 版 {site}，並含 {credit}。",
+      "get": "取得 {pro}"
+    },
+    "plans": {
+      "title": "工作用方案",
+      "subtitle": "每月包含用量。{business} 按月收費，{studio} 按年收費。",
+      "yourPlan": "您的方案",
+      "changeTo": "變更為 {name}",
+      "choose": "選擇 {name}",
+      "lines": {
+        "usage": "每月 {amount} 的用量",
+        "off": "每次轉換享 {pct}% 折扣",
+        "commercial": "影片可商業使用",
+        "freePreviews": "{count, plural, other {每月 # 次免費預覽}}",
+        "express": "含 Express",
+        "fileQuality": "{high} 和 {master} 檔案畫質，適合客戶審閱與剪輯",
+        "fps": "最高 {fps} fps",
+        "invoices": "發票"
+      }
+    },
+    "table": {
+      "perEye": "每隻眼睛 {size}",
+      "from": "{price} 起",
+      "aMinuteAt": "每分鐘，{fps} fps",
+      "quality": "畫質",
+      "perMinute": "每分鐘，{fps} fps",
+      "withPro": "使用 {pro}",
+      "withProOff": "使用 {pro}（−{pct}%）",
+      "proCredit": "{pro} 另含 {credit}。",
+      "limitAndPreviews": "{limit} · 預覽 {price} 起"
+    },
+    "extras": {
+      "foveated": "視線所到之處更多細節",
+      "foveatedIncludedAt": "視線所到之處更多細節 · {at} 含",
+      "fileQuality": "{quality} 檔案畫質",
+      "express": "Express",
+      "expressWhat": "優先處理",
+      "addons": "加購項目",
+      "freePreviews": "免費預覽",
+      "perMonth": "每月 {count}",
+      "firstFree": "您的第一次預覽免費。",
+      "each": "每次 {seconds} 秒。",
+      "eachNoRollover": "每次 {seconds} 秒，不累積。",
+      "balance": "餘額",
+      "addFunds": "儲值 {amount} 起，並以餘額支付轉換費用。",
+      "refundable": "未花用的款項可在 {days} 天內退款。"
+    }
+  }
+}

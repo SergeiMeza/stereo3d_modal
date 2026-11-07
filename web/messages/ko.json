@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "업무용으로 {site}를 쓰시나요? {business} 또는 {studio}를 설정해 보세요",
+      "setUp": "설정",
+      "proLine": "고객이나 팀을 위해 작업하세요? {business}와 {studio}로 {range} 절약하고 상업적 이용도 가능해요. <link>플랜 보기</link>",
+      "appStoreActive": "App Store의 {pro}가 계속 사용 중이에요.",
+      "howToCancel": "해지 방법"
+    },
+    "setup": {
+      "steps": {
+        "aria": "단계",
+        "item": "{n}. {label}",
+        "plan": "플랜",
+        "questions": "소개",
+        "checkout": "결제"
+      },
+      "mainUses": {
+        "clientWork": "고객 작업",
+        "ownChannel": "내 채널",
+        "stockFootage": "스톡 영상",
+        "other": "기타"
+      },
+      "includes": {
+        "pctOff": "모든 영상 {pct}% 할인",
+        "usage": "매달 {amount} 사용량",
+        "commercial": "영상의 상업적 이용",
+        "frameRates": "최대 {fps} fps 프레임 레이트",
+        "intro": "{site} 인트로 켜기/끄기",
+        "invoices": "회사 정보가 담긴 인보이스",
+        "express": "Express 포함"
+      },
+      "price": {
+        "year": "연 {price}",
+        "month": "월 {price}",
+        "week": "주 {price}"
+      },
+      "terms": {
+        "yearly": "1년에 한 번 결제돼요. 사용량 {amount}이 매달 지급돼요. 해지하기 전까지 매년 갱신돼요.",
+        "monthly": "매월 결제돼요. 해지하기 전까지 매월 갱신돼요."
+      },
+      "appStoreProNote": "{pro}는 Apple에서 결제돼요. {business}에는 {pro}의 모든 기능이 포함돼 있으니, 이중 결제를 피하려면 iPhone의 설정 → [내 이름] → 구독에서 {pro}를 해지하세요.",
+      "studio": {
+        "title": "{studio}를 이용 중이에요",
+        "onBilling": "플랜은 <link>결제</link>에서 확인하세요."
+      },
+      "eyebrow": "{business}와 {studio}",
+      "title": "업무용 {site} 설정",
+      "planAria": "플랜",
+      "yourPlan": "내 플랜",
+      "yearlyPlan": "연간 플랜",
+      "monthlyPlan": "월간 플랜",
+      "questionsFirst": "먼저 궁금한 점이 있나요?",
+      "talkToUs": "문의하기",
+      "notNow": "나중에",
+      "continueWith": "{plan}로 계속",
+      "questions": {
+        "title": "간단한 질문",
+        "hint": "모두 선택 사항이에요. 업무에 더 맞는 제품을 만드는 데 도움이 돼요.",
+        "teamSize": "팀 규모",
+        "teamSizePlaceholder": "예: 4",
+        "mainUse": "주요 용도",
+        "headsets": "헤드셋"
+      },
+      "back": "뒤로",
+      "skip": "건너뛰기",
+      "continue": "계속",
+      "checkout": {
+        "termsTail": "{terms} 가격은 USD이며 세금 별도예요. 확인하기 전에는 결제되지 않아요.",
+        "asksOnly": "결제 단계에서는 결제 수단과 국가만 물어봐요. 회사 이름, 주소, 세금 ID는 나중에 입력해도 돼요.",
+        "whatHappensBusiness": "내 {business}는 어떻게 되나요",
+        "whatHappensPro": "내 {pro}는 어떻게 되나요",
+        "manageAppStore": "App Store 플랜 관리",
+        "workingOut": "오늘 가격을 계산하는 중…",
+        "previewFailed": "오늘 가격을 계산하지 못했어요. 확인하기 전에는 결제되지 않아요.",
+        "changing": "변경 중…",
+        "confirmAndPay": "확인하고 {amount} 결제",
+        "confirm": "확인",
+        "continueToPayment": "결제로 계속"
+      },
+      "welcome": {
+        "eyebrow": "환영해요",
+        "title": "{plan} 시작",
+        "commercial": "상업적 이용: 3D 영상을 고객, 광고, 유료 채널에 사용할 수 있어요.",
+        "frameRates": "더 높은 프레임 레이트: 영상에 있다면 최대 {fps} fps까지 지원해요.",
+        "usage": "매달 {amount} 사용량, 이후에는 {plan} 가격이 적용돼요.",
+        "make": "3D 영상 만들기"
+      },
+      "talk": {
+        "title": "문의하기",
+        "description": "담당자가 이메일로 답해 드려요. 보통 영업일 하루 안에 답변해요.",
+        "sent": "감사합니다. {email}로 답변드릴게요.",
+        "accountEmail": "계정 이메일"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "Apple Vision Pro용이에요. 사진 앱에서 공간 비디오로 표시돼요.",
+      "sbsDetail": "Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR 글라스, 3D TV용이에요."
+    },
+    "points": {
+      "depthTitle": "생생한 깊이",
+      "depthDetail": "모든 순간을 진짜 3D 장면으로 되살려요.",
+      "lengthDetail": "짧은 클립부터 영화 한 편까지.",
+      "originalTitle": "한쪽 눈에는 원본 그대로",
+      "originalDetail": "5K~8K 시네마 크기에서는 한쪽 눈이 원본 프레임을 보여 줘요.",
+      "foveatedDetail": "보는 곳이 더 선명해요."
+    },
+    "hero": {
+      "new": "신규",
+      "eyebrow": "웹에서 쓰는 {site} · {method}",
+      "title": "모든 영상을 <accent>생생한 3D</accent>로",
+      "lede": "장면마다 형태를 파악한 뒤, 양쪽 눈에 맞게 다시 촬영해요.",
+      "cta": "첫 3D 영상 만들기",
+      "fromPrice": "{fps} fps 기준 분당 <b>{price}</b>부터",
+      "limits": "{limits}. <link>가격 보기</link>"
+    },
+    "steps": {
+      "uploadTitle": "영상 업로드",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "한 장면 미리보기",
+      "previewDetail": "몇 초를 3D로 확인해요.",
+      "makeTitle": "3D로 만들기",
+      "makeDetail": "헤드셋용으로 다운로드해요."
+    },
+    "sections": {
+      "howItLooksEyebrow": "이렇게 보여요",
+      "howItLooksTitle": "업로드부터 헤드셋까지",
+      "stepByStepEyebrow": "단계별 안내",
+      "stepByStepTitle": "내 영상에 일어나는 일",
+      "watchEyebrow": "감상하기",
+      "watchTitle": "Vision Pro와 모든 헤드셋에서",
+      "watchLede": "Vision Pro와 모든 헤드셋 브라우저에서 작동해요. 그곳에서 사이트를 열고 바로 보거나 헤드셋으로 다운로드하세요."
+    },
+    "final": {
+      "title": "내 영상을 3D로 만나 보세요",
+      "cta": "3D 영상 만들기",
+      "teams": "업무용: {business}와 {studio} 플랜. <link>플랜 보기</link>",
+      "feedback": "빠졌거나 오류가 있나요? <button>알려 주세요</button>."
+    },
+    "footer": {
+      "byline": "웹에서 쓰는 <brand></brand> · Spatial AI Labs Ltd 제품",
+      "privacy": "개인정보 처리방침",
+      "terms": "이용약관",
+      "feedback": "피드백",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "깊이",
+      "depthTitle": "장면마다 형태를 파악해요",
+      "depthDetail": "모든 순간이 프레임마다 안정적인 진짜 3D 장면이 돼요.",
+      "depthLabel": "빛나는 선이 영상 위를 지나가며 가까운 곳은 따뜻한 색, 먼 곳은 파란색으로 보여 주고, 이어서 원래 화면이 나와요",
+      "stereoTag": "3D",
+      "stereoTitle": "카메라 하나로 양쪽 눈을",
+      "stereoDetail": "그다음 그 장면을 양쪽 눈에 맞게 깔끔한 가장자리로 다시 촬영해요. 여기서는 시점이 흔들려서 어떤 화면에서든 깊이를 볼 수 있어요.",
+      "stereoLabel": "시점이 부드럽게 흔들리는 같은 영상, 그리고 왼쪽 눈과 오른쪽 눈 화면이 나란히 나와요",
+      "deliveryTag": "파일",
+      "deliveryTitle": "처음부터 3D로 찍은 것처럼 재생돼요",
+      "deliveryDetail": "Vision Pro 공간 비디오와 사이드 바이 사이드, 모든 헤드셋에서 바로 쓸 수 있어요.",
+      "deliveryLabel": "3D 영상이 떠 있는 창, 헤드셋의 큰 화면, 헤드셋 렌즈, XR 글라스에서 보여요"
+    },
+    "tour": {
+      "ariaLabel": "앱",
+      "projectsLabel": "프로젝트",
+      "projectsDetail": "영상을 끌어다 놓으세요. 모든 프로젝트를 한곳에서.",
+      "projectsAlt": "영상 다섯 개가 있고 하나는 3D 준비 완료로 표시된, 웹 {site}의 프로젝트 페이지",
+      "make3dLabel": "3D로 만들기",
+      "make3dDetail": "헤드셋과 품질을 8K까지 고르세요. 가격이 먼저 표시돼요.",
+      "make3dAlt": "Apple Vision Pro와 Meta Quest가 선택되고 1080p부터 8K까지 품질 옵션이 있는 3D로 만들기 페이지",
+      "trackerLabel": "진행 상황",
+      "trackerDetail": "단계별 진행과 남은 시간을 확인해요.",
+      "trackerAlt": "가격과 진행 중인 변환: 준비가 끝나고 지금 3D 영상을 만드는 중",
+      "filesLabel": "파일",
+      "filesDetail": "Vision Pro 공간 비디오와 사이드 바이 사이드를 바로 다운로드해요.",
+      "filesAlt": "다운로드할 수 있는 Vision Pro 공간 비디오와 사이드 바이 사이드 파일이 있는 파일 페이지"
+    },
+    "samples": {
+      "eyebrow": "샘플",
+      "title": "헤드셋에서 3D 결과를 감상하세요",
+      "lede": "웹의 {site}에서 {method}로 만들었어요. 헤드셋으로 다운로드하거나 비교용 2D 원본을 받아 보세요.",
+      "video2d": "{title}, 2D 영상",
+      "videoRedCyan": "{title}, 빨강-청록 3D",
+      "play": "{title}의 음소거된 짧은 미리보기 재생",
+      "look2d": "2D",
+      "lookRedCyan": "빨강-청록",
+      "facts": "{seconds}초 · {size}"
+    },
+    "worksWith": {
+      "title": "지원 기기",
+      "upcoming": "{name}, {upcoming} 지원 준비 완료",
+      "tvs": "3D TV"
+    },
+    "heroLoop": {
+      "label": "해 질 녘 옥상 위의 가수와 밴드: 왼쪽은 2D 영상, 오른쪽은 같은 순간을 {method}로 본 모습으로, 깊이를 보여 주려고 시점이 부드럽게 흔들려요",
+      "yourVideo": "내 영상",
+      "caption": "오른쪽은 3D로 보일 모습대로 움직여요. <link>헤드셋에서 보기</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · 모든 영상 {pct}% 할인",
+      "perMinute": "{quality}는 분당 {list} 대신 {pro}예요.",
+      "getPro": "{pro} {plan} 시작",
+      "keepPaying": "영상당 결제 유지",
+      "terms": "USD, 세금 별도 · 계정에서 언제든 해지",
+      "planGroup": "{pro} 플랜",
+      "includes": "{pro}에는 {credit}이 포함돼요.",
+      "freePreviewsMonthly": "{count, plural, other {매달 무료 미리보기 #회}}",
+      "businessTitle": "업무용 {business}",
+      "businessLine": "월 {price}, 사용량 {credit}, 상업적 이용, 인보이스 포함",
+      "businessLineFps": "월 {price}, 사용량 {credit}, 상업적 이용, {fps} fps, 인보이스 포함"
+    },
+    "quote": {
+      "howToPay": "결제 방법",
+      "payOnce": "한 번만 결제",
+      "withPlan": "{plan} 이용 시",
+      "pctOff": "{pct}% 할인",
+      "fromMonthly": "월 {price}부터",
+      "hide": "숨기기",
+      "checkout": {
+        "title": "가입하고 변환",
+        "paymentFailed": "결제가 완료되지 않았어요.",
+        "takesOff": "{pro}로 이 영상과 이후 모든 영상이 {pct}% 할인돼요.",
+        "takesOffWithCredit": "{pro}로 이 영상과 이후 모든 영상이 {pct}% 할인되고, {credit}도 포함돼요.",
+        "includes": "{pro}에는 {credit}이 포함돼요.",
+        "continue": "결제로 계속",
+        "payOnce": "한 번만 결제 · {price}",
+        "planGroup": "{pro} 플랜",
+        "today": "{pro} {plan}, 오늘",
+        "thisVideo": "이 영상, {pro} 가격",
+        "youSave": "이 영상에서 절약",
+        "terms": "계정에서 언제든 해지할 수 있어요. 가격은 USD이며 세금 별도예요."
+      },
+      "note": {
+        "highFps": "높은 프레임 레이트는 {business}와 {studio}에서 제공되며, 매월 사용량도 포함돼요.",
+        "monthlyUsage": "{business}와 {studio}에는 매월 사용량이 포함돼요.",
+        "dismiss": "닫기",
+        "atBusiness": "{business} 가격으로는 이 영상이 {price}예요.",
+        "fits": "{business}에 매달 포함되는 사용량 {credit} 안에 들어가요. 월 {price}예요.",
+        "includes": "{business}에는 매달 사용량 {credit}이 포함돼요. 월 {price}예요.",
+        "withStudio": "{studio}라면 {price}예요.",
+        "seeBusiness": "{business} 보기",
+        "talk": "문의하기"
+      },
+      "cinema": {
+        "share": "{pct}% 할인 · 상업적 이용",
+        "seeBusinessSave": "{business} 보기 · {range} 절약"
+      }
+    },
+    "intro": {
+      "share": "{plan} {pct}%",
+      "shareSeparator": ", ",
+      "title": "플랜을 꼭 고르지 않아도 돼요",
+      "body": "처음에는 모두 영상당 결제로 시작해요. 플랜은 분당 가격만 낮춰 줘요.",
+      "bodyWithShares": "처음에는 모두 영상당 결제로 시작해요. 플랜은 분당 가격만 낮춰 줘요: {shares}.",
+      "gotIt": "확인",
+      "ppvTitle": "영상당 결제",
+      "aMonth": "월",
+      "ppvBody": "영상이 완성된 뒤에 결제해요. 첫 미리보기는 무료예요.",
+      "upToFps": "최대 {fps} fps",
+      "yourPlan": "내 플랜",
+      "pctOff": "{pct}% 할인",
+      "proPreviews": "{count, plural, other {월간 플랜에 매달 무료 미리보기 #회 포함.}}",
+      "includedIn": "{plan}에 포함",
+      "getPro": "{pro} 시작"
+    },
+    "talkToUs": {
+      "banner": "업무용으로 {site}를 쓰시나요? {business}는 월 {amount} 사용량, 상업적 이용, 인보이스를 제공해요.",
+      "open": "문의하기",
+      "see": "{business} 보기",
+      "sent": "감사합니다. {email}로 답변드릴게요.",
+      "yourEmail": "계정 이메일"
+    },
+    "receipt": {
+      "title": "{pro}였다면 {amount}를 아낄 수 있었어요",
+      "wouldHaveBeen": "이 영상은 {amount}였을 거예요.",
+      "monthly": "{plan}은 {price}예요.",
+      "monthlyCredit": "{plan}은 {price}이고 {credit}이 포함돼요.",
+      "monthlyPreviews": "{plan}은 {price}이고 {count, plural, other {매달 무료 미리보기 #회}}가 포함돼요.",
+      "monthlyCreditPreviews": "{plan}은 {price}이고 {credit}이 포함되며, {count, plural, other {매달 무료 미리보기 #회}}도 포함돼요.",
+      "see": "{pro} 보기",
+      "notNow": "나중에"
+    },
+    "banner": {
+      "lineLong": "플랜으로 모든 영상에서 {range} 절약하세요.",
+      "lineShort": "플랜으로 {range} 절약하세요.",
+      "see": "플랜 보기",
+      "proOff": "{pro}로 모든 영상이 {pct}% 할인돼요.",
+      "proOffCredit": "{pro}로 모든 영상이 {pct}% 할인되고 {credit}도 포함돼요.",
+      "monthlyPreviews": "{count, plural, other {월간 플랜에는 매달 무료 미리보기 #회도 포함돼요.}}"
+    },
+    "nudge": {
+      "dismiss": "닫기"
+    },
+    "sourceLine": {
+      "fps": "높은 프레임 레이트는 {business}와 {studio}에서 제공되며, {range} 절약도 돼요.",
+      "size": "{size}로 작업하세요? {business}와 {studio}로 {range} 절약하고 상업적 이용도 가능해요.",
+      "see": "{business} 보기"
+    },
+    "header": {
+      "link": "플랜",
+      "save": "{range} 절약"
+    },
+    "contact": {
+      "tooMany": "오늘 보낸 메시지가 너무 많아요. 지원팀에 직접 문의해 주세요.",
+      "checkMessage": "메시지를 확인하고 다시 시도해 주세요.",
+      "title": "문의하기",
+      "intro": "담당자가 이메일로 답해 드려요. 보통 영업일 하루 안에 답변해요. 기다리는 동안 프로젝트는 그대로 열려 있어요.",
+      "messageLabel": "어떤 영상을 만들고, 한 달에 얼마나 만드나요?",
+      "messagePlaceholder": "매달 짧은 뮤직비디오 약 20편, 4K, Vision Pro와 Quest용.",
+      "company": "회사 (선택)",
+      "teamSize": "팀 규모 (선택)",
+      "teamSizePlaceholder": "예: 4",
+      "send": "보내기",
+      "cancel": "취소"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "오늘은 결제되는 금액이 없어요.",
+      "today": "오늘: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − 사용하지 않은 {from} {unused}.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "남은 기간과 사용량 중 더 적은 쪽에 해당하는 결제 금액을 차감해 드려요.",
+      "usageHandover": "이번 달 남은 {from} 사용량은 {to}의 {amount}가 시작되면 끝나요.",
+      "endOfPeriod": "이번 기간이 끝나는 날",
+      "staysOn": "{current}는 {until}까지 유지돼요.",
+      "afterPayPerVideo": "그 이후에는 영상당 결제예요.",
+      "startsThenAt": "그때 {name}가 {amount}로 시작돼요.",
+      "startsThenAtPer": "그때 {name}가 {per} {amount}로 시작돼요.",
+      "startsThen": "그때 {name}가 시작돼요.",
+      "repriced": "가격이 업데이트됐어요. 확인한 뒤 다시 승인해 주세요.",
+      "nothingCharged": "결제된 금액이 없어요.",
+      "quoteChanged": "가격이 바뀌었어요. 새 합계를 확인해 주세요.",
+      "cardConfirm": "카드 확인이 필요해요.",
+      "cardDeclined": "카드가 거절됐어요.",
+      "errors": {
+        "samePlan": "이미 이용 중인 플랜이에요.",
+        "notRenewable": "이 플랜은 기간이 끝날 때까지 유지되며 변경할 수 없어요.",
+        "changeScheduled": "이미 예약된 변경이 있어요. 먼저 결제에서 취소해 주세요.",
+        "changeOnHold": "계정의 플랜 변경이 보류 중이에요. 지원팀에 문의해 주세요.",
+        "planUnavailable": "지금은 이 플랜을 쓸 수 없어요. 나중에 다시 시도해 주세요.",
+        "cantChangeHere": "여기서는 플랜을 변경할 수 없어요.",
+        "tryAgain": "플랜을 변경하지 못했어요. 다시 시도해 주세요.",
+        "paymentFailed": "결제가 완료되지 않았어요.",
+        "previewFailed": "변경 내용을 계산하지 못했어요. 결제된 금액은 없어요.",
+        "keepFailed": "플랜을 유지하지 못했어요. 다시 시도해 주세요."
+      },
+      "per": {
+        "weekly": "주",
+        "monthly": "월",
+        "yearly": "연"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "{current}는 {next}(으)로 바뀌지 않고 {end}에 종료돼요.",
+      "changePlan": "플랜 변경",
+      "moveUp": "{name} (상위 플랜)",
+      "payPerVideoCancel": "영상당 결제 (플랜 해지)",
+      "dialogTitleChange": "{name}(으)로 변경할까요?",
+      "dialogTitleCancel": "{current}를 해지할까요?",
+      "working": "변경 내용을 계산하는 중…",
+      "keep": "{current} 유지",
+      "payAndChange": "{amount} 결제하고 변경",
+      "changeTo": "{name}(으)로 변경",
+      "cancelPlan": "플랜 해지",
+      "howWeWorkThisOut": "계산 방법",
+      "renewsOn": "{date}에 갱신돼요."
+    },
+    "plan": {
+      "title": "{name} 플랜",
+      "creditLeft": "이번 달 사용량 {credit} 중 {left} 남음",
+      "usageResets": "사용량은 {date}에 초기화돼요.",
+      "renewsOn": "{date}에 갱신돼요.",
+      "billedYearlyRenewsOn": "연간 결제예요. {date}에 갱신돼요.",
+      "plansLink": "플랜",
+      "introLabel": "내 영상에 {app} 인트로 추가",
+      "introHint": "영상 앞에 짧은 {app} 타이틀이 재생돼요.",
+      "introSaveFailed": "저장하지 못했어요. 다시 시도해 주세요."
+    },
+    "planMove": {
+      "expired": "이 제안은 만료됐어요. 지원팀에 문의해 주세요.",
+      "moveFailed": "지금은 옮길 수 없어요. 잠시 후 다시 시도해 주세요.",
+      "accepted": "{name} 플랜이 도착했어요.",
+      "sectionLabel": "지원팀이 옮겨 준 플랜",
+      "headline": "지원팀이 {name} 플랜을 이 계정으로 옮겼어요. 수락할까요?",
+      "validUntil": "{date}까지 유효해요.",
+      "whatMoves": "이 계정으로 옮겨지는 항목",
+      "whatStays": "그대로 남는 항목",
+      "contactSupport": "지원팀 문의",
+      "accept": "수락"
+    },
+    "planEmail": {
+      "title": "플랜에 쓸 이메일 추가",
+      "body": "영수증과 구매 복원에 사용돼요. 숨김 처리된 Apple 주소는 쓸 수 없어요. 그동안에도 플랜은 정상적으로 작동해요.",
+      "submit": "이 이메일 사용"
+    },
+    "screen": {
+      "title": "결제",
+      "contactSupportToContinue": "계속하려면 지원팀에 문의해 주세요.",
+      "sections": {
+        "refundQuestion": "환불 문의",
+        "balance": "잔액",
+        "planMoves": "플랜 이전",
+        "plan": "플랜",
+        "proCredit": "{pro} 크레딧",
+        "restorePurchases": "구매 복원",
+        "paymentMethods": "결제 수단",
+        "businessDetails": "사업자 정보",
+        "usage": "사용량",
+        "invoices": "인보이스",
+        "yourPrices": "내 가격",
+        "refunds": "환불",
+        "aRow": "항목"
+      },
+      "records": {
+        "label": "구매 및 인보이스",
+        "tabsLabel": "결제 기록",
+        "tabs": {
+          "history": "내역",
+          "plan": "플랜",
+          "usage": "사용량",
+          "invoices": "인보이스"
+        },
+        "loadFailed": "구매 내역을 불러오지 못했어요.",
+        "tryAgain": "다시 시도",
+        "noPlanPayments": "아직 플랜 결제 내역이 없어요.",
+        "noPurchases": "아직 구매 내역이 없어요.",
+        "loading": "불러오는 중…",
+        "showMore": "더 보기",
+        "currency": "미국 달러예요.",
+        "currencyWithVat": "미국 달러예요. 해당되는 경우 가격에 VAT가 포함돼요."
+      },
+      "methods": {
+        "title": "결제 수단",
+        "saving": "저장 중",
+        "add": "결제 수단 추가",
+        "none": "저장된 결제 수단이 없어요.",
+        "expiredOn": "{date} 만료",
+        "default": "기본",
+        "expired": "만료됨",
+        "makeDefault": "기본으로 설정",
+        "moveUp": "위로 이동",
+        "moveDown": "아래로 이동",
+        "remove": "삭제",
+        "optionsFor": "{label} 옵션",
+        "chargeOrder": "기본 결제 수단으로 결제해요. 거절되면 다른 결제 수단을 이 순서대로 시도해요.",
+        "max": "결제 수단은 최대 5개까지 저장할 수 있어요.",
+        "removeBlocked": "결제가 진행 중인 동안에는 유일한 결제 수단을 삭제할 수 없어요. 먼저 결제를 완료하거나 다른 결제 수단을 추가해 주세요.",
+        "saveFailed": "저장하지 못했어요. 다시 시도해 주세요.",
+        "confirmTitle": "{label}을(를) 삭제할까요?",
+        "confirmLast": "다음 변환부터는 매번 결제 방법을 물어봐요.",
+        "confirmDescription": "이 결제 수단 삭제",
+        "keep": "유지"
+      },
+      "company": {
+        "title": "사업자 정보",
+        "loading": "불러오는 중…",
+        "empty": "사업자 정보가 없어요. 추가하면 인보이스에 표시돼요.",
+        "reminder": "인보이스에 회사 정보를 추가하세요",
+        "edit": "편집"
+      },
+      "invoices": {
+        "loadFailed": "인보이스를 불러오지 못했어요.",
+        "tryAgain": "다시 시도",
+        "none": "아직 인보이스가 없어요.",
+        "pdf": "PDF",
+        "creditNote": "대변 전표 {number}",
+        "loading": "불러오는 중…",
+        "showMore": "더 보기"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "결제 완료",
+        "processing": "처리 중",
+        "payment_needed": "결제 필요",
+        "refund_requested": "환불 요청됨",
+        "refunded": "환불됨",
+        "partially_refunded": "부분 환불됨",
+        "disputed": "은행에 이의 제기됨",
+        "refund_failed": "환불 실패",
+        "failed": "결제 실패",
+        "applied": "완료",
+        "scheduled": "예약됨"
+      },
+      "statusHelp": {
+        "processing": "결제를 확인하고 있어요. 며칠 걸릴 수 있어요.",
+        "refund_requested": "영업일 2일 안에 이메일로 안내해 드릴게요.",
+        "refund_failed": "이메일로 안내해 드렸어요."
+      },
+      "credit": {
+        "granted": "추가됨",
+        "expired": "만료됨",
+        "removed": "종료됨",
+        "frozen": "보류 중",
+        "unfrozen": "해제됨"
+      },
+      "done": "완료",
+      "scheduledFor": "{date} 예약",
+      "scheduled": "예약됨",
+      "changed": "변경됨",
+      "usageCredit": "사용량 크레딧",
+      "planChange": "플랜 변경",
+      "plan": "플랜",
+      "items": "{count, plural, other {#개 항목}}",
+      "item": {
+        "untitled": "제목 없는 프로젝트",
+        "production": "3D 영상",
+        "preview": "미리보기",
+        "launchOffer": "출시 혜택"
+      },
+      "menu": {
+        "more": "더 보기",
+        "refundRequested": "환불 요청됨",
+        "requestRefund": "환불 요청",
+        "getHelp": "이 결제에 대해 도움 받기"
+      },
+      "pay": "{amount} 결제",
+      "payInvoice": "인보이스 결제",
+      "creditNote": "대변 전표",
+      "invoice": "인보이스",
+      "receipt": "영수증"
+    },
+    "usage": {
+      "month": "월",
+      "downloadCsv": "CSV 다운로드",
+      "loadFailed": "사용량을 불러오지 못했어요.",
+      "tryAgain": "다시 시도",
+      "none": "아직 사용량이 없어요.",
+      "columns": {
+        "date": "날짜",
+        "project": "프로젝트",
+        "method": "방식",
+        "preset": "프리셋",
+        "minutes": "분",
+        "cost": "비용",
+        "paidWith": "결제 수단",
+        "status": "상태"
+      },
+      "apiKey": "API 키 \"{name}\"",
+      "paidWith": {
+        "balance": "잔액",
+        "card": "결제 수단",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "진행 중",
+        "runningReserved": "진행 중, {amount} 예약됨",
+        "released": "해제됨",
+        "partlyDelivered": "일부 전달됨",
+        "returned": "잔액으로 {amount} 반환됨",
+        "done": "완료"
+      },
+      "showMore": "더 보기",
+      "balanceHistory": "잔액 내역",
+      "entry": {
+        "topup": "충전",
+        "auto_reload": "자동 충전",
+        "refund_to_balance": "잔액으로 반환됨",
+        "debt_payment": "미납액 결제",
+        "cash_refund": "결제 수단으로 환불됨",
+        "expiry": "만료됨",
+        "adjustment": "조정",
+        "dispute_freeze": "결제 검토 중 보류",
+        "dispute_unfreeze": "검토 후 해제됨",
+        "dispute_loss": "은행 이의 제기 후 차감됨"
+      }
+    },
+    "balance": {
+      "title": "잔액",
+      "available": "사용 가능",
+      "availableWithCredits": "사용 가능 · {credits}",
+      "creditWords": {
+        "grant": "사용량 크레딧",
+        "pro": "{pro} 크레딧",
+        "plan": "플랜 사용량"
+      },
+      "creditItem": "{words} {amount}",
+      "creditItemUseBy": "{words} {amount} ({date}까지 사용)",
+      "creditsAnd": "{rest} 및 {last}",
+      "includes": "{credits} 포함",
+      "reserved": "진행 중인 {count, plural, other {변환 #건}}에 {amount} 예약됨",
+      "frozen": "결제 검토 중이라 {amount}가 보류 중이에요.",
+      "expired": "잔액이 {date}에 만료됐어요.",
+      "addFundsHint": "충전하면 잔액으로 변환 비용을 결제할 수 있어요.",
+      "expires": "충전하지 않으면 {date}에 만료돼요.",
+      "addFunds": "충전",
+      "prepaid": "선결제 {amount}",
+      "paused": {
+        "declined": "결제가 완료되지 않아 자동 충전이 일시 중지됐어요.",
+        "limit": "자동 충전 일시 중지: 일일 한도에 도달했어요. 내일 다시 시작돼요."
+      },
+      "turnBackOn": "다시 켜기",
+      "autoReload": "자동 충전",
+      "autoReloadValue": "{below} 미만이면 {add} 충전",
+      "off": "꺼짐",
+      "edit": "편집",
+      "setUp": "설정",
+      "set": "설정",
+      "spendLimit": "월 지출 한도",
+      "spendLimitValue": "월 {limit} · {used} 사용",
+      "none": "없음",
+      "balanceAlert": "잔액 알림",
+      "balanceAlertValue": "{amount} 미만",
+      "rowAction": "{label} {action}"
+    },
+    "banner": {
+      "contactSupport": "지원팀 문의",
+      "pay": "{amount} 결제",
+      "portalFailed": "결제 수단 페이지를 열지 못했어요",
+      "supportSubject": "내 계정의 결제"
+    },
+    "requireBilling": {
+      "loading": "불러오는 중…"
+    },
+    "payReturn": {
+      "checking": "결제를 확인하는 중…",
+      "paidRun": "결제가 완료됐어요. 3D 영상을 시작해요.",
+      "backToApp": "{app}로 돌아가기",
+      "backToProject": "프로젝트로 돌아가기",
+      "notPaid": "결제가 완료되지 않았어요.",
+      "tryAgain": "다시 시도",
+      "chooseAnother": "다른 결제 방법 선택",
+      "slow": "평소보다 오래 걸리고 있어요. 결제가 확인되는 대로 시작할게요.",
+      "startAgain": "처음부터 다시"
+    },
+    "settle": {
+      "nothingToPay": "결제할 금액이 없어요."
+    },
+    "restore": {
+      "title": "구매 복원",
+      "intro": "웹에서 플랜이나 {pro}를 구매했는데 보이지 않나요? 여기서 복원하세요.",
+      "restoring": "복원 중…",
+      "button": "구매 복원",
+      "appStoreNote": "App Store 구매는 앱에 로그인하면 표시돼요.",
+      "failed": "지금은 구매 내역을 확인하지 못했어요. 잠시 후 다시 시도해 주세요."
+    },
+    "restoreMove": {
+      "findOther": "다른 이메일의 구매 찾기",
+      "looking": "찾는 중…",
+      "emailLabel": "구매할 때 사용한 이메일",
+      "sending": "보내는 중…",
+      "sendCode": "코드 보내기",
+      "codeSent": "구매 내역이 있으면 {email}로 코드를 보내 드려요.",
+      "checking": "확인 중…",
+      "findPurchases": "구매 찾기",
+      "useAnother": "다른 이메일 사용",
+      "restored": "구매가 복원됐어요",
+      "notFound": "구매 내역을 찾지 못했어요",
+      "tryAnother": "다른 이메일 시도",
+      "signsInWith": "(로그인 방법: {providers})",
+      "contactSupport": "지원팀 문의",
+      "supportSubject": "내 계정으로 플랜 옮기기",
+      "signInThere": "해당 계정으로 로그인",
+      "hasOwnPlan": "이 계정에는 이미 플랜이 있어요. 옮기려면 지원팀에 문의해 주세요.",
+      "checkFailed": "지금은 확인하지 못했어요. 잠시 후 다시 시도해 주세요.",
+      "offerTitle": "{plan} 플랜 · {date}까지 유효",
+      "movesHere": "이 계정으로 옮겨지는 항목",
+      "stays": "그대로 남는 항목",
+      "restoring": "복원 중…",
+      "restoreHere": "여기로 {plan} 복원",
+      "moves": {
+        "plan": "해당 날짜까지의 플랜",
+        "appAccess": "앱의 {pro}",
+        "currentUsage": "이번 달 남은 사용량",
+        "monthsNotYetGiven": "앞으로 지급될 월별 사용량"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "이미 사용한 사용량",
+        "balance": "이전 계정의 잔액",
+        "appStorePurchases": "App Store 구매",
+        "pastRunsAndFiles": "지난 영상과 파일",
+        "adminGrants": "지원팀이 이전 계정에 지급한 항목"
+      }
+    },
+    "yourPrices": {
+      "title": "분당 내 가격",
+      "yourPrices": "내 가격",
+      "payPerVideo": "영상당 결제",
+      "withPlanOff": "{plan} 이용 시 {pct}% 할인",
+      "withPlan": "{plan} 이용 시",
+      "pctOff": "모든 분량 {pct}% 할인",
+      "upgradeTo": "{plan}(으)로 업그레이드"
+    }
+  },
+  "look": {
+    "analysisRunning": "분석이 아직 진행 중이에요 — 끝나면 견적을 확인할 수 있어요.",
+    "requestFailed": "요청 실패",
+    "heading": "스테레오 미리보기",
+    "follower": {
+      "depthLabel": "깊이 맵",
+      "depthTitle": "깊이 변환에서 만든 깊이 맵 — 스테레오는 이 맵으로 만들어져요",
+      "outputTitle": "가장 최근 변환의 스테레오 출력, 원본 재생과 동기화돼요"
+    },
+    "profile": {
+      "jobFailed": "작업 실패",
+      "retry": "프로파일링 다시 시도 (무료)",
+      "start": "장면 프로파일링 (무료)",
+      "hint": "장면별 깊이를 측정해 이 설정의 기본값을 채워요 — 무료, 약 1분.",
+      "failed": "프로파일링 실패 — {error}",
+      "stale": "이 프로파일을 계산한 뒤 장면 전환이 바뀌었어요 — 기본값이 맞지 않을 수 있어요. 다음 변환에서 현재 장면 전환에 맞게 다시 프로파일링해요.",
+      "adaptiveNote": "아직 장면 프로파일이 없어요 — 첫 변환에서 장면별 깊이 값을 자동으로 계산하므로(적응형) 직접 조정하지 않아도 돼요. 성공하면 계산된 값이 각 장면의 자동 기본값으로 여기에 표시돼요."
+    },
+    "compare": {
+      "output": "3D 출력",
+      "depth": "깊이 맵",
+      "noneYet": "스테레오 미리보기를 실행하면 원본 옆에서 3D 출력을 볼 수 있어요.",
+      "showingDepth": "깊이 변환의 깊이 맵을 표시 중이에요 — 스테레오 미리보기를 실행하면 여기서 3D 출력을 볼 수 있어요."
+    },
+    "import": {
+      "fileLabel": "장면 프로파일 파일",
+      "title": "이 페이지에서 내보낸 장면 프로파일을 불러와요 — 장면별 조정과 깊이 배율을 대체해요",
+      "button": "프로파일 가져오기…",
+      "readFailed": "장면 프로파일을 읽지 못했어요.",
+      "failed": "가져오기 실패 — {error}",
+      "dialogTitle": "장면 프로파일 가져오기",
+      "dialogBody": "장면별 조정을 {count, plural, other {가져온 #개 조정}}과 깊이 배율 ×{scale}(으)로 대체할까요? 조정이 없는 장면은 자동으로 돌아가요. 3D로 만들기도 같은 값을 사용해요.",
+      "replace": "대체"
+    },
+    "export": {
+      "title": "장면 프로파일을 JSON으로 다운로드해요 — 장면별 자동 값, 내 조정, 깊이 배율이 담겨요",
+      "button": "프로파일 내보내기"
+    },
+    "depth": {
+      "reuseLabel": "재사용할 깊이 맵",
+      "runOption": "{res}px · {date}",
+      "uploadedOption": "업로드됨 — {name}",
+      "uploadedFallback": "깊이 맵",
+      "uploadedChip": "{hasName, select, yes {업로드한 깊이 맵 — {name} (그대로 사용, 깊이 계산 없음)} other {업로드한 깊이 맵 (그대로 사용, 깊이 계산 없음)}}",
+      "inheritedChip": "깊이 맵 {res}px (깊이 페이지에서 가져옴 — 재사용, 재계산 없음)",
+      "useDefault": "파이프라인 기본 깊이 해상도 사용",
+      "none": "아직 깊이 변환이 없어요 — 이번 변환에서 프리셋의 기본 해상도로 직접 깊이 맵을 계산해요."
+    },
+    "strength": {
+      "label": "전체 3D 강도 (깊이 배율): <value>×{scale}</value> <muted>— 모든 장면에 적용돼요</muted>",
+      "aria": "전체 3D 강도 (깊이 배율)"
+    },
+    "preset": {
+      "label": "해상도 프리셋",
+      "hint": "출력 품질이에요 — 3D로 만들기와 같은 선택지예요."
+    },
+    "edgeLabel": "가장자리 스타일",
+    "formats": "형식",
+    "selectFormat": "형식을 하나 이상 선택하세요",
+    "priorRuns": "이전 스테레오 변환",
+    "scenes": {
+      "aria": "장면",
+      "heading": "장면별 3D · {count, plural, other {장면 #개}}",
+      "hint": "장면을 클릭하면 미리보기가 그곳으로 이동해요 — 재생 중인 장면이 목록 맨 위에 와요. 바꾼 행만 조정으로 전송돼요."
+    },
+    "row": {
+      "jumpTitle": "미리보기를 장면 {n}(프레임 {frame})으로 이동",
+      "thumbAlt": "장면 {n} 키프레임",
+      "name": "장면 {n}",
+      "convertAria": "장면 {n} 3D로 변환",
+      "shotTypeAria": "장면 {n} 샷 유형",
+      "auto": "자동",
+      "autoWith": "자동 ({type})",
+      "passthrough": "2D 패스스루 — 그대로 전달돼요 (양쪽 눈이 동일)",
+      "overridden": "조정됨",
+      "resetAria": "장면 {n}을 자동으로 되돌리기",
+      "reset": "초기화"
+    },
+    "shotTypes": {
+      "closeUp": "클로즈업",
+      "standard": "표준",
+      "dynamic": "다이내믹",
+      "wide": "와이드"
+    },
+    "profileErrors": {
+      "notJson": "올바른 JSON 파일이 아니에요 — 이 페이지에서 장면 프로파일을 내보내 형식을 확인하세요.",
+      "notProfile": "장면 프로파일 파일이 아니에요 — '{'\"kind\": \"{kind}\"'}'이(가) 필요해요.",
+      "depthScale": "depth_scale은 [0.3, 1.5] 범위의 숫자여야 해요.",
+      "noScenes": "프로파일에 scenes 배열이 없어요 — 가져올 항목이 없어요.",
+      "versionNote": " (이 파일은 장면 전환 v{fileVersion} 기준으로 내보냈고, 이 프로젝트는 v{currentVersion}이에요)",
+      "entryNotObject": "scenes[] 항목이 객체가 아니에요.",
+      "missingFirst": "장면 조정에 정수 `first` 프레임이 없어요 — 조정에는 원본 프레임 번호(정수)만 사용할 수 있어요.",
+      "notSceneStart": "프레임 {frame}의 조정은 현재 장면 전환 목록의 장면 시작점이 아니에요{note}.",
+      "shotType": "프레임 {frame}의 장면: shot_type은 {types} 중 하나여야 해요.",
+      "displacement": "프레임 {frame}의 장면: displacement는 (0, 0.03] 범위여야 해요."
+    }
+  },
+  "depth": {
+    "analysisRunning": "분석이 아직 진행 중이에요 — 끝나면 견적을 확인할 수 있어요.",
+    "res": {
+      "label": "깊이 맵 해상도",
+      "hint": "디테일이 높을수록 비용이 더 들어요. 디테일, 장면 전환, 2D 장면이 그대로인 동안 3D로 만들기는 이 깊이 작업을 할인된 가격으로 재사용해요. 영상 해상도까지만 설정할 수 있어요."
+    },
+    "heading": "깊이 맵",
+    "uploadFailedFallback": "업로드 실패",
+    "requestFailed": "요청 실패",
+    "imported": {
+      "preview": "(미리보기)",
+      "clearAria": "가져온 깊이 맵 지우기"
+    },
+    "noRunYet": "깊이 미리보기를 실행하면 원본 옆에서 깊이 맵을 볼 수 있어요.",
+    "uploading": "업로드 중… {percent}%",
+    "uploadFailed": "업로드 실패 — {error}",
+    "onFile": "파일: {name}",
+    "onFileFallback": "업로드한 깊이 맵",
+    "removeAria": "업로드한 깊이 맵 삭제",
+    "fileAria": "깊이 맵 파일",
+    "upload": {
+      "title": "로컬 깊이 영상을 원본 옆에서 미리 보고 프로젝트에 등록해요 — 이후 3D 룩과 3D로 만들기 변환에서 깊이를 계산하는 대신 이 파일을 쓸 수 있어요. 내보낸 파일처럼 프레임이 정확해야 해요 (전체 길이, 원본 프레임 레이트).",
+      "button": "깊이 맵 업로드…"
+    },
+    "export": {
+      "titleDisabled": "먼저 깊이 미리보기를 실행하세요 — 내보내기는 그 원본 깊이 파일을 다운로드해요",
+      "titleEnabled": "가장 최근 변환의 원본 고정밀 깊이 파일을 다운로드해요",
+      "button": "깊이 맵 내보내기",
+      "dialogTitle": "깊이 맵 내보내기",
+      "dialogBody": "가장 최근 변환의 원본 <mono>depth</mono> 파일을 다운로드해요 — 이후 단계에서 쓰는 고정밀 10비트 깊이 맵이며, 이 페이지에서 재생되는 8비트 <mono>depth_vis</mono> 미리보기와는 달라요. 일반 플레이어에서는 평평하거나 검게 보일 수 있어요. 고비트 심도 그레이스케일에서는 정상이에요.",
+      "download": "10비트 깊이 다운로드"
+    },
+    "follower": {
+      "importedLabel": "가져온 깊이",
+      "importedTitle": "{name}의 로컬 미리보기 — 같은 파일이 스테레오/전달 변환용으로 프로젝트에 업로드돼요",
+      "visTitle": "변환의 8비트 깊이 시각화 — 내보내기에서는 원본 고정밀 파일을 받을 수 있어요"
+    },
+    "missingVis": "마지막 깊이 변환에 브라우저에서 재생할 수 있는 깊이 영상(depth_vis)이 없어요 — 대신 원본 깊이 파일을 내보내세요.",
+    "scenes": {
+      "aria": "장면",
+      "heading": "장면 · 3D로 변환",
+      "hint": "선택하지 않은 장면은 2D로 유지돼요 (엔딩 크레딧, 로고). 깊이 미리보기를 포함한 모든 변환에서 깊이를 건너뛰며, 가격은 그대로예요."
+    },
+    "scene": {
+      "thumbAlt": "장면 {n} 키프레임",
+      "name": "장면 {n}",
+      "convertAria": "장면 {n} 3D로 변환"
+    }
+  },
+  "preview": {
+    "analyzing": "영상을 아직 분석하는 중이에요. 끝나면 미리보기를 열 수 있어요.",
+    "heading": "내 영상",
+    "band": {
+      "running": "만드는 중",
+      "failed": "완료되지 않음"
+    },
+    "card": {
+      "title": "내 미리보기",
+      "backToLatest": "최신으로",
+      "back": "뒤로",
+      "failed": "이 미리보기가 완료되지 않았어요. 결제된 금액은 없어요.",
+      "running": "이 미리보기를 만드는 중이에요. 끝나면 여기에 표시돼요.",
+      "empty": "미리보기가 여기에 표시돼요.",
+      "fetching": "미리보기를 가져오는 중…",
+      "makeWhole": "영상 전체를 3D로 만들기",
+      "viewAria": "보기",
+      "freeCheck": "이 화면에서 무료 3D 확인"
+    },
+    "quality": "품질",
+    "length": "길이",
+    "shorter": "더 짧게",
+    "longer": "더 길게",
+    "lengthValue": "{seconds}초",
+    "quickLook": "빠르게 보기 <muted>· 반값</muted>",
+    "frameRate": "프레임 레이트 · 내 영상은 {fps}",
+    "cta": "이 장면 미리보기",
+    "explain": {
+      "frames": "{quality} 레이트로 {frames}프레임: 영상 전체와 프레임당 가격이 같아요.",
+      "quickLook": "{hasMinimum, select, yes {빠르게 보기는 프레임 레이트를 절반으로 줄여 반값에 제공해요. 최소 요금은 {minimum}이에요. 실패하면 결제되지 않아요.} other {빠르게 보기는 프레임 레이트를 절반으로 줄여 반값에 제공해요. 실패하면 결제되지 않아요.}}"
+    },
+    "timeline": {
+      "heading": "장면 고르기",
+      "hintWithBands": "막대를 클릭하면 미리보기가 이동해요. 위쪽의 바는 지난 미리보기예요.",
+      "hint": "막대를 클릭하면 미리보기가 이동해요."
+    },
+    "past": {
+      "heading": "지난 미리보기"
+    },
+    "rangeNote": "미리보기 <mono>{from} – {to}</mono> · 장면 {scene}/{scenes}",
+    "row": {
+      "showing": "표시 중",
+      "show": "표시"
+    },
+    "check": {
+      "redCyan": "빨강-청록",
+      "wiggle": "흔들기",
+      "sideBySide": "사이드 바이 사이드",
+      "redCyanView": "빨강-청록 보기",
+      "wiggleView": "흔들기 보기",
+      "leftEye": "왼쪽 눈",
+      "rightEye": "오른쪽 눈"
+    },
+    "player": {
+      "mute": "음소거",
+      "unmute": "음소거 해제",
+      "speed": "속도"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "저장했어요. 다음 인보이스부터 이 정보가 사용돼요.",
+      "saveFailed": "저장하지 못했어요. 다시 시도해 주세요.",
+      "loadFailed": "저장된 정보를 불러오지 못했어요. 직접 입력할 수는 있어요.",
+      "companyName": "회사 이름",
+      "billingAddress": "청구 주소",
+      "country": "국가",
+      "line1": "주소 1",
+      "line2": "주소 2 (선택)",
+      "city": "시/도",
+      "postalCode": "우편번호",
+      "state": "주 또는 지역",
+      "taxId": "세금 ID (선택)",
+      "taxType": "유형",
+      "taxNumber": "번호",
+      "noTaxId": "이 국가에는 세금 ID가 필요 없어요.",
+      "billingEmail": "인보이스 사본을 받을 청구 이메일",
+      "poReference": "구매 주문서 참조 번호 (선택)",
+      "saving": "저장 중…",
+      "save": "저장",
+      "billingLink": "결제"
+    },
+    "country": {
+      "search": "국가 검색",
+      "none": "국가를 찾을 수 없어요.",
+      "yours": "내 국가",
+      "all": "모든 국가"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "영업일 2일 안에 검토해 드릴게요.",
+      "mergedLine": "이미 문의하신 항목이 있어 해당 요청에 함께 추가했어요.",
+      "sentTitle": "요청을 보냈어요",
+      "cancelToo": "플랜도 해지할까요?",
+      "cancelPlan": "플랜 해지",
+      "done": "완료",
+      "title": "환불 요청",
+      "intro": "해당 항목을 선택하세요. 모든 요청은 담당자가 검토해요. 결제 후 {days}일 안에 요청할 수 있어요.",
+      "nothing": "최근 {days}일 안에 결제한 환불 가능 항목이 없어요.",
+      "planLabel": "{name} 플랜",
+      "paidDetail": "{amount} · {date} 결제",
+      "alreadyAsked": "· 이미 요청함",
+      "noteLabel": "어떤 일이 있었나요? (선택)",
+      "cancel": "취소",
+      "sending": "보내는 중…",
+      "send": "보내기",
+      "sendFailed": "요청을 보내지 못했어요. 잠시 후 다시 시도해 주세요.",
+      "optionsLoadFailed": "환불 가능 항목을 불러오지 못했어요.",
+      "requestsLoadFailed": "요청 내역을 불러오지 못했어요."
+    },
+    "section": {
+      "questionNotice": "환불 요청에 대해 질문을 보냈어요. <link>답변하기</link>",
+      "ariaLabel": "환불",
+      "reportProblem": "결제나 변환에 문제가 있나요? <link>문제 신고</link>",
+      "reportSubject": "{app}: 문제 신고",
+      "needRefund": "환불이 필요하세요? <button>환불 요청</button> · 결제 후 {days}일 안에, 해지한 뒤에도 요청할 수 있어요. 모든 요청은 담당자가 검토해요.",
+      "askWithin": "결제 후 {days}일 안에, 해지한 뒤에도 환불을 요청할 수 있어요. 모든 요청은 담당자가 검토해요.",
+      "appStore": "App Store의 {pro}는 Apple에서 환불해 줘요. <link>Apple에 환불 요청</link>",
+      "yourRequests": "내 요청",
+      "about": {
+        "plan": "플랜 결제",
+        "runs": "변환",
+        "balance": "잔액",
+        "other": "요청"
+      },
+      "answerLabel": "내 답변",
+      "messageLabel": "내 메시지",
+      "sending": "보내는 중…",
+      "sendAnswer": "답변 보내기",
+      "send": "보내기",
+      "cancel": "취소",
+      "askAgain": "다시 문의하기",
+      "addMessage": "메시지 추가",
+      "replyFailed": "보내지 못했어요. 잠시 후 다시 시도해 주세요."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "영상당 결제. <plans>플랜</plans>으로 {range} 절약해요.",
+      "noRange": "영상당 결제, 또는 <plans>플랜</plans>으로 절약하세요."
+    },
+    "per": {
+      "year": "연",
+      "month": "월",
+      "week": "주"
+    },
+    "screen": {
+      "title": "가격",
+      "loading": "가격을 불러오는 중…",
+      "howItWorks": "가격 안내",
+      "perMinute": "<b>{fps} fps 영상 1분 기준.</b> {fpsRule}. {roundedUp} 영상의 일부만 만들면 그 부분만 결제해요.",
+      "discount": "{threshold}를 넘는 변환은 <b>{pct}% 할인</b>.",
+      "minimumPerRun": "변환당 <b>최소 요금 {min}</b>.",
+      "minimumPerPreview": "미리보기당 <b>최소 요금</b> {previewMin}, 그 외 변환은 {min}.",
+      "paidBefore": "<b>시작 전에 결제해요.</b> 대기 중이거나 시작 후 첫 1분 안에 취소하면 전액 환불돼요. 실패해도 전액 환불돼요.",
+      "currency": "미국 달러, 세금 별도. 모든 파일 형식이 포함돼요.",
+      "startProject": "프로젝트 시작"
+    },
+    "plansScreen": {
+      "loading": "플랜을 불러오는 중…",
+      "unavailable": "아직 플랜을 사용할 수 없어요.",
+      "perMinuteLink": "분당 가격"
+    },
+    "proOffer": {
+      "saveLine": "{pro} 회원은 {pct}% 절약",
+      "title": "모든 3D 영상 {pct}% 할인",
+      "description": "웹과 앱의 {site}를 하나로 이용하는 멤버십이에요.",
+      "descriptionWithCredit": "웹과 앱의 {site}를 하나로 이용하는 멤버십이며, {credit}이 포함돼요.",
+      "get": "{pro} 시작"
+    },
+    "plans": {
+      "title": "업무용 플랜",
+      "subtitle": "매달 사용량이 포함돼요. {business}는 월간, {studio}는 연간 결제예요.",
+      "yourPlan": "내 플랜",
+      "changeTo": "{name}(으)로 변경",
+      "choose": "{name} 선택",
+      "lines": {
+        "usage": "매달 {amount} 사용량",
+        "off": "모든 변환 {pct}% 할인",
+        "commercial": "영상의 상업적 이용",
+        "freePreviews": "{count, plural, other {매달 무료 미리보기 #회}}",
+        "express": "Express 포함",
+        "fileQuality": "고객 검토와 편집용 {high} 및 {master} 파일 품질",
+        "fps": "최대 {fps} fps",
+        "invoices": "인보이스"
+      }
+    },
+    "table": {
+      "perEye": "눈당 {size}",
+      "from": "{price}부터",
+      "aMinuteAt": "분당, {fps} fps 기준",
+      "quality": "품질",
+      "perMinute": "분당, {fps} fps",
+      "withPro": "{pro} 이용 시",
+      "withProOff": "{pro} 이용 시 (−{pct}%)",
+      "proCredit": "{pro}에는 {credit}도 포함돼요.",
+      "limitAndPreviews": "{limit} · 미리보기 {price}부터"
+    },
+    "extras": {
+      "foveated": "보는 곳에 더 많은 디테일",
+      "foveatedIncludedAt": "보는 곳에 더 많은 디테일 · {at}에 포함",
+      "fileQuality": "{quality} 파일 품질",
+      "express": "Express",
+      "expressWhat": "우선 처리",
+      "addons": "추가 옵션",
+      "freePreviews": "무료 미리보기",
+      "perMonth": "월 {count}",
+      "firstFree": "첫 미리보기는 무료예요.",
+      "each": "각 {seconds}초.",
+      "eachNoRollover": "각 {seconds}초, 이월 없음.",
+      "balance": "잔액",
+      "addFunds": "{amount}부터 충전해서 잔액으로 변환 비용을 결제하세요.",
+      "refundable": "사용하지 않은 금액은 {days}일 안에 환불받을 수 있어요."
+    }
+  }
+}

@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "¿Usas {site} para trabajar? Configura {business} o {studio}",
+      "setUp": "Configurar",
+      "proLine": "¿Trabajas para clientes o en equipo? {business} y {studio} ahorran {range} e incluyen uso comercial. <link>Ver planes</link>",
+      "appStoreActive": "Tu {pro} de la App Store sigue activo.",
+      "howToCancel": "Cómo cancelar"
+    },
+    "setup": {
+      "steps": {
+        "aria": "Pasos",
+        "item": "{n}. {label}",
+        "plan": "Plan",
+        "questions": "Sobre ti",
+        "checkout": "Pago"
+      },
+      "mainUses": {
+        "clientWork": "Trabajo para clientes",
+        "ownChannel": "Mi propio canal",
+        "stockFootage": "Material de archivo",
+        "other": "Otro"
+      },
+      "includes": {
+        "pctOff": "{pct}% de descuento en cada video",
+        "usage": "{amount} de uso cada mes",
+        "commercial": "Uso comercial de tus videos",
+        "frameRates": "Velocidades de fotogramas de hasta {fps} fps",
+        "intro": "Activa o desactiva la intro de {site}",
+        "invoices": "Facturas con los datos de tu empresa",
+        "express": "Express incluido"
+      },
+      "price": {
+        "year": "{price} al año",
+        "month": "{price} al mes",
+        "week": "{price} a la semana"
+      },
+      "terms": {
+        "yearly": "Se cobra una vez al año. Cada mes recibes {amount} de uso. Se renueva cada año hasta que canceles.",
+        "monthly": "Se cobra cada mes. Se renueva cada mes hasta que canceles."
+      },
+      "appStoreProNote": "Apple cobra tu {pro}. {business} incluye todo lo que ofrece {pro}, así que cancela {pro} en Ajustes → [tu nombre] → Suscripciones de tu iPhone para no pagar los dos.",
+      "studio": {
+        "title": "Tienes {studio}",
+        "onBilling": "Tu plan está en <link>Facturación</link>."
+      },
+      "eyebrow": "{business} y {studio}",
+      "title": "Configura {site} para trabajar",
+      "planAria": "Plan",
+      "yourPlan": "Tu plan",
+      "yearlyPlan": "Plan anual",
+      "monthlyPlan": "Plan mensual",
+      "questionsFirst": "¿Primero tienes dudas?",
+      "talkToUs": "Escríbenos",
+      "notNow": "Ahora no",
+      "continueWith": "Continuar con {plan}",
+      "questions": {
+        "title": "Unas preguntas",
+        "hint": "Todas son opcionales. Nos ayudan a mejorar el producto para el trabajo.",
+        "teamSize": "Tamaño del equipo",
+        "teamSizePlaceholder": "p. ej., 4",
+        "mainUse": "Uso principal",
+        "headsets": "Visores"
+      },
+      "back": "Atrás",
+      "skip": "Omitir",
+      "continue": "Continuar",
+      "checkout": {
+        "termsTail": "{terms} Precios en USD, sin impuestos. No se cobra nada hasta que confirmes.",
+        "asksOnly": "El pago solo pide tu método de pago y tu país. El nombre, la dirección y el ID fiscal de tu empresa pueden ir después.",
+        "whatHappensBusiness": "Qué pasa con tu {business}",
+        "whatHappensPro": "Qué pasa con tu {pro}",
+        "manageAppStore": "Administrar plan de la App Store",
+        "workingOut": "Calculando el precio de hoy…",
+        "previewFailed": "No pudimos calcular el precio de hoy. No se cobra nada hasta que confirmes.",
+        "changing": "Cambiando…",
+        "confirmAndPay": "Confirmar y pagar {amount}",
+        "confirm": "Confirmar",
+        "continueToPayment": "Continuar al pago"
+      },
+      "welcome": {
+        "eyebrow": "Te damos la bienvenida",
+        "title": "{plan} está activo",
+        "commercial": "Uso comercial: tus videos 3D pueden ir a clientes, anuncios y canales de pago.",
+        "frameRates": "Más fotogramas por segundo: hasta {fps} fps cuando tu video los tenga.",
+        "usage": "{amount} de uso cada mes; después, precios de {plan}.",
+        "make": "Convierte tu video a 3D"
+      },
+      "talk": {
+        "title": "Escríbenos",
+        "description": "Una persona responde por correo, normalmente en un día hábil.",
+        "sent": "Gracias. Te responderemos a {email}.",
+        "accountEmail": "el correo de tu cuenta"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "Para Apple Vision Pro. Aparece en Fotos como video espacial.",
+      "sbsDetail": "Para Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, lentes XR y TV 3D."
+    },
+    "points": {
+      "depthTitle": "Profundidad realista",
+      "depthDetail": "Cada momento reconstruido como una escena 3D real.",
+      "lengthDetail": "Desde un clip corto hasta una película completa.",
+      "originalTitle": "Tu original en un ojo",
+      "originalDetail": "En tamaños Cinema, de 5K a 8K, un ojo ve tus propios fotogramas.",
+      "foveatedDetail": "Más nítido donde miras."
+    },
+    "hero": {
+      "new": "Nuevo",
+      "eyebrow": "{site} en la web · {method}",
+      "title": "Convierte cualquier video en <accent>3D realista</accent>",
+      "lede": "Entendemos la forma de cada escena y la volvemos a filmar para cada ojo.",
+      "cta": "Haz tu primer video 3D",
+      "fromPrice": "desde <b>{price}</b> el minuto a {fps} fps",
+      "limits": "{limits}. <link>Ver precios</link>"
+    },
+    "steps": {
+      "uploadTitle": "Sube un video",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "Mira una vista previa",
+      "previewDetail": "Unos segundos en 3D.",
+      "makeTitle": "Conviértelo a 3D",
+      "makeDetail": "Descárgalo para tu visor."
+    },
+    "sections": {
+      "howItLooksEyebrow": "Cómo se ve",
+      "howItLooksTitle": "De la carga al visor",
+      "stepByStepEyebrow": "Paso a paso",
+      "stepByStepTitle": "Qué pasa con tu video",
+      "watchEyebrow": "Míralo",
+      "watchTitle": "En Vision Pro y en todos los visores",
+      "watchLede": "Funciona en Vision Pro y en el navegador de cualquier visor: abre el sitio ahí y mira o descarga directo al visor."
+    },
+    "final": {
+      "title": "Mira tu propio video en 3D",
+      "cta": "Convierte tu video a 3D",
+      "teams": "Para trabajo: planes {business} y {studio}. <link>Ver planes</link>",
+      "feedback": "¿Falta algo o algo falla? <button>Cuéntanos</button>."
+    },
+    "footer": {
+      "byline": "<brand></brand> en la web · un producto de Spatial AI Labs Ltd",
+      "privacy": "Política de privacidad",
+      "terms": "Términos de uso",
+      "feedback": "Comentarios",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "Profundidad",
+      "depthTitle": "Entendemos la forma de cada escena",
+      "depthDetail": "Cada momento se vuelve una escena 3D real, estable de un fotograma al siguiente.",
+      "depthLabel": "Una línea brillante recorre el video y muestra lo cercano en cálido y lo lejano en azul, y luego vuelve la imagen",
+      "stereoTag": "3D",
+      "stereoTitle": "Dos ojos con una sola cámara",
+      "stereoDetail": "Después filmamos esa escena otra vez para cada ojo, con bordes limpios. Aquí el punto de vista se mece para que veas la profundidad en cualquier pantalla.",
+      "stereoLabel": "El mismo video visto desde un punto de vista que se mece suavemente y luego sus vistas del ojo izquierdo y derecho lado a lado",
+      "deliveryTag": "Archivos",
+      "deliveryTitle": "Se ve como si se hubiera grabado en 3D",
+      "deliveryDetail": "Video espacial para Vision Pro y lado a lado, listo para todos los visores.",
+      "deliveryLabel": "El video 3D como ventana flotante, en una pantalla grande dentro de un visor, a través de los lentes del visor y en lentes XR"
+    },
+    "tour": {
+      "ariaLabel": "La app",
+      "projectsLabel": "Proyectos",
+      "projectsDetail": "Suelta un video. Todos tus proyectos en un solo lugar.",
+      "projectsAlt": "Página de proyectos de {site} en la web con cinco videos, uno marcado como listo en 3D",
+      "make3dLabel": "Convertir a 3D",
+      "make3dDetail": "Elige tus visores y la calidad, hasta 8K. Primero ves el precio.",
+      "make3dAlt": "Página Convertir a 3D con Apple Vision Pro y Meta Quest elegidos y opciones de calidad de 1080p a 8K",
+      "trackerLabel": "Progreso",
+      "trackerDetail": "Sigue cada paso y el tiempo restante.",
+      "trackerAlt": "El precio y una conversión en curso: preparación terminada, ahora creando el video 3D",
+      "filesLabel": "Archivos",
+      "filesDetail": "Video espacial para Vision Pro y lado a lado, listo para descargar.",
+      "filesAlt": "Página de archivos con un video espacial para Vision Pro y un archivo lado a lado listos para descargar"
+    },
+    "samples": {
+      "eyebrow": "Ejemplos",
+      "title": "Mira el resultado 3D en tu visor",
+      "lede": "Hecho con {method} en {site} en la web. Descarga uno en tu visor, o el original en 2D para comparar.",
+      "video2d": "{title}, el video en 2D",
+      "videoRedCyan": "{title}, en 3D rojo/cian",
+      "play": "Reproducir una vista previa corta sin sonido de {title}",
+      "look2d": "2D",
+      "lookRedCyan": "Rojo/cian",
+      "facts": "{seconds} s · {size}"
+    },
+    "worksWith": {
+      "title": "Compatible con",
+      "upcoming": "Listo para {name}, {upcoming}",
+      "tvs": "TV 3D"
+    },
+    "heroLoop": {
+      "label": "Una cantante y su banda en una azotea al atardecer: a la izquierda el video en 2D, a la derecha el mismo momento en {method}, con su punto de vista meciéndose suavemente para mostrar la profundidad",
+      "yourVideo": "Tu video",
+      "caption": "El lado derecho se mueve como se verá en 3D. <link>Míralo en tu visor</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · {pct}% de descuento en cada video",
+      "perMinute": "{quality} cuesta {pro} el minuto en lugar de {list}.",
+      "getPro": "Obtener {pro} {plan}",
+      "keepPaying": "Seguir pagando por video",
+      "terms": "USD, sin impuestos · cancela cuando quieras en Cuenta",
+      "planGroup": "Plan {pro}",
+      "includes": "{pro} incluye {credit}.",
+      "freePreviewsMonthly": "{count, plural, other {# vistas previas gratis al mes}}",
+      "businessTitle": "{business} para trabajar",
+      "businessLine": "{price} al mes con {credit} de uso, uso comercial, facturas",
+      "businessLineFps": "{price} al mes con {credit} de uso, uso comercial, {fps} fps, facturas"
+    },
+    "quote": {
+      "howToPay": "Cómo pagar",
+      "payOnce": "Pagar una vez",
+      "withPlan": "Con {plan}",
+      "pctOff": "{pct}% de descuento",
+      "fromMonthly": "desde {price} al mes",
+      "hide": "Ocultar",
+      "checkout": {
+        "title": "Elige un plan y convierte",
+        "paymentFailed": "El pago no se completó.",
+        "takesOff": "{pro} te da {pct}% de descuento en este video y en todos los siguientes.",
+        "takesOffWithCredit": "{pro} te da {pct}% de descuento en este video y en todos los siguientes, e incluye {credit}.",
+        "includes": "{pro} incluye {credit}.",
+        "continue": "Continuar al pago",
+        "payOnce": "Pagar una vez · {price}",
+        "planGroup": "Plan {pro}",
+        "today": "{pro} {plan}, hoy",
+        "thisVideo": "Este video, a precios de {pro}",
+        "youSave": "Ahorras en este video",
+        "terms": "Cancela cuando quieras en Cuenta. Precios en USD, sin impuestos."
+      },
+      "note": {
+        "highFps": "Las velocidades de fotogramas altas vienen con {business} y {studio}, que además incluyen uso mensual.",
+        "monthlyUsage": "{business} y {studio} incluyen uso mensual.",
+        "dismiss": "Descartar",
+        "atBusiness": "A precios de {business}, este video cuesta {price}.",
+        "fits": "Cabe en los {credit} de uso que {business} incluye cada mes, por {price} al mes.",
+        "includes": "{business} incluye {credit} de uso cada mes, por {price} al mes.",
+        "withStudio": "Con {studio} cuesta {price}.",
+        "seeBusiness": "Ver {business}",
+        "talk": "Escríbenos"
+      },
+      "cinema": {
+        "share": "{pct}% de descuento · uso comercial",
+        "seeBusinessSave": "Ver {business} · ahorra {range}"
+      }
+    },
+    "intro": {
+      "share": "{pct}% con {plan}",
+      "shareSeparator": ", ",
+      "title": "Nunca tienes que elegir un plan",
+      "body": "Todos empiezan pagando por video. Un plan solo baja el precio por minuto.",
+      "bodyWithShares": "Todos empiezan pagando por video. Un plan solo baja el precio por minuto: {shares}.",
+      "gotIt": "Entendido",
+      "ppvTitle": "Pago por video",
+      "aMonth": "al mes",
+      "ppvBody": "Pagas por cada video cuando termina. La primera vista previa es gratis.",
+      "upToFps": "Hasta {fps} fps",
+      "yourPlan": "Tu plan",
+      "pctOff": "{pct}% de descuento",
+      "proPreviews": "{count, plural, one {# vista previa gratis al mes con el plan mensual.} other {# vistas previas gratis al mes con el plan mensual.}}",
+      "includedIn": "Incluido en {plan}",
+      "getPro": "Obtener {pro}"
+    },
+    "talkToUs": {
+      "banner": "¿Usas {site} en el trabajo? {business} te da {amount} de uso al mes, uso comercial y facturas.",
+      "open": "Escríbenos",
+      "see": "Ver {business}",
+      "sent": "Gracias. Te responderemos a {email}.",
+      "yourEmail": "el correo de tu cuenta"
+    },
+    "receipt": {
+      "title": "Habrías ahorrado {amount} con {pro}",
+      "wouldHaveBeen": "Este video habría costado {amount}.",
+      "monthly": "{plan} cuesta {price}.",
+      "monthlyCredit": "{plan} cuesta {price} con {credit}.",
+      "monthlyPreviews": "{plan} cuesta {price} e incluye {count, plural, one {# vista previa gratis al mes} other {# vistas previas gratis al mes}}.",
+      "monthlyCreditPreviews": "{plan} cuesta {price} con {credit}, e incluye {count, plural, one {# vista previa gratis al mes} other {# vistas previas gratis al mes}}.",
+      "see": "Ver {pro}",
+      "notNow": "Ahora no"
+    },
+    "banner": {
+      "lineLong": "Ahorra {range} en cada video con un plan.",
+      "lineShort": "Ahorra {range} con un plan.",
+      "see": "Ver planes",
+      "proOff": "{pro} te da {pct}% de descuento en cada video.",
+      "proOffCredit": "{pro} te da {pct}% de descuento en cada video e incluye {credit}.",
+      "monthlyPreviews": "{count, plural, one {El plan mensual también incluye # vista previa gratis al mes.} other {El plan mensual también incluye # vistas previas gratis al mes.}}"
+    },
+    "nudge": {
+      "dismiss": "Descartar"
+    },
+    "sourceLine": {
+      "fps": "Las velocidades de fotogramas altas vienen con {business} y {studio}, que además ahorran {range}.",
+      "size": "¿Trabajas en {size}? {business} y {studio} ahorran {range} e incluyen uso comercial.",
+      "see": "Ver {business}"
+    },
+    "header": {
+      "link": "Planes",
+      "save": "Ahorra {range}"
+    },
+    "contact": {
+      "tooMany": "Demasiados mensajes hoy. Escribe a soporte.",
+      "checkMessage": "Revisa el mensaje e inténtalo de nuevo.",
+      "title": "Escríbenos",
+      "intro": "Una persona responde por correo, normalmente en un día hábil. Tus proyectos siguen abiertos mientras esperas.",
+      "messageLabel": "¿Qué haces y cuánto al mes?",
+      "messagePlaceholder": "Unos 20 videos musicales cortos al mes, en 4K, para Vision Pro y Quest.",
+      "company": "Empresa (opcional)",
+      "teamSize": "Tamaño del equipo (opcional)",
+      "teamSizePlaceholder": "p. ej., 4",
+      "send": "Enviar",
+      "cancel": "Cancelar"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "Hoy no se cobra nada.",
+      "today": "Hoy: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − {unused} por tu {from} sin usar.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "Te abonamos lo que pagaste por el tiempo y el uso que te quedan, lo que sea menor.",
+      "usageHandover": "Tu uso restante de {from} de este mes termina cuando empiezan los {amount} de {to}.",
+      "endOfPeriod": "el final de este periodo",
+      "staysOn": "Tu {current} sigue activo hasta {until}.",
+      "afterPayPerVideo": "Después pagas por video.",
+      "startsThenAt": "{name} empieza entonces a {amount}.",
+      "startsThenAtPer": "{name} empieza entonces a {amount} {per}.",
+      "startsThen": "{name} empieza entonces.",
+      "repriced": "El precio se actualizó. Revísalo y confirma de nuevo.",
+      "nothingCharged": "No se cobró nada.",
+      "quoteChanged": "El precio cambió, revisa el nuevo total.",
+      "cardConfirm": "Tu tarjeta necesita confirmación.",
+      "cardDeclined": "Tu tarjeta fue rechazada.",
+      "errors": {
+        "samePlan": "Ese ya es tu plan.",
+        "notRenewable": "Este plan llega hasta su fin y no se puede cambiar.",
+        "changeScheduled": "Ya hay un cambio en espera. Primero cancélalo en Facturación.",
+        "changeOnHold": "Los cambios de plan están en pausa para tu cuenta. Contacta a soporte.",
+        "planUnavailable": "Ese plan no está disponible ahora. Inténtalo más tarde.",
+        "cantChangeHere": "Tu plan no se puede cambiar aquí.",
+        "tryAgain": "No pudimos cambiar tu plan. Inténtalo de nuevo.",
+        "paymentFailed": "Tu pago no se completó.",
+        "previewFailed": "No pudimos calcular el cambio. No se cobró nada.",
+        "keepFailed": "No pudimos mantener tu plan. Inténtalo de nuevo."
+      },
+      "per": {
+        "weekly": "a la semana",
+        "monthly": "al mes",
+        "yearly": "al año"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "Tu {current} termina el {end} en lugar de cambiar a {next}.",
+      "changePlan": "Cambiar de plan",
+      "moveUp": "{name} (subir)",
+      "payPerVideoCancel": "Pago por video (cancelar plan)",
+      "dialogTitleChange": "¿Cambiar a {name}?",
+      "dialogTitleCancel": "¿Cancelar {current}?",
+      "working": "Calculando el cambio…",
+      "keep": "Mantener {current}",
+      "payAndChange": "Pagar {amount} y cambiar",
+      "changeTo": "Cambiar a {name}",
+      "cancelPlan": "Cancelar plan",
+      "howWeWorkThisOut": "Cómo lo calculamos",
+      "renewsOn": "Se renueva el {date}."
+    },
+    "plan": {
+      "title": "Plan {name}",
+      "creditLeft": "Te quedan {left} de {credit} de uso este mes",
+      "usageResets": "El uso se restablece el {date}.",
+      "renewsOn": "Se renueva el {date}.",
+      "billedYearlyRenewsOn": "Se cobra cada año. Se renueva el {date}.",
+      "plansLink": "Planes",
+      "introLabel": "Añadir la intro de {app} a mis videos",
+      "introHint": "Un título corto de {app} se reproduce antes de tus videos.",
+      "introSaveFailed": "No pudimos guardarlo. Inténtalo de nuevo."
+    },
+    "planMove": {
+      "expired": "Esta oferta venció. Contacta a soporte.",
+      "moveFailed": "No pudimos moverlo ahora. Inténtalo en un rato.",
+      "accepted": "Tu plan {name} ya está aquí.",
+      "sectionLabel": "Un plan que soporte te movió",
+      "headline": "Soporte movió tu plan {name} aquí. ¿Lo aceptas?",
+      "validUntil": "Válido hasta el {date}.",
+      "whatMoves": "Qué se mueve aquí",
+      "whatStays": "Qué se queda",
+      "contactSupport": "Contactar a soporte",
+      "accept": "Aceptar"
+    },
+    "planEmail": {
+      "title": "Añade un correo para tu plan",
+      "body": "Se usa para los recibos y para Restaurar compras. No sirve un correo oculto de Apple. Mientras tanto, tu plan funciona.",
+      "submit": "Usar este correo"
+    },
+    "screen": {
+      "title": "Facturación",
+      "contactSupportToContinue": "Contacta a soporte para continuar.",
+      "sections": {
+        "refundQuestion": "Pregunta sobre un reembolso",
+        "balance": "Saldo",
+        "planMoves": "Planes movidos",
+        "plan": "Plan",
+        "proCredit": "Crédito de {pro}",
+        "restorePurchases": "Restaurar compras",
+        "paymentMethods": "Métodos de pago",
+        "businessDetails": "Datos de la empresa",
+        "usage": "Uso",
+        "invoices": "Facturas",
+        "yourPrices": "Tus precios",
+        "refunds": "Reembolsos",
+        "aRow": "Una fila"
+      },
+      "records": {
+        "label": "Compras y facturas",
+        "tabsLabel": "Registros de facturación",
+        "tabs": {
+          "history": "Historial",
+          "plan": "Plan",
+          "usage": "Uso",
+          "invoices": "Facturas"
+        },
+        "loadFailed": "No pudimos cargar tus compras.",
+        "tryAgain": "Reintentar",
+        "noPlanPayments": "Aún no hay pagos de plan.",
+        "noPurchases": "Aún no hay compras.",
+        "loading": "Cargando…",
+        "showMore": "Ver más",
+        "currency": "Dólares estadounidenses.",
+        "currencyWithVat": "Dólares estadounidenses. Los precios incluyen IVA donde corresponde."
+      },
+      "methods": {
+        "title": "Métodos de pago",
+        "saving": "Guardando",
+        "add": "Añadir método de pago",
+        "none": "No hay métodos de pago guardados.",
+        "expiredOn": "Venció el {date}",
+        "default": "Predeterminado",
+        "expired": "Vencido",
+        "makeDefault": "Predeterminar",
+        "moveUp": "Subir",
+        "moveDown": "Bajar",
+        "remove": "Quitar",
+        "optionsFor": "Opciones de {label}",
+        "chargeOrder": "Cobramos tu método de pago predeterminado. Si se rechaza, probamos los demás en este orden.",
+        "max": "Puedes guardar hasta 5 métodos de pago.",
+        "removeBlocked": "No puedes quitar tu único método de pago mientras haya un pago pendiente. Págalo o añade otro primero.",
+        "saveFailed": "No pudimos guardarlo. Inténtalo de nuevo.",
+        "confirmTitle": "¿Quitar {label}?",
+        "confirmLast": "En tus próximas conversiones te preguntaremos cómo pagar cada vez.",
+        "confirmDescription": "Quitar este método de pago",
+        "keep": "Conservar"
+      },
+      "company": {
+        "title": "Datos de la empresa",
+        "loading": "Cargando…",
+        "empty": "Sin datos de empresa. Añádelos para que aparezcan en las facturas.",
+        "reminder": "Añade los datos de tu empresa a tus facturas",
+        "edit": "Editar"
+      },
+      "invoices": {
+        "loadFailed": "No pudimos cargar tus facturas.",
+        "tryAgain": "Reintentar",
+        "none": "Aún no hay facturas.",
+        "pdf": "PDF",
+        "creditNote": "Nota de crédito {number}",
+        "loading": "Cargando…",
+        "showMore": "Ver más"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "Pagado",
+        "processing": "Procesando",
+        "payment_needed": "Falta el pago",
+        "refund_requested": "Reembolso solicitado",
+        "refunded": "Reembolsado",
+        "partially_refunded": "Reembolso parcial",
+        "disputed": "En disputa con tu banco",
+        "refund_failed": "El reembolso no se completó",
+        "failed": "Pago fallido",
+        "applied": "Listo",
+        "scheduled": "Programado"
+      },
+      "statusHelp": {
+        "processing": "Estamos confirmando tu pago. Puede tardar unos días.",
+        "refund_requested": "Te escribiremos en un máximo de 2 días hábiles.",
+        "refund_failed": "Te enviamos un correo al respecto."
+      },
+      "credit": {
+        "granted": "Añadido",
+        "expired": "Vencido",
+        "removed": "Terminado",
+        "frozen": "En pausa",
+        "unfrozen": "Liberado"
+      },
+      "done": "Listo",
+      "scheduledFor": "Programado para el {date}",
+      "scheduled": "Programado",
+      "changed": "Cambiado",
+      "usageCredit": "Crédito de uso",
+      "planChange": "Cambio de plan",
+      "plan": "Plan",
+      "items": "{count, plural, one {# elemento} other {# elementos}}",
+      "item": {
+        "untitled": "Proyecto sin título",
+        "production": "Video 3D",
+        "preview": "Vista previa",
+        "launchOffer": "Oferta de lanzamiento"
+      },
+      "menu": {
+        "more": "Más",
+        "refundRequested": "Reembolso solicitado",
+        "requestRefund": "Solicitar un reembolso",
+        "getHelp": "Obtener ayuda con este pago"
+      },
+      "pay": "Pagar {amount}",
+      "payInvoice": "Pagar factura",
+      "creditNote": "Nota de crédito",
+      "invoice": "Factura",
+      "receipt": "Recibo"
+    },
+    "usage": {
+      "month": "Mes",
+      "downloadCsv": "Descargar CSV",
+      "loadFailed": "No pudimos cargar tu uso.",
+      "tryAgain": "Reintentar",
+      "none": "Aún no hay uso.",
+      "columns": {
+        "date": "Fecha",
+        "project": "Proyecto",
+        "method": "Método",
+        "preset": "Ajuste",
+        "minutes": "Minutos",
+        "cost": "Costo",
+        "paidWith": "Pagado con",
+        "status": "Estado"
+      },
+      "apiKey": "Clave de API \"{name}\"",
+      "paidWith": {
+        "balance": "Saldo",
+        "card": "Método de pago",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "En curso",
+        "runningReserved": "En curso, {amount} reservados",
+        "released": "Liberado",
+        "partlyDelivered": "Entregado en parte",
+        "returned": "Devuelto al saldo {amount}",
+        "done": "Listo"
+      },
+      "showMore": "Ver más",
+      "balanceHistory": "Historial del saldo",
+      "entry": {
+        "topup": "Recarga",
+        "auto_reload": "Recarga automática",
+        "refund_to_balance": "Devuelto al saldo",
+        "debt_payment": "Pago de lo que se debía",
+        "cash_refund": "Reembolsado a tu método de pago",
+        "expiry": "Vencido",
+        "adjustment": "Ajuste",
+        "dispute_freeze": "En pausa mientras se revisa un pago",
+        "dispute_unfreeze": "Liberado tras la revisión",
+        "dispute_loss": "Quitado tras una disputa bancaria"
+      }
+    },
+    "balance": {
+      "title": "Saldo",
+      "available": "disponible",
+      "availableWithCredits": "disponible · {credits}",
+      "creditWords": {
+        "grant": "crédito de uso",
+        "pro": "crédito de {pro}",
+        "plan": "uso del plan"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words} (usar antes del {date})",
+      "creditsAnd": "{rest} y {last}",
+      "includes": "incluye {credits}",
+      "reserved": "{amount} reservados para {count, plural, one {# conversión} other {# conversiones}} en curso",
+      "frozen": "{amount} en pausa mientras se revisa un pago.",
+      "expired": "Tu saldo venció el {date}.",
+      "addFundsHint": "Añade fondos para pagar conversiones con tu saldo.",
+      "expires": "Vence el {date} si no añades fondos.",
+      "addFunds": "Añadir fondos",
+      "prepaid": "Prepago de {amount}",
+      "paused": {
+        "declined": "La recarga automática está en pausa porque un pago no se completó.",
+        "limit": "La recarga automática está en pausa: se alcanzó el límite diario. Se reanuda mañana."
+      },
+      "turnBackOn": "Reactivar",
+      "autoReload": "Recarga automática",
+      "autoReloadValue": "Por debajo de {below}, añadir {add}",
+      "off": "Desactivada",
+      "edit": "Editar",
+      "setUp": "Configurar",
+      "set": "Definir",
+      "spendLimit": "Límite de gasto mensual",
+      "spendLimitValue": "{limit} al mes · {used} usados",
+      "none": "Ninguno",
+      "balanceAlert": "Alerta de saldo",
+      "balanceAlertValue": "Por debajo de {amount}",
+      "rowAction": "{action} {label}"
+    },
+    "banner": {
+      "contactSupport": "Contactar a soporte",
+      "pay": "Pagar {amount}",
+      "portalFailed": "No pudimos abrir la página del método de pago",
+      "supportSubject": "Pago en mi cuenta"
+    },
+    "requireBilling": {
+      "loading": "Cargando…"
+    },
+    "payReturn": {
+      "checking": "Revisando tu pago…",
+      "paidRun": "Pago recibido. Tu video 3D está por comenzar.",
+      "backToApp": "Volver a {app}",
+      "backToProject": "Volver a tu proyecto",
+      "notPaid": "El pago no se completó.",
+      "tryAgain": "Reintentar",
+      "chooseAnother": "Elegir otra forma de pago",
+      "slow": "Está tardando más de lo normal. Empezaremos en cuanto se confirme el pago.",
+      "startAgain": "Empezar de nuevo"
+    },
+    "settle": {
+      "nothingToPay": "Nada que pagar."
+    },
+    "restore": {
+      "title": "Restaurar compras",
+      "intro": "¿Compraste un plan o {pro} en la web y no aparece? Restáuralo aquí.",
+      "restoring": "Restaurando…",
+      "button": "Restaurar compras",
+      "appStoreNote": "Las compras de la App Store aparecen al iniciar sesión en la app.",
+      "failed": "No pudimos revisar tus compras ahora. Inténtalo en un rato."
+    },
+    "restoreMove": {
+      "findOther": "Buscar compras con otro correo",
+      "looking": "Buscando…",
+      "emailLabel": "El correo con el que compraste",
+      "sending": "Enviando…",
+      "sendCode": "Enviar código",
+      "codeSent": "Si encontramos compras, enviaremos un código a {email}.",
+      "checking": "Revisando…",
+      "findPurchases": "Buscar compras",
+      "useAnother": "Usar otro correo",
+      "restored": "Tus compras se restauraron",
+      "notFound": "No encontramos compras",
+      "tryAnother": "Probar con otro correo",
+      "signsInWith": "(Inicia sesión con {providers}.)",
+      "contactSupport": "Contactar a soporte",
+      "supportSubject": "Mover un plan a mi cuenta",
+      "signInThere": "Inicia sesión en esa cuenta",
+      "hasOwnPlan": "Esta cuenta ya tiene un plan. Contacta a soporte para moverlo.",
+      "checkFailed": "No pudimos revisar ahora. Inténtalo en un rato.",
+      "offerTitle": "Plan {plan} · válido hasta el {date}",
+      "movesHere": "Qué se mueve aquí",
+      "stays": "Qué se queda",
+      "restoring": "Restaurando…",
+      "restoreHere": "Restaurar {plan} aquí",
+      "moves": {
+        "plan": "Tu plan, hasta esa fecha",
+        "appAccess": "{pro} en la app",
+        "currentUsage": "El uso sin gastar de este mes",
+        "monthsNotYetGiven": "Los meses de uso que aún faltan"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "El uso ya gastado",
+        "balance": "El saldo de la cuenta anterior",
+        "appStorePurchases": "Las compras de la App Store",
+        "pastRunsAndFiles": "Videos y archivos anteriores",
+        "adminGrants": "Lo que soporte dio a la cuenta anterior"
+      }
+    },
+    "yourPrices": {
+      "title": "Tus precios por minuto",
+      "yourPrices": "Tus precios",
+      "payPerVideo": "Pago por video",
+      "withPlanOff": "Con {plan}, {pct}% de descuento",
+      "withPlan": "Con {plan}",
+      "pctOff": "{pct}% de descuento en cada minuto",
+      "upgradeTo": "Mejorar a {plan}"
+    }
+  },
+  "look": {
+    "analysisRunning": "El análisis sigue en curso — los precios se desbloquean cuando termine.",
+    "requestFailed": "falló la solicitud",
+    "heading": "Vista previa estéreo",
+    "follower": {
+      "depthLabel": "mapa de profundidad",
+      "depthTitle": "El mapa de profundidad de tu conversión de profundidad — el estéreo se construye con él",
+      "outputTitle": "El resultado estéreo de la última conversión, sincronizado con el origen"
+    },
+    "profile": {
+      "jobFailed": "falló el trabajo",
+      "retry": "Reintentar perfilado (gratis)",
+      "start": "Perfilar tomas (gratis)",
+      "hint": "Mide la profundidad de cada escena y rellena estos controles — gratis, ~1 min.",
+      "failed": "Falló el perfilado — {error}",
+      "stale": "Los cortes de escena cambiaron desde que se calculó este perfil — los valores predeterminados pueden no coincidir. La próxima conversión vuelve a perfilar con los cortes actuales.",
+      "adaptiveNote": "Aún no hay perfil de escenas — la primera conversión calcula automáticamente los parámetros de profundidad de cada escena (adaptativo), así que los ajustes manuales son opcionales. Cuando termine, los valores calculados aparecen aquí como los valores automáticos de cada escena."
+    },
+    "compare": {
+      "output": "Resultado 3D",
+      "depth": "Mapa de profundidad",
+      "noneYet": "Haz una vista previa estéreo para ver el resultado 3D junto al original.",
+      "showingDepth": "Se muestra el mapa de profundidad de la conversión de profundidad — haz una vista previa estéreo para ver aquí el resultado 3D."
+    },
+    "import": {
+      "fileLabel": "Archivo de perfil de escenas",
+      "title": "Carga un perfil de escenas exportado desde esta página — reemplaza los ajustes por escena y la escala de profundidad",
+      "button": "Importar perfil…",
+      "readFailed": "No se pudo leer el perfil de escenas.",
+      "failed": "Falló la importación — {error}",
+      "dialogTitle": "Importar perfil de escenas",
+      "dialogBody": "¿Reemplazar tus ajustes por escena con {count, plural, one {# ajuste importado} other {# ajustes importados}} y la escala de profundidad ×{scale}? Las escenas sin ajuste vuelven a Auto. Convertir a 3D usa los mismos valores.",
+      "replace": "Reemplazar"
+    },
+    "export": {
+      "title": "Descarga el perfil de escenas — los valores automáticos de cada escena, más tus ajustes y la escala de profundidad — como JSON",
+      "button": "Exportar perfil"
+    },
+    "depth": {
+      "reuseLabel": "Mapa de profundidad a reutilizar",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "Subido — {name}",
+      "uploadedFallback": "mapa de profundidad",
+      "uploadedChip": "{hasName, select, yes {Mapa de profundidad subido — {name} (se usa tal cual, sin calcular profundidad)} other {Mapa de profundidad subido (se usa tal cual, sin calcular profundidad)}}",
+      "inheritedChip": "Mapa de profundidad de {res} px (de la página Profundidad — reutilizado, no recalculado)",
+      "useDefault": "Usar la resolución de profundidad predeterminada del proceso",
+      "none": "Aún no hay conversión de profundidad — esta conversión calcula su propio mapa de profundidad con la resolución predeterminada del ajuste."
+    },
+    "strength": {
+      "label": "Intensidad 3D general (escala de profundidad): <value>×{scale}</value> <muted>— afecta a todas las escenas</muted>",
+      "aria": "Intensidad 3D general (escala de profundidad)"
+    },
+    "preset": {
+      "label": "Ajuste de resolución",
+      "hint": "La calidad del resultado — las mismas opciones que en Convertir a 3D."
+    },
+    "edgeLabel": "Estilo de bordes",
+    "formats": "Formatos",
+    "selectFormat": "Elige al menos un formato",
+    "priorRuns": "Conversiones estéreo anteriores",
+    "scenes": {
+      "aria": "Escenas",
+      "heading": "3D por escena · {count, plural, one {# escena} other {# escenas}}",
+      "hint": "Haz clic en una escena para llevar la vista previa allí — la escena en reproducción va primero. Solo se envían como ajustes las filas que cambies."
+    },
+    "row": {
+      "jumpTitle": "Llevar la vista previa a la escena {n} (fotograma {frame})",
+      "thumbAlt": "fotograma clave de la escena {n}",
+      "name": "Escena {n}",
+      "convertAria": "Convertir a 3D la escena {n}",
+      "shotTypeAria": "Tipo de toma de la escena {n}",
+      "auto": "Auto",
+      "autoWith": "Auto ({type})",
+      "passthrough": "Paso en 2D — se entrega tal cual (ambos ojos iguales)",
+      "overridden": "ajustado",
+      "resetAria": "Restablecer la escena {n} a automático",
+      "reset": "Restablecer"
+    },
+    "shotTypes": {
+      "closeUp": "Primer plano",
+      "standard": "Estándar",
+      "dynamic": "Dinámica",
+      "wide": "Plano general"
+    },
+    "profileErrors": {
+      "notJson": "El archivo no es un JSON válido — exporta un perfil de escenas desde esta página para ver la forma esperada.",
+      "notProfile": "No es un archivo de perfil de escenas — se esperaba '{'\"kind\": \"{kind}\"'}'.",
+      "depthScale": "depth_scale debe ser un número en [0.3, 1.5].",
+      "noScenes": "El perfil no tiene un arreglo scenes — no hay nada que importar.",
+      "versionNote": " (el archivo se exportó con los cortes de escena v{fileVersion}; este proyecto está en v{currentVersion})",
+      "entryNotObject": "Una entrada de scenes[] no es un objeto.",
+      "missingFirst": "A un ajuste de escena le falta el fotograma entero `first` — los ajustes llevan solo números de fotograma enteros del original.",
+      "notSceneStart": "El ajuste del fotograma {frame} no inicia una escena en la lista de cortes actual{note}.",
+      "shotType": "Escena del fotograma {frame}: shot_type debe ser uno de {types}.",
+      "displacement": "Escena del fotograma {frame}: displacement debe estar en (0, 0.03]."
+    }
+  },
+  "depth": {
+    "analysisRunning": "El análisis sigue en curso — los precios se desbloquean cuando termine.",
+    "res": {
+      "label": "Resolución del mapa de profundidad",
+      "hint": "Más detalle cuesta más. Convertir a 3D reutiliza este trabajo de profundidad con descuento mientras el detalle, los cortes de escena y las escenas en 2D sigan coincidiendo. Limitado a la resolución de tu video."
+    },
+    "heading": "Mapa de profundidad",
+    "uploadFailedFallback": "falló la subida",
+    "requestFailed": "falló la solicitud",
+    "imported": {
+      "preview": "(vista previa)",
+      "clearAria": "Quitar el mapa de profundidad importado"
+    },
+    "noRunYet": "Haz una vista previa de profundidad para ver el mapa junto al original.",
+    "uploading": "Subiendo… {percent}%",
+    "uploadFailed": "Falló la subida — {error}",
+    "onFile": "En archivo: {name}",
+    "onFileFallback": "mapa de profundidad subido",
+    "removeAria": "Quitar el mapa de profundidad subido",
+    "fileAria": "Archivo del mapa de profundidad",
+    "upload": {
+      "title": "Previsualiza un video de profundidad local junto al original Y regístralo en el proyecto — el aspecto 3D y las conversiones a 3D podrán usarlo en lugar de calcular la profundidad. Debe coincidir fotograma por fotograma (duración completa, misma velocidad de fotogramas del original), como la exportación.",
+      "button": "Subir mapa de profundidad…"
+    },
+    "export": {
+      "titleDisabled": "Primero haz una vista previa de profundidad — la exportación descarga su archivo de profundidad sin procesar",
+      "titleEnabled": "Descarga el archivo de profundidad sin procesar y de precisión completa de la última conversión",
+      "button": "Exportar mapa de profundidad",
+      "dialogTitle": "Exportar mapa de profundidad",
+      "dialogBody": "Esto descarga el archivo <mono>depth</mono> sin procesar de la última conversión — el mapa de profundidad de 10 bits y precisión completa que usan los pasos siguientes, no la vista previa de 8 bits <mono>depth_vis</mono> que se reproduce en esta página. Puede verse plano o negro en reproductores comunes; es lo esperado en escala de grises de alta profundidad de bits.",
+      "download": "Descargar profundidad de 10 bits"
+    },
+    "follower": {
+      "importedLabel": "profundidad importada",
+      "importedTitle": "Vista previa local de {name} — el mismo archivo se sube al proyecto para las conversiones de estéreo y entrega",
+      "visTitle": "La visualización de profundidad de 8 bits de la conversión — Exportar da el archivo sin procesar de precisión completa"
+    },
+    "missingVis": "La última conversión de profundidad no tiene un video de profundidad reproducible en el navegador (depth_vis) — exporta el archivo de profundidad sin procesar.",
+    "scenes": {
+      "aria": "Escenas",
+      "heading": "Escenas · convertir a 3D",
+      "hint": "Las escenas sin marcar se quedan en 2D (créditos finales, logotipos): ninguna conversión calcula su profundidad, incluidas las vistas previas de profundidad, y el precio no cambia."
+    },
+    "scene": {
+      "thumbAlt": "fotograma clave de la escena {n}",
+      "name": "Escena {n}",
+      "convertAria": "Convertir a 3D la escena {n}"
+    }
+  },
+  "preview": {
+    "analyzing": "Seguimos analizando tu video. Las vistas previas se abren cuando termine.",
+    "heading": "Tu video",
+    "band": {
+      "running": "en proceso",
+      "failed": "no terminó"
+    },
+    "card": {
+      "title": "Tu vista previa",
+      "backToLatest": "Volver a la última",
+      "back": "Atrás",
+      "failed": "Esta vista previa no terminó. No pagaste nada por ella.",
+      "running": "Esta vista previa se está creando. Aparecerá aquí cuando termine.",
+      "empty": "Tu vista previa aparece aquí.",
+      "fetching": "Obteniendo la vista previa…",
+      "makeWhole": "Convertir todo el video a 3D",
+      "viewAria": "Ver",
+      "freeCheck": "Revisión 3D gratis en esta pantalla"
+    },
+    "quality": "Calidad",
+    "length": "Duración",
+    "shorter": "Más corta",
+    "longer": "Más larga",
+    "lengthValue": "{seconds} s",
+    "quickLook": "Vistazo rápido <muted>· mitad de precio</muted>",
+    "frameRate": "Velocidad de fotogramas · tu video es de {fps}",
+    "cta": "Previsualizar este momento",
+    "explain": {
+      "frames": "{frames} fotogramas a la velocidad de {quality}: el mismo precio por fotograma que el video completo.",
+      "quickLook": "{hasMinimum, select, yes {El vistazo rápido usa la mitad de los fotogramas por la mitad del precio. Cargo mínimo {minimum}. Si falla, no pagas nada.} other {El vistazo rápido usa la mitad de los fotogramas por la mitad del precio. Si falla, no pagas nada.}}"
+    },
+    "timeline": {
+      "heading": "Elige un momento",
+      "hintWithBands": "Haz clic en la franja para mover la vista previa. Las barras de arriba son tus vistas previas anteriores.",
+      "hint": "Haz clic en la franja para mover la vista previa."
+    },
+    "past": {
+      "heading": "Vistas previas anteriores"
+    },
+    "rangeNote": "Vista previa <mono>{from} – {to}</mono> · Escena {scene} de {scenes}",
+    "row": {
+      "showing": "Mostrando",
+      "show": "Mostrar"
+    },
+    "check": {
+      "redCyan": "Rojo/cian",
+      "wiggle": "Vaivén",
+      "sideBySide": "Lado a lado",
+      "redCyanView": "Vista rojo/cian",
+      "wiggleView": "Vista de vaivén",
+      "leftEye": "Ojo izquierdo",
+      "rightEye": "Ojo derecho"
+    },
+    "player": {
+      "mute": "Silenciar",
+      "unmute": "Activar sonido",
+      "speed": "Velocidad"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "Guardado. Tus próximas facturas usarán estos datos.",
+      "saveFailed": "No pudimos guardar. Inténtalo de nuevo.",
+      "loadFailed": "No pudimos cargar tus datos guardados. Aún puedes llenarlos.",
+      "companyName": "Nombre de la empresa",
+      "billingAddress": "Dirección de facturación",
+      "country": "País",
+      "line1": "Dirección, línea 1",
+      "line2": "Dirección, línea 2 (opcional)",
+      "city": "Ciudad",
+      "postalCode": "Código postal",
+      "state": "Estado o región",
+      "taxId": "ID fiscal (opcional)",
+      "taxType": "Tipo",
+      "taxNumber": "Número",
+      "noTaxId": "Este país no necesita ID fiscal.",
+      "billingEmail": "Correo de facturación para copias de facturas",
+      "poReference": "Referencia de orden de compra (opcional)",
+      "saving": "Guardando…",
+      "save": "Guardar",
+      "billingLink": "Facturación"
+    },
+    "country": {
+      "search": "Buscar países",
+      "none": "No se encontró ningún país.",
+      "yours": "Tu país",
+      "all": "Todos los países"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "La revisaremos en un máximo de 2 días hábiles.",
+      "mergedLine": "Ya habías preguntado por algunos de estos, así que los añadimos a esa solicitud.",
+      "sentTitle": "Solicitud enviada",
+      "cancelToo": "¿Cancelar también tu plan?",
+      "cancelPlan": "Cancelar plan",
+      "done": "Listo",
+      "title": "Solicitar un reembolso",
+      "intro": "Elige de qué se trata. Una persona revisa cada solicitud. Puedes pedirlo dentro de {days} días después de un pago.",
+      "nothing": "No se puede reembolsar nada pagado en los últimos {days} días.",
+      "planLabel": "Plan {name}",
+      "paidDetail": "{amount} · pagado el {date}",
+      "alreadyAsked": "· ya solicitado",
+      "noteLabel": "¿Qué pasó? (opcional)",
+      "cancel": "Cancelar",
+      "sending": "Enviando…",
+      "send": "Enviar",
+      "sendFailed": "No pudimos enviar tu solicitud. Inténtalo en un rato.",
+      "optionsLoadFailed": "No pudimos cargar lo que se puede reembolsar.",
+      "requestsLoadFailed": "No pudimos cargar tus solicitudes."
+    },
+    "section": {
+      "questionNotice": "Te hicimos una pregunta sobre tu solicitud de reembolso. <link>Respóndela</link>",
+      "ariaLabel": "Reembolsos",
+      "reportProblem": "¿Algo falla con un pago o una conversión? <link>Reportar un problema</link>",
+      "reportSubject": "{app}: reportar un problema",
+      "needRefund": "¿Necesitas un reembolso? <button>Solicitar un reembolso</button> · pídelo dentro de {days} días después de un pago, también tras cancelar. Una persona revisa cada solicitud.",
+      "askWithin": "Pide un reembolso dentro de {days} días después de un pago, también tras cancelar. Una persona revisa cada solicitud.",
+      "appStore": "Apple reembolsa el {pro} de la App Store. <link>Pedir un reembolso a Apple</link>",
+      "yourRequests": "Tus solicitudes",
+      "about": {
+        "plan": "Pago de plan",
+        "runs": "Conversiones",
+        "balance": "Saldo",
+        "other": "Solicitud"
+      },
+      "answerLabel": "Tu respuesta",
+      "messageLabel": "Tu mensaje",
+      "sending": "Enviando…",
+      "sendAnswer": "Enviar respuesta",
+      "send": "Enviar",
+      "cancel": "Cancelar",
+      "askAgain": "Preguntar de nuevo",
+      "addMessage": "Añadir un mensaje",
+      "replyFailed": "No pudimos enviarlo. Inténtalo en un rato."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "Pago por video. Los <plans>planes</plans> ahorran {range}.",
+      "noRange": "Pago por video, o ahorra con un <plans>plan</plans>."
+    },
+    "per": {
+      "year": "al año",
+      "month": "al mes",
+      "week": "a la semana"
+    },
+    "screen": {
+      "title": "Precios",
+      "loading": "Cargando precios…",
+      "howItWorks": "Cómo funcionan los precios",
+      "perMinute": "<b>Por minuto de video a {fps} fps.</b> {fpsRule}. {roundedUp} Convierte solo una parte del video y paga solo por esa parte.",
+      "discount": "<b>{pct}% de descuento</b> en cualquier conversión de más de {threshold}.",
+      "minimumPerRun": "<b>Cargo mínimo de {min}</b> por conversión.",
+      "minimumPerPreview": "<b>Cargo mínimo</b> de {previewMin} por vista previa, {min} por las demás conversiones.",
+      "paidBefore": "<b>Se paga antes de empezar.</b> Cancela mientras espera en la cola, o en su primer minuto, y te reembolsamos todo. Si falla, se reembolsa por completo.",
+      "currency": "Dólares estadounidenses, sin impuestos. Todos los tipos de archivo están incluidos.",
+      "startProject": "Empezar un proyecto"
+    },
+    "plansScreen": {
+      "loading": "Cargando planes…",
+      "unavailable": "Los planes aún no están disponibles.",
+      "perMinuteLink": "Precios por minuto"
+    },
+    "proOffer": {
+      "saveLine": "Con {pro} ahorras {pct}%",
+      "title": "{pct}% de descuento en cada video 3D",
+      "description": "Una sola membresía para {site} en la web y en las apps.",
+      "descriptionWithCredit": "Una sola membresía para {site} en la web y en las apps, con {credit}.",
+      "get": "Obtener {pro}"
+    },
+    "plans": {
+      "title": "Planes para trabajar",
+      "subtitle": "Uso incluido cada mes. {business} se cobra cada mes, {studio} cada año.",
+      "yourPlan": "Tu plan",
+      "changeTo": "Cambiar a {name}",
+      "choose": "Elegir {name}",
+      "lines": {
+        "usage": "{amount} de uso cada mes",
+        "off": "{pct}% de descuento en cada conversión",
+        "commercial": "Uso comercial de tus videos",
+        "freePreviews": "{count, plural, one {# vista previa gratis al mes} other {# vistas previas gratis al mes}}",
+        "express": "Express incluido",
+        "fileQuality": "Calidad de archivo {high} y {master} para revisiones con clientes y edición",
+        "fps": "Hasta {fps} fps",
+        "invoices": "Facturas"
+      }
+    },
+    "table": {
+      "perEye": "{size} por ojo",
+      "from": "desde {price}",
+      "aMinuteAt": "el minuto a {fps} fps",
+      "quality": "Calidad",
+      "perMinute": "Por minuto, {fps} fps",
+      "withPro": "Con {pro}",
+      "withProOff": "Con {pro} (−{pct}%)",
+      "proCredit": "{pro} también incluye {credit}.",
+      "limitAndPreviews": "{limit} · vistas previas desde {price}"
+    },
+    "extras": {
+      "foveated": "Más detalle donde miras",
+      "foveatedIncludedAt": "Más detalle donde miras · incluido en {at}",
+      "fileQuality": "Calidad de archivo {quality}",
+      "express": "Express",
+      "expressWhat": "Primero en la fila",
+      "addons": "Complementos",
+      "freePreviews": "Vistas previas gratis",
+      "perMonth": "{count} al mes",
+      "firstFree": "Tu primera vista previa es gratis.",
+      "each": "{seconds} s cada una.",
+      "eachNoRollover": "{seconds} s cada una, sin acumulación.",
+      "balance": "Saldo",
+      "addFunds": "Añade fondos desde {amount} y paga conversiones con tu saldo.",
+      "refundable": "Los fondos sin gastar se pueden reembolsar dentro de {days} días."
+    }
+  }
+}

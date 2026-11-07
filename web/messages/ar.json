@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "تستخدم {site} للعمل؟ فعّل {business} أو {studio}",
+      "setUp": "تفعيل",
+      "proLine": "تعمل مع عملاء أو فريق؟ توفّر {business} و{studio} {range} وتشملان الاستخدام التجاري. <link>عرض الباقات</link>",
+      "appStoreActive": "{pro} من App Store ما زالت فعّالة.",
+      "howToCancel": "كيفية الإلغاء"
+    },
+    "setup": {
+      "steps": {
+        "aria": "الخطوات",
+        "item": "{n}. {label}",
+        "plan": "الباقة",
+        "questions": "عنك",
+        "checkout": "الدفع"
+      },
+      "mainUses": {
+        "clientWork": "أعمال العملاء",
+        "ownChannel": "قناتي الخاصة",
+        "stockFootage": "لقطات للبيع",
+        "other": "شيء آخر"
+      },
+      "includes": {
+        "pctOff": "خصم {pct}% على كل فيديو",
+        "usage": "استخدام بقيمة {amount} كل شهر",
+        "commercial": "استخدام تجاري لفيديوهاتك",
+        "frameRates": "معدلات إطارات حتى {fps} إطارًا/ثانية",
+        "intro": "تشغيل مقدمة {site} أو إيقافها",
+        "invoices": "فواتير ببيانات شركتك",
+        "express": "Express مشمول"
+      },
+      "price": {
+        "year": "{price} في السنة",
+        "month": "{price} في الشهر",
+        "week": "{price} في الأسبوع"
+      },
+      "terms": {
+        "yearly": "تُدفع مرة واحدة في السنة. يصلك استخدام بقيمة {amount} كل شهر. تتجدد كل سنة حتى تلغيها.",
+        "monthly": "تُدفع شهريًا. تتجدد كل شهر حتى تلغيها."
+      },
+      "appStoreProNote": "تُدفع {pro} عبر Apple. تشمل {business} كل ما تقدمه {pro}، لذا ألغِ {pro} من الإعدادات ← [اسمك] ← الاشتراكات في iPhone لتتجنب الدفع مرتين.",
+      "studio": {
+        "title": "لديك {studio}",
+        "onBilling": "باقتك في صفحة <link>الفوترة</link>."
+      },
+      "eyebrow": "{business} و{studio}",
+      "title": "فعّل {site} للعمل",
+      "planAria": "الباقة",
+      "yourPlan": "باقتك",
+      "yearlyPlan": "باقة سنوية",
+      "monthlyPlan": "باقة شهرية",
+      "questionsFirst": "لديك أسئلة أولًا؟",
+      "talkToUs": "تحدث إلينا",
+      "notNow": "ليس الآن",
+      "continueWith": "المتابعة مع {plan}",
+      "questions": {
+        "title": "بضعة أسئلة",
+        "hint": "كلها اختيارية. تساعدنا على تحسين المنتج للعمل.",
+        "teamSize": "حجم الفريق",
+        "teamSizePlaceholder": "مثال: 4",
+        "mainUse": "الاستخدام الرئيسي",
+        "headsets": "النظارات"
+      },
+      "back": "رجوع",
+      "skip": "تخطٍّ",
+      "continue": "متابعة",
+      "checkout": {
+        "termsTail": "{terms} الأسعار بالدولار الأمريكي، دون الضريبة. لن يُخصم شيء حتى تؤكد.",
+        "asksOnly": "يطلب الدفع وسيلة الدفع والبلد فقط. يمكن إضافة اسم شركتك وعنوانها ورقمها الضريبي لاحقًا.",
+        "whatHappensBusiness": "ما سيحدث لباقة {business} لديك",
+        "whatHappensPro": "ما سيحدث لباقة {pro} لديك",
+        "manageAppStore": "إدارة باقة App Store",
+        "workingOut": "جارٍ حساب سعر اليوم…",
+        "previewFailed": "تعذّر حساب سعر اليوم. لن يُخصم شيء حتى تؤكد.",
+        "changing": "جارٍ التغيير…",
+        "confirmAndPay": "تأكيد ودفع {amount}",
+        "confirm": "تأكيد",
+        "continueToPayment": "المتابعة إلى الدفع"
+      },
+      "welcome": {
+        "eyebrow": "أهلًا بك",
+        "title": "{plan} مفعّلة",
+        "commercial": "الاستخدام التجاري: يمكنك تسليم فيديوهاتك ثلاثية الأبعاد للعملاء والإعلانات والقنوات المدفوعة.",
+        "frameRates": "معدلات إطارات أعلى: حتى {fps} إطارًا/ثانية عندما يدعمها فيديوك.",
+        "usage": "استخدام بقيمة {amount} كل شهر، ثم بأسعار {plan}.",
+        "make": "حوّل فيديوك إلى 3D"
+      },
+      "talk": {
+        "title": "تحدث إلينا",
+        "description": "يرد عليك شخص بالبريد الإلكتروني، عادةً خلال يوم عمل.",
+        "sent": "شكرًا. سنرد على {email}.",
+        "accountEmail": "بريد حسابك الإلكتروني"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "لـ Apple Vision Pro. يظهر في تطبيق الصور كفيديو مكاني.",
+      "sbsDetail": "لـ Meta Quest وPico وSamsung Galaxy XR وSteam Frame ونظارات XR وتلفزيونات 3D."
+    },
+    "points": {
+      "depthTitle": "عمق واقعي",
+      "depthDetail": "كل لحظة تُعاد بناؤها كمشهد 3D حقيقي.",
+      "lengthDetail": "من مقطع قصير إلى فيلم كامل.",
+      "originalTitle": "أصلك في عين واحدة",
+      "originalDetail": "في أحجام Cinema، من 5K إلى 8K، تعرض عين واحدة إطاراتك الأصلية.",
+      "foveatedDetail": "أوضح حيث تنظر."
+    },
+    "hero": {
+      "new": "جديد",
+      "eyebrow": "{site} على الويب · {method}",
+      "title": "حوّل أي فيديو إلى <accent>3D واقعي</accent>",
+      "lede": "نفهم شكل كل مشهد، ثم نصوّره من جديد لكل عين.",
+      "cta": "اصنع أول فيديو 3D",
+      "fromPrice": "من <b>{price}</b> للدقيقة بمعدل {fps} إطارًا/ثانية",
+      "limits": "{limits}. <link>عرض الأسعار</link>"
+    },
+    "steps": {
+      "uploadTitle": "ارفع فيديو",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "عاين لحظة",
+      "previewDetail": "بضع ثوانٍ بتقنية 3D.",
+      "makeTitle": "حوّله إلى 3D",
+      "makeDetail": "نزّله لنظارتك."
+    },
+    "sections": {
+      "howItLooksEyebrow": "كيف يبدو",
+      "howItLooksTitle": "من الرفع إلى النظارة",
+      "stepByStepEyebrow": "خطوة بخطوة",
+      "stepByStepTitle": "ما الذي يحدث لفيديوك",
+      "watchEyebrow": "شاهده",
+      "watchTitle": "على Vision Pro وكل نظارة",
+      "watchLede": "يعمل في Vision Pro ومتصفح كل نظارة: افتح الموقع هناك وشاهد أو نزّل مباشرة إلى النظارة."
+    },
+    "final": {
+      "title": "شاهد فيديوك بتقنية 3D",
+      "cta": "اصنع فيديو 3D",
+      "teams": "للعمل: باقتا {business} و{studio}. <link>عرض الباقات</link>",
+      "feedback": "ينقصك شيء أو لا يعمل؟ <button>أخبرنا</button>."
+    },
+    "footer": {
+      "byline": "<brand></brand> على الويب · من منتجات Spatial AI Labs Ltd",
+      "privacy": "سياسة الخصوصية",
+      "terms": "شروط الاستخدام",
+      "feedback": "ملاحظات",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "العمق",
+      "depthTitle": "نفهم شكل كل مشهد",
+      "depthDetail": "كل لحظة تصبح مشهد 3D حقيقيًا، ثابتًا من إطار إلى آخر.",
+      "depthLabel": "خط متوهج يمر عبر اللقطات ويُظهر القريب بلون دافئ والبعيد بلون أزرق، ثم تعود الصورة",
+      "stereoTag": "3D",
+      "stereoTitle": "عينان من كاميرا واحدة",
+      "stereoDetail": "ثم نصوّر ذلك المشهد من جديد لكل عين، بحواف نظيفة. هنا تتمايل زاوية الرؤية لترى العمق على أي شاشة.",
+      "stereoLabel": "اللقطات نفسها من زاوية رؤية تتمايل بلطف، ثم منظرا العين اليسرى واليمنى جنبًا إلى جنب",
+      "deliveryTag": "الملفات",
+      "deliveryTitle": "يُعرض كأنه صُوّر بتقنية 3D",
+      "deliveryDetail": "فيديو مكاني لـ Vision Pro وجنبًا إلى جنب، جاهز لكل نظارة.",
+      "deliveryLabel": "فيديو 3D كنافذة عائمة، وعلى شاشة كبيرة داخل نظارة، ومن خلال عدسات النظارة وفي نظارات XR"
+    },
+    "tour": {
+      "ariaLabel": "التطبيق",
+      "projectsLabel": "المشاريع",
+      "projectsDetail": "أسقط فيديو. كل مشاريعك في مكان واحد.",
+      "projectsAlt": "صفحة المشاريع في {site} على الويب بخمسة فيديوهات، أحدها بعلامة جاهز بتقنية 3D",
+      "make3dLabel": "تحويل إلى 3D",
+      "make3dDetail": "اختر نظاراتك والجودة حتى 8K. السعر يظهر أولًا.",
+      "make3dAlt": "صفحة تحويل إلى 3D مع اختيار Apple Vision Pro وMeta Quest وخيارات جودة من 1080p إلى 8K",
+      "trackerLabel": "التقدم",
+      "trackerDetail": "تابع كل خطوة والوقت المتبقي.",
+      "trackerAlt": "السعر وعملية تحويل قيد التنفيذ: التجهيز انتهى، وجارٍ الآن صنع فيديو 3D",
+      "filesLabel": "الملفات",
+      "filesDetail": "فيديو مكاني لـ Vision Pro وجنبًا إلى جنب، جاهز للتنزيل.",
+      "filesAlt": "صفحة الملفات مع فيديو مكاني لـ Vision Pro وملف جنبًا إلى جنب جاهزين للتنزيل"
+    },
+    "samples": {
+      "eyebrow": "نماذج",
+      "title": "شاهد نتيجة 3D في نظارتك",
+      "lede": "صُنعت بـ {method} في {site} على الويب. نزّل واحدة إلى نظارتك، أو الأصل ثنائي الأبعاد للمقارنة.",
+      "video2d": "{title}، الفيديو ثنائي الأبعاد",
+      "videoRedCyan": "{title}، بتقنية 3D أحمر-سماوي",
+      "play": "تشغيل معاينة قصيرة صامتة لـ {title}",
+      "look2d": "2D",
+      "lookRedCyan": "أحمر-سماوي",
+      "facts": "{seconds} ث · {size}"
+    },
+    "worksWith": {
+      "title": "يعمل مع",
+      "upcoming": "جاهز لـ {name}، {upcoming}",
+      "tvs": "تلفزيونات 3D"
+    },
+    "heroLoop": {
+      "label": "مغنية وفرقتها على سطح مبنى عند الغروب: على اليسار الفيديو ثنائي الأبعاد، وعلى اليمين اللحظة نفسها بـ {method}، وزاوية رؤيتها تتمايل بلطف لتُظهر العمق",
+      "yourVideo": "فيديوك",
+      "caption": "الجانب الأيمن يتحرك كما سيبدو بتقنية 3D. <link>شاهده في نظارتك</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · خصم {pct}% على كل فيديو",
+      "perMinute": "{quality} بـ {pro} للدقيقة بدل {list}.",
+      "getPro": "احصل على {pro} {plan}",
+      "keepPaying": "تابع الدفع لكل فيديو",
+      "terms": "بالدولار، دون الضريبة · ألغِ في أي وقت من الحساب",
+      "planGroup": "باقة {pro}",
+      "includes": "تشمل {pro} {credit}.",
+      "freePreviewsMonthly": "{count, plural, zero {لا معاينات مجانية شهريًا} one {معاينة مجانية واحدة شهريًا} two {معاينتان مجانيتان شهريًا} few {# معاينات مجانية شهريًا} many {# معاينة مجانية شهريًا} other {# معاينة مجانية شهريًا}}",
+      "businessTitle": "{business} للعمل",
+      "businessLine": "{price} في الشهر مع استخدام بقيمة {credit}، واستخدام تجاري، وفواتير",
+      "businessLineFps": "{price} في الشهر مع استخدام بقيمة {credit}، واستخدام تجاري، و{fps} إطارًا/ثانية، وفواتير"
+    },
+    "quote": {
+      "howToPay": "طريقة الدفع",
+      "payOnce": "الدفع مرة واحدة",
+      "withPlan": "مع {plan}",
+      "pctOff": "خصم {pct}%",
+      "fromMonthly": "من {price} في الشهر",
+      "hide": "إخفاء هذا",
+      "checkout": {
+        "title": "اشترك وحوّل",
+        "paymentFailed": "لم تتم عملية الدفع.",
+        "takesOff": "تخصم {pro} نسبة {pct}% من هذا الفيديو ومن كل فيديو بعده.",
+        "takesOffWithCredit": "تخصم {pro} نسبة {pct}% من هذا الفيديو ومن كل فيديو بعده، وتشمل {credit}.",
+        "includes": "تشمل {pro} {credit}.",
+        "continue": "المتابعة إلى الدفع",
+        "payOnce": "الدفع مرة واحدة · {price}",
+        "planGroup": "باقة {pro}",
+        "today": "{pro} {plan}، اليوم",
+        "thisVideo": "هذا الفيديو بأسعار {pro}",
+        "youSave": "توفّر على هذا الفيديو",
+        "terms": "ألغِ في أي وقت من الحساب. الأسعار بالدولار، دون الضريبة."
+      },
+      "note": {
+        "highFps": "تأتي معدلات الإطارات العالية مع {business} و{studio}، وكلتاهما تشمل استخدامًا شهريًا.",
+        "monthlyUsage": "تشمل {business} و{studio} استخدامًا شهريًا.",
+        "dismiss": "إغلاق",
+        "atBusiness": "بأسعار {business} يكلف هذا الفيديو {price}.",
+        "fits": "يدخل ضمن الاستخدام بقيمة {credit} الذي تشمله {business} كل شهر، بـ {price} في الشهر.",
+        "includes": "تشمل {business} استخدامًا بقيمة {credit} كل شهر، بـ {price} في الشهر.",
+        "withStudio": "ومع {studio} يكلف {price}.",
+        "seeBusiness": "عرض {business}",
+        "talk": "تحدث إلينا"
+      },
+      "cinema": {
+        "share": "خصم {pct}% · استخدام تجاري",
+        "seeBusinessSave": "عرض {business} · وفّر {range}"
+      }
+    },
+    "intro": {
+      "share": "{pct}% مع {plan}",
+      "shareSeparator": "، ",
+      "title": "لست مضطرًا لاختيار باقة",
+      "body": "الدفع لكل فيديو هو بداية الجميع. الباقة تخفض سعر الدقيقة فقط.",
+      "bodyWithShares": "الدفع لكل فيديو هو بداية الجميع. الباقة تخفض سعر الدقيقة فقط: {shares}.",
+      "gotIt": "حسنًا",
+      "ppvTitle": "الدفع لكل فيديو",
+      "aMonth": "في الشهر",
+      "ppvBody": "تدفع عن كل فيديو بعد اكتماله. أول معاينة مجانية.",
+      "upToFps": "حتى {fps} إطارًا/ثانية",
+      "yourPlan": "باقتك",
+      "pctOff": "خصم {pct}%",
+      "proPreviews": "{count, plural, zero {لا معاينات مجانية في الباقة الشهرية.} one {معاينة مجانية واحدة في الباقة الشهرية.} two {معاينتان مجانيتان في الباقة الشهرية.} few {# معاينات مجانية في الباقة الشهرية.} many {# معاينة مجانية في الباقة الشهرية.} other {# معاينة مجانية في الباقة الشهرية.}}",
+      "includedIn": "مشمول في {plan}",
+      "getPro": "احصل على {pro}"
+    },
+    "talkToUs": {
+      "banner": "تستخدم {site} في العمل؟ تمنحك {business} استخدامًا بقيمة {amount} في الشهر، واستخدامًا تجاريًا وفواتير.",
+      "open": "تحدث إلينا",
+      "see": "عرض {business}",
+      "sent": "شكرًا. سنرد على {email}.",
+      "yourEmail": "بريد حسابك الإلكتروني"
+    },
+    "receipt": {
+      "title": "كنت ستوفّر {amount} مع {pro}",
+      "wouldHaveBeen": "كان هذا الفيديو سيكلف {amount}.",
+      "monthly": "{plan} بسعر {price}.",
+      "monthlyCredit": "{plan} بسعر {price} مع {credit}.",
+      "monthlyPreviews": "{plan} بسعر {price} وتشمل {count, plural, zero {لا معاينات مجانية شهريًا} one {معاينة مجانية واحدة شهريًا} two {معاينتان مجانيتان شهريًا} few {# معاينات مجانية شهريًا} many {# معاينة مجانية شهريًا} other {# معاينة مجانية شهريًا}}",
+      "monthlyCreditPreviews": "{plan} بسعر {price} مع {credit}، وتشمل {count, plural, zero {لا معاينات مجانية شهريًا} one {معاينة مجانية واحدة شهريًا} two {معاينتان مجانيتان شهريًا} few {# معاينات مجانية شهريًا} many {# معاينة مجانية شهريًا} other {# معاينة مجانية شهريًا}}",
+      "see": "عرض {pro}",
+      "notNow": "ليس الآن"
+    },
+    "banner": {
+      "lineLong": "وفّر {range} على كل فيديو مع باقة.",
+      "lineShort": "وفّر {range} مع باقة.",
+      "see": "عرض الباقات",
+      "proOff": "تخصم {pro} نسبة {pct}% من كل فيديو.",
+      "proOffCredit": "تخصم {pro} نسبة {pct}% من كل فيديو وتشمل {credit}.",
+      "monthlyPreviews": "{count, plural, zero {تشمل الباقة الشهرية أيضًا: لا معاينات مجانية شهريًا.} one {تشمل الباقة الشهرية أيضًا معاينة مجانية واحدة شهريًا.} two {تشمل الباقة الشهرية أيضًا معاينتين مجانيتين شهريًا.} few {تشمل الباقة الشهرية أيضًا # معاينات مجانية شهريًا.} many {تشمل الباقة الشهرية أيضًا # معاينة مجانية شهريًا.} other {تشمل الباقة الشهرية أيضًا # معاينة مجانية شهريًا.}}"
+    },
+    "nudge": {
+      "dismiss": "إغلاق"
+    },
+    "sourceLine": {
+      "fps": "تأتي معدلات الإطارات العالية مع {business} و{studio}، وكلتاهما توفّر أيضًا {range}.",
+      "size": "تعمل بحجم {size}؟ توفّر {business} و{studio} {range} وتشملان الاستخدام التجاري.",
+      "see": "عرض {business}"
+    },
+    "header": {
+      "link": "الباقات",
+      "save": "وفّر {range}"
+    },
+    "contact": {
+      "tooMany": "رسائل كثيرة اليوم. يرجى مراسلة الدعم بدلًا من ذلك.",
+      "checkMessage": "يرجى مراجعة الرسالة والمحاولة مجددًا.",
+      "title": "تحدث إلينا",
+      "intro": "يرد عليك شخص بالبريد الإلكتروني، عادةً خلال يوم عمل. تبقى مشاريعك مفتوحة أثناء الانتظار.",
+      "messageLabel": "ماذا تصنع، وكم في الشهر؟",
+      "messagePlaceholder": "نحو 20 فيديو موسيقيًا قصيرًا في الشهر، بدقة 4K، لـ Vision Pro وQuest.",
+      "company": "الشركة (اختياري)",
+      "teamSize": "حجم الفريق (اختياري)",
+      "teamSizePlaceholder": "مثال: 4",
+      "send": "إرسال",
+      "cancel": "إلغاء"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "لن يُخصم شيء اليوم.",
+      "today": "اليوم: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − {unused} عن {from} غير المستخدمة.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "نحتسب لك ما دفعته عن الوقت والاستخدام المتبقيين، أيهما أقل.",
+      "usageHandover": "ينتهي استخدام {from} المتبقي هذا الشهر عندما يبدأ استخدام {to} بقيمة {amount}.",
+      "endOfPeriod": "نهاية هذه الفترة",
+      "staysOn": "تبقى {current} فعّالة حتى {until}.",
+      "afterPayPerVideo": "بعد ذلك تدفع لكل فيديو.",
+      "startsThenAt": "تبدأ {name} حينها بسعر {amount}.",
+      "startsThenAtPer": "تبدأ {name} حينها بسعر {amount} {per}.",
+      "startsThen": "تبدأ {name} حينها.",
+      "repriced": "تم تحديث السعر. راجعه وأكّد مجددًا.",
+      "nothingCharged": "لم يُخصم شيء.",
+      "quoteChanged": "تغيّر السعر، راجع الإجمالي الجديد.",
+      "cardConfirm": "بطاقتك تحتاج إلى تأكيد.",
+      "cardDeclined": "تم رفض بطاقتك.",
+      "errors": {
+        "samePlan": "هذه باقتك الحالية بالفعل.",
+        "notRenewable": "تستمر هذه الباقة حتى نهايتها ولا يمكن تغييرها.",
+        "changeScheduled": "هناك تغيير ينتظر التنفيذ. ألغِه أولًا من صفحة الفوترة.",
+        "changeOnHold": "تغييرات الباقة معلّقة لحسابك. تواصل مع الدعم.",
+        "planUnavailable": "هذه الباقة غير متاحة الآن. حاول لاحقًا.",
+        "cantChangeHere": "لا يمكن تغيير باقتك من هنا.",
+        "tryAgain": "تعذّر تغيير باقتك. حاول مجددًا.",
+        "paymentFailed": "لم تتم عملية الدفع.",
+        "previewFailed": "تعذّر حساب التغيير. لم يُخصم شيء.",
+        "keepFailed": "تعذّر الإبقاء على باقتك. حاول مجددًا."
+      },
+      "per": {
+        "weekly": "في الأسبوع",
+        "monthly": "في الشهر",
+        "yearly": "في السنة"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "تنتهي {current} في {end} بدل التغيير إلى {next}.",
+      "changePlan": "تغيير الباقة",
+      "moveUp": "{name} (ترقية)",
+      "payPerVideoCancel": "الدفع لكل فيديو (إلغاء الباقة)",
+      "dialogTitleChange": "التغيير إلى {name}؟",
+      "dialogTitleCancel": "إلغاء {current}؟",
+      "working": "جارٍ حساب التغيير…",
+      "keep": "الإبقاء على {current}",
+      "payAndChange": "ادفع {amount} وغيّر",
+      "changeTo": "التغيير إلى {name}",
+      "cancelPlan": "إلغاء الباقة",
+      "howWeWorkThisOut": "كيف نحسب هذا",
+      "renewsOn": "تتجدد في {date}."
+    },
+    "plan": {
+      "title": "باقة {name}",
+      "creditLeft": "المتبقي {left} من استخدام {credit} هذا الشهر",
+      "usageResets": "يُعاد ضبط الاستخدام في {date}.",
+      "renewsOn": "تتجدد في {date}.",
+      "billedYearlyRenewsOn": "تُدفع سنويًا. تتجدد في {date}.",
+      "plansLink": "الباقات",
+      "introLabel": "أضف مقدمة {app} إلى فيديوهاتي",
+      "introHint": "يُعرض عنوان قصير من {app} قبل فيديوهاتك.",
+      "introSaveFailed": "تعذّر الحفظ. حاول مجددًا."
+    },
+    "planMove": {
+      "expired": "انتهى هذا العرض. تواصل مع الدعم.",
+      "moveFailed": "تعذّر النقل الآن. حاول بعد قليل.",
+      "accepted": "وصلت باقة {name}.",
+      "sectionLabel": "باقة نقلها الدعم إليك",
+      "headline": "نقل الدعم باقة {name} إلى هنا. هل تقبلها؟",
+      "validUntil": "صالحة حتى {date}.",
+      "whatMoves": "ما سيُنقل إلى هنا",
+      "whatStays": "ما سيبقى",
+      "contactSupport": "تواصل مع الدعم",
+      "accept": "قبول"
+    },
+    "planEmail": {
+      "title": "أضف بريدًا إلكترونيًا لباقتك",
+      "body": "تُستخدم لإيصالات الدفع واستعادة المشتريات. عنوان Apple المخفي لا يصلح. تعمل باقتك في هذه الأثناء.",
+      "submit": "استخدم هذا البريد"
+    },
+    "screen": {
+      "title": "الفوترة",
+      "contactSupportToContinue": "تواصل مع الدعم للمتابعة.",
+      "sections": {
+        "refundQuestion": "سؤال عن الاسترداد",
+        "balance": "الرصيد",
+        "planMoves": "نقل الباقة",
+        "plan": "الباقة",
+        "proCredit": "رصيد {pro}",
+        "restorePurchases": "استعادة المشتريات",
+        "paymentMethods": "وسائل الدفع",
+        "businessDetails": "بيانات النشاط",
+        "usage": "الاستخدام",
+        "invoices": "الفواتير",
+        "yourPrices": "أسعارك",
+        "refunds": "المبالغ المستردة",
+        "aRow": "صف"
+      },
+      "records": {
+        "label": "المشتريات والفواتير",
+        "tabsLabel": "سجلات الفوترة",
+        "tabs": {
+          "history": "السجل",
+          "plan": "الباقة",
+          "usage": "الاستخدام",
+          "invoices": "الفواتير"
+        },
+        "loadFailed": "تعذّر تحميل مشترياتك.",
+        "tryAgain": "حاول مجددًا",
+        "noPlanPayments": "لا مدفوعات للباقة بعد.",
+        "noPurchases": "لا مشتريات بعد.",
+        "loading": "جارٍ التحميل…",
+        "showMore": "عرض المزيد",
+        "currency": "بالدولار الأمريكي.",
+        "currencyWithVat": "بالدولار الأمريكي. الأسعار تشمل ضريبة القيمة المضافة حيث تنطبق."
+      },
+      "methods": {
+        "title": "وسائل الدفع",
+        "saving": "جارٍ الحفظ",
+        "add": "إضافة وسيلة دفع",
+        "none": "لا توجد وسائل دفع محفوظة.",
+        "expiredOn": "انتهت في {date}",
+        "default": "الافتراضية",
+        "expired": "منتهية",
+        "makeDefault": "اجعلها افتراضية",
+        "moveUp": "تحريك للأعلى",
+        "moveDown": "تحريك للأسفل",
+        "remove": "إزالة",
+        "optionsFor": "خيارات {label}",
+        "chargeOrder": "نخصم من وسيلة الدفع الافتراضية. إذا رُفضت، نجرّب وسائلك الأخرى بهذا الترتيب.",
+        "max": "يمكنك حفظ ما يصل إلى 5 وسائل دفع.",
+        "removeBlocked": "لا يمكنك إزالة وسيلة الدفع الوحيدة أثناء وجود دفعة معلّقة. ادفعها أو أضف وسيلة أخرى أولًا.",
+        "saveFailed": "تعذّر الحفظ. حاول مجددًا.",
+        "confirmTitle": "إزالة {label}؟",
+        "confirmLast": "ستسألك عمليات التحويل القادمة عن طريقة الدفع في كل مرة.",
+        "confirmDescription": "إزالة وسيلة الدفع هذه",
+        "keep": "إبقاؤها"
+      },
+      "company": {
+        "title": "بيانات النشاط",
+        "loading": "جارٍ التحميل…",
+        "empty": "لا توجد بيانات نشاط. أضفها لتظهر في الفواتير.",
+        "reminder": "أضف بيانات الشركة إلى فواتيرك",
+        "edit": "تعديل"
+      },
+      "invoices": {
+        "loadFailed": "تعذّر تحميل فواتيرك.",
+        "tryAgain": "حاول مجددًا",
+        "none": "لا فواتير بعد.",
+        "pdf": "PDF",
+        "creditNote": "إشعار دائن {number}",
+        "loading": "جارٍ التحميل…",
+        "showMore": "عرض المزيد"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "مدفوعة",
+        "processing": "قيد المعالجة",
+        "payment_needed": "الدفع مطلوب",
+        "refund_requested": "طُلب استرداد",
+        "refunded": "مستردة",
+        "partially_refunded": "مستردة جزئيًا",
+        "disputed": "معترض عليها لدى مصرفك",
+        "refund_failed": "لم يتم الاسترداد",
+        "failed": "فشل الدفع",
+        "applied": "تم",
+        "scheduled": "مجدولة"
+      },
+      "statusHelp": {
+        "processing": "جارٍ تأكيد دفعتك. قد يستغرق ذلك بضعة أيام.",
+        "refund_requested": "سنراسلك خلال يومي عمل.",
+        "refund_failed": "راسلناك بشأنه."
+      },
+      "credit": {
+        "granted": "أُضيف",
+        "expired": "منتهٍ",
+        "removed": "انتهى",
+        "frozen": "معلّق",
+        "unfrozen": "أُفرج عنه"
+      },
+      "done": "تم",
+      "scheduledFor": "مجدولة في {date}",
+      "scheduled": "مجدولة",
+      "changed": "تغيّرت",
+      "usageCredit": "رصيد استخدام",
+      "planChange": "تغيير الباقة",
+      "plan": "الباقة",
+      "items": "{count, plural, zero {لا عناصر} one {عنصر واحد} two {عنصران} few {# عناصر} many {# عنصرًا} other {# عنصر}}",
+      "item": {
+        "untitled": "مشروع بلا عنوان",
+        "production": "فيديو 3D",
+        "preview": "معاينة",
+        "launchOffer": "عرض الإطلاق"
+      },
+      "menu": {
+        "more": "المزيد",
+        "refundRequested": "طُلب استرداد",
+        "requestRefund": "طلب استرداد",
+        "getHelp": "احصل على مساعدة بشأن هذه الدفعة"
+      },
+      "pay": "ادفع {amount}",
+      "payInvoice": "دفع الفاتورة",
+      "creditNote": "إشعار دائن",
+      "invoice": "فاتورة",
+      "receipt": "إيصال"
+    },
+    "usage": {
+      "month": "الشهر",
+      "downloadCsv": "تنزيل CSV",
+      "loadFailed": "تعذّر تحميل استخدامك.",
+      "tryAgain": "حاول مجددًا",
+      "none": "لا استخدام بعد.",
+      "columns": {
+        "date": "التاريخ",
+        "project": "المشروع",
+        "method": "الطريقة",
+        "preset": "الإعداد",
+        "minutes": "الدقائق",
+        "cost": "التكلفة",
+        "paidWith": "طريقة الدفع",
+        "status": "الحالة"
+      },
+      "apiKey": "مفتاح API \"{name}\"",
+      "paidWith": {
+        "balance": "الرصيد",
+        "card": "وسيلة الدفع",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "قيد التنفيذ",
+        "runningReserved": "قيد التنفيذ، محجوز {amount}",
+        "released": "أُفرج عنه",
+        "partlyDelivered": "سُلّم جزئيًا",
+        "returned": "أُعيد إلى الرصيد {amount}",
+        "done": "تم"
+      },
+      "showMore": "عرض المزيد",
+      "balanceHistory": "سجل الرصيد",
+      "entry": {
+        "topup": "شحن",
+        "auto_reload": "إعادة تعبئة تلقائية",
+        "refund_to_balance": "أُعيد إلى الرصيد",
+        "debt_payment": "سداد المستحق",
+        "cash_refund": "استُرد إلى وسيلة الدفع",
+        "expiry": "منتهٍ",
+        "adjustment": "تعديل",
+        "dispute_freeze": "معلّق أثناء مراجعة دفعة",
+        "dispute_unfreeze": "أُفرج عنه بعد المراجعة",
+        "dispute_loss": "أُزيل بعد اعتراض لدى المصرف"
+      }
+    },
+    "balance": {
+      "title": "الرصيد",
+      "available": "متاح",
+      "availableWithCredits": "متاح · {credits}",
+      "creditWords": {
+        "grant": "رصيد استخدام",
+        "pro": "رصيد {pro}",
+        "plan": "استخدام الباقة"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words} (يُستخدم قبل {date})",
+      "creditsAnd": "{rest} و{last}",
+      "includes": "يشمل {credits}",
+      "reserved": "{amount} محجوز لـ {count, plural, zero {لا عمليات تحويل} one {عملية تحويل واحدة} two {عمليتا تحويل} few {# عمليات تحويل} many {# عملية تحويل} other {# عملية تحويل}} قيد التنفيذ",
+      "frozen": "{amount} معلّق أثناء مراجعة دفعة.",
+      "expired": "انتهى رصيدك في {date}.",
+      "addFundsHint": "أضف رصيدًا لتدفع عمليات التحويل من رصيدك.",
+      "expires": "ينتهي في {date} ما لم تضف رصيدًا.",
+      "addFunds": "إضافة رصيد",
+      "prepaid": "مدفوع مسبقًا {amount}",
+      "paused": {
+        "declined": "إعادة التعبئة التلقائية متوقفة لأن دفعة لم تتم.",
+        "limit": "إعادة التعبئة التلقائية متوقفة: بلغت الحد اليومي. تُستأنف غدًا."
+      },
+      "turnBackOn": "إعادة التشغيل",
+      "autoReload": "إعادة تعبئة تلقائية",
+      "autoReloadValue": "عند النزول دون {below}، أضف {add}",
+      "off": "متوقفة",
+      "edit": "تعديل",
+      "setUp": "إعداد",
+      "set": "تحديد",
+      "spendLimit": "حد الإنفاق الشهري",
+      "spendLimitValue": "{limit} في الشهر · المستخدم {used}",
+      "none": "بلا",
+      "balanceAlert": "تنبيه الرصيد",
+      "balanceAlertValue": "دون {amount}",
+      "rowAction": "{action} {label}"
+    },
+    "banner": {
+      "contactSupport": "تواصل مع الدعم",
+      "pay": "ادفع {amount}",
+      "portalFailed": "تعذّر فتح صفحة وسيلة الدفع",
+      "supportSubject": "دفعة في حسابي"
+    },
+    "requireBilling": {
+      "loading": "جارٍ التحميل…"
+    },
+    "payReturn": {
+      "checking": "جارٍ التحقق من دفعتك…",
+      "paidRun": "وصلت الدفعة. بدأ فيديو 3D الخاص بك.",
+      "backToApp": "العودة إلى {app}",
+      "backToProject": "العودة إلى مشروعك",
+      "notPaid": "لم تتم عملية الدفع.",
+      "tryAgain": "حاول مجددًا",
+      "chooseAnother": "اختر طريقة دفع أخرى",
+      "slow": "يستغرق هذا وقتًا أطول من المعتاد. سنبدأ فور تأكيد الدفع.",
+      "startAgain": "ابدأ من جديد"
+    },
+    "settle": {
+      "nothingToPay": "لا شيء للدفع."
+    },
+    "restore": {
+      "title": "استعادة المشتريات",
+      "intro": "اشتريت باقة أو {pro} على الويب ولا تظهر؟ استعدها من هنا.",
+      "restoring": "جارٍ الاستعادة…",
+      "button": "استعادة المشتريات",
+      "appStoreNote": "تظهر مشتريات App Store عند تسجيل الدخول إلى التطبيق.",
+      "failed": "تعذّر التحقق من مشترياتك الآن. حاول بعد قليل."
+    },
+    "restoreMove": {
+      "findOther": "ابحث عن مشتريات ببريد إلكتروني آخر",
+      "looking": "جارٍ البحث…",
+      "emailLabel": "البريد الإلكتروني الذي اشتريت به",
+      "sending": "جارٍ الإرسال…",
+      "sendCode": "إرسال الرمز",
+      "codeSent": "إذا وجدنا مشتريات، سنرسل رمزًا إلى {email}.",
+      "checking": "جارٍ التحقق…",
+      "findPurchases": "البحث عن المشتريات",
+      "useAnother": "استخدم بريدًا آخر",
+      "restored": "تمت استعادة مشترياتك",
+      "notFound": "لم نجد أي مشتريات",
+      "tryAnother": "جرّب بريدًا آخر",
+      "signsInWith": "(يسجّل الدخول عبر {providers}.)",
+      "contactSupport": "تواصل مع الدعم",
+      "supportSubject": "نقل باقة إلى حسابي",
+      "signInThere": "سجّل الدخول إلى ذلك الحساب",
+      "hasOwnPlan": "لدى هذا الحساب باقة بالفعل. تواصل مع الدعم لنقلها.",
+      "checkFailed": "تعذّر التحقق الآن. حاول بعد قليل.",
+      "offerTitle": "باقة {plan} · صالحة حتى {date}",
+      "movesHere": "ما سيُنقل إلى هنا",
+      "stays": "ما سيبقى",
+      "restoring": "جارٍ الاستعادة…",
+      "restoreHere": "استعادة {plan} هنا",
+      "moves": {
+        "plan": "باقتك، حتى ذلك التاريخ",
+        "appAccess": "{pro} في التطبيق",
+        "currentUsage": "استخدام هذا الشهر غير المستهلك",
+        "monthsNotYetGiven": "أشهر الاستخدام القادمة"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "الاستخدام المستهلك سابقًا",
+        "balance": "رصيد الحساب القديم",
+        "appStorePurchases": "مشتريات App Store",
+        "pastRunsAndFiles": "الفيديوهات والملفات السابقة",
+        "adminGrants": "أي شيء منحه الدعم للحساب القديم"
+      }
+    },
+    "yourPrices": {
+      "title": "أسعارك للدقيقة",
+      "yourPrices": "أسعارك",
+      "payPerVideo": "الدفع لكل فيديو",
+      "withPlanOff": "مع {plan}، خصم {pct}%",
+      "withPlan": "مع {plan}",
+      "pctOff": "خصم {pct}% على كل دقيقة",
+      "upgradeTo": "الترقية إلى {plan}"
+    }
+  },
+  "look": {
+    "analysisRunning": "التحليل لا يزال جاريًا — تُفتح الأسعار عند انتهائه.",
+    "requestFailed": "فشل الطلب",
+    "heading": "معاينة المجسّم",
+    "follower": {
+      "depthLabel": "خريطة العمق",
+      "depthTitle": "خريطة العمق من تشغيل العمق لديك — يُبنى المجسّم منها",
+      "outputTitle": "ناتج المجسّم لآخر تشغيل، متزامنًا مع تشغيل المصدر"
+    },
+    "profile": {
+      "jobFailed": "فشلت المهمة",
+      "retry": "إعادة تحليل اللقطات (مجانًا)",
+      "start": "تحليل اللقطات (مجانًا)",
+      "hint": "يقيس عمق كل مشهد ويضبط هذه الأدوات — مجانًا، نحو دقيقة.",
+      "failed": "فشل التحليل — {error}",
+      "stale": "تغيّرت قطعات المشاهد منذ حساب هذا الملف — قد لا تتطابق القيم الافتراضية. سيعيد التشغيل التالي التحليل بحسب القطعات الحالية.",
+      "adaptiveNote": "لا يوجد ملف مشاهد بعد — يحسب التشغيل الأول معاملات العمق لكل مشهد تلقائيًا (تكيّفيًا)، لذا فالتعديلات اختيارية. بعد نجاحه تظهر القيم المحسوبة هنا كقيم تلقائية لكل مشهد."
+    },
+    "compare": {
+      "output": "ناتج 3D",
+      "depth": "خريطة العمق",
+      "noneYet": "شغّل معاينة مجسّمة لترى ناتج 3D بجانب المصدر.",
+      "showingDepth": "تُعرض خريطة العمق من تشغيل العمق — شغّل معاينة مجسّمة لترى ناتج 3D هنا."
+    },
+    "import": {
+      "fileLabel": "ملف المشاهد",
+      "title": "حمّل ملف مشاهد صُدّر من هذه الصفحة — يستبدل تعديلات المشاهد ومقياس العمق",
+      "button": "استيراد الملف…",
+      "readFailed": "تعذّرت قراءة ملف المشاهد.",
+      "failed": "فشل الاستيراد — {error}",
+      "dialogTitle": "استيراد ملف المشاهد",
+      "dialogBody": "استبدال تعديلات المشاهد لديك بـ {count, plural, zero {لا تعديلات مستوردة} one {تعديل مستورد واحد} two {تعديلين مستوردين} few {# تعديلات مستوردة} many {# تعديلًا مستوردًا} other {# تعديل مستورد}} ومقياس العمق ×{scale}؟ المشاهد بلا تعديل تعود إلى الوضع التلقائي. يستخدم تحويل إلى 3D القيم نفسها.",
+      "replace": "استبدال"
+    },
+    "export": {
+      "title": "نزّل ملف المشاهد — القيم التلقائية لكل مشهد مع تعديلاتك ومقياس العمق — بصيغة JSON",
+      "button": "تصدير الملف"
+    },
+    "depth": {
+      "reuseLabel": "خريطة عمق لإعادة استخدامها",
+      "runOption": "{res} بكسل · {date}",
+      "uploadedOption": "مرفوعة — {name}",
+      "uploadedFallback": "خريطة عمق",
+      "uploadedChip": "{hasName, select, yes {خريطة عمق مرفوعة — {name} (تُستخدم كما هي، دون حساب للعمق)} other {خريطة عمق مرفوعة (تُستخدم كما هي، دون حساب للعمق)}}",
+      "inheritedChip": "خريطة العمق {res} بكسل (من صفحة العمق — أُعيد استخدامها دون إعادة حساب)",
+      "useDefault": "استخدام دقة العمق الافتراضية للمسار",
+      "none": "لا يوجد تشغيل للعمق بعد — يحسب هذا التشغيل خريطة العمق الخاصة به بدقة الإعداد الافتراضية."
+    },
+    "strength": {
+      "label": "قوة 3D الإجمالية (مقياس العمق): <value>×{scale}</value> <muted>— يطبَّق على كل المشاهد</muted>",
+      "aria": "قوة 3D الإجمالية (مقياس العمق)"
+    },
+    "preset": {
+      "label": "إعداد الدقة",
+      "hint": "جودة الناتج — الخيارات نفسها في تحويل إلى 3D."
+    },
+    "edgeLabel": "نمط الحواف",
+    "formats": "الصيغ",
+    "selectFormat": "اختر صيغة واحدة على الأقل",
+    "priorRuns": "تشغيلات المجسّم السابقة",
+    "scenes": {
+      "aria": "المشاهد",
+      "heading": "3D لكل مشهد · {count, plural, zero {لا مشاهد} one {مشهد واحد} two {مشهدان} few {# مشاهد} many {# مشهدًا} other {# مشهد}}",
+      "hint": "انقر على مشهد لينتقل المعاينة إليه — المشهد الجاري يتصدر القائمة. تُرسل الصفوف التي تغيّرها فقط كتعديلات."
+    },
+    "row": {
+      "jumpTitle": "انتقل بالمعاينة إلى المشهد {n} (الإطار {frame})",
+      "thumbAlt": "الإطار الرئيسي للمشهد {n}",
+      "name": "المشهد {n}",
+      "convertAria": "تحويل المشهد {n} إلى 3D",
+      "shotTypeAria": "نوع لقطة المشهد {n}",
+      "auto": "تلقائي",
+      "autoWith": "تلقائي ({type})",
+      "passthrough": "2D كما هو — يُسلَّم دون تغيير (العينان متطابقتان)",
+      "overridden": "معدَّل",
+      "resetAria": "إعادة المشهد {n} إلى الوضع التلقائي",
+      "reset": "إعادة ضبط"
+    },
+    "shotTypes": {
+      "closeUp": "لقطة قريبة",
+      "standard": "عادية",
+      "dynamic": "ديناميكية",
+      "wide": "واسعة"
+    },
+    "profileErrors": {
+      "notJson": "الملف ليس JSON صالحًا — صدّر ملف مشاهد من هذه الصفحة لترى الشكل المتوقع.",
+      "notProfile": "ليس ملف مشاهد — المتوقع '{'\"kind\": \"{kind}\"'}'.",
+      "depthScale": "يجب أن يكون depth_scale رقمًا بين [0.3, 1.5].",
+      "noScenes": "لا يحتوي الملف على مصفوفة scenes — لا شيء للاستيراد.",
+      "versionNote": " (صُدِّر الملف مقابل قطعات المشاهد v{fileVersion}؛ وهذا المشروع على v{currentVersion})",
+      "entryNotObject": "عنصر في scenes[] ليس كائنًا.",
+      "missingFirst": "ينقص تعديل المشهد الإطار الصحيح `first` — تحمل التعديلات أرقام إطارات المصدر الكاملة فقط.",
+      "notSceneStart": "التعديل عند الإطار {frame} لا يبدأ مشهدًا في قائمة القطعات الحالية{note}.",
+      "shotType": "المشهد عند الإطار {frame}: يجب أن يكون shot_type أحد {types}.",
+      "displacement": "المشهد عند الإطار {frame}: يجب أن يكون displacement ضمن (0, 0.03]."
+    }
+  },
+  "depth": {
+    "analysisRunning": "التحليل لا يزال جاريًا — تُفتح الأسعار عند انتهائه.",
+    "res": {
+      "label": "دقة خريطة العمق",
+      "hint": "التفاصيل الأعلى تكلف أكثر. يعيد تحويل إلى 3D استخدام عمل العمق هذا بخصم ما دامت التفاصيل وقطعات المشاهد ومشاهد 2D متطابقة. الحد الأقصى هو دقة فيديوك."
+    },
+    "heading": "خريطة العمق",
+    "uploadFailedFallback": "فشل الرفع",
+    "requestFailed": "فشل الطلب",
+    "imported": {
+      "preview": "(معاينة)",
+      "clearAria": "مسح خريطة العمق المستوردة"
+    },
+    "noRunYet": "شغّل معاينة للعمق لترى خريطة العمق بجانب المصدر.",
+    "uploading": "جارٍ الرفع… {percent}%",
+    "uploadFailed": "فشل الرفع — {error}",
+    "onFile": "الملف الحالي: {name}",
+    "onFileFallback": "خريطة عمق مرفوعة",
+    "removeAria": "إزالة خريطة العمق المرفوعة",
+    "fileAria": "ملف خريطة العمق",
+    "upload": {
+      "title": "عاين فيديو عمق محليًا بجانب المصدر وسجّله في المشروع — فيمكن لمظهر 3D وعمليات تحويل إلى 3D استخدامه بدل حساب العمق. يجب أن يطابق الإطارات تمامًا (الطول الكامل ومعدل إطارات المصدر)، مثل التصدير.",
+      "button": "رفع خريطة عمق…"
+    },
+    "export": {
+      "titleDisabled": "شغّل معاينة للعمق أولًا — ينزّل التصدير ملف العمق الخام الخاص بها",
+      "titleEnabled": "نزّل ملف العمق الخام بكامل الدقة من آخر تشغيل",
+      "button": "تصدير خريطة العمق",
+      "dialogTitle": "تصدير خريطة العمق",
+      "dialogBody": "ينزّل هذا ملف <mono>depth</mono> الخام من آخر تشغيل — خريطة العمق بدقة 10 بت الكاملة التي تستهلكها الخطوات اللاحقة، وليس معاينة <mono>depth_vis</mono> بدقة 8 بت التي تعمل في هذه الصفحة. قد يبدو مسطحًا أو أسود في المشغلات العادية؛ وهذا متوقع للرمادي عالي عمق البت.",
+      "download": "تنزيل العمق بدقة 10 بت"
+    },
+    "follower": {
+      "importedLabel": "عمق مستورد",
+      "importedTitle": "معاينة محلية لـ {name} — يُرفع الملف نفسه إلى المشروع لعمليات المجسّم والتسليم",
+      "visTitle": "تصور العمق بدقة 8 بت لهذا التشغيل — يعطيك التصدير الملف الخام بكامل الدقة"
+    },
+    "missingVis": "ليس في آخر تشغيل للعمق فيديو عمق يعمل في المتصفح (depth_vis) — صدّر ملف العمق الخام بدلًا من ذلك.",
+    "scenes": {
+      "aria": "المشاهد",
+      "heading": "المشاهد · تحويل إلى 3D",
+      "hint": "تبقى المشاهد غير المحددة بتقنية 2D (شارات النهاية، الشعارات): يتخطى كل تشغيل عمقها، بما فيها معاينات العمق، ويبقى السعر كما هو."
+    },
+    "scene": {
+      "thumbAlt": "الإطار الرئيسي للمشهد {n}",
+      "name": "المشهد {n}",
+      "convertAria": "تحويل المشهد {n} إلى 3D"
+    }
+  },
+  "preview": {
+    "analyzing": "ما زلنا نحلل فيديوك. تُفتح المعاينات عند الانتهاء.",
+    "heading": "فيديوك",
+    "band": {
+      "running": "قيد الإنشاء",
+      "failed": "لم تكتمل"
+    },
+    "card": {
+      "title": "معاينتك",
+      "backToLatest": "العودة إلى الأحدث",
+      "back": "رجوع",
+      "failed": "لم تكتمل هذه المعاينة. لم تدفع شيئًا عنها.",
+      "running": "هذه المعاينة قيد الإنشاء. ستظهر هنا عند اكتمالها.",
+      "empty": "تظهر معاينتك هنا.",
+      "fetching": "جارٍ جلب المعاينة…",
+      "makeWhole": "حوّل الفيديو كاملًا إلى 3D",
+      "viewAria": "عرض",
+      "freeCheck": "فحص 3D مجاني على هذه الشاشة"
+    },
+    "quality": "الجودة",
+    "length": "المدة",
+    "shorter": "أقصر",
+    "longer": "أطول",
+    "lengthValue": "{seconds} ث",
+    "quickLook": "نظرة سريعة <muted>· بنصف السعر</muted>",
+    "frameRate": "معدل الإطارات · فيديوك {fps}",
+    "cta": "عاين هذه اللحظة",
+    "explain": {
+      "frames": "{frames} إطارًا بمعدل {quality}: بسعر الإطار نفسه للفيديو كاملًا.",
+      "quickLook": "{hasMinimum, select, yes {تستخدم النظرة السريعة نصف معدل الإطارات بنصف السعر. الحد الأدنى للرسوم {minimum}. إذا فشلت، لا تدفع شيئًا.} other {تستخدم النظرة السريعة نصف معدل الإطارات بنصف السعر. إذا فشلت، لا تدفع شيئًا.}}"
+    },
+    "timeline": {
+      "heading": "اختر لحظة",
+      "hintWithBands": "انقر على الشريط لتحريك المعاينة. الأشرطة في أعلاه هي معاينتك السابقة.",
+      "hint": "انقر على الشريط لتحريك المعاينة."
+    },
+    "past": {
+      "heading": "المعاينات السابقة"
+    },
+    "rangeNote": "معاينة <mono>{from} – {to}</mono> · المشهد {scene} من {scenes}",
+    "row": {
+      "showing": "معروضة",
+      "show": "عرض"
+    },
+    "check": {
+      "redCyan": "أحمر-سماوي",
+      "wiggle": "اهتزاز",
+      "sideBySide": "جنبًا إلى جنب",
+      "redCyanView": "عرض أحمر-سماوي",
+      "wiggleView": "عرض الاهتزاز",
+      "leftEye": "العين اليسرى",
+      "rightEye": "العين اليمنى"
+    },
+    "player": {
+      "mute": "كتم الصوت",
+      "unmute": "تشغيل الصوت",
+      "speed": "السرعة"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "تم الحفظ. ستستخدم فواتيرك القادمة هذه البيانات.",
+      "saveFailed": "تعذّر الحفظ. حاول مجددًا.",
+      "loadFailed": "تعذّر تحميل بياناتك المحفوظة. يمكنك ملؤها من جديد.",
+      "companyName": "اسم الشركة",
+      "billingAddress": "عنوان الفوترة",
+      "country": "البلد",
+      "line1": "العنوان، السطر 1",
+      "line2": "العنوان، السطر 2 (اختياري)",
+      "city": "المدينة",
+      "postalCode": "الرمز البريدي",
+      "state": "الولاية أو المنطقة",
+      "taxId": "الرقم الضريبي (اختياري)",
+      "taxType": "النوع",
+      "taxNumber": "الرقم",
+      "noTaxId": "لا حاجة إلى رقم ضريبي لهذا البلد.",
+      "billingEmail": "بريد الفوترة لنسخ الفواتير",
+      "poReference": "مرجع أمر الشراء (اختياري)",
+      "saving": "جارٍ الحفظ…",
+      "save": "حفظ",
+      "billingLink": "الفوترة"
+    },
+    "country": {
+      "search": "ابحث عن بلد",
+      "none": "لم يتم العثور على بلد.",
+      "yours": "بلدك",
+      "all": "كل البلدان"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "سنراجعه خلال يومي عمل.",
+      "mergedLine": "كنت قد سألت عن بعضها، فأضفناها إلى ذلك الطلب.",
+      "sentTitle": "أُرسل الطلب",
+      "cancelToo": "هل تلغي باقتك أيضًا؟",
+      "cancelPlan": "إلغاء الباقة",
+      "done": "تم",
+      "title": "طلب استرداد",
+      "intro": "اختر موضوع الطلب. يراجع شخص كل طلب. يمكنك الطلب خلال {days} يومًا من الدفع.",
+      "nothing": "لا يمكن استرداد أي مبلغ دُفع خلال آخر {days} يومًا.",
+      "planLabel": "باقة {name}",
+      "paidDetail": "{amount} · دُفع في {date}",
+      "alreadyAsked": "· طُلب بالفعل",
+      "noteLabel": "ماذا حدث؟ (اختياري)",
+      "cancel": "إلغاء",
+      "sending": "جارٍ الإرسال…",
+      "send": "إرسال",
+      "sendFailed": "تعذّر إرسال طلبك. حاول بعد قليل.",
+      "optionsLoadFailed": "تعذّر تحميل ما يمكن استرداده.",
+      "requestsLoadFailed": "تعذّر تحميل طلباتك."
+    },
+    "section": {
+      "questionNotice": "طرحنا سؤالًا عن طلب الاسترداد. <link>أجب عنه</link>",
+      "ariaLabel": "المبالغ المستردة",
+      "reportProblem": "هل هناك خطأ في دفعة أو عملية تحويل؟ <link>أبلغ عن مشكلة</link>",
+      "reportSubject": "{app}: الإبلاغ عن مشكلة",
+      "needRefund": "تحتاج إلى استرداد؟ <button>اطلب استردادًا</button> · اطلب خلال {days} يومًا من الدفع، حتى بعد الإلغاء. يراجع شخص كل طلب.",
+      "askWithin": "اطلب الاسترداد خلال {days} يومًا من الدفع، حتى بعد الإلغاء. يراجع شخص كل طلب.",
+      "appStore": "تسترد Apple مبالغ {pro} من App Store. <link>اطلب الاسترداد من Apple</link>",
+      "yourRequests": "طلباتك",
+      "about": {
+        "plan": "دفعة الباقة",
+        "runs": "عمليات التحويل",
+        "balance": "الرصيد",
+        "other": "طلب"
+      },
+      "answerLabel": "إجابتك",
+      "messageLabel": "رسالتك",
+      "sending": "جارٍ الإرسال…",
+      "sendAnswer": "إرسال الإجابة",
+      "send": "إرسال",
+      "cancel": "إلغاء",
+      "askAgain": "اسأل عن هذا مجددًا",
+      "addMessage": "أضف رسالة",
+      "replyFailed": "تعذّر إرسال ذلك. حاول بعد قليل."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "الدفع لكل فيديو. توفّر <plans>الباقات</plans> {range}.",
+      "noRange": "الدفع لكل فيديو، أو وفّر مع <plans>باقة</plans>."
+    },
+    "per": {
+      "year": "في السنة",
+      "month": "في الشهر",
+      "week": "في الأسبوع"
+    },
+    "screen": {
+      "title": "الأسعار",
+      "loading": "جارٍ تحميل الأسعار…",
+      "howItWorks": "كيف تعمل الأسعار",
+      "perMinute": "<b>لكل دقيقة فيديو بمعدل {fps} إطارًا/ثانية.</b> {fpsRule}. {roundedUp} حوّل جزءًا من الفيديو فقط وادفع عن ذلك الجزء فقط.",
+      "discount": "<b>خصم {pct}%</b> على أي تحويل يتجاوز {threshold}.",
+      "minimumPerRun": "<b>الحد الأدنى للرسوم {min}</b> لكل تحويل.",
+      "minimumPerPreview": "<b>الحد الأدنى للرسوم</b> {previewMin} لكل معاينة، و{min} لعمليات التحويل الأخرى.",
+      "paidBefore": "<b>يُدفع قبل البدء.</b> ألغِ أثناء الانتظار في الطابور، أو في أول دقيقة، لاسترداد كامل المبلغ. يُسترد كاملًا إذا فشل.",
+      "currency": "بالدولار الأمريكي، دون الضريبة. كل أنواع الملفات مشمولة.",
+      "startProject": "ابدأ مشروعًا"
+    },
+    "plansScreen": {
+      "loading": "جارٍ تحميل الباقات…",
+      "unavailable": "الباقات غير متاحة بعد.",
+      "perMinuteLink": "الأسعار للدقيقة"
+    },
+    "proOffer": {
+      "saveLine": "يوفّر أعضاء {pro} {pct}%",
+      "title": "خصم {pct}% على كل فيديو 3D",
+      "description": "عضوية واحدة لـ {site} على الويب وفي التطبيقات.",
+      "descriptionWithCredit": "عضوية واحدة لـ {site} على الويب وفي التطبيقات، مع {credit}.",
+      "get": "احصل على {pro}"
+    },
+    "plans": {
+      "title": "باقات للعمل",
+      "subtitle": "استخدام مشمول كل شهر. تُدفع {business} شهريًا، و{studio} سنويًا.",
+      "yourPlan": "باقتك",
+      "changeTo": "التغيير إلى {name}",
+      "choose": "اختر {name}",
+      "lines": {
+        "usage": "استخدام بقيمة {amount} كل شهر",
+        "off": "خصم {pct}% على كل تحويل",
+        "commercial": "استخدام تجاري لفيديوهاتك",
+        "freePreviews": "{count, plural, zero {لا معاينات مجانية شهريًا} one {معاينة مجانية واحدة شهريًا} two {معاينتان مجانيتان شهريًا} few {# معاينات مجانية شهريًا} many {# معاينة مجانية شهريًا} other {# معاينة مجانية شهريًا}}",
+        "express": "Express مشمول",
+        "fileQuality": "جودة ملفات {high} و{master} لمراجعات العملاء والتحرير",
+        "fps": "حتى {fps} إطارًا/ثانية",
+        "invoices": "فواتير"
+      }
+    },
+    "table": {
+      "perEye": "{size} لكل عين",
+      "from": "من {price}",
+      "aMinuteAt": "للدقيقة بمعدل {fps} إطارًا/ثانية",
+      "quality": "الجودة",
+      "perMinute": "للدقيقة، {fps} إطارًا/ثانية",
+      "withPro": "مع {pro}",
+      "withProOff": "مع {pro} (−{pct}%)",
+      "proCredit": "تشمل {pro} أيضًا {credit}.",
+      "limitAndPreviews": "{limit} · معاينات من {price}"
+    },
+    "extras": {
+      "foveated": "تفاصيل أكثر حيث تنظر",
+      "foveatedIncludedAt": "تفاصيل أكثر حيث تنظر · مشمولة عند {at}",
+      "fileQuality": "جودة ملف {quality}",
+      "express": "Express",
+      "expressWhat": "الأول في الطابور",
+      "addons": "إضافات",
+      "freePreviews": "معاينات مجانية",
+      "perMonth": "{count} في الشهر",
+      "firstFree": "أول معاينة لك مجانية.",
+      "each": "{seconds} ث لكل واحدة.",
+      "eachNoRollover": "{seconds} ث لكل واحدة، دون ترحيل.",
+      "balance": "الرصيد",
+      "addFunds": "أضف رصيدًا من {amount} وادفع عمليات التحويل من رصيدك.",
+      "refundable": "يمكن استرداد الرصيد غير المنفق خلال {days} يومًا."
+    }
+  }
+}

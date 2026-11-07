@@ -1,0 +1,1049 @@
+{
+  "business": {
+    "entry": {
+      "card": "Du nutzt {site} beruflich? Richte {business} oder {studio} ein",
+      "setUp": "Einrichten",
+      "proLine": "Du arbeitest für Kunden oder ein Team? {business} und {studio} sparen {range} und enthalten die kommerzielle Nutzung. <link>Pläne ansehen</link>",
+      "appStoreActive": "{pro} aus dem App Store ist noch aktiv.",
+      "howToCancel": "So kündigst du"
+    },
+    "setup": {
+      "steps": {
+        "aria": "Schritte",
+        "item": "{n}. {label}",
+        "plan": "Plan",
+        "questions": "Über dich",
+        "checkout": "Zahlen"
+      },
+      "mainUses": {
+        "clientWork": "Kundenarbeit",
+        "ownChannel": "Mein eigener Kanal",
+        "stockFootage": "Stock-Footage",
+        "other": "Etwas anderes"
+      },
+      "includes": {
+        "pctOff": "{pct} % Rabatt auf jedes Video",
+        "usage": "{amount} Nutzung jeden Monat",
+        "commercial": "Kommerzielle Nutzung deiner Videos",
+        "frameRates": "Bildraten bis {fps} fps",
+        "intro": "{site}-Intro ein- oder ausschalten",
+        "invoices": "Rechnungen mit deinen Firmendaten",
+        "express": "Express inklusive"
+      },
+      "price": {
+        "year": "{price} im Jahr",
+        "month": "{price} im Monat",
+        "week": "{price} pro Woche"
+      },
+      "terms": {
+        "yearly": "Einmal im Jahr abgerechnet. Jeden Monat kommen {amount} Nutzung dazu. Verlängert sich jedes Jahr, bis du kündigst.",
+        "monthly": "Monatlich abgerechnet. Verlängert sich jeden Monat, bis du kündigst."
+      },
+      "appStoreProNote": "Dein {pro} wird von Apple abgerechnet. {business} enthält alles, was {pro} kann. Kündige {pro} daher in den iPhone-Einstellungen unter [dein Name] → Abonnements, damit du nicht doppelt zahlst.",
+      "studio": {
+        "title": "Du hast {studio}",
+        "onBilling": "Deinen Plan findest du unter <link>Abrechnung</link>."
+      },
+      "eyebrow": "{business} und {studio}",
+      "title": "{site} für die Arbeit einrichten",
+      "planAria": "Plan",
+      "yourPlan": "Dein Plan",
+      "yearlyPlan": "Jahresplan",
+      "monthlyPlan": "Monatsplan",
+      "questionsFirst": "Erst Fragen?",
+      "talkToUs": "Schreib uns",
+      "notNow": "Nicht jetzt",
+      "continueWith": "Weiter mit {plan}",
+      "questions": {
+        "title": "Ein paar Fragen",
+        "hint": "Alles optional. Die Angaben helfen uns, das Produkt für die Arbeit zu verbessern.",
+        "teamSize": "Teamgröße",
+        "teamSizePlaceholder": "z. B. 4",
+        "mainUse": "Hauptzweck",
+        "headsets": "Headsets"
+      },
+      "back": "Zurück",
+      "skip": "Überspringen",
+      "continue": "Weiter",
+      "checkout": {
+        "termsTail": "{terms} Preise in USD, zzgl. Steuern. Es wird nichts abgebucht, bis du bestätigst.",
+        "asksOnly": "Beim Bezahlen fragen wir nur nach Zahlungsmethode und Land. Firmenname, Adresse und Steuer-ID kannst du danach ergänzen.",
+        "whatHappensBusiness": "Was mit deinem {business} passiert",
+        "whatHappensPro": "Was mit deinem {pro} passiert",
+        "manageAppStore": "App-Store-Plan verwalten",
+        "workingOut": "Heutiger Preis wird berechnet …",
+        "previewFailed": "Der heutige Preis konnte nicht berechnet werden. Es wird nichts abgebucht, bis du bestätigst.",
+        "changing": "Wird geändert …",
+        "confirmAndPay": "Bestätigen und {amount} zahlen",
+        "confirm": "Bestätigen",
+        "continueToPayment": "Weiter zur Zahlung"
+      },
+      "welcome": {
+        "eyebrow": "Willkommen",
+        "title": "{plan} ist aktiv",
+        "commercial": "Kommerzielle Nutzung: Deine 3D-Videos dürfen an Kunden, in Werbung und auf bezahlte Kanäle.",
+        "frameRates": "Höhere Bildraten: bis {fps} fps, wenn dein Video sie hat.",
+        "usage": "{amount} Nutzung jeden Monat, danach gelten die {plan}-Preise.",
+        "make": "Dein 3D-Video erstellen"
+      },
+      "talk": {
+        "title": "Schreib uns",
+        "description": "Ein Mensch antwortet per E-Mail, meist innerhalb eines Werktags.",
+        "sent": "Danke. Wir antworten an {email}.",
+        "accountEmail": "deine Konto-E-Mail"
+      }
+    }
+  },
+  "landing": {
+    "formats": {
+      "mvhevcDetail": "Für Apple Vision Pro. In Fotos erscheint es als räumliches Video.",
+      "sbsDetail": "Für Meta Quest, Pico, Samsung Galaxy XR, Steam Frame, XR-Brillen und 3D-Fernseher."
+    },
+    "points": {
+      "depthTitle": "Lebensechte Tiefe",
+      "depthDetail": "Jeder Moment als echte 3D-Szene neu aufgebaut.",
+      "lengthDetail": "Vom kurzen Clip bis zum ganzen Film.",
+      "originalTitle": "Dein Original auf einem Auge",
+      "originalDetail": "Bei Cinema-Größen von 5K bis 8K zeigt ein Auge deine eigenen Bilder.",
+      "foveatedDetail": "Schärfer dort, wo du hinschaust."
+    },
+    "hero": {
+      "new": "Neu",
+      "eyebrow": "{site} im Web · {method}",
+      "title": "Mach aus jedem Video <accent>lebensechtes 3D</accent>",
+      "lede": "Wir verstehen die Form jeder Szene und filmen sie dann für jedes Auge neu.",
+      "cta": "Erstes 3D-Video erstellen",
+      "fromPrice": "ab <b>{price}</b> pro Minute bei {fps} fps",
+      "limits": "{limits}. <link>Preise ansehen</link>"
+    },
+    "steps": {
+      "uploadTitle": "Video hochladen",
+      "uploadDetail": "{limits}.",
+      "previewTitle": "Einen Moment ansehen",
+      "previewDetail": "Ein paar Sekunden in 3D.",
+      "makeTitle": "In 3D umwandeln",
+      "makeDetail": "Für dein Headset herunterladen."
+    },
+    "sections": {
+      "howItLooksEyebrow": "So sieht es aus",
+      "howItLooksTitle": "Vom Upload zum Headset",
+      "stepByStepEyebrow": "Schritt für Schritt",
+      "stepByStepTitle": "Was mit deinem Video passiert",
+      "watchEyebrow": "Ansehen",
+      "watchTitle": "Auf Vision Pro und jedem Headset",
+      "watchLede": "Funktioniert in Vision Pro und im Browser jedes Headsets: Öffne dort die Seite und sieh dir das Video an oder lade es direkt aufs Headset."
+    },
+    "final": {
+      "title": "Sieh dein eigenes Video in 3D",
+      "cta": "Dein 3D-Video erstellen",
+      "teams": "Für die Arbeit: die Pläne {business} und {studio}. <link>Pläne ansehen</link>",
+      "feedback": "Etwas fehlt oder funktioniert nicht? <button>Sag es uns</button>."
+    },
+    "footer": {
+      "byline": "<brand></brand> im Web · ein Produkt von Spatial AI Labs Ltd",
+      "privacy": "Datenschutzerklärung",
+      "terms": "Nutzungsbedingungen",
+      "feedback": "Feedback",
+      "copyright": "© {year} Spatial AI Labs Ltd"
+    },
+    "pipeline": {
+      "depthTag": "Tiefe",
+      "depthTitle": "Wir verstehen die Form jeder Szene",
+      "depthDetail": "Jeder Moment wird zu einer echten 3D-Szene, ruhig von Bild zu Bild.",
+      "depthLabel": "Eine leuchtende Linie wandert über das Material und zeigt Nahes warm und Fernes blau, dann das Bild noch einmal",
+      "stereoTag": "3D",
+      "stereoTitle": "Zwei Augen aus einer Kamera",
+      "stereoDetail": "Dann filmen wir die Szene für jedes Auge neu, mit sauberen Kanten. Hier schwankt der Blickwinkel, damit du die Tiefe auf jedem Bildschirm siehst.",
+      "stereoLabel": "Dasselbe Material aus einem sanft schwankenden Blickwinkel, dann die Ansichten für linkes und rechtes Auge nebeneinander",
+      "deliveryTag": "Dateien",
+      "deliveryTitle": "Spielt, als wäre es in 3D gedreht",
+      "deliveryDetail": "Räumliches Video für Vision Pro und Side by Side, bereit für jedes Headset.",
+      "deliveryLabel": "Das 3D-Video als schwebendes Fenster, auf einer großen Leinwand im Headset, durch die Linsen des Headsets und in XR-Brillen"
+    },
+    "tour": {
+      "ariaLabel": "Die App",
+      "projectsLabel": "Projekte",
+      "projectsDetail": "Video reinziehen. Alle Projekte an einem Ort.",
+      "projectsAlt": "Projekte-Seite von {site} im Web mit fünf Videos, eines als 3D-bereit markiert",
+      "make3dLabel": "In 3D umwandeln",
+      "make3dDetail": "Wähle deine Headsets und die Qualität, bis 8K. Der Preis steht vorab da.",
+      "make3dAlt": "Seite „In 3D umwandeln“ mit Apple Vision Pro und Meta Quest ausgewählt und Qualitätsoptionen von 1080p bis 8K",
+      "trackerLabel": "Fortschritt",
+      "trackerDetail": "Verfolge jeden Schritt und die Restzeit.",
+      "trackerAlt": "Der Preis und eine laufende Umwandlung: Vorbereitung fertig, jetzt entsteht das 3D-Video",
+      "filesLabel": "Dateien",
+      "filesDetail": "Räumliches Video für Vision Pro und Side by Side, bereit zum Download.",
+      "filesAlt": "Dateien-Seite mit einem räumlichen Video für Vision Pro und einer Side-by-Side-Datei, bereit zum Download"
+    },
+    "samples": {
+      "eyebrow": "Beispiele",
+      "title": "Sieh das 3D-Ergebnis in deinem Headset",
+      "lede": "Erstellt mit {method} in {site} im Web. Lade eines auf dein Headset, oder das 2D-Original zum Vergleich.",
+      "video2d": "{title}, das 2D-Video",
+      "videoRedCyan": "{title}, in Rot-Cyan-3D",
+      "play": "Kurze stumme Vorschau von {title} abspielen",
+      "look2d": "2D",
+      "lookRedCyan": "Rot-Cyan",
+      "facts": "{seconds} s · {size}"
+    },
+    "worksWith": {
+      "title": "Funktioniert mit",
+      "upcoming": "Bereit für {name}, {upcoming}",
+      "tvs": "3D-Fernseher"
+    },
+    "heroLoop": {
+      "label": "Eine Sängerin und ihre Band auf einem Dach bei Sonnenuntergang: links das 2D-Video, rechts derselbe Moment in {method}, der Blickwinkel schwankt sanft und zeigt die Tiefe",
+      "yourVideo": "Dein Video",
+      "caption": "Die rechte Seite bewegt sich so, wie sie in 3D aussieht. <link>Im Headset ansehen</link>"
+    }
+  },
+  "plans": {
+    "sheet": {
+      "titleWithPct": "{pro} · {pct} % Rabatt auf jedes Video",
+      "perMinute": "{quality} kostet {pro} pro Minute statt {list}.",
+      "getPro": "{pro} {plan} holen",
+      "keepPaying": "Weiter pro Video zahlen",
+      "terms": "USD, zzgl. Steuern · jederzeit im Konto kündbar",
+      "planGroup": "{pro}-Plan",
+      "includes": "{pro} enthält {credit}.",
+      "freePreviewsMonthly": "{count, plural, one {# kostenlose Vorschau im Monat} other {# kostenlose Vorschauen im Monat}}",
+      "businessTitle": "{business} für die Arbeit",
+      "businessLine": "{price} im Monat mit {credit} Nutzung, kommerzieller Nutzung, Rechnungen",
+      "businessLineFps": "{price} im Monat mit {credit} Nutzung, kommerzieller Nutzung, {fps} fps, Rechnungen"
+    },
+    "quote": {
+      "howToPay": "So zahlst du",
+      "payOnce": "Einmal zahlen",
+      "withPlan": "Mit {plan}",
+      "pctOff": "{pct} % Rabatt",
+      "fromMonthly": "ab {price} im Monat",
+      "hide": "Ausblenden",
+      "checkout": {
+        "title": "Plan abschließen und umwandeln",
+        "paymentFailed": "Die Zahlung ist nicht durchgegangen.",
+        "takesOff": "{pro} nimmt {pct} % von diesem und jedem weiteren Video ab.",
+        "takesOffWithCredit": "{pro} nimmt {pct} % von diesem und jedem weiteren Video ab und enthält {credit}.",
+        "includes": "{pro} enthält {credit}.",
+        "continue": "Weiter zur Zahlung",
+        "payOnce": "Einmal zahlen · {price}",
+        "planGroup": "{pro}-Plan",
+        "today": "{pro} {plan}, heute",
+        "thisVideo": "Dieses Video zu {pro}-Preisen",
+        "youSave": "Du sparst bei diesem Video",
+        "terms": "Jederzeit im Konto kündbar. Preise in USD, zzgl. Steuern."
+      },
+      "note": {
+        "highFps": "Hohe Bildraten gibt es mit {business} und {studio}, die auch monatliche Nutzung enthalten.",
+        "monthlyUsage": "{business} und {studio} enthalten monatliche Nutzung.",
+        "dismiss": "Schließen",
+        "atBusiness": "Mit {business}-Preisen kostet dieses Video {price}.",
+        "fits": "Das passt in die {credit} Nutzung, die {business} jeden Monat enthält, für {price} im Monat.",
+        "includes": "{business} enthält jeden Monat {credit} Nutzung, für {price} im Monat.",
+        "withStudio": "Mit {studio} kostet es {price}.",
+        "seeBusiness": "{business} ansehen",
+        "talk": "Schreib uns"
+      },
+      "cinema": {
+        "share": "{pct} % Rabatt · kommerzielle Nutzung",
+        "seeBusinessSave": "{business} ansehen · {range} sparen"
+      }
+    },
+    "intro": {
+      "share": "{pct} % mit {plan}",
+      "shareSeparator": ", ",
+      "title": "Du musst nie einen Plan wählen",
+      "body": "Pro Video zahlen ist der Start für alle. Ein Plan senkt nur den Preis pro Minute.",
+      "bodyWithShares": "Pro Video zahlen ist der Start für alle. Ein Plan senkt nur den Preis pro Minute: {shares}.",
+      "gotIt": "Verstanden",
+      "ppvTitle": "Pro Video zahlen",
+      "aMonth": "im Monat",
+      "ppvBody": "Du zahlst für jedes Video, wenn es fertig ist. Erste Vorschau gratis.",
+      "upToFps": "Bis {fps} fps",
+      "yourPlan": "Dein Plan",
+      "pctOff": "{pct} % Rabatt",
+      "proPreviews": "{count, plural, one {# kostenlose Vorschau im Monat bei Monthly.} other {# kostenlose Vorschauen im Monat bei Monthly.}}",
+      "includedIn": "Enthalten in {plan}",
+      "getPro": "{pro} holen"
+    },
+    "talkToUs": {
+      "banner": "Du nutzt {site} beruflich? {business} bietet dir {amount} Nutzung im Monat, kommerzielle Nutzung und Rechnungen.",
+      "open": "Schreib uns",
+      "see": "{business} ansehen",
+      "sent": "Danke. Wir antworten an {email}.",
+      "yourEmail": "deine Konto-E-Mail"
+    },
+    "receipt": {
+      "title": "Mit {pro} hättest du {amount} gespart",
+      "wouldHaveBeen": "Dieses Video hätte {amount} gekostet.",
+      "monthly": "{plan} kostet {price}.",
+      "monthlyCredit": "{plan} kostet {price} mit {credit}.",
+      "monthlyPreviews": "{plan} kostet {price} und enthält {count, plural, one {# kostenlose Vorschau im Monat} other {# kostenlose Vorschauen im Monat}}.",
+      "monthlyCreditPreviews": "{plan} kostet {price} mit {credit} und enthält {count, plural, one {# kostenlose Vorschau im Monat} other {# kostenlose Vorschauen im Monat}}.",
+      "see": "{pro} ansehen",
+      "notNow": "Nicht jetzt"
+    },
+    "banner": {
+      "lineLong": "Spare {range} bei jedem Video mit einem Plan.",
+      "lineShort": "Spare {range} mit einem Plan.",
+      "see": "Pläne ansehen",
+      "proOff": "{pro} nimmt {pct} % von jedem Video ab.",
+      "proOffCredit": "{pro} nimmt {pct} % von jedem Video ab und enthält {credit}.",
+      "monthlyPreviews": "{count, plural, one {Monthly enthält außerdem # kostenlose Vorschau im Monat.} other {Monthly enthält außerdem # kostenlose Vorschauen im Monat.}}"
+    },
+    "nudge": {
+      "dismiss": "Schließen"
+    },
+    "sourceLine": {
+      "fps": "Hohe Bildraten gibt es mit {business} und {studio}, die außerdem {range} sparen.",
+      "size": "Du arbeitest mit {size}? {business} und {studio} sparen {range} und enthalten die kommerzielle Nutzung.",
+      "see": "{business} ansehen"
+    },
+    "header": {
+      "link": "Pläne",
+      "save": "{range} sparen"
+    },
+    "contact": {
+      "tooMany": "Heute zu viele Nachrichten. Bitte schreib stattdessen an den Support.",
+      "checkMessage": "Bitte prüfe die Nachricht und versuche es erneut.",
+      "title": "Schreib uns",
+      "intro": "Ein Mensch antwortet per E-Mail, meist innerhalb eines Werktags. Deine Projekte bleiben so lange offen.",
+      "messageLabel": "Was machst du, und wie viel pro Monat?",
+      "messagePlaceholder": "Etwa 20 kurze Musikvideos im Monat, 4K, für Vision Pro und Quest.",
+      "company": "Firma (optional)",
+      "teamSize": "Teamgröße (optional)",
+      "teamSizePlaceholder": "z. B. 4",
+      "send": "Senden",
+      "cancel": "Abbrechen"
+    }
+  },
+  "billing": {
+    "planChange": {
+      "nothingToday": "Heute wird nichts abgebucht.",
+      "today": "Heute: {amount}.",
+      "upgradeWithCredit": "{today} {to} {newPlan} − {unused} für dein ungenutztes {from}.",
+      "upgrade": "{today} {to} {newPlan}.",
+      "creditRule": "Wir rechnen an, was du für die verbleibende Zeit und Nutzung gezahlt hast, je nachdem, was weniger ist.",
+      "usageHandover": "Deine übrige {from}-Nutzung in diesem Monat endet, sobald die {amount} von {to} beginnen.",
+      "endOfPeriod": "das Ende dieses Zeitraums",
+      "staysOn": "Dein {current} bleibt aktiv bis {until}.",
+      "afterPayPerVideo": "Danach zahlst du pro Video.",
+      "startsThenAt": "{name} beginnt dann zu {amount}.",
+      "startsThenAtPer": "{name} beginnt dann zu {amount} {per}.",
+      "startsThen": "{name} beginnt dann.",
+      "repriced": "Der Preis wurde aktualisiert. Prüfe ihn und bestätige erneut.",
+      "nothingCharged": "Es wurde nichts abgebucht.",
+      "quoteChanged": "Der Preis hat sich geändert. Prüfe die neue Summe.",
+      "cardConfirm": "Deine Karte muss bestätigt werden.",
+      "cardDeclined": "Deine Karte wurde abgelehnt.",
+      "errors": {
+        "samePlan": "Das ist bereits dein Plan.",
+        "notRenewable": "Dieser Plan läuft bis zum Ende und kann nicht geändert werden.",
+        "changeScheduled": "Eine Änderung steht schon an. Nimm sie zuerst unter Abrechnung zurück.",
+        "changeOnHold": "Planänderungen sind für dein Konto pausiert. Wende dich an den Support.",
+        "planUnavailable": "Dieser Plan ist gerade nicht verfügbar. Versuche es später erneut.",
+        "cantChangeHere": "Dein Plan kann hier nicht geändert werden.",
+        "tryAgain": "Der Plan konnte nicht geändert werden. Versuche es erneut.",
+        "paymentFailed": "Deine Zahlung ist nicht durchgegangen.",
+        "previewFailed": "Die Änderung konnte nicht berechnet werden. Es wurde nichts abgebucht.",
+        "keepFailed": "Dein Plan konnte nicht beibehalten werden. Versuche es erneut."
+      },
+      "per": {
+        "weekly": "pro Woche",
+        "monthly": "im Monat",
+        "yearly": "im Jahr"
+      },
+      "proName": "{pro} {period}",
+      "cancelOverStepDown": "Dein {current} endet am {end}, statt zu {next} zu wechseln.",
+      "changePlan": "Plan ändern",
+      "moveUp": "{name} (aufsteigen)",
+      "payPerVideoCancel": "Pro Video zahlen (Plan kündigen)",
+      "dialogTitleChange": "Zu {name} wechseln?",
+      "dialogTitleCancel": "{current} kündigen?",
+      "working": "Änderung wird berechnet …",
+      "keep": "{current} behalten",
+      "payAndChange": "{amount} zahlen und wechseln",
+      "changeTo": "Zu {name} wechseln",
+      "cancelPlan": "Plan kündigen",
+      "howWeWorkThisOut": "So rechnen wir",
+      "renewsOn": "Verlängert sich am {date}."
+    },
+    "plan": {
+      "title": "Plan {name}",
+      "creditLeft": "{left} von {credit} Nutzung in diesem Monat übrig",
+      "usageResets": "Die Nutzung wird am {date} zurückgesetzt.",
+      "renewsOn": "Verlängert sich am {date}.",
+      "billedYearlyRenewsOn": "Jährlich abgerechnet. Verlängert sich am {date}.",
+      "plansLink": "Pläne",
+      "introLabel": "Das {app}-Intro zu meinen Videos hinzufügen",
+      "introHint": "Vor deinen Videos läuft ein kurzer {app}-Titel.",
+      "introSaveFailed": "Konnte nicht gespeichert werden. Versuche es erneut."
+    },
+    "planMove": {
+      "expired": "Dieses Angebot ist abgelaufen. Wende dich an den Support.",
+      "moveFailed": "Wir konnten es gerade nicht verschieben. Versuche es später erneut.",
+      "accepted": "Dein Plan {name} ist da.",
+      "sectionLabel": "Ein vom Support übertragener Plan",
+      "headline": "Der Support hat deinen Plan {name} hierher übertragen. Annehmen?",
+      "validUntil": "Gültig bis {date}.",
+      "whatMoves": "Was hierher wechselt",
+      "whatStays": "Was bleibt",
+      "contactSupport": "Support kontaktieren",
+      "accept": "Annehmen"
+    },
+    "planEmail": {
+      "title": "E-Mail für deinen Plan hinzufügen",
+      "body": "Sie wird für Belege und „Käufe wiederherstellen“ genutzt. Eine versteckte Apple-Adresse reicht nicht. Dein Plan funktioniert in der Zwischenzeit.",
+      "submit": "Diese E-Mail verwenden"
+    },
+    "screen": {
+      "title": "Abrechnung",
+      "contactSupportToContinue": "Wende dich an den Support, um fortzufahren.",
+      "sections": {
+        "refundQuestion": "Frage zur Erstattung",
+        "balance": "Guthaben",
+        "planMoves": "Planübertragungen",
+        "plan": "Plan",
+        "proCredit": "{pro}-Gutschrift",
+        "restorePurchases": "Käufe wiederherstellen",
+        "paymentMethods": "Zahlungsmethoden",
+        "businessDetails": "Firmendaten",
+        "usage": "Nutzung",
+        "invoices": "Rechnungen",
+        "yourPrices": "Deine Preise",
+        "refunds": "Erstattungen",
+        "aRow": "Eine Zeile"
+      },
+      "records": {
+        "label": "Käufe und Rechnungen",
+        "tabsLabel": "Abrechnungsdaten",
+        "tabs": {
+          "history": "Verlauf",
+          "plan": "Plan",
+          "usage": "Nutzung",
+          "invoices": "Rechnungen"
+        },
+        "loadFailed": "Deine Käufe konnten nicht geladen werden.",
+        "tryAgain": "Erneut versuchen",
+        "noPlanPayments": "Noch keine Planzahlungen.",
+        "noPurchases": "Noch keine Käufe.",
+        "loading": "Wird geladen …",
+        "showMore": "Mehr anzeigen",
+        "currency": "US-Dollar.",
+        "currencyWithVat": "US-Dollar. Preise enthalten Mehrwertsteuer, wo sie anfällt."
+      },
+      "methods": {
+        "title": "Zahlungsmethoden",
+        "saving": "Wird gespeichert",
+        "add": "Zahlungsmethode hinzufügen",
+        "none": "Keine gespeicherten Zahlungsmethoden.",
+        "expiredOn": "Abgelaufen am {date}",
+        "default": "Standard",
+        "expired": "Abgelaufen",
+        "makeDefault": "Als Standard festlegen",
+        "moveUp": "Nach oben",
+        "moveDown": "Nach unten",
+        "remove": "Entfernen",
+        "optionsFor": "Optionen für {label}",
+        "chargeOrder": "Wir belasten deine Standardzahlungsmethode. Wird sie abgelehnt, versuchen wir die anderen in dieser Reihenfolge.",
+        "max": "Du kannst bis zu 5 Zahlungsmethoden speichern.",
+        "removeBlocked": "Du kannst deine einzige Zahlungsmethode nicht entfernen, solange eine Zahlung aussteht. Bezahle sie oder füge zuerst eine weitere hinzu.",
+        "saveFailed": "Konnte nicht gespeichert werden. Versuche es erneut.",
+        "confirmTitle": "{label} entfernen?",
+        "confirmLast": "Bei deinen nächsten Umwandlungen wirst du jedes Mal gefragt, wie du zahlen willst.",
+        "confirmDescription": "Diese Zahlungsmethode entfernen",
+        "keep": "Behalten"
+      },
+      "company": {
+        "title": "Firmendaten",
+        "loading": "Wird geladen …",
+        "empty": "Keine Firmendaten. Füge sie hinzu, damit sie auf Rechnungen erscheinen.",
+        "reminder": "Firmendaten zu deinen Rechnungen hinzufügen",
+        "edit": "Bearbeiten"
+      },
+      "invoices": {
+        "loadFailed": "Deine Rechnungen konnten nicht geladen werden.",
+        "tryAgain": "Erneut versuchen",
+        "none": "Noch keine Rechnungen.",
+        "pdf": "PDF",
+        "creditNote": "Gutschrift {number}",
+        "loading": "Wird geladen …",
+        "showMore": "Mehr anzeigen"
+      }
+    },
+    "history": {
+      "status": {
+        "paid": "Bezahlt",
+        "processing": "In Bearbeitung",
+        "payment_needed": "Zahlung nötig",
+        "refund_requested": "Erstattung angefragt",
+        "refunded": "Erstattet",
+        "partially_refunded": "Teilweise erstattet",
+        "disputed": "Bei deiner Bank beanstandet",
+        "refund_failed": "Erstattung fehlgeschlagen",
+        "failed": "Zahlung fehlgeschlagen",
+        "applied": "Erledigt",
+        "scheduled": "Geplant"
+      },
+      "statusHelp": {
+        "processing": "Deine Zahlung wird bestätigt. Das kann einige Tage dauern.",
+        "refund_requested": "Wir melden uns innerhalb von 2 Werktagen per E-Mail.",
+        "refund_failed": "Wir haben dir deswegen eine E-Mail geschickt."
+      },
+      "credit": {
+        "granted": "Hinzugefügt",
+        "expired": "Abgelaufen",
+        "removed": "Beendet",
+        "frozen": "Pausiert",
+        "unfrozen": "Freigegeben"
+      },
+      "done": "Erledigt",
+      "scheduledFor": "Geplant für {date}",
+      "scheduled": "Geplant",
+      "changed": "Geändert",
+      "usageCredit": "Nutzungsgutschrift",
+      "planChange": "Planänderung",
+      "plan": "Plan",
+      "items": "{count, plural, one {# Posten} other {# Posten}}",
+      "item": {
+        "untitled": "Projekt ohne Titel",
+        "production": "3D-Video",
+        "preview": "Vorschau",
+        "launchOffer": "Einführungsangebot"
+      },
+      "menu": {
+        "more": "Mehr",
+        "refundRequested": "Erstattung angefragt",
+        "requestRefund": "Erstattung anfragen",
+        "getHelp": "Hilfe zu dieser Zahlung"
+      },
+      "pay": "{amount} zahlen",
+      "payInvoice": "Rechnung bezahlen",
+      "creditNote": "Gutschrift",
+      "invoice": "Rechnung",
+      "receipt": "Beleg"
+    },
+    "usage": {
+      "month": "Monat",
+      "downloadCsv": "CSV herunterladen",
+      "loadFailed": "Deine Nutzung konnte nicht geladen werden.",
+      "tryAgain": "Erneut versuchen",
+      "none": "Noch keine Nutzung.",
+      "columns": {
+        "date": "Datum",
+        "project": "Projekt",
+        "method": "Methode",
+        "preset": "Voreinstellung",
+        "minutes": "Minuten",
+        "cost": "Kosten",
+        "paidWith": "Bezahlt mit",
+        "status": "Status"
+      },
+      "apiKey": "API-Schlüssel „{name}“",
+      "paidWith": {
+        "balance": "Guthaben",
+        "card": "Zahlungsmethode",
+        "alipay": "Alipay"
+      },
+      "status": {
+        "running": "Läuft",
+        "runningReserved": "Läuft, {amount} reserviert",
+        "released": "Freigegeben",
+        "partlyDelivered": "Teilweise geliefert",
+        "returned": "Dem Guthaben gutgeschrieben: {amount}",
+        "done": "Fertig"
+      },
+      "showMore": "Mehr anzeigen",
+      "balanceHistory": "Guthabenverlauf",
+      "entry": {
+        "topup": "Aufladung",
+        "auto_reload": "Automatisch aufgeladen",
+        "refund_to_balance": "Dem Guthaben gutgeschrieben",
+        "debt_payment": "Offenen Betrag bezahlt",
+        "cash_refund": "Auf deine Zahlungsmethode erstattet",
+        "expiry": "Abgelaufen",
+        "adjustment": "Anpassung",
+        "dispute_freeze": "Pausiert, während eine Zahlung geprüft wird",
+        "dispute_unfreeze": "Nach Prüfung freigegeben",
+        "dispute_loss": "Nach Bankreklamation entfernt"
+      }
+    },
+    "balance": {
+      "title": "Guthaben",
+      "available": "verfügbar",
+      "availableWithCredits": "verfügbar · {credits}",
+      "creditWords": {
+        "grant": "Nutzungsgutschrift",
+        "pro": "{pro}-Gutschrift",
+        "plan": "Plannutzung"
+      },
+      "creditItem": "{amount} {words}",
+      "creditItemUseBy": "{amount} {words} (nutzbar bis {date})",
+      "creditsAnd": "{rest} und {last}",
+      "includes": "enthält {credits}",
+      "reserved": "{amount} reserviert für {count, plural, one {# laufende Umwandlung} other {# laufende Umwandlungen}}",
+      "frozen": "{amount} pausiert, während eine Zahlung geprüft wird.",
+      "expired": "Dein Guthaben ist am {date} abgelaufen.",
+      "addFundsHint": "Lade Guthaben auf, um Umwandlungen davon zu bezahlen.",
+      "expires": "Läuft am {date} ab, wenn du kein Guthaben auflädst.",
+      "addFunds": "Guthaben aufladen",
+      "prepaid": "Vorausbezahlt {amount}",
+      "paused": {
+        "declined": "Automatisches Aufladen ist pausiert, weil eine Zahlung nicht durchging.",
+        "limit": "Automatisches Aufladen ist pausiert: Tageslimit erreicht. Morgen geht es weiter."
+      },
+      "turnBackOn": "Wieder einschalten",
+      "autoReload": "Automatisch aufladen",
+      "autoReloadValue": "Unter {below} um {add} aufladen",
+      "off": "Aus",
+      "edit": "Bearbeiten",
+      "setUp": "Einrichten",
+      "set": "Festlegen",
+      "spendLimit": "Monatliches Ausgabenlimit",
+      "spendLimitValue": "{limit} im Monat · {used} verbraucht",
+      "none": "Keins",
+      "balanceAlert": "Guthabenwarnung",
+      "balanceAlertValue": "Unter {amount}",
+      "rowAction": "{action}: {label}"
+    },
+    "banner": {
+      "contactSupport": "Support kontaktieren",
+      "pay": "{amount} zahlen",
+      "portalFailed": "Die Seite für Zahlungsmethoden konnte nicht geöffnet werden",
+      "supportSubject": "Zahlung auf meinem Konto"
+    },
+    "requireBilling": {
+      "loading": "Wird geladen …"
+    },
+    "payReturn": {
+      "checking": "Deine Zahlung wird geprüft …",
+      "paidRun": "Zahlung erhalten. Dein 3D-Video startet.",
+      "backToApp": "Zurück zu {app}",
+      "backToProject": "Zurück zu deinem Projekt",
+      "notPaid": "Die Zahlung ist nicht durchgegangen.",
+      "tryAgain": "Erneut versuchen",
+      "chooseAnother": "Andere Zahlungsart wählen",
+      "slow": "Das dauert länger als sonst. Wir starten, sobald die Zahlung bestätigt ist.",
+      "startAgain": "Neu starten"
+    },
+    "settle": {
+      "nothingToPay": "Nichts zu zahlen."
+    },
+    "restore": {
+      "title": "Käufe wiederherstellen",
+      "intro": "Du hast einen Plan oder {pro} im Web gekauft und er fehlt? Stelle ihn hier wieder her.",
+      "restoring": "Wird wiederhergestellt …",
+      "button": "Käufe wiederherstellen",
+      "appStoreNote": "Käufe aus dem App Store erscheinen, wenn du dich in der App anmeldest.",
+      "failed": "Wir konnten deine Käufe gerade nicht prüfen. Versuche es später erneut."
+    },
+    "restoreMove": {
+      "findOther": "Käufe unter einer anderen E-Mail finden",
+      "looking": "Suche läuft …",
+      "emailLabel": "Die E-Mail, mit der du gekauft hast",
+      "sending": "Wird gesendet …",
+      "sendCode": "Code senden",
+      "codeSent": "Wenn wir Käufe finden, senden wir einen Code an {email}.",
+      "checking": "Wird geprüft …",
+      "findPurchases": "Käufe finden",
+      "useAnother": "Andere E-Mail verwenden",
+      "restored": "Deine Käufe sind wiederhergestellt",
+      "notFound": "Wir haben keine Käufe gefunden",
+      "tryAnother": "Andere E-Mail versuchen",
+      "signsInWith": "(Die Anmeldung erfolgt mit {providers}.)",
+      "contactSupport": "Support kontaktieren",
+      "supportSubject": "Plan auf mein Konto übertragen",
+      "signInThere": "Bei diesem Konto anmelden",
+      "hasOwnPlan": "Dieses Konto hat bereits einen Plan. Wende dich an den Support, um ihn zu übertragen.",
+      "checkFailed": "Wir konnten gerade nicht prüfen. Versuche es später erneut.",
+      "offerTitle": "Plan {plan} · gültig bis {date}",
+      "movesHere": "Was hierher wechselt",
+      "stays": "Was bleibt",
+      "restoring": "Wird wiederhergestellt …",
+      "restoreHere": "{plan} hier wiederherstellen",
+      "moves": {
+        "plan": "Dein Plan bis zu diesem Datum",
+        "appAccess": "{pro} in der App",
+        "currentUsage": "Die ungenutzte Nutzung dieses Monats",
+        "monthsNotYetGiven": "Die noch ausstehenden Monate an Nutzung"
+      },
+      "staysItems": {
+        "usageAlreadyUsed": "Bereits genutzte Nutzung",
+        "balance": "Das Guthaben des alten Kontos",
+        "appStorePurchases": "App-Store-Käufe",
+        "pastRunsAndFiles": "Frühere Videos und Dateien",
+        "adminGrants": "Alles, was der Support dem alten Konto gegeben hat"
+      }
+    },
+    "yourPrices": {
+      "title": "Deine Preise pro Minute",
+      "yourPrices": "Deine Preise",
+      "payPerVideo": "Pro Video zahlen",
+      "withPlanOff": "Mit {plan}, {pct} % Rabatt",
+      "withPlan": "Mit {plan}",
+      "pctOff": "{pct} % Rabatt auf jede Minute",
+      "upgradeTo": "Auf {plan} upgraden"
+    }
+  },
+  "look": {
+    "analysisRunning": "Die Analyse läuft noch. Preisangebote werden danach freigeschaltet.",
+    "requestFailed": "Anfrage fehlgeschlagen",
+    "heading": "Stereo-Vorschau",
+    "follower": {
+      "depthLabel": "Tiefenkarte",
+      "depthTitle": "Die Tiefenkarte aus deiner Tiefen-Umwandlung. Daraus entsteht das Stereo",
+      "outputTitle": "Die Stereo-Ausgabe der letzten Umwandlung, synchron zur Quelle"
+    },
+    "profile": {
+      "jobFailed": "Auftrag fehlgeschlagen",
+      "retry": "Profilierung wiederholen (gratis)",
+      "start": "Szenen profilieren (gratis)",
+      "hint": "Misst die Tiefe jeder Szene und füllt diese Regler vor. Gratis, ca. 1 Min.",
+      "failed": "Profilierung fehlgeschlagen: {error}",
+      "stale": "Die Szenenschnitte haben sich seit der Berechnung dieses Profils geändert, die Standardwerte passen eventuell nicht mehr. Die nächste Umwandlung profiliert neu mit den aktuellen Schnitten.",
+      "adaptiveNote": "Noch kein Szenenprofil. Die erste Umwandlung berechnet die Tiefenparameter pro Szene automatisch (adaptiv), Überschreibungen sind also optional. Danach erscheinen die berechneten Werte hier als Auto-Standardwerte jeder Szene."
+    },
+    "compare": {
+      "output": "3D-Ausgabe",
+      "depth": "Tiefenkarte",
+      "noneYet": "Starte eine Stereo-Vorschau, um die 3D-Ausgabe neben der Quelle zu sehen.",
+      "showingDepth": "Zeigt die Tiefenkarte der Tiefen-Umwandlung. Starte eine Stereo-Vorschau, um hier die 3D-Ausgabe zu sehen."
+    },
+    "import": {
+      "fileLabel": "Szenenprofil-Datei",
+      "title": "Ein auf dieser Seite exportiertes Szenenprofil laden. Ersetzt die Anpassungen pro Szene und die Tiefenskalierung",
+      "button": "Profil importieren …",
+      "readFailed": "Das Szenenprofil konnte nicht gelesen werden.",
+      "failed": "Import fehlgeschlagen: {error}",
+      "dialogTitle": "Szenenprofil importieren",
+      "dialogBody": "Deine Anpassungen pro Szene durch {count, plural, one {# importierte Überschreibung} other {# importierte Überschreibungen}} und die Tiefenskalierung ×{scale} ersetzen? Szenen ohne Überschreibung gehen zurück auf Auto. „In 3D umwandeln“ verwendet dieselben Werte.",
+      "replace": "Ersetzen"
+    },
+    "export": {
+      "title": "Das Szenenprofil als JSON herunterladen: die Auto-Werte jeder Szene plus deine Überschreibungen und die Tiefenskalierung",
+      "button": "Profil exportieren"
+    },
+    "depth": {
+      "reuseLabel": "Tiefenkarte zur Wiederverwendung",
+      "runOption": "{res} px · {date}",
+      "uploadedOption": "Hochgeladen: {name}",
+      "uploadedFallback": "Tiefenkarte",
+      "uploadedChip": "{hasName, select, yes {Hochgeladene Tiefenkarte: {name} (unverändert genutzt, keine Tiefenberechnung)} other {Hochgeladene Tiefenkarte (unverändert genutzt, keine Tiefenberechnung)}}",
+      "inheritedChip": "Tiefenkarte {res} px (von der Tiefen-Seite, wiederverwendet, nicht neu berechnet)",
+      "useDefault": "Standard-Tiefenauflösung der Pipeline verwenden",
+      "none": "Noch keine Tiefen-Umwandlung. Diese Umwandlung berechnet ihre eigene Tiefenkarte in der Standardauflösung der Voreinstellung."
+    },
+    "strength": {
+      "label": "Gesamtstärke des 3D (Tiefenskalierung): <value>×{scale}</value> <muted>skaliert jede Szene</muted>",
+      "aria": "Gesamtstärke des 3D (Tiefenskalierung)"
+    },
+    "preset": {
+      "label": "Auflösungsvoreinstellung",
+      "hint": "Die Ausgabequalität, mit denselben Optionen wie bei „In 3D umwandeln“."
+    },
+    "edgeLabel": "Kantenstil",
+    "formats": "Formate",
+    "selectFormat": "Wähle mindestens ein Format",
+    "priorRuns": "Frühere Stereo-Umwandlungen",
+    "scenes": {
+      "aria": "Szenen",
+      "heading": "3D pro Szene · {count, plural, one {# Szene} other {# Szenen}}",
+      "hint": "Klicke auf eine Szene, um die Vorschau dorthin zu springen. Die laufende Szene steht oben. Nur geänderte Zeilen werden als Überschreibungen gesendet."
+    },
+    "row": {
+      "jumpTitle": "Vorschau zu Szene {n} springen (Bild {frame})",
+      "thumbAlt": "Keyframe von Szene {n}",
+      "name": "Szene {n}",
+      "convertAria": "Szene {n} in 3D umwandeln",
+      "shotTypeAria": "Einstellungsart von Szene {n}",
+      "auto": "Auto",
+      "autoWith": "Auto ({type})",
+      "passthrough": "2D unverändert: wird so ausgeliefert (beide Augen identisch)",
+      "overridden": "überschrieben",
+      "resetAria": "Szene {n} auf Auto zurücksetzen",
+      "reset": "Zurücksetzen"
+    },
+    "shotTypes": {
+      "closeUp": "Nahaufnahme",
+      "standard": "Standard",
+      "dynamic": "Dynamisch",
+      "wide": "Weit"
+    },
+    "profileErrors": {
+      "notJson": "Die Datei ist kein gültiges JSON. Exportiere ein Szenenprofil von dieser Seite, um das erwartete Format zu sehen.",
+      "notProfile": "Keine Szenenprofil-Datei: erwartet wird '{'\"kind\": \"{kind}\"'}'.",
+      "depthScale": "depth_scale muss eine Zahl in [0.3, 1.5] sein.",
+      "noScenes": "Das Profil hat kein scenes-Array, es gibt nichts zu importieren.",
+      "versionNote": " (die Datei wurde mit Szenenschnitten v{fileVersion} exportiert; dieses Projekt steht bei v{currentVersion})",
+      "entryNotObject": "Ein scenes[]-Eintrag ist kein Objekt.",
+      "missingFirst": "Bei einer Szenen-Überschreibung fehlt das ganzzahlige `first`-Bild. Überschreibungen enthalten nur ganze Quellbildnummern.",
+      "notSceneStart": "Die Überschreibung bei Bild {frame} beginnt keine Szene in der aktuellen Schnittliste{note}.",
+      "shotType": "Szene bei Bild {frame}: shot_type muss einer von {types} sein.",
+      "displacement": "Szene bei Bild {frame}: displacement muss in (0, 0.03] liegen."
+    }
+  },
+  "depth": {
+    "analysisRunning": "Die Analyse läuft noch. Preisangebote werden danach freigeschaltet.",
+    "res": {
+      "label": "Tiefenkarten-Auflösung",
+      "hint": "Mehr Details kosten mehr. „In 3D umwandeln“ nutzt diese Tiefenarbeit mit Rabatt wieder, solange Detailgrad, Szenenschnitte und 2D-Szenen übereinstimmen. Begrenzt auf die Auflösung deines Videos."
+    },
+    "heading": "Tiefenkarte",
+    "uploadFailedFallback": "Upload fehlgeschlagen",
+    "requestFailed": "Anfrage fehlgeschlagen",
+    "imported": {
+      "preview": "(Vorschau)",
+      "clearAria": "Importierte Tiefenkarte entfernen"
+    },
+    "noRunYet": "Starte eine Tiefen-Vorschau, um die Tiefenkarte neben der Quelle zu sehen.",
+    "uploading": "Wird hochgeladen … {percent} %",
+    "uploadFailed": "Upload fehlgeschlagen: {error}",
+    "onFile": "Hinterlegt: {name}",
+    "onFileFallback": "hochgeladene Tiefenkarte",
+    "removeAria": "Hochgeladene Tiefenkarte entfernen",
+    "fileAria": "Tiefenkarten-Datei",
+    "upload": {
+      "title": "Ein lokales Tiefenvideo neben der Quelle in der Vorschau ansehen UND im Projekt registrieren. 3D-Look- und „In 3D umwandeln“-Umwandlungen können es dann statt einer Tiefenberechnung nutzen. Muss bildgenau sein (volle Länge, Bildrate der Quelle), wie beim Export.",
+      "button": "Tiefenkarte hochladen …"
+    },
+    "export": {
+      "titleDisabled": "Starte zuerst eine Tiefen-Vorschau. Der Export lädt deren rohe Tiefendatei herunter",
+      "titleEnabled": "Die rohe Tiefendatei in voller Präzision aus der letzten Umwandlung herunterladen",
+      "button": "Tiefenkarte exportieren",
+      "dialogTitle": "Tiefenkarte exportieren",
+      "dialogBody": "Das lädt die rohe <mono>depth</mono>-Datei der letzten Umwandlung herunter: die 10-Bit-Tiefenkarte in voller Präzision, die die späteren Schritte nutzen, nicht die 8-Bit-Vorschau <mono>depth_vis</mono>, die auf dieser Seite läuft. In normalen Playern kann sie flach oder schwarz aussehen. Das ist bei Graustufen mit hoher Bittiefe normal.",
+      "download": "10-Bit-Tiefe herunterladen"
+    },
+    "follower": {
+      "importedLabel": "importierte Tiefe",
+      "importedTitle": "Lokale Vorschau von {name}. Dieselbe Datei wird für Stereo-/Auslieferungs-Umwandlungen ins Projekt hochgeladen",
+      "visTitle": "Die 8-Bit-Tiefenvisualisierung der Umwandlung. Der Export liefert die rohe Datei in voller Präzision"
+    },
+    "missingVis": "Die letzte Tiefen-Umwandlung hat kein im Browser abspielbares Tiefenvideo (depth_vis). Exportiere stattdessen die rohe Tiefendatei.",
+    "scenes": {
+      "aria": "Szenen",
+      "heading": "Szenen · in 3D umwandeln",
+      "hint": "Nicht ausgewählte Szenen bleiben 2D (Abspann, Logos): Jede Umwandlung überspringt ihre Tiefe, auch Tiefen-Vorschauen, und der Preis bleibt gleich."
+    },
+    "scene": {
+      "thumbAlt": "Keyframe von Szene {n}",
+      "name": "Szene {n}",
+      "convertAria": "Szene {n} in 3D umwandeln"
+    }
+  },
+  "preview": {
+    "analyzing": "Wir analysieren dein Video noch. Vorschauen öffnen sich, sobald wir fertig sind.",
+    "heading": "Dein Video",
+    "band": {
+      "running": "wird erstellt",
+      "failed": "nicht fertig geworden"
+    },
+    "card": {
+      "title": "Deine Vorschau",
+      "backToLatest": "Zurück zur neuesten",
+      "back": "Zurück",
+      "failed": "Diese Vorschau wurde nicht fertig. Du hast nichts dafür gezahlt.",
+      "running": "Diese Vorschau wird erstellt. Sie erscheint hier, sobald sie fertig ist.",
+      "empty": "Deine Vorschau erscheint hier.",
+      "fetching": "Vorschau wird abgerufen …",
+      "makeWhole": "Das ganze Video in 3D umwandeln",
+      "viewAria": "Ansicht",
+      "freeCheck": "Kostenlose 3D-Prüfung auf diesem Bildschirm"
+    },
+    "quality": "Qualität",
+    "length": "Länge",
+    "shorter": "Kürzer",
+    "longer": "Länger",
+    "lengthValue": "{seconds} s",
+    "quickLook": "Kurzer Blick <muted>· halber Preis</muted>",
+    "frameRate": "Bildrate · dein Video hat {fps}",
+    "cta": "Diesen Moment ansehen",
+    "explain": {
+      "frames": "{frames} Bilder mit der Rate von {quality}: derselbe Preis pro Bild wie beim ganzen Video.",
+      "quickLook": "{hasMinimum, select, yes {Der kurze Blick nutzt die halbe Bildrate zum halben Preis. Mindestbetrag {minimum}. Schlägt er fehl, zahlst du nichts.} other {Der kurze Blick nutzt die halbe Bildrate zum halben Preis. Schlägt er fehl, zahlst du nichts.}}"
+    },
+    "timeline": {
+      "heading": "Moment wählen",
+      "hintWithBands": "Klicke auf den Streifen, um die Vorschau zu verschieben. Die Balken oben sind deine früheren Vorschauen.",
+      "hint": "Klicke auf den Streifen, um die Vorschau zu verschieben."
+    },
+    "past": {
+      "heading": "Frühere Vorschauen"
+    },
+    "rangeNote": "Vorschau <mono>{from} – {to}</mono> · Szene {scene} von {scenes}",
+    "row": {
+      "showing": "Angezeigt",
+      "show": "Anzeigen"
+    },
+    "check": {
+      "redCyan": "Rot-Cyan",
+      "wiggle": "Wackeln",
+      "sideBySide": "Side by Side",
+      "redCyanView": "Rot-Cyan-Ansicht",
+      "wiggleView": "Wackel-Ansicht",
+      "leftEye": "Linkes Auge",
+      "rightEye": "Rechtes Auge"
+    },
+    "player": {
+      "mute": "Stummschalten",
+      "unmute": "Ton an",
+      "speed": "Tempo"
+    }
+  },
+  "company": {
+    "form": {
+      "saved": "Gespeichert. Deine nächsten Rechnungen nutzen diese Angaben.",
+      "saveFailed": "Konnte nicht gespeichert werden. Versuche es erneut.",
+      "loadFailed": "Wir konnten deine gespeicherten Angaben nicht laden. Du kannst sie trotzdem eintragen.",
+      "companyName": "Firmenname",
+      "billingAddress": "Rechnungsadresse",
+      "country": "Land",
+      "line1": "Adresszeile 1",
+      "line2": "Adresszeile 2 (optional)",
+      "city": "Stadt",
+      "postalCode": "Postleitzahl",
+      "state": "Bundesland oder Region",
+      "taxId": "Steuer-ID (optional)",
+      "taxType": "Art",
+      "taxNumber": "Nummer",
+      "noTaxId": "Für dieses Land ist keine Steuer-ID nötig.",
+      "billingEmail": "Rechnungs-E-Mail für Rechnungskopien",
+      "poReference": "Bestellnummer (optional)",
+      "saving": "Wird gespeichert …",
+      "save": "Speichern",
+      "billingLink": "Abrechnung"
+    },
+    "country": {
+      "search": "Länder suchen",
+      "none": "Kein Land gefunden.",
+      "yours": "Dein Land",
+      "all": "Alle Länder"
+    }
+  },
+  "refunds": {
+    "sheet": {
+      "reviewLine": "Wir prüfen sie innerhalb von 2 Werktagen.",
+      "mergedLine": "Du hattest schon zu einigen davon gefragt, deshalb haben wir sie dieser Anfrage hinzugefügt.",
+      "sentTitle": "Anfrage gesendet",
+      "cancelToo": "Plan auch kündigen?",
+      "cancelPlan": "Plan kündigen",
+      "done": "Fertig",
+      "title": "Erstattung anfragen",
+      "intro": "Wähle, worum es geht. Ein Mensch prüft jede Anfrage. Du kannst bis {days} Tage nach einer Zahlung anfragen.",
+      "nothing": "Zahlungen der letzten {days} Tage können nicht erstattet werden.",
+      "planLabel": "Plan {name}",
+      "paidDetail": "{amount} · bezahlt am {date}",
+      "alreadyAsked": "· schon angefragt",
+      "noteLabel": "Was ist passiert? (optional)",
+      "cancel": "Abbrechen",
+      "sending": "Wird gesendet …",
+      "send": "Senden",
+      "sendFailed": "Wir konnten deine Anfrage nicht senden. Versuche es später erneut.",
+      "optionsLoadFailed": "Die erstattbaren Posten konnten nicht geladen werden.",
+      "requestsLoadFailed": "Deine Anfragen konnten nicht geladen werden."
+    },
+    "section": {
+      "questionNotice": "Wir haben eine Frage zu deiner Erstattungsanfrage gestellt. <link>Jetzt antworten</link>",
+      "ariaLabel": "Erstattungen",
+      "reportProblem": "Stimmt etwas mit einer Zahlung oder Umwandlung nicht? <link>Problem melden</link>",
+      "reportSubject": "{app}: Problem melden",
+      "needRefund": "Erstattung nötig? <button>Erstattung anfragen</button> · bis {days} Tage nach einer Zahlung, auch nach der Kündigung. Ein Mensch prüft jede Anfrage.",
+      "askWithin": "Frage eine Erstattung bis {days} Tage nach einer Zahlung an, auch nach der Kündigung. Ein Mensch prüft jede Anfrage.",
+      "appStore": "{pro} aus dem App Store wird von Apple erstattet. <link>Bei Apple eine Erstattung anfragen</link>",
+      "yourRequests": "Deine Anfragen",
+      "about": {
+        "plan": "Planzahlung",
+        "runs": "Umwandlungen",
+        "balance": "Guthaben",
+        "other": "Anfrage"
+      },
+      "answerLabel": "Deine Antwort",
+      "messageLabel": "Deine Nachricht",
+      "sending": "Wird gesendet …",
+      "sendAnswer": "Antwort senden",
+      "send": "Senden",
+      "cancel": "Abbrechen",
+      "askAgain": "Erneut dazu fragen",
+      "addMessage": "Nachricht hinzufügen",
+      "replyFailed": "Wir konnten das nicht senden. Versuche es später erneut."
+    }
+  },
+  "pricing": {
+    "payPerVideo": {
+      "withRange": "Pro Video zahlen. <plans>Pläne</plans> sparen {range}.",
+      "noRange": "Pro Video zahlen oder mit einem <plans>Plan</plans> sparen."
+    },
+    "per": {
+      "year": "im Jahr",
+      "month": "im Monat",
+      "week": "pro Woche"
+    },
+    "screen": {
+      "title": "Preise",
+      "loading": "Preise werden geladen …",
+      "howItWorks": "So funktionieren die Preise",
+      "perMinute": "<b>Pro Minute Video bei {fps} fps.</b> {fpsRule}. {roundedUp} Wandle nur einen Teil eines Videos um und zahle nur dafür.",
+      "discount": "<b>{pct} % Rabatt</b> auf jede Umwandlung über {threshold}.",
+      "minimumPerRun": "<b>Mindestbetrag {min}</b> pro Umwandlung.",
+      "minimumPerPreview": "<b>Mindestbetrag</b> {previewMin} pro Vorschau, {min} für andere Umwandlungen.",
+      "paidBefore": "<b>Vor dem Start bezahlt.</b> Brich ab, solange es in der Warteschlange ist oder in der ersten Minute, und erhalte alles zurück. Bei einem Fehler wird alles erstattet.",
+      "currency": "US-Dollar, ohne Steuern. Alle Dateitypen sind inklusive.",
+      "startProject": "Projekt starten"
+    },
+    "plansScreen": {
+      "loading": "Pläne werden geladen …",
+      "unavailable": "Pläne sind noch nicht verfügbar.",
+      "perMinuteLink": "Preise pro Minute"
+    },
+    "proOffer": {
+      "saveLine": "{pro}-Mitglieder sparen {pct} %",
+      "title": "{pct} % Rabatt auf jedes 3D-Video",
+      "description": "Eine Mitgliedschaft für {site} im Web und in den Apps.",
+      "descriptionWithCredit": "Eine Mitgliedschaft für {site} im Web und in den Apps, mit {credit}.",
+      "get": "{pro} holen"
+    },
+    "plans": {
+      "title": "Pläne für die Arbeit",
+      "subtitle": "Nutzung jeden Monat inklusive. {business} wird monatlich abgerechnet, {studio} jährlich.",
+      "yourPlan": "Dein Plan",
+      "changeTo": "Zu {name} wechseln",
+      "choose": "{name} wählen",
+      "lines": {
+        "usage": "{amount} Nutzung jeden Monat",
+        "off": "{pct} % Rabatt auf jede Umwandlung",
+        "commercial": "Kommerzielle Nutzung deiner Videos",
+        "freePreviews": "{count, plural, one {# kostenlose Vorschau im Monat} other {# kostenlose Vorschauen im Monat}}",
+        "express": "Express inklusive",
+        "fileQuality": "Dateiqualität {high} und {master} für Kundenabnahmen und Schnitt",
+        "fps": "Bis {fps} fps",
+        "invoices": "Rechnungen"
+      }
+    },
+    "table": {
+      "perEye": "{size} pro Auge",
+      "from": "ab {price}",
+      "aMinuteAt": "pro Minute bei {fps} fps",
+      "quality": "Qualität",
+      "perMinute": "Pro Minute, {fps} fps",
+      "withPro": "Mit {pro}",
+      "withProOff": "Mit {pro} (−{pct} %)",
+      "proCredit": "{pro} enthält außerdem {credit}.",
+      "limitAndPreviews": "{limit} · Vorschauen ab {price}"
+    },
+    "extras": {
+      "foveated": "Mehr Details dort, wo du hinschaust",
+      "foveatedIncludedAt": "Mehr Details dort, wo du hinschaust · inklusive ab {at}",
+      "fileQuality": "Dateiqualität {quality}",
+      "express": "Express",
+      "expressWhat": "Zuerst an der Reihe",
+      "addons": "Zusätze",
+      "freePreviews": "Kostenlose Vorschauen",
+      "perMonth": "{count} im Monat",
+      "firstFree": "Deine erste Vorschau ist gratis.",
+      "each": "je {seconds} s.",
+      "eachNoRollover": "je {seconds} s, nicht übertragbar.",
+      "balance": "Guthaben",
+      "addFunds": "Lade ab {amount} Guthaben auf und bezahle Umwandlungen davon.",
+      "refundable": "Nicht ausgegebenes Guthaben kann innerhalb von {days} Tagen erstattet werden."
+    }
+  }
+}
