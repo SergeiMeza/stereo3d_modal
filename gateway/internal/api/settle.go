@@ -620,7 +620,7 @@ func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *Au
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be made; try again"))
 			return
 		}
-		httpx.WriteOK(w, s.settleSheetResponse(ctx, user.UID, res))
+		httpx.WriteOK(w, noOneTapInChina(r, s.settleSheetResponse(ctx, user.UID, res)))
 		return
 	}
 	customerID, err := s.ensureCustomerID(ctx, user)
@@ -636,7 +636,7 @@ func (s *Service) HandleSettle2(w http.ResponseWriter, r *http.Request, user *Au
 			httpx.WriteErr(ctx, w, httpx.Err(http.StatusBadGateway, "payment_error", "the payment couldn't be opened; try again"))
 			return
 		}
-		httpx.WriteOK(w, s.settleSheetResponse(ctx, user.UID, res))
+		httpx.WriteOK(w, noOneTapInChina(r, s.settleSheetResponse(ctx, user.UID, res)))
 		return
 	}
 	res, err := s.collectOutstanding(ctx, user.UID, settleIOS, payContextOf(r))

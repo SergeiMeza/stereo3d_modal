@@ -52,6 +52,15 @@ func (s *Service) oneTapOffer(ctx context.Context, uid string, cust *store.Custo
 	return out
 }
 
+// noOneTapInChina drops the offer from an answer to a China-mode client
+// (China pays server-side with Alipay / WeChat Pay).
+func noOneTapInChina(r *http.Request, resp map[string]any) map[string]any {
+	if chinaMode(r) {
+		delete(resp, "one_tap")
+	}
+	return resp
+}
+
 func errOneTapUnavailable() error {
 	return httpx.Err(http.StatusConflict, "one_tap_unavailable", "Pay another way.")
 }
