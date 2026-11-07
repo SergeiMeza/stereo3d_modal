@@ -1298,6 +1298,15 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 	if reason != "" {
 		resp["pay_now_reason"] = reason
 	}
+	if flow == store.FlowPayNow { // BUX-20: the card's part, paid with one tap when allowed (null otherwise)
+		card := quote.AmountCents
+		if split, _ := resp["pay_split"].(map[string]any); split != nil {
+			if c, ok := split["card_cents"].(int64); ok {
+				card = c
+			}
+		}
+		resp["one_tap"] = s.oneTapOffer(ctx, user.UID, cust, card, chinaMode(r))
+	}
 	if l := s.limitsFor(ctx, user.UID); l.Limited {
 		resp["limits"] = l.JSON() // B14
 	}

@@ -250,6 +250,10 @@ func (s *Service) payNowResponse(c *store.Conversion) map[string]any {
 	resp := s.conversionResponse(c, nil)
 	resp["amount_cents"] = runCardCents(c)
 	resp["publishable_key"] = s.Stripe.PublishableKey
+	if c.State == store.StateCreated && c.PaymentFlow == store.FlowPayNow { // BUX-20: null when not allowed
+		cust, _ := s.Store.GetCustomer(context.Background(), c.UID)
+		resp["one_tap"] = s.oneTapOffer(context.Background(), c.UID, cust, runCardCents(c), false)
+	}
 	if b, ok := resp["billing"].(map[string]any); ok {
 		if ch, ok := b["checkout"]; ok {
 			resp["checkout"] = ch

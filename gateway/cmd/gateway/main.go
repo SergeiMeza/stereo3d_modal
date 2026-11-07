@@ -325,7 +325,8 @@ func main() {
 	mux.HandleFunc("POST /v1/customers", authed(svc.HandleEnsureCustomer))
 	mux.HandleFunc("GET /v1/billing", authed(svc.HandleGetBilling))
 	mux.HandleFunc("POST /v1/billing/setup-intent", authed(svc.HandleCreateSetupIntent))
-	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettle2)) // C11 collectOutstanding
+	mux.HandleFunc("POST /v1/billing/settle", authed(svc.HandleSettle2))              // C11 collectOutstanding
+	mux.HandleFunc("POST /v1/billing/settle/one-tap", authed(svc.HandleSettleOneTap)) // BUX-20
 	mux.HandleFunc("GET /v1/billing/history", authed(svc.HandleBillingHistory))
 	mux.HandleFunc("GET /v1/billing/invoices", authed(svc.HandleListInvoices))                         // C6, P10
 	mux.HandleFunc("GET /v1/billing/balance", authed(svc.HandleGetBalance))                            // v7 N13
@@ -422,11 +423,12 @@ func main() {
 	mux.HandleFunc("DELETE /v1/conversions/{id}", authed(withID(svc.HandleCancelConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/report", authed(withID(svc.HandleReportConversion)))
 	mux.HandleFunc("POST /v1/conversions/{id}/pay-now", authed(svc.FrozenWhileDeleting(withID(svc.HandleRunPayNow))))
-	mux.HandleFunc("POST /v1/conversions/{id}/handoff", authed(svc.FrozenWhileDeleting(withID(svc.HandleCreateHandoff)))) // B17
-	mux.HandleFunc("GET /v1/handoff/{code}", svc.HandleGetHandoff)                                                        // public, read-only
-	mux.HandleFunc("POST /v1/handoff/{code}/pay", svc.HandleHandoffPay)                                                   // public
-	mux.HandleFunc("GET /v1/pay-requests/{token}", svc.HandleGetPayRequest)                                               // D7: public, read-only
-	mux.HandleFunc("POST /v1/pay-requests/{token}/checkout", svc.HandlePayRequestCheckout)                                // D7: public
+	mux.HandleFunc("POST /v1/conversions/{id}/pay-one-tap", authed(svc.FrozenWhileDeleting(withID(svc.HandleRunPayOneTap)))) // BUX-20
+	mux.HandleFunc("POST /v1/conversions/{id}/handoff", authed(svc.FrozenWhileDeleting(withID(svc.HandleCreateHandoff))))    // B17
+	mux.HandleFunc("GET /v1/handoff/{code}", svc.HandleGetHandoff)                                                           // public, read-only
+	mux.HandleFunc("POST /v1/handoff/{code}/pay", svc.HandleHandoffPay)                                                      // public
+	mux.HandleFunc("GET /v1/pay-requests/{token}", svc.HandleGetPayRequest)                                                  // D7: public, read-only
+	mux.HandleFunc("POST /v1/pay-requests/{token}/checkout", svc.HandlePayRequestCheckout)                                   // D7: public
 
 	// Pro step pipeline (web/DESIGN.md): 1 video = 1 project.
 	mux.HandleFunc("POST /v1/projects", authed(svc.HandleCreateProject))
