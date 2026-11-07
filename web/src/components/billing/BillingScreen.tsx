@@ -559,7 +559,9 @@ function MethodsSection(): JSX.Element {
       {methods !== null && methods.length > 0 ? (
         <p className="flex items-center gap-2 pb-1 text-xs text-fg-muted">
           <InfoIcon className="size-3.5 shrink-0" aria-hidden />
-          {t("billing.screen.methods.chargeOrder")}
+          {t("billing.screen.methods.chargeOrder")}{" "}
+          {/* owner 2026-11-07 (D): charges to a saved method stay in US dollars */}
+          <span data-testid="methods-currency">{t("pay.copy.chargedInUsd")}</span>
         </p>
       ) : null}
       </div>

@@ -20,7 +20,7 @@ import { appStore, useAppAtom } from "@/lib/state/stores";
 import { balanceDialogAtom } from "./payAtoms";
 import type { JSX, ReactNode } from "react";
 
-import { formatCents, formatCentsShort } from "@/components/steps/money";
+import { formatCents, formatCentsShort, localAmount } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import { GatewayError } from "@/lib/api/client";
 import { prepaidOf, type BalanceSummary } from "@/lib/api/types";
@@ -412,6 +412,7 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
   const t = useT();
   const prepaid = prepaidOf(billing.status);
   const ar = prepaid?.auto_reload ?? { enabled: false, below_cents: 1000, add_cents: 2500 };
+  const est = prepaid?.auto_reload?.estimate;
   // "Set up" and "Edit" both open it switched on
   const [on, setOn] = useState(true);
   const [below, setBelow] = useState(dollars(ar.below_cents));
@@ -425,6 +426,15 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
 
   const addC = cents(add);
   const belowC = cents(below);
+  // the gateway's estimate is for the saved amount: only while the form
+  // still shows that amount
+  const reloadEstimate =
+    prepaid?.last_presentment_currency &&
+    est &&
+    addC === ar.add_cents &&
+    est.currency.toLowerCase() === prepaid.last_presentment_currency.toLowerCase()
+      ? localAmount(est, t)
+      : null;
   const invalid = on
     ? addC < 1000
       ? t("balance.autoReload.addAtLeast", { amount: formatCentsShort(1000, t) })
@@ -493,7 +503,16 @@ export function AutoReloadDialog({ onClose }: { onClose: () => void }): JSX.Elem
             {error ? <ErrorLine text={error} /> : null}
             <p data-testid="reload-consent" className="flex gap-2 rounded-lg border border-edge/70 px-3 py-2 text-xs text-fg-muted">
               <RefreshCwIcon className="mt-0.5 size-3.5 shrink-0" aria-hidden />
-              {reloadConsent(def ? methodLabel(def) : null, addC, belowC, t)}
+              <span>
+                {reloadConsent(def ? methodLabel(def) : null, addC, belowC, t)}{" "}
+                {/* owner 2026-11-07 (D): reloads are charged off-session, in US
+                    dollars; the gateway's estimate in the last currency paid,
+                    when it gives one (never worked out here) */}
+                <span data-testid="reload-currency">
+                  {t("pay.copy.chargedInUsd")}
+                  {reloadEstimate ? ` ${t("balance.autoReload.localEstimate", { local: reloadEstimate })}` : ""}
+                </span>
+              </span>
             </p>
           </>
         ) : error ? (

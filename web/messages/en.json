@@ -1390,7 +1390,8 @@
       "saving": "Saving…",
       "save": "Save",
       "below": "When my balance drops below",
-      "add": "Add"
+      "add": "Add",
+      "localEstimate": "≈ {local} at today's rate."
     },
     "spending": {
       "title": "Spending",

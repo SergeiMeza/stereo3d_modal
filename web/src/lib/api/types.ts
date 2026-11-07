@@ -1238,7 +1238,14 @@ export interface BalanceSummary {
     below_cents: number;
     add_cents: number;
     paused_reason?: "declined" | "stop_code" | "efw" | "dispute" | "review" | "sheet_only" | "limit";
+    /** owner 2026-11-07 (names to be confirmed): the gateway's estimate of
+     * the reload in the currency the account last paid in; the charge
+     * itself is in US dollars. Missing: no estimate shown. */
+    estimate?: Presentment | null;
   };
+  /** owner 2026-11-07 (name to be confirmed): the currency the account's
+   * last card payment was in ("jpy"); off-session charges stay USD */
+  last_presentment_currency?: string | null;
   spend_limit_cents?: number | null;
   month_spent_cents: number;
   low_balance_cents: number;
