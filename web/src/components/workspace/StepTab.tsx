@@ -96,7 +96,7 @@ export function StepTab({
 }: StepTabProps): JSX.Element {
   const t = useT();
   const method = methodOf(project);
-  const def = stepDef(step, method);
+  const def = stepDef(step, method, t);
   const Panel = PANELS[method][step];
   if (Panel === undefined) throw new Error(`no ${method} panel for ${step}`);
   // The last run of this step with this method (a project may have runs
