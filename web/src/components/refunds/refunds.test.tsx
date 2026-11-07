@@ -1,7 +1,7 @@
 /**
- * Refunds on request (owner 2026-11-06): no automatic refunds unless the
- * customer asks; a person reviews every request, within 30 days of the
- * payment. Plan & billing's Refunds, the sheet, the history row entry,
+ * Refunds on request (owner 2026-11-06; policy 2026-11-07): people can ask
+ * and a person decides case by case; the form promises nothing (no
+ * window, no "can be refunded"). Plan & billing's Refunds, the sheet, the history row entry,
  * Your requests with replies, App Store Pro, and the gateway's refusals.
  */
 
@@ -130,14 +130,15 @@ describe("Request a refund", () => {
     expect(within(req).getByTestId("request-status").textContent).toBe("We're looking at it");
   });
 
-  it("each charge's menu keeps only Get help with this payment (SHOW_REFUND_ENTRY off)", async () => {
+  it("each charge's menu offers Request a refund again, beside Get help (policy 2026-11-07)", async () => {
     planOption();
     renderBilling();
     await openRowMenu(await screen.findByTestId("row-plan_in_plan_1"));
     expect(await screen.findByTestId("row-help")).toBeTruthy();
-    expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Get help with this payment"]);
-    expect(screen.queryByTestId("row-refund")).toBeNull();
-    expect(screen.queryByTestId("row-refund-asked")).toBeNull();
+    expect(screen.getAllByRole("menuitem").map((i) => i.textContent)).toEqual(["Request a refund", "Get help with this payment"]);
+    fireEvent.click(screen.getByTestId("row-refund"));
+    const sheet = await screen.findByTestId("refund-sheet");
+    expect((await within(sheet).findByLabelText(/Business plan/) as HTMLInputElement).checked).toBe(true);
   });
 
   it("a cancelled plan isn't offered cancelling again", async () => {
@@ -217,7 +218,7 @@ describe("Request a refund", () => {
 });
 
 describe("quiet on Billing (owner 2026-11-07)", () => {
-  it("the refund lines are hidden for now; one Report a problem line, after Purchases and invoices", async () => {
+  it("the refund line is back and promises nothing; Report a problem stays, after Purchases and invoices", async () => {
     planOption();
     mockDb.proStatus = { pro: true, known: true, source: "app_store", scheduled_change: null };
     (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
@@ -230,11 +231,11 @@ describe("quiet on Billing (owner 2026-11-07)", () => {
     // below the purchases
     const purchases = screen.getByRole("region", { name: "Purchases and invoices" });
     expect(purchases.compareDocumentPosition(report) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
-    // hidden: both sentences and the App Store line
-    await new Promise((r) => setTimeout(r, 200));
-    expect(screen.queryByTestId("refunds-line")).toBeNull();
-    expect(screen.queryByTestId("refund-app-store")).toBeNull();
-    expect(screen.queryByText(/Ask Apple for a refund/)).toBeNull();
+    // the refund line: no window, no promise, always a way in
+    const line = await screen.findByTestId("refunds-line");
+    expect(line.textContent).toBe("Need a refund? Ask for a refund. We look at each request.");
+    expect(line.textContent).not.toMatch(/\d+ days|within|can be refunded|also after cancelling/);
+    expect(await screen.findByTestId("refund-app-store")).toBeTruthy();
     // no requests yet: no list
     expect(screen.queryByTestId("support-requests")).toBeNull();
   });
@@ -294,12 +295,60 @@ describe("Your requests", () => {
 });
 
 describe("App Store Pro", () => {
-  it("the Ask Apple line is hidden with the other refund lines for now (SHOW_REFUND_FOOTER)", async () => {
+  it("the Ask Apple line shows with the refund line again", async () => {
     mockDb.proStatus = { pro: true, known: true, source: "app_store", scheduled_change: null };
     (globalThis as { __mockDb?: typeof mockDb }).__mockDb = mockDb;
     renderBilling();
-    await screen.findByTestId("report-problem");
-    await new Promise((r) => setTimeout(r, 200));
-    expect(screen.queryByTestId("refund-app-store")).toBeNull();
+    const apple = await screen.findByTestId("refund-app-store");
+    expect(within(apple).getByRole("link", { name: "Ask Apple for a refund" })).toBeTruthy();
+  });
+});
+
+describe("refund policy 2026-11-07: ask, a person decides, nothing promised", () => {
+  afterEach(() => window.history.replaceState(null, "", "/"));
+
+  function balanceOption(cents: number): void {
+    mockDb.refundOptions.balance = {
+      window_days: 14,
+      unspent_cents: cents,
+      topups: [{ topup_id: "tu_1", paid_at: "2026-11-05T09:00:00Z", paid_cents: 2500, unspent_cents: cents, open_request_id: null }],
+    };
+  }
+
+  it("someone with only a balance opens the form from the deletion link and sends it", async () => {
+    balanceOption(1250);
+    const bodies = captureRequests();
+    window.history.replaceState(null, "", "/account/billing?refund=balance");
+    renderBilling();
+    const sheet = await screen.findByTestId("refund-sheet");
+    const row = (await within(sheet).findByLabelText(/Unspent balance/)) as HTMLInputElement;
+    expect(row.checked).toBe(true);
+    expect(sheet.textContent).toContain("$12.50 unspent");
+    // the link is used once
+    expect(window.location.search).toBe("");
+    fireEvent.click(within(sheet).getByRole("button", { name: "Send" }));
+    expect(await within(sheet).findByText(REVIEW_LINE)).toBeTruthy();
+    expect(bodies).toEqual([{ balance: true }]);
+    expect(mockDb.supportRequests[0].about).toBe("balance");
+  });
+
+  it("the form shows no window or promise, even when the gateway sends one", async () => {
+    balanceOption(1250);
+    runOption("crun00000009", 900);
+    mockDb.refundOptions.window_days = 30;
+    renderBilling();
+    act(() => appStore.set(openRefundSheetAtom, {}));
+    const sheet = await screen.findByTestId("refund-sheet");
+    await within(sheet).findByLabelText(/Unspent balance/);
+    expect(sheet.textContent).toContain("We look at each request.");
+    expect(sheet.textContent).not.toMatch(/\d+ days|within|can be refunded|refunded in full|14|30/);
+  });
+
+  it("nothing to pick: no promise, and a way to write to us", async () => {
+    renderBilling();
+    act(() => appStore.set(openRefundSheetAtom, {}));
+    const nothing = await screen.findByTestId("refund-nothing");
+    expect(nothing.textContent).toBe("There's nothing to pick here right now. Report a problem if something's wrong.");
+    expect(within(nothing).getByRole("link", { name: "Report a problem" }).getAttribute("href")).toMatch(/^mailto:/);
   });
 });

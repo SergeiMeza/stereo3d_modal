@@ -24,7 +24,7 @@ import {
   vi,
 } from "vitest";
 
-import { http } from "msw";
+import { http, HttpResponse } from "msw";
 
 import Home from "@/app/page";
 import AccountScreen from "@/components/auth/AccountScreen";
@@ -214,21 +214,52 @@ describe("AccountScreen delete (mock mode)", () => {
   });
 
   // gateway 00081: a cash balance is refunded first, then the account goes
-  it("with a balance: confirm the refund, then deletion is pending", async () => {
+  it("with a balance: says it's lost and links to the refund form; no Refund and delete (policy 2026-11-07)", async () => {
     settleAllRuns();
     mockDb.billing.prepaid.balance_cents = 1250;
     mockDb.billing.prepaid.topups = 1;
+    const bodies: unknown[] = [];
+    server.events.on("request:start", async ({ request }) => {
+      if (request.url.endsWith("/v1/account/delete")) bodies.push(await request.clone().json());
+    });
+    renderWithAuth(<AccountScreen />);
+    const lost = await screen.findByTestId("delete-balance-lost");
+    expect(lost.textContent).toBe("Your unspent balance of $12.50 will be lost when your account is deleted. Ask for a refund first");
+    expect(within(lost).getByRole("link", { name: "Ask for a refund first" }).getAttribute("href")).toBe("/account/billing?refund=balance");
+    expect(screen.queryByRole("button", { name: /refund/i })).toBeNull();
+    expect(document.body.textContent).not.toMatch(/We return|returning your|Refund and delete|Delete and refund/);
+    await typeDeleteAndConfirm();
+    // the new gateway: deletion is scheduled as for anyone else
+    expect(await screen.findByTestId("deletion-scheduled-line")).toBeTruthy();
+    expect(mockDb.billing.deletionPending).toBeFalsy();
+    // the loss line was on screen: an older gateway's confirmation goes along
+    expect(bodies).toEqual([{ balance_confirmed: true }]);
+    server.events.removeAllListeners();
+  });
+
+  it("an older gateway (balance refunded first): its 409 shows the loss line, and Delete again goes ahead", async () => {
+    settleAllRuns();
+    // a gateway before the policy, and a page that didn't know the balance
+    const bodies: { balance_confirmed?: boolean }[] = [];
+    server.use(
+      http.post(/\/v1\/account\/delete$/, async ({ request }) => {
+        const body = (await request.json()) as { balance_confirmed?: boolean };
+        bodies.push(body);
+        if (!body.balance_confirmed)
+          return HttpResponse.json(
+            { success: false, error: "balance_remaining", message: "refund first", details: { cents: 1250 } },
+            { status: 409 },
+          );
+        return HttpResponse.json({ deleted: false, deletion_pending: true, case_id: "case_1", refund_cents: 1250 }, { status: 202 });
+      }),
+    );
     renderWithAuth(<AccountScreen />);
     await typeDeleteAndConfirm();
-    const refund = await screen.findByTestId("delete-refund");
-    expect(refund.textContent).toContain("We return your $12.50 balance to your payment method first.");
-    fireEvent.click(screen.getByRole("button", { name: "Refund and delete" }));
-    expect((await screen.findByTestId("deletion-pending")).textContent).toBe(
-      "We're returning your $12.50; your account is deleted once that's done.",
-    );
-    expect(mockDb.billing.deletionPending).toBe(true);
-    expect(replace).not.toHaveBeenCalled();
-    expect((screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement).disabled).toBe(true);
+    const lost = await screen.findByTestId("delete-balance-lost");
+    expect(lost.textContent).toContain("Your unspent balance of $12.50 will be lost");
+    fireEvent.click(screen.getByRole("button", { name: "Delete account" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/"));
+    expect(bodies).toEqual([{}, { balance_confirmed: true }]);
   });
 });
 

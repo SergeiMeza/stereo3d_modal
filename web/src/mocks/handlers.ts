@@ -607,6 +607,9 @@ interface DB {
   /** owner 2026-11-06: refund requests (gateway efa1856) — what can be
    * asked for, and the account's requests */
   refundOptions: import("@/lib/api/client").RefundOptions;
+  /** a gateway before the 2026-11-07 refund policy: deletion refunds the
+   * balance first (409 balance_remaining until balance_confirmed) */
+  oldDeleteRefund: boolean;
   supportRequests: import("@/lib/api/client").SupportRequest[];
   /** gateway 00152: the account's emails, and addresses other accounts hold */
   accountEmails: import("@/lib/api/client").AccountEmails;
@@ -1213,6 +1216,7 @@ function seed(): DB {
     passkeyReauthNeeded: false,
     identities: { providers: ["email"], email: "dev@example.com", password: false },
     refundOptions: { window_days: 30, plan: null, runs: [] } as import("@/lib/api/client").RefundOptions,
+    oldDeleteRefund: false,
     accountEmails: {
       emails: [{ id: "em_dev", email: "dev@example.com", main: true, relay: false, added_at: "2026-10-01T00:00:00Z" }],
       plan_email_needed: false,
@@ -4797,9 +4801,12 @@ export const handlers = [
         { status: 402 },
       );
     }
-    // 00081: a cash balance is refunded first; the account goes after
+    // refund policy 2026-11-07 (gateway feat/refund-policy): an unspent
+    // balance isn't refunded at deletion; balance_confirmed is accepted and
+    // ignored. oldDeleteRefund: a gateway before it (00081: 409
+    // balance_remaining until confirmed, then the balance is refunded first)
     const cash = mockDb.billing.prepaid.balance_cents;
-    if (cash > 0) {
+    if (cash > 0 && mockDb.oldDeleteRefund) {
       if (!body.balance_confirmed) {
         return HttpResponse.json(
           { success: false, error: "balance_remaining", message: "your balance is refunded before your account is deleted", details: { cents: cash } },

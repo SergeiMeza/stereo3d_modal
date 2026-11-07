@@ -139,7 +139,7 @@ describe("restored and moved plans (gateway 00155)", () => {
 });
 
 describe("deleting: plan credit is never a refund (gateway 00155)", () => {
-  it("the refund line counts only the cash balance", async () => {
+  it("the balance-lost line counts only the cash balance", async () => {
     for (const c of mockDb.conversions.values()) if (["created", "paid", "processing"].includes(c.state)) c.state = "canceled";
     server.use(
       http.post(`${GATEWAY}/v1/account/delete`, () =>
@@ -160,8 +160,9 @@ describe("deleting: plan credit is never a refund (gateway 00155)", () => {
     const button = screen.getByRole("button", { name: "Delete account" }) as HTMLButtonElement;
     await waitFor(() => expect(button.disabled).toBe(false));
     fireEvent.click(button);
-    const refund = await screen.findByTestId("delete-refund");
-    expect(refund.textContent).toContain("We return your $12.50 balance");
-    expect(refund.textContent).not.toContain("$400");
+    // an older gateway's 409: the loss line counts only the cash balance
+    const lost = await screen.findByTestId("delete-balance-lost");
+    expect(lost.textContent).toContain("Your unspent balance of $12.50 will be lost");
+    expect(lost.textContent).not.toContain("$400");
   });
 });

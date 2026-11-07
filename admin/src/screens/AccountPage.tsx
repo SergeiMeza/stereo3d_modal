@@ -576,7 +576,8 @@ function OpenCaseSheet({ uid, onClose }: { uid: string; onClose: () => void }) {
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const balanceReason = reason === "topup_withdrawal" || reason === "closure_balance";
+  // closure_balance retired with the 2026-11-07 refund policy (RETIRED_REASONS)
+  const balanceReason = reason === "topup_withdrawal";
   const conversionIds = ids.split(/[\s,]+/).map((s) => s.trim()).filter(Boolean);
   const blocked = balanceReason ? reason === "topup_withdrawal" && !topup.trim() : conversionIds.length === 0;
 
@@ -630,7 +631,6 @@ function OpenCaseSheet({ uid, onClose }: { uid: string; onClose: () => void }) {
           <FieldControl>
             <Input className="font-mono" value={topup} onChange={(e) => setTopup(e.target.value)} />
           </FieldControl>
-          {reason === "closure_balance" && <FieldDescription>Optional for a closure.</FieldDescription>}
         </Field>
       ) : (
         <Field>

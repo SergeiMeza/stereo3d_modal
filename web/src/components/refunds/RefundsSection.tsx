@@ -109,7 +109,7 @@ export function RefundQuestionNotice(): JSX.Element | null {
  * any. The sheet stays mounted here. */
 export function RefundsFooter(): JSX.Element {
   const t = useT();
-  const { opts, list } = useRefundData();
+  const { list } = useRefundData();
   const openSheet = useAppSetAtom(openRefundSheetAtom);
   const pro = useProStatus();
   const appStore = proCase(pro) === "app_store";
