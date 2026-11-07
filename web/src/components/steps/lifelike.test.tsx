@@ -38,6 +38,7 @@ import { billingStatusNote, ConversionTracker } from "./ConversionTracker";
 import { setMockWalletsForTests } from "@/components/pay/CheckoutPane";
 
 import { clearStepQuotes } from "./checkoutStore";
+import { savedQuality } from "./make3dAtoms";
 import { LifelikeDeliverPanel, splitQuestion } from "./LifelikeDeliverPanel";
 import { LifelikePreviewPanel, previewRange } from "./LifelikePreviewPanel";
 import {
@@ -1106,37 +1107,44 @@ describe("Where will you watch it? options (S3D-51)", () => {
   });
 });
 
-describe("Bitrate under Advanced (S3D-56)", () => {
-  it("Lifelike Make 3D: collapsed, Automatic by default, sends the choice, shows the estimated size", async () => {
+describe("File quality (owner 2026-11-07)", () => {
+  it("Standard · High · Master, Standard by default and free, the quote's size and rate under it", async () => {
+    mockDb.tierPricing = true;
     const quotes = captureBodies("/quotes");
     renderPanel(
       <LifelikeDeliverPanel project={lifelikeProject()} onProjectChanged={() => {}} />,
     );
-    const advanced = screen.getByTestId("lifelike-advanced") as HTMLDetailsElement;
-    expect(advanced.open).toBe(false);
-    const select = within(advanced).getByLabelText("Bitrate") as HTMLSelectElement;
-    expect([...select.options].map((o) => o.textContent)).toEqual([
-      "Automatic",
-      "Match the source",
-      "40 Mbit/s",
-      "60 Mbit/s",
-      "100 Mbit/s",
-    ]);
-    expect(select.value).toBe("auto");
-    expect(
-      await within(advanced).findByText(/^Estimated size: about /, {}, { timeout: 3000 }),
-    ).toBeTruthy();
-    const before = screen.getByTestId("quote-total").textContent;
-    fireEvent.change(select, { target: { value: "60" } });
-    await waitFor(() =>
-      expect(quotes.some((q) => q.step === "production" && q.bitrate === 60)).toBe(true),
-    );
-    // no price change
-    await waitFor(() => expect(screen.getByTestId("quote-total").textContent).toBe(before));
-    fireEvent.change(select, { target: { value: "match_source" } });
-    await waitFor(() =>
-      expect(quotes.some((q) => q.bitrate === "match_source")).toBe(true),
-    );
+    const scale = await screen.findByTestId("file-quality");
+    // "Quality" stays the resolution picker
+    expect(within(scale).getByRole("radiogroup", { name: "File quality" })).toBeTruthy();
+    const radios = within(scale).getAllByRole("radio") as HTMLInputElement[];
+    expect(radios.map((r) => r.value)).toEqual(["standard", "high", "master"]);
+    expect(radios[0].checked).toBe(true);
+    expect(screen.queryByTestId("file-quality-hint")).toBeNull();
+    await waitFor(() => expect(quotes.some((q) => q.step === "production" && q.quality === "standard")).toBe(true));
+    expect((await screen.findByTestId("file-quality-result")).textContent).toMatch(/^about [\d.]+ (MB|GB) · about 22 Mbit\/s$/);
+    const standardTotal = screen.getByTestId("quote-total").textContent;
+
+    fireEvent.click(radios[1]);
+    expect(screen.getByTestId("file-quality-hint").textContent).toBe("For client reviews and big screens");
+    await waitFor(() => expect(screen.getByTestId("file-quality-result").textContent).toContain("about 41 Mbit/s"));
+    await waitFor(() => expect(screen.getByTestId("quote-total").textContent).not.toBe(standardTotal));
+
+    fireEvent.click(radios[2]);
+    expect(screen.getByTestId("file-quality-hint").textContent).toBe("For editing and archiving");
+    await waitFor(() => expect(quotes.some((q) => q.step === "production" && q.quality === "master")).toBe(true));
+    // no Mbit/s list, no Match the source, no bitrate field
+    expect(screen.queryByLabelText("Bitrate")).toBeNull();
+    expect(quotes.every((q) => !("bitrate" in q))).toBe(true);
+  });
+
+  it("an old saved bitrate pick maps to File quality: master → Master, anything else → Standard", () => {
+    expect(savedQuality({ bitrate: "master" })).toBe("master");
+    expect(savedQuality({ master: true, bitrate: "auto" })).toBe("master");
+    expect(savedQuality({ bitrate: "auto" })).toBe("standard");
+    expect(savedQuality({ bitrate: 60 })).toBe("standard");
+    expect(savedQuality({ bitrate: "match_source" })).toBe("standard");
+    expect(savedQuality({ quality: "high", bitrate: "master" })).toBe("high");
   });
 });
 

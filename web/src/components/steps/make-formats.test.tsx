@@ -108,7 +108,7 @@ describe("the files a run makes are the ticked ones", () => {
     [["Apple Vision Pro", "Pico"]],
     [["3D TV or projector"]],
     [["Not sure"]],
-  ])("for %j, after Master, Express and Remove black bars, the quote and the run send the ticks", async (labels) => {
+  ])("for %j, after Master file quality, Express and Remove black bars, the quote and the run send the ticks", async (labels) => {
     const quotes = capture("/quotes");
     const runs = capture("/conversions");
     render(
@@ -116,13 +116,13 @@ describe("the files a run makes are the ticked ones", () => {
         <LifelikeDeliverPanel project={project({ has_bars: true, remove_bars: true })} onProjectChanged={() => {}} />
       </AuthProvider>,
     );
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     pickDevices(labels);
     // the person also ticks Side by side by hand where it's offered
     const files = screen.getByRole("group", { name: "Files you'll get" });
     const sbs = within(files).queryByRole("checkbox", { name: FORMAT_NAMES.sbs }) as HTMLInputElement | null;
     if (sbs && !sbs.checked) fireEvent.click(sbs);
-    fireEvent.click(within(screen.getByTestId("addon-master")).getByRole("checkbox"));
+    fireEvent.click(within(screen.getByTestId("file-quality-master")).getByRole("radio"));
     fireEvent.click(within(screen.getByTestId("addon-express")).getByRole("checkbox"));
     const bars = within(screen.getByTestId("bars-toggle")).getByRole("checkbox");
     fireEvent.click(bars);
@@ -202,27 +202,27 @@ describe("Make 3D picks (owner 2026-11-05)", () => {
   it("survive a reload: spatial only stays spatial only", async () => {
     const p = project();
     const first = page(p);
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     pickDevices(["Samsung Galaxy XR", "XR glasses"]);
     spatialOnly();
     expect(ticked()).toEqual(["mvhevc"]);
     reload(first, p.project_id);
     page(p);
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     expect(ticked()).toEqual(["mvhevc"]);
   });
 
   it("don't carry over to another project", async () => {
     const p = project();
     const first = page(p);
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     pickDevices(["Apple Vision Pro"]);
     spatialOnly();
     first.unmount();
     const other: Project = { ...p, project_id: "zz9other00001" };
     mockDb.projects.set(other.project_id, structuredClone(other));
     page(other);
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     // the other project starts from its own preselection
     expect(ticked()).toEqual(expect.arrayContaining(["mvhevc"]));
     expect(ticked().length).toBeGreaterThan(1);
@@ -230,7 +230,7 @@ describe("Make 3D picks (owner 2026-11-05)", () => {
 
   it("a headset change never overwrites a file pick", async () => {
     page(project());
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     spatialOnly();
     pickDevices(["Samsung Galaxy XR", "XR glasses"]);
     expect(ticked()).toEqual(["mvhevc"]);
@@ -240,7 +240,7 @@ describe("Make 3D picks (owner 2026-11-05)", () => {
 
   it("the devices preselect the files while none were ticked by hand", async () => {
     page(project());
-    await screen.findByTestId("addon-master");
+    await screen.findByTestId("file-quality");
     pickDevices(["Apple Vision Pro"]);
     expect(ticked()).toEqual(["mvhevc"]);
     pickDevices(["Samsung Galaxy XR"]);

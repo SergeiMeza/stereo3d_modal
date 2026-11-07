@@ -163,26 +163,32 @@ describe("add-ons in Make 3D (pricing 2026-11)", () => {
     resetPricingCache();
   });
 
-  it("Master bitrate and Express add to the price and the request", async () => {
+  it("File quality High and Express add to the price and the request (owner 2026-11-07)", async () => {
     const quotes = captureQuotes();
     render(
       <AuthProvider>
         <LifelikeDeliverPanel project={deliver()} onProjectChanged={() => {}} />
       </AuthProvider>,
     );
-    const masterRow = await screen.findByTestId("addon-master");
-    // its share from /v1/pricing (gateway 00166: +100%)
-    expect(masterRow.textContent).toContain("+100%");
+    const scale = await screen.findByTestId("file-quality");
+    // their shares from /v1/pricing (gateway 00172: High +30%, Master +50%)
+    expect(within(scale).getByTestId("file-quality-high").textContent).toBe("High+30%");
+    expect(within(scale).getByTestId("file-quality-master").textContent).toBe("Master+50%");
+    expect(within(scale).getByTestId("file-quality-standard").textContent).toBe("Standard");
     const expressRow = screen.getByTestId("addon-express");
     expect(expressRow.textContent).toContain("+50%");
-    fireEvent.click(within(masterRow).getByRole("checkbox"));
+    fireEvent.click(within(within(scale).getByTestId("file-quality-high")).getByRole("radio"));
     fireEvent.click(within(expressRow).getByRole("checkbox"));
     await waitFor(() =>
-      expect(quotes.some((q) => q.step === "production" && q.bitrate === "master" && q.express === true)).toBe(true),
+      expect(quotes.some((q) => q.step === "production" && q.quality === "high" && q.express === true)).toBe(true),
     );
-    expect(await screen.findByTestId("quote-master")).toBeTruthy();
+    expect((await screen.findByTestId("quote-quality")).textContent).toMatch(/^\+\$\d+\.\d\d$/);
+    // the line in the gateway's words
+    expect(screen.getByText("High quality +30%")).toBeTruthy();
     expect(screen.getByTestId("quote-express")).toBeTruthy();
-    expect((document.getElementById("make-bitrate") as HTMLSelectElement).disabled).toBe(true);
+    // no Mbit/s list and no Master bitrate add-on any more
+    expect(document.getElementById("make-bitrate")).toBeNull();
+    expect(screen.queryByTestId("addon-master")).toBeNull();
   });
 
   it("Business: Express included and ticked", async () => {

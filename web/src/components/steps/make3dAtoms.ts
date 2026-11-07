@@ -17,7 +17,7 @@ import { atomWithStorage } from "jotai/utils";
 import { atomFamily } from "jotai-family";
 
 import type { PayMode } from "@/components/plans/QuotePlans";
-import type { Bitrate, Format, Preset } from "@/lib/api/types";
+import type { Format, OutputQuality, Preset } from "@/lib/api/types";
 
 import { safeJSONStorage } from "@/lib/state/safeStorage";
 
@@ -35,8 +35,8 @@ export interface Make3dChoices {
   /** S3D-65: the required original eye at 5K-8K */
   requiredEye: "left" | "right";
   foveated: boolean;
-  bitrate: Bitrate;
-  master: boolean;
+  /** owner 2026-11-07: File quality, Standard · High · Master */
+  quality: OutputQuality;
   express: boolean | null;
   payMode: PayMode;
 }
@@ -50,11 +50,18 @@ export const MAKE3D_DEFAULTS: Make3dChoices = {
   optionalEye: null,
   requiredEye: "left",
   foveated: true,
-  bitrate: "auto",
-  master: false,
+  quality: "standard",
   express: null,
   payMode: "once",
 };
+
+/** A saved File quality, or the old bitrate pick it replaces (owner
+ * 2026-11-07): the Master add-on or a "master" bitrate → Master, anything
+ * else (Automatic, Match the source, a number) → Standard. */
+export function savedQuality(saved: { quality?: unknown; bitrate?: unknown; master?: unknown }): OutputQuality {
+  if (saved.quality === "standard" || saved.quality === "high" || saved.quality === "master") return saved.quality;
+  return saved.master === true || saved.bitrate === "master" ? "master" : "standard";
+}
 
 /** Where one project's picks are kept. */
 export function make3dStorageKey(projectId: string): string {
@@ -68,11 +75,11 @@ const make3dStorage = {
     try {
       const raw = window.localStorage.getItem(key);
       if (!raw) return initial;
-      const saved = JSON.parse(raw) as Partial<Make3dChoices>;
+      const saved = JSON.parse(raw) as Partial<Make3dChoices> & { bitrate?: unknown; master?: unknown };
       const known = Object.fromEntries(
         Object.entries(saved).filter(([k]) => k in MAKE3D_DEFAULTS && k !== "payMode"),
       ) as Partial<Make3dChoices>;
-      return { ...initial, ...known };
+      return { ...initial, ...known, quality: savedQuality(saved) };
     } catch {
       return initial;
     }

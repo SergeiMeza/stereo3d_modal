@@ -21,6 +21,7 @@ import { fpsRule } from "@/lib/api/usePricing";
 import { ROUNDED_UP_LINE } from "@/lib/billingCopy";
 import { QUALITY_SHORT_SIDE, qualityName } from "@/lib/glossary";
 import { FOVEATED_DETAIL, foveationIncludedPresets } from "@/lib/foveation";
+import { QUALITY_STEPS, qualityName as fileQualityName, qualityPct, qualitySteps } from "@/components/steps/FileQuality";
 
 /** Whose prices: the list, or a plan's own column. */
 export type PriceKey = "list" | "pro" | "business" | "studio";
@@ -166,7 +167,15 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
     ...(a.foveated
       ? ([[FOVEATED_DETAIL, pct(a.foveated.pct), foveatedWhat(foveationIncludedPresets(pricing))]] as [string, string, string][])
       : []),
-    ...(a.master ? ([["Master bitrate", pct(a.master.pct), "Higher-bitrate files"]] as [string, string, string][]) : []),
+    // owner 2026-11-07: File quality's High and Master, in place of the
+    // Master bitrate add-on; their shares from /v1/pricing
+    ...qualitySteps(pricing)
+      .filter((q) => q !== "standard")
+      .map((q): [string, string, string] => [
+        `${fileQualityName(q)} file quality`,
+        pct(qualityPct(pricing, q)),
+        QUALITY_STEPS.find((s) => s.value === q)?.hint ?? "",
+      ]),
     ...(a.express ? ([["Express", pct(a.express.pct), "First in line"]] as [string, string, string][]) : []),
   ];
   const card = "flex flex-col gap-3 rounded-xl border border-edge bg-card p-5";

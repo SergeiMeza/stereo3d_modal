@@ -308,6 +308,9 @@ export interface Params {
 }
 
 export interface QuoteBreakdown {
+  /** gateway 00172: the file quality add-on and its line ("High quality +30%") */
+  quality?: OutputQuality;
+  quality_label?: string;
   /** Lifelike Foveated Detail (S3D-50): its factor (1.3) and what it adds */
   foveation_factor?: number;
   foveation_cents?: number;
@@ -347,8 +350,35 @@ export interface QuoteBreakdown {
   free_preview?: boolean;
 }
 
-/** Pricing 2026-11 add-ons: Foveated Detail, Master bitrate, Express. */
-export type AddOn = "foveated" | "master" | "express";
+/** Pricing 2026-11 add-ons: Foveated Detail, High and Master file
+ * quality (owner 2026-11-07; master was the Master bitrate), Express. */
+export type AddOn = "foveated" | "high" | "master" | "express";
+
+/** Owner 2026-11-07, gateway 00172: the web's file quality, one per run
+ * (absent = standard). */
+export type OutputQuality = "standard" | "high" | "master";
+
+/** The quote's file quality: its rate and the files' size (per file),
+ * both approximate, and its price share and words ("High quality +30%"). */
+export interface QuoteQuality {
+  tier: OutputQuality;
+  mbps?: number;
+  max_mbps?: number;
+  approx?: boolean;
+  bit_depth?: number;
+  estimated_size_bytes?: number;
+  price_pct: number;
+  label: string;
+}
+
+/** gateway 00172: what a finished run's file measures. */
+export interface OutputMedia {
+  video_kbps?: number;
+  overall_kbps?: number;
+  audio_codec?: string;
+  audio_kbps?: number;
+  source?: "worker" | "ffprobe";
+}
 
 /** Pricing 2026-11 tiers; "" = list price. */
 export type Tier = "" | "pro" | "business" | "studio";
@@ -483,6 +513,13 @@ export interface Conversion {
   pay_split?: RunPaySplit;
   /** gateway 00172: Foveated Detail on this run */
   foveation?: FoveationInfo;
+  /** gateway 00172: the file quality asked for (web Lifelike) */
+  quality?: OutputQuality;
+  /** gateway 00172: the bitrate asked for (auto, match_source, a number
+   * of Mbit/s or master) */
+  bitrate_requested?: string;
+  /** gateway 00172: what each finished file measures, by output name */
+  outputs_media?: Record<string, OutputMedia>;
   created_at: string;
   updated_at: string;
 }
@@ -526,6 +563,8 @@ export interface FoveationInfo {
 export interface StepQuoteResponse {
   /** gateway 00172: Foveated Detail for this quote */
   foveation?: FoveationInfo;
+  /** gateway 00172: the file quality, its rate and the files' size */
+  quality?: QuoteQuality;
   /** S3D-56: the files' estimated total size, when the gateway knows */
   estimated_size_bytes?: number;
   step: Step;
@@ -716,6 +755,12 @@ export interface PublicPricing {
   pro_plans?: ProPlanDef[];
   /** owner 2026-11-07: the usage credit joining Pro gives */
   pro_credit?: ProCreditDef;
+  /** owner 2026-11-07, gateway 00172: the web's file quality tiers, each
+   * tier's rate and price share */
+  quality?: {
+    tiers?: OutputQuality[];
+    default?: OutputQuality;
+  } & Partial<Record<OutputQuality, { price_pct?: number; bit_depth?: number }>>;
   plans?: Partial<Record<"business" | "studio", PlanDef>>;
   free_previews?: {
     enabled?: boolean;
@@ -1480,6 +1525,8 @@ export interface StepConversionRequest {
   bitrate?: Bitrate;
   /** pricing 2026-11: Express (its share from /v1/pricing addons; included in Business and Studio) */
   express?: boolean;
+  /** owner 2026-11-07: the file quality (Lifelike on the web) */
+  quality?: OutputQuality;
   /** Lifelike (S3D-49): keep the source picture as this eye */
   original_eye?: "left" | "right";
   /** Lifelike (S3D-50): Foveated Detail — "static" on, null off (sent

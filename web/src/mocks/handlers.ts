@@ -518,7 +518,8 @@ const TIERS = {
     studio: { "1080p": 300, qhd: 525, "3k": 675, "4k": 1200, "5k": 2100, "6k": 2700, "8k": 4800 },
   } as Record<string, Record<string, number>>,
   pct: { pro: 0.15, business: 0.2, studio: 0.25 } as Record<string, number>,
-  addons: { foveated: 0.3, master: 1.0, express: 0.5 } as Record<string, number>,
+  // gateway 00172: High +30%, Master +50% (File quality, owner 2026-11-07)
+  addons: { foveated: 0.3, high: 0.3, master: 0.5, express: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
     business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
@@ -708,8 +709,18 @@ function publicTiers(): Record<string, unknown> {
         enabled: mockDb.lifelikeFoveation,
         included_presets: FOVEATION_INCLUDED,
       },
-      master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { bitrate: "master" } },
+      master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { quality: "master" } },
+      high: { pct: TIERS.addons.high, methods: ["lifelike"], request: { quality: "high" } },
       express: { pct: TIERS.addons.express, methods: ["lifelike"], request: { express: true }, included_in: ["business", "studio"] },
+    },
+    // gateway 00172: the web's File quality tiers
+    quality: {
+      tiers: ["standard", "high", "master"],
+      default: "standard",
+      methods: ["lifelike"],
+      standard: { mode: "crf_capped", price_pct: 0 },
+      high: { mode: "target", price_pct: TIERS.addons.high },
+      master: { mode: "target", price_pct: TIERS.addons.master, bit_depth: 10 },
     },
     discount: { ...TIERS.bulk, stacks_with_tier: false, rule: "a run gets the bigger of bulk and its tier price, never both" },
     plans: TIERS.plans,
@@ -1915,6 +1926,23 @@ function minimumFor(step: string | undefined): number {
   return step === "production" ? RATES.minimumCents : RATES.previewMinimumCents;
 }
 
+/** gateway 00172: the quote's File quality block. */
+function mockQuality(req: StepConversionRequest, seconds: number) {
+  const tier = req.quality ?? "standard";
+  const mbps = { standard: 22, high: 41, master: 80 }[tier];
+  const pct = tier === "standard" ? 0 : TIERS.addons[tier];
+  return {
+    tier,
+    mbps,
+    ...(tier === "standard" ? { max_mbps: 40 } : {}),
+    ...(tier === "master" ? { bit_depth: 10 } : {}),
+    approx: true,
+    estimated_size_bytes: Math.round((mbps * 1e6 * seconds) / 8),
+    price_pct: pct,
+    label: tier === "standard" ? "Standard quality · included" : `${tier === "high" ? "High" : "Master"} quality +${Math.round(pct * 100)}%`,
+  };
+}
+
 /** gateway 00172: Foveated Detail is free and always on at these. */
 const FOVEATION_INCLUDED = ["1080p"];
 
@@ -1962,7 +1990,8 @@ function lifelikeQuoteFor(
     const tierPer = tier ? TIERS.lifelike[tier][priced] : listPer;
     const addOns: string[] = [];
     if (req.foveation === "static") addOns.push("foveated");
-    if (req.bitrate === "master") addOns.push("master");
+    if (req.bitrate === "master" || req.quality === "master") addOns.push("master");
+    else if (req.quality === "high") addOns.push("high");
     const plan = tier === "business" || tier === "studio" ? TIERS.plans[tier] : null;
     const expressIncluded = req.express === true && plan?.express_included === true;
     if (req.express && !expressIncluded) addOns.push("express");
@@ -2007,6 +2036,12 @@ function lifelikeQuoteFor(
           express: req.express === true,
           express_included: expressIncluded,
           ...(q.adds.foveated ? { foveation_factor: 1.3, foveation_cents: q.adds.foveated } : {}),
+          ...(req.quality === "high" || req.quality === "master"
+            ? {
+                quality: req.quality,
+                quality_label: `${req.quality === "high" ? "High" : "Master"} quality +${Math.round(TIERS.addons[req.quality] * 100)}%`,
+              }
+            : {}),
           ...(free ? { free_preview: true, price_without_free_cents: priceWithoutFree } : {}),
           ...(preview ? { free_preview_units: units } : {}),
         },
@@ -4856,6 +4891,7 @@ export const handlers = [
           split_suggested: q.outputSeconds > LIFELIKE.splitSuggestSeconds,
           estimated_size_bytes: estimatedSizeBytes(req, q.outputSeconds),
           foveation: mockFoveation(priced, req),
+          ...(req.quality ? { quality: mockQuality(req, q.outputSeconds) } : {}),
           ...(mockDb.pro !== null ? { pro: mockDb.pro } : {}),
           ...(q.quote.breakdown?.pro_discount_cents
             ? {
@@ -5071,6 +5107,7 @@ export const handlers = [
         quote,
         progress: 0,
         ...(method === "lifelike" ? { foveation: mockFoveation(p, req) } : {}),
+        ...(req.quality ? { quality: req.quality } : {}),
         stage: "",
         eta_seconds: 0,
         method,

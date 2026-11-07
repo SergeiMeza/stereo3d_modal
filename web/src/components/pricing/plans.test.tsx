@@ -167,7 +167,10 @@ describe("Pricing 2026-11", () => {
     const addons = screen.getByTestId("pricing-addons");
     // owner 2026-11-07: Foveated Detail is included at 1080p, from /v1/pricing
     expect(addons.textContent).toContain("Foveated Detail+30%More detail where you look · included at 1080p");
-    expect(addons.textContent).toContain("Master bitrate+100%");
+    // owner 2026-11-07: File quality's High and Master replace Master bitrate
+    expect(addons.textContent).toContain("High file quality+30%For client reviews and big screens");
+    expect(addons.textContent).toContain("Master file quality+50%For editing and archiving");
+    expect(addons.textContent).not.toContain("Master bitrate");
     expect(addons.textContent).toContain("Express+50%");
     expect(addons.textContent).toContain("First in line");
     expect(addons.textContent).not.toMatch(/faster/);
@@ -221,6 +224,9 @@ describe("Pricing 2026-11", () => {
     expect(screen.getByTestId("plan-studio").textContent).toContain("25% off every run");
     expect(biz.textContent).toContain("50 free previews a month");
     expect(biz.textContent).toContain("Express included");
+    // owner 2026-11-07: the plans name File quality's High and Master
+    expect(biz.textContent).toContain("High and Master file quality for client reviews and editing");
+    expect(screen.getByTestId("plan-studio").textContent).toContain("High and Master file quality for client reviews and editing");
     // Studio bills yearly (gateway 00089): "$11,988 a year", usage monthly
     expect(screen.getByTestId("plan-price-studio").textContent).toBe("$11,988 a year");
     expect(screen.getByTestId("plan-studio").textContent).toContain("$11,988 a year$1,500 of usage every month");
@@ -332,5 +338,13 @@ describe("Pricing 2026-11", () => {
         0.25,
       ),
     ).toEqual(["$1,500 of usage every month", "25% off every run", "Commercial use of your videos", "200 free previews a month", "Express included", "Up to 120 fps", "Invoices"]);
+    expect(
+      planLines(
+        { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, free_previews_per_period: 200, express_included: true, max_fps: 120 },
+        0.25,
+        undefined,
+        true,
+      ),
+    ).toContain("High and Master file quality for client reviews and editing");
   });
 });

@@ -106,7 +106,7 @@ describe("only the latest quote counts", () => {
 
   it("says Updating… while a change is priced, with no price on the button", async () => {
     panel(project());
-    const row = await screen.findByTestId("addon-master");
+    const row = await screen.findByTestId("file-quality-master");
     await waitFor(() => expect(buttonPrice()).not.toBeNull());
     server.use(
       http.post(QUOTES, async () => {
@@ -114,7 +114,7 @@ describe("only the latest quote counts", () => {
         return undefined;
       }),
     );
-    fireEvent.click(within(row).getByRole("checkbox"));
+    fireEvent.click(within(row).getByRole("radio"));
     expect(screen.getByTestId("quote-pending").textContent).toBe("Updating…");
     expect(buttonPrice()).toBeNull();
     await waitFor(() => expect(buttonPrice()).not.toBeNull(), { timeout: 3000 });

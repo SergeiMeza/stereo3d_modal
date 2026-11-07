@@ -24,12 +24,22 @@ import { isTeamPlan } from "@/lib/api/types";
 import { isStripePro, useProStatus } from "@/lib/pro/usePro";
 
 import { planPrice } from "./planCopy";
+import { qualitySteps } from "@/components/steps/FileQuality";
 
 const PLAN_KEYS = ["business", "studio"] as const;
 type PlanKey = (typeof PLAN_KEYS)[number];
 
 /** The few lines a plan card shows. */
-export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?: number): string[] {
+/** Owner 2026-11-07: Business and Studio name the File quality steps for
+ * client work. */
+export const PLAN_FILE_QUALITY = "High and Master file quality for client reviews and editing";
+
+export function planLines(
+  def: PlanDef,
+  pct: number | undefined,
+  maxFpsWithPlan?: number,
+  fileQuality = false,
+): string[] {
   // the plan's own max_fps, else /v1/pricing fps.max_fps_with_plan (test
   // gateway 00091 sends only the latter)
   const maxFps = def.max_fps ?? maxFpsWithPlan;
@@ -40,6 +50,7 @@ export function planLines(def: PlanDef, pct: number | undefined, maxFpsWithPlan?
     "Commercial use of your videos",
     `${def.free_previews_per_period} free previews a month`,
     ...(def.express_included ? ["Express included"] : []),
+    ...(fileQuality ? [PLAN_FILE_QUALITY] : []),
     // owner 2026-11-04: above 30 fps comes with a plan
     ...(maxFps && maxFps > 30 ? [`Up to ${maxFps} fps`] : []),
     // owner 2026-11-04: no seat counts until team accounts exist
@@ -100,7 +111,7 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
                 </p>
               </div>
               <ul className="flex flex-col gap-2 text-sm">
-                {planLines(def, pct, pricing.fps.max_fps_with_plan).map((l) => (
+                {planLines(def, pct, pricing.fps.max_fps_with_plan, qualitySteps(pricing).length > 2).map((l) => (
                   <li key={l} className="flex items-center gap-2">
                     <CheckIcon className="size-4 shrink-0 text-primary" aria-hidden />
                     {l}

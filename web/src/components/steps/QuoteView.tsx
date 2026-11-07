@@ -325,7 +325,11 @@ export function QuoteView({
           testId="quote-foveation"
         />
       ) : null}
-      {addons.master ? (
+      {/* owner 2026-11-07: the File quality line in the gateway's words
+          ("High quality +30%"); an older quote's Master bitrate as before */}
+      {b.quality && b.quality !== "standard" && b.quality_label && addons[b.quality] ? (
+        <Line label={b.quality_label} value={`+${formatCents(addons[b.quality] ?? 0)}`} testId="quote-quality" />
+      ) : addons.master ? (
         <Line
           label={`Master bitrate (${addonPct(addons.master, b)})`}
           value={`+${formatCents(addons.master)}`}

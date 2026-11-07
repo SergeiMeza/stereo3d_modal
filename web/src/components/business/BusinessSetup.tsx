@@ -65,6 +65,8 @@ import { useBilling } from "@/lib/billing";
 import { isWebPro, notifyProChanged, useProStatus } from "@/lib/pro/usePro";
 import type { ProStatus } from "@/lib/pro/usePro";
 import { useAccountSettings } from "@/lib/useAccountSettings";
+import { qualitySteps } from "@/components/steps/FileQuality";
+import { PLAN_FILE_QUALITY } from "@/components/pricing/PlansSection";
 
 type PlanKey = "business" | "studio";
 type Step = "plan" | "questions" | "checkout" | "welcome";
@@ -100,6 +102,7 @@ export function planIncludes(
     "Turn the Spatial Video Studio intro on or off",
     "Invoices with your company details",
     ...(def.express_included ? ["Express included"] : []),
+    ...(qualitySteps(pricing).length > 2 ? [PLAN_FILE_QUALITY] : []),
   ];
 }
 

@@ -33,8 +33,6 @@ import { eyeSize, qualityChoices, resolutionName } from "@/lib/glossary";
 import { BarsToggle } from "@/components/workspace/BarsSetting";
 
 import {
-  BitrateControl,
-  bitrateField,
   DEFAULT_MAKE_FORMATS,
   deviceForClient,
   DEVICES,
@@ -63,6 +61,7 @@ import { useMake3dChoice } from "./make3dAtoms";
 import { AlreadyMadeNote, PreviousRuns } from "./PreviousRuns";
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient } from "./ViewIn3D";
+import { FileQualityScale, qualitySteps } from "./FileQuality";
 import { FOVEATED_DETAIL, FOVEATED_HINT, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
 
 /** "Your video is N minutes long. …" — the split question. */
@@ -169,14 +168,14 @@ export function LifelikeDeliverPanel({
   const [requiredEye, setRequiredEye] = useMake3dChoice(pid, "requiredEye");
   // S3D-50: Foveated Detail, ticked by default whenever it's shown
   const [foveated, setFoveated] = useMake3dChoice(pid, "foveated");
-  // S3D-56: under a collapsed Advanced; no price change
-  const [bitrate, setBitrate] = useMake3dChoice(pid, "bitrate");
-  // pricing 2026-11 add-ons: Master bitrate and Express (Express is
-  // included in Business and Studio, where it starts ticked); their shares
-  // come from /v1/pricing addons
+  // owner 2026-11-07: File quality, Standard · High · Master (High and
+  // Master take their share from /v1/pricing); it replaced the Mbit/s
+  // list and the Master bitrate add-on. Express is included in Business
+  // and Studio, where it starts ticked; its share comes from /v1/pricing
   const pricing = usePricing();
   const addons = pricing?.addons;
-  const [master, setMaster] = useMake3dChoice(pid, "master");
+  const [fileQuality, setFileQuality] = useMake3dChoice(pid, "quality");
+  const qualityOffered = qualitySteps(pricing).length > 1;
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
   // plans canvas, Quote A: pay once (always first) or with Pro
   const [payMode, setPayMode] = useMake3dChoice(pid, "payMode");
@@ -220,7 +219,8 @@ export function LifelikeDeliverPanel({
     formats: sentFormats.length > 0 ? sentFormats : offeredFormats.slice(0, 1),
     ...trimFields(range, numFrames),
     ...(originalEye ? { original_eye: originalEye } : {}),
-    ...(addons?.master && master ? { bitrate: "master" as const } : bitrateField(bitrate)),
+    // always sent where offered, so the quote says what the files come to
+    ...(qualityOffered ? { quality: fileQuality } : {}),
     ...(addons?.express && express ? { express: true } : {}),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
@@ -375,7 +375,7 @@ export function LifelikeDeliverPanel({
               />
             </div>
           ) : null}
-          {eyeRequired || foveationOffered || foveationShownIncluded || addons?.master || addons?.express ? (
+          {eyeRequired || foveationOffered || foveationShownIncluded || qualityOffered || addons?.express ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -416,14 +416,13 @@ export function LifelikeDeliverPanel({
                 <p className="pl-6 text-xs text-fg-muted">{FOVEATED_HINT}</p>
               </div>
             ) : null}
-            {addons?.master ? (
-              <AddOnRow
-                testId="addon-master"
-                label="Master bitrate"
-                price={`+${Math.round(addons.master.pct * 100)}%`}
-                hint="Higher-bitrate files."
-                checked={master}
-                onChange={(v) => change(() => setMaster(v))}
+            {qualityOffered ? (
+              <FileQualityScale
+                value={fileQuality}
+                onChange={(q) => change(() => setFileQuality(q))}
+                pricing={pricing}
+                quality={ck.lastQuote?.quality}
+                sizeBytes={ck.lastQuote?.estimated_size_bytes}
               />
             ) : null}
             {addons?.express ? (
@@ -499,15 +498,6 @@ export function LifelikeDeliverPanel({
                 ) : null}
               </div>
             ) : null}
-            {master ? (
-              <p className="text-xs text-fg-muted">Bitrate: Master (add-on).</p>
-            ) : null}
-            <BitrateControl
-              disabled={master}
-              value={bitrate}
-              onChange={(b) => change(() => setBitrate(b))}
-              sizeBytes={ck.quote?.estimated_size_bytes}
-            />
           </div>
         </details>
       </div>
