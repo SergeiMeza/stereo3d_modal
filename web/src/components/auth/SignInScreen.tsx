@@ -24,7 +24,7 @@
 import { ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import type { JSX } from "react";
 
 import { CodeInput } from "@/components/auth/CodeInput";
@@ -68,6 +68,12 @@ export default function SignInScreen() {
   const router = useRouter();
   const t = useT();
   const emailOnly = useRegion() === "cn";
+  // dev overlay 2026-11-07: the auth mode settles in the layout's effect,
+  // before this Suspense child hydrates, so the server's Google-first
+  // buttons met a client with Apple first (a hydration error on /signin).
+  // Apple joins once hydrated.
+  const hydrated = useSyncExternalStore(noSubscribe, () => true, () => false);
+  const showApple = appleEnabled && hydrated;
   const next = safeNext(useSearchParams().get("next"));
 
   const [email, setEmail] = useState("");
@@ -212,7 +218,7 @@ export default function SignInScreen() {
 
       {!emailOnly && (
         <div className="space-y-2.5">
-          {appleEnabled && (
+          {showApple && (
             <button
               type="button"
               data-testid="signin-apple"
@@ -446,4 +452,9 @@ export function EmailCodeStep({
       </button>
     </div>
   );
+}
+
+/** useSyncExternalStore with nothing to watch (the hydrated flag). */
+function noSubscribe(): () => void {
+  return () => {};
 }
