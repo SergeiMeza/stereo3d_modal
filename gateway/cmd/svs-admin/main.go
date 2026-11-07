@@ -159,7 +159,7 @@ func main() {
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
 		uid := fs.String("uid", "", "account uid")
 		runs := fs.String("runs", "", "conversion ids, comma-separated")
-		reason := fs.String("reason", "", "refund reason (e.g. quality_complaint, topup_withdrawal, closure_balance)")
+		reason := fs.String("reason", "", "refund reason (e.g. quality_complaint, topup_withdrawal; closure_balance is no longer opened)")
 		topup := fs.String("topup", "", "top-up id (topup_withdrawal)")
 		text := fs.String("text", "", "the customer's words")
 		fs.Parse(args)
@@ -189,7 +189,7 @@ func main() {
 	case "account-delete":
 		uid := need(args, 0, "uid")
 		fs := flag.NewFlagSet(cmd, flag.ExitOnError)
-		balance := fs.Bool("balance-confirmed", false, "the person gives up a cash balance (refunded through its closure case)")
+		balance := fs.Bool("balance-confirmed", false, "ignored since the refund policy of 2026-11-08 (a cash balance is forfeited on deletion); kept for old scripts")
 		caseID := fs.String("case", "", "the support case it belongs to")
 		note := fs.String("note", "", "note")
 		yes := fs.Bool("yes", false, "don't ask")

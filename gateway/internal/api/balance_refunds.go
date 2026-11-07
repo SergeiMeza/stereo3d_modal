@@ -14,7 +14,9 @@ import (
 // Cash refunds of the prepaid balance (spec N8, T11), case type
 // balance_refund: (a) topup_withdrawal — within 14 days of a top-up, its
 // unspent part, auto: what is available now, the rest when holds end;
-// (b) closure_balance — on account closure, Σ unspent cash top-ups, manual.
+// (b) closure_balance — on account closure, Σ unspent cash top-ups,
+// manual; no longer opened since the refund policy (owner 2026-11-08: a
+// deletion forfeits the balance), old cases are still read and decided.
 // Plan credit and admin credits are never paid out. Money goes back from
 // the newest top-up PaymentIntents first, through the ledger (per-charge
 // serialization); a cash_refund entry leaves the balance first and a
@@ -43,7 +45,7 @@ func (s *Service) requestBalanceRefund(ctx context.Context, uid, reason, topupID
 		cs.RequestedCents = fifoRemaining(b, topupID)
 		cs.Related = store.CaseRelated{TopupID: topupID, PIIDs: []string{t.PaymentIntentID}, ChargeIDs: []string{store.ChargeID(store.ChargeTopup, topupID)}}
 	case ReasonClosure:
-		cs.RequestedCents = b.CashCents()
+		return nil, fmt.Errorf("closure refunds are no longer opened: a deleted account's balance is forfeited; use topup_withdrawal for a customer's request")
 	default:
 		return nil, fmt.Errorf("unknown balance refund reason %q", reason)
 	}

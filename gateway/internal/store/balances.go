@@ -65,6 +65,11 @@ const (
 	EntryPlanCreditFreeze   = "plan_credit_freeze"
 	EntryPlanCreditUnfreeze = "plan_credit_unfreeze"
 	EntryPlanCreditRemoval  = "plan_credit_removal"
+	// EntryForfeitOnDeletion (refund policy, owner 2026-11-08): a deleted
+	// account's unspent cash top-ups are forfeited, not refunded; the
+	// entry's FifoUsed names the top-ups it took (oldest first). Refunds
+	// stay case by case through a customer's request.
+	EntryForfeitOnDeletion = "forfeit_on_deletion"
 )
 
 // Top-up states.
@@ -433,6 +438,39 @@ func (l *ledger) consumeFifo(cents int64) []FifoUse {
 	return used
 }
 
+// consumeCash takes cents from the cash top-ups only, oldest first (a
+// deletion's forfeit; credits are removed by their own entries).
+func (l *ledger) consumeCash(cents int64) []FifoUse {
+	idx := make([]int, 0, len(l.b.Fifo))
+	for i, it := range l.b.Fifo {
+		if !it.PlanCredit && it.TopupID != "" {
+			idx = append(idx, i)
+		}
+	}
+	sort.SliceStable(idx, func(i, j int) bool { return l.b.Fifo[idx[i]].At.Before(l.b.Fifo[idx[j]].At) })
+	var used []FifoUse
+	for _, i := range idx {
+		if cents <= 0 {
+			break
+		}
+		take := min(cents, l.b.Fifo[i].spendable())
+		if take <= 0 {
+			continue
+		}
+		l.b.Fifo[i].RemainingCents -= take
+		cents -= take
+		used = append(used, FifoUse{TopupID: l.b.Fifo[i].TopupID, Cents: take})
+	}
+	keep := l.b.Fifo[:0]
+	for _, it := range l.b.Fifo {
+		if it.RemainingCents > 0 {
+			keep = append(keep, it)
+		}
+	}
+	l.b.Fifo = keep
+	return used
+}
+
 func (l *ledger) restoreFifo(used []FifoUse, cents int64) {
 	for _, u := range used {
 		if cents <= 0 {
@@ -658,6 +696,13 @@ func (l *ledger) apply(op BalanceOp) error {
 		}
 		b.Fifo = keep
 		l.add(Entry{ID: op.EntryID, Kind: EntryPlanCreditRemoval, Cents: amt, Delta: -amt, Ref: op.Ref, CaseID: op.CaseID, Note: op.Note})
+	case EntryForfeitOnDeletion:
+		amt := b.ForfeitableCents()
+		if amt <= 0 {
+			return nil // nothing unspent: no entry
+		}
+		used := l.consumeCash(amt)
+		l.add(Entry{ID: op.EntryID, Kind: EntryForfeitOnDeletion, Cents: amt, Delta: -amt, Ref: op.Ref, Note: op.Note, FifoUsed: used})
 	case EntryDisputeFreeze:
 		amt := min(op.Cents, max(b.Available(), 0))
 		b.FrozenCents += amt
@@ -1344,6 +1389,12 @@ func (b *Balance) PlanCreditFrozen() int64 {
 // frozen parts plus what no in-flight run has reserved.
 func (b *Balance) PlanCreditUnheld() int64 {
 	return min(b.PlanCreditCents(), b.PlanCreditFrozen()+max(b.Available(), 0))
+}
+
+// ForfeitableCents is what a deletion forfeits: the unspent cash top-ups,
+// at most what is available (holds and dispute freezes keep theirs).
+func (b *Balance) ForfeitableCents() int64 {
+	return min(b.CashCents(), max(b.Available(), 0))
 }
 
 // CashCents is the unspent money from cash top-ups (what T11 can pay

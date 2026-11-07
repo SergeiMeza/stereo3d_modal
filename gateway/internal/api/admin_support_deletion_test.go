@@ -55,33 +55,28 @@ func TestAdminRequestDeletion(t *testing.T) {
 	}
 }
 
-// A cash balance: without balance_confirmed the request is refused as on
-// the customer path; with it, processing opens the balance's closure case
-// (202) instead of deleting over the money.
+// A cash balance (refund policy 2026-11-08): the request is scheduled
+// without a confirmation and processing deletes the account, the balance
+// forfeited; no closure case.
 func TestAdminRequestDeletionCashBalance(t *testing.T) {
 	f := deletionFixture(t)
 	ctx := context.Background()
 	paidTopup(t, f.s, f.uid, 2125)
 	a := &AdminUser{UID: "admin", Email: "owner@x", Method: "passkey", AssertedAt: time.Now(), AuthTime: time.Now()}
-	if code, out := adminAct(t, f.s, a, f.uid, `{"action":"request_deletion"}`); code < 400 {
+	// refund policy 2026-11-08: no confirmation needed, balance_confirmed
+	// is ignored; the deletion forfeits the balance, no closure case
+	if code, out := adminAct(t, f.s, a, f.uid, `{"action":"request_deletion"}`); code != http.StatusAccepted {
 		t.Fatalf("a cash balance without confirmation: %d %v", code, out)
 	}
-	if code, out := adminAct(t, f.s, a, f.uid, `{"action":"request_deletion","balance_confirmed":true}`); code != http.StatusAccepted {
-		t.Fatalf("confirmed %d %v", code, out)
-	}
 	outcome, err := f.s.processScheduledDeletion(ctx, f.uid, "admin:test", true)
-	if err != nil || outcome != store.DeletionOutcomeRefundCase {
+	if err != nil || outcome != store.DeletionOutcomeDeleted {
 		t.Fatalf("process: %q %v", outcome, err)
 	}
-	cases, _ := f.s.Store.ListCasesByType(ctx, store.CaseBalanceRefund, 20)
-	found := false
-	for _, c := range cases {
-		if c.UID == f.uid && c.Reason == ReasonClosure && c.RequestedCents == 2125 {
-			found = true
-		}
+	if cases, _ := f.s.Store.ListUserCases(ctx, f.uid, 10); len(cases) != 0 {
+		t.Fatalf("a case for the deleted balance: %+v", cases)
 	}
-	if !found {
-		t.Fatalf("no closure case for 2125: %+v", cases)
+	if b, _ := f.s.Store.GetBalance(ctx, f.uid); b.CashCents() != 0 {
+		t.Fatalf("cash left after the deletion: %d", b.CashCents())
 	}
 }
 

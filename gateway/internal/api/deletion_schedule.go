@@ -49,13 +49,17 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 		email = cust.Email // the account's own address
 	}
 	d, created, err := s.Store.ScheduleAccountDeletion(ctx, &store.AccountDeletion{UID: uid, RequestedAt: now,
-		DeleteAfter: now.Add(o.Delay), BalanceConfirmed: o.BalanceConfirmed, Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
+		DeleteAfter: now.Add(o.Delay), Email: email, Source: o.Source, KeepSignIn: o.KeepSignIn})
 	if err != nil {
 		return 0, nil, err
 	}
 	if created {
 		slog.InfoContext(ctx, "account deletion scheduled", "uid", uid, "delete_after", d.DeleteAfter)
-		s.mailCustomer(ctx, fmt.Sprintf("DL1_%s_%d", uid, d.RequestedAt.Unix()), uid, d.Email, deletionScheduledMail(d.DeleteAfter, s.Cfg.SiteURL))
+		var lost int64 // the unspent cash the deletion forfeits (balance_lost_cents)
+		if b, berr := s.Store.GetBalance(ctx, uid); berr == nil && b.Exists() {
+			lost = b.ForfeitableCents()
+		}
+		s.mailCustomer(ctx, fmt.Sprintf("DL1_%s_%d", uid, d.RequestedAt.Unix()), uid, d.Email, deletionScheduledMail(d.DeleteAfter, s.Cfg.SiteURL, lost))
 	}
 	return http.StatusAccepted, scheduledDeletionBody(d, deletionPlan(cust)), nil
 }
@@ -199,7 +203,7 @@ func (s *Service) processScheduledDeletion(ctx context.Context, uid, by string, 
 	noCharge := d.DuesRetry != nil && (d.DuesRetry.State == store.RetryFinal && !configRetryDue(d.DuesRetry, now) ||
 		d.DuesRetry.State == store.RetryPending && !d.DuesRetry.Due(now))
 	var dues settleResult
-	status, _, err := s.runDeletion(ctx, uid, deletionOpts{BalanceConfirmed: d.BalanceConfirmed, KeepSignIn: d.KeepSignIn, By: by,
+	status, _, err := s.runDeletion(ctx, uid, deletionOpts{KeepSignIn: d.KeepSignIn, By: by,
 		RequestedAt: &requested, NoCharge: noCharge, Dues: &dues})
 	if err == nil {
 		outcome := store.DeletionOutcomeDeleted
@@ -312,17 +316,24 @@ func configRetryDue(r *store.OffSessionRetry, now time.Time) bool {
 // deletionDate is the day a deletion runs, in mails and messages (UTC).
 func deletionDate(t time.Time) string { return t.UTC().Format("2 January 2006") }
 
-func deletionScheduledMail(after time.Time, site string) customerMail {
+// deletionScheduledMail is DL1; lostCents > 0 (the unspent cash the
+// deletion forfeits, refund policy 2026-11-08) adds the balance line.
+func deletionScheduledMail(after time.Time, site string, lostCents int64) customerMail {
+	lines := []string{
+		"You asked us to delete your Spatial Video Studio account. We'll delete it on " + deletionDate(after) +
+			" at " + after.UTC().Format("15:04") + " UTC.",
+		"Until then your account is paused: runs you started finish, but you can't start new ones or change how you sign in.",
+	}
+	if lostCents > 0 {
+		lines = append(lines, "Your unspent balance of "+money(lostCents)+" will be lost when your account is deleted.")
+	}
+	lines = append(lines,
+		"Changed your mind? Sign in before then and choose Keep my account.",
+		"If you didn't ask for this, sign in and keep your account, then reply to this email.")
 	return customerMail{Kind: "DL1", OwnAddress: true,
 		Subject: "Spatial Video Studio: your account will be deleted on " + deletionDate(after),
-		Lines: []string{
-			"You asked us to delete your Spatial Video Studio account. We'll delete it on " + deletionDate(after) +
-				" at " + after.UTC().Format("15:04") + " UTC.",
-			"Until then your account is paused: runs you started finish, but you can't start new ones or change how you sign in.",
-			"Changed your mind? Sign in before then and choose Keep my account.",
-			"If you didn't ask for this, sign in and keep your account, then reply to this email.",
-		},
-		Button: "Sign in to keep your account", Link: strings.TrimRight(site, "/") + "/account?deletion=keep"}
+		Lines:   lines,
+		Button:  "Sign in to keep your account", Link: strings.TrimRight(site, "/") + "/account?deletion=keep"}
 }
 
 func deletionCancelledMail(site string) customerMail {
@@ -392,9 +403,10 @@ func adminDeletionJSON(d *store.AccountDeletion) map[string]any {
 
 // adminRequestDeletion is support's "Delete account" on the person's
 // behalf: the request path's runDeletion with the configured delay (the
-// row's source is admin; the operator is in the audit).
-func (s *Service) adminRequestDeletion(ctx context.Context, a *AdminUser, uid string, balanceConfirmed bool) (int, map[string]any, error) {
-	o := deletionOpts{BalanceConfirmed: balanceConfirmed, By: "admin:" + a.who(), Delay: s.accountDeleteDelay(ctx), Source: "admin"}
+// row's source is admin; the operator is in the audit). balance_confirmed
+// is ignored since the refund policy (2026-11-08): a balance is forfeited.
+func (s *Service) adminRequestDeletion(ctx context.Context, a *AdminUser, uid string, _ bool) (int, map[string]any, error) {
+	o := deletionOpts{By: "admin:" + a.who(), Delay: s.accountDeleteDelay(ctx), Source: "admin"}
 	if o.Delay > 0 {
 		if d := s.Store.PendingAccountDeletion(ctx, uid); d != nil {
 			return http.StatusAccepted, scheduledDeletionBody(d, nil), nil // idempotent

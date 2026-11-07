@@ -93,36 +93,6 @@ func TestDeletionCallbackOnAdmin(t *testing.T) {
 	}
 }
 
-// A cash balance: the sweep opens the closure case and keeps the sign-in;
-// the case's decision completes the deletion and reports via refund_case.
-func TestDeletionCallbackOnRefundCase(t *testing.T) {
-	f, stub := handoffFixture(t)
-	ctx := context.Background()
-	paidTopup(t, f.s, f.uid, 2000)
-	if code, out := deleteAccount(f, `{"keep_sign_in":true,"balance_confirmed":true}`, true); code != 202 || out["state"] != "pending_deletion" {
-		t.Fatalf("schedule %d %v", code, out)
-	}
-	due(t, f)
-	if n := f.s.deletionScheduleSweep(ctx); n["deletions_refund_case"] != 1 {
-		t.Fatalf("sweep %v", n)
-	}
-	c, _ := f.s.Store.GetCustomer(ctx, f.uid)
-	if !c.DeletionPending || !c.DeletionKeepSignIn || len(stub.bodies) != 0 {
-		t.Fatalf("customer %+v calls %d", c, len(stub.bodies))
-	}
-	cs, _ := f.s.Store.GetCase(ctx, c.DeletionCaseID)
-	if err := f.s.applyCaseAction(ctx, cs, caseActionReq{Action: "approve"}, "owner@x"); err != nil {
-		t.Fatal(err)
-	}
-	f.s.finishPendingDeletions(ctx) // the decision finishes it (or did already)
-	if after, _ := f.s.Store.GetCustomer(ctx, f.uid); !after.AccountDeleted || after.DeletionPending {
-		t.Fatalf("after the decision %+v", after)
-	}
-	if len(stub.bodies) != 1 || stub.bodies[0]["via"] != "refund_case" {
-		t.Fatalf("calls %v", stub.bodies)
-	}
-}
-
 // svs-backend down: the row stays pending with a backoff and is sent by a
 // later sweep; past the 72-hour window it gives up (the backstop still
 // lists it).

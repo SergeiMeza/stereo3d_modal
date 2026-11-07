@@ -253,8 +253,11 @@ func TestDeletionPlanCreditIsNotCash(t *testing.T) {
 	f.s.Store.PutCustomer(ctx, cash.uid, &store.Customer{StripeCustomerID: "cus_cash"})
 	paidTopup(t, f.s, cash.uid, 2500)
 	code, out = deleteAccountNow(cash, `{}`)
-	if d, _ := out["details"].(map[string]any); code != 409 || out["error"] != "balance_remaining" || d["cents"] != float64(2500) ||
-		!strings.Contains(out["message"].(string), "$25.00") {
+	// refund policy 2026-11-08: the cash is forfeited, no 409, no case
+	if code != 200 || out["deleted"] != true {
 		t.Fatalf("cash %d %v", code, out)
+	}
+	if cases, _ := f.s.Store.ListUserCases(ctx, cash.uid, 10); len(cases) != 0 {
+		t.Fatalf("a refund case for the deleted balance: %+v", cases)
 	}
 }
