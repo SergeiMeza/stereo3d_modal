@@ -21,7 +21,6 @@ import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
-import { SITE_NAME } from "@/lib/site";
 import { useProStatus } from "@/lib/pro/usePro";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
@@ -34,19 +33,19 @@ import {
   replyToRequestAtom,
   supportRequestsAtom,
 } from "./refundAtoms";
+import { REPORT_PROBLEM_SUBJECT, dropRefundParam } from "./refundLink";
 import { RefundSheet, shortDay } from "./RefundSheet";
 
 export const APPLE_REFUND_URL = "https://reportaproblem.apple.com";
 
-/** Owner 2026-11-07: the ways in to a refund request are hidden for now —
- * the lines at the bottom of Billing (Need a refund?, the 30-day sentence,
- * Ask Apple for a refund) and each charge's "Request a refund" menu item;
- * "Report a problem" stands in. Flip to bring them all back together.
- * Your requests, the question notice and the sheet stay. */
-export const SHOW_REFUND_ENTRY = false;
+/** The ways in to a refund request: the line at the bottom of Billing
+ * (and Ask Apple for a refund) and each charge's "Request a refund" menu
+ * item. Hidden on 2026-11-07 (62c5838); back with the refund policy of
+ * 2026-11-07 (people can ask, a person decides, nothing promised).
+ * "Report a problem" stays beside them. */
+export const SHOW_REFUND_ENTRY = true;
 
-/** English (tests); the link reads refunds.section.reportSubject. */
-export const REPORT_PROBLEM_SUBJECT = `${SITE_NAME}: report a problem`;
+export { REPORT_PROBLEM_SUBJECT } from "./refundLink";
 
 /** What a request is about → its message. */
 const ABOUT: Record<SupportRequest["about"], string> = {
@@ -113,17 +112,34 @@ export function RefundsFooter(): JSX.Element {
   const { opts, list } = useRefundData();
   const openSheet = useAppSetAtom(openRefundSheetAtom);
   const pro = useProStatus();
-  const plan = opts?.plan ?? null;
-  const askable = (plan !== null && plan.open_request_id === null) || (opts?.runs ?? []).some((r) => r.open_request_id === null);
   const appStore = proCase(pro) === "app_store";
-  const days = opts?.window_days ?? 30;
+  // the account's danger zone links here (?refund=balance): the form opens
+  // once, the balance picked
+  useEffect(() => {
+    const asked = dropRefundParam();
+    if (asked !== null) openSheet({ balance: asked === "balance" });
+  }, [openSheet]);
 
   return (
     <footer data-testid="refunds" aria-label={t("refunds.section.ariaLabel")} className="flex flex-col gap-3 text-xs text-fg-muted">
-      {/* owner 2026-11-07: one generic contact point in place of the
-          refund lines while SHOW_REFUND_ENTRY is off */}
-      {SHOW_REFUND_ENTRY ? null : (
-        <p data-testid="report-problem">
+      {SHOW_REFUND_ENTRY ? (
+        <p data-testid="refunds-line">
+          {rich(t, "refunds.section.needRefund", {
+            button: (c) => (
+              <button
+                type="button"
+                data-testid="refunds-request"
+                onClick={() => openSheet()}
+                className="text-primary underline underline-offset-2 hover:text-primary/80"
+              >
+                {c}
+              </button>
+            ),
+          })}
+        </p>
+      ) : null}
+      {/* owner 2026-11-07: the generic contact point, beside the refund line */}
+      <p data-testid="report-problem">
           {rich(t, "refunds.section.reportProblem", {
             link: (c) => (
               <a
@@ -135,30 +151,6 @@ export function RefundsFooter(): JSX.Element {
             ),
           })}
         </p>
-      )}
-      {SHOW_REFUND_ENTRY ? (
-      <p data-testid="refunds-line">
-        {askable
-          ? rich(
-              t,
-              "refunds.section.needRefund",
-              {
-                button: (c) => (
-                  <button
-                    type="button"
-                    data-testid="refunds-request"
-                    onClick={() => openSheet()}
-                    className="text-primary underline underline-offset-2 hover:text-primary/80"
-                  >
-                    {c}
-                  </button>
-                ),
-              },
-              { days },
-            )
-          : t("refunds.section.askWithin", { days })}
-      </p>
-      ) : null}
       {SHOW_REFUND_ENTRY && appStore ? (
         <p data-testid="refund-app-store">
           {rich(

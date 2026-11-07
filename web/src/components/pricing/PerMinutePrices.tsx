@@ -250,7 +250,6 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
       <section data-testid="pricing-topups" className={card}>
         <h2 className="text-sm font-semibold">{t("pricing.extras.balance")}</h2>
         <p className="text-sm">{t("pricing.extras.addFunds", { amount: formatCentsShort(1000, t) })}</p>
-        <p className="text-xs text-fg-muted">{t("pricing.extras.refundable", { days: 14 })}</p>
       </section>
     </div>
   );

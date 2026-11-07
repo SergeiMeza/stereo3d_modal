@@ -4138,24 +4138,27 @@ export const handlers = [
   // owner 2026-11-06: refund requests (gateway efa1856), a person decides
   http.get(`${GATEWAY}/v1/support/refund-options`, () => HttpResponse.json(mockDb.refundOptions)),
   http.post(`${GATEWAY}/v1/support/refund-requests`, async ({ request }) => {
-    const body = (await request.json().catch(() => ({}))) as { plan?: boolean; conversion_ids?: string[]; text?: string };
+    const body = (await request.json().catch(() => ({}))) as { plan?: boolean; conversion_ids?: string[]; balance?: boolean; text?: string };
     if ((body.text ?? "").length > 2000) return err(400, "text_too_long", "Keep it under 2000 characters.");
     const opts = mockDb.refundOptions;
     const ids = body.conversion_ids ?? [];
     const bad = ids.filter((id) => !opts.runs.some((r) => r.conversion_id === id));
-    if (bad.length > 0 || (body.plan && !opts.plan) || (!body.plan && ids.length === 0)) {
+    // RF-02: balance: true asks about every listed top-up's unspent part
+    const tops = opts.balance?.topups ?? [];
+    if (!body.plan && ids.length === 0 && !body.balance) return err(400, "invalid_request", "pick the plan, the runs or the balance to ask about");
+    if (bad.length > 0 || (body.plan && !opts.plan) || (body.balance && tops.length === 0)) {
       return HttpResponse.json(
         {
           success: false,
           error: "not_refundable",
           message: "That can't be asked for: it wasn't paid in the last 30 days, or it's refunded already.",
-          details: { conversion_ids: bad, plan: body.plan === true && !opts.plan },
+          details: { conversion_ids: bad, plan: body.plan === true && !opts.plan, balance: body.balance === true && tops.length === 0 },
         },
         { status: 400 },
       );
     }
     const out: { id: string; state: "looking"; status: string; merged: boolean }[] = [];
-    const open = (about: "plan" | "runs", cents: number, cids: string[]) => {
+    const open = (about: "plan" | "runs" | "balance", cents: number, cids: string[]) => {
       const id = `req_${mockDb.supportRequests.length + 1}`;
       mockDb.supportRequests.unshift({
         id, about, state: "looking", status: "We're looking at it", opened_at: new Date().toISOString(),
@@ -4179,6 +4182,14 @@ export const handlers = [
     }
     for (const id of new Set(asked.map((r) => r.open_request_id!))) {
       out.push({ id, state: "looking", status: "We're looking at it", merged: true });
+    }
+    if (body.balance) {
+      for (const top of tops) {
+        const merged = top.open_request_id !== null;
+        const id = top.open_request_id ?? open("balance", top.unspent_cents, []);
+        top.open_request_id = id;
+        out.push({ id, state: "looking", status: "We're looking at it", merged });
+      }
     }
     return HttpResponse.json({ success: true, requests: out }, { status: 201 });
   }),

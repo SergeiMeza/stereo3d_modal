@@ -1,9 +1,10 @@
 "use client";
 
 /**
- * "Request a refund" (owner 2026-11-06): pick what to ask about (the
- * plan's latest payment, runs paid in the last 30 days), add a note, Send.
- * A person reviews every request. After a plan request: "Cancel your plan
+ * "Request a refund" (owner 2026-11-06; policy 2026-11-07: people can ask,
+ * a person decides case by case, nothing is promised): pick what to ask
+ * about (the plan's latest payment, runs, an unspent balance, as the
+ * gateway lists them; its windows stay internal), add a note, Send. After a plan request: "Cancel your plan
  * too?". Opened from Plan & billing and from a run in Billing history
  * (refundSheetAtom, ADR 0138).
  */
@@ -12,6 +13,7 @@ import { useEffect, useState } from "react";
 import type { JSX } from "react";
 
 import { CANCEL_PLAN_HREF } from "@/components/auth/deletePlanLine";
+import { supportMailto } from "@/components/billing/BillingBanner";
 import { formatCents } from "@/components/steps/money";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,6 +28,7 @@ import { Label } from "@/components/ui/label";
 import { useGateway } from "@/lib/api/useGateway";
 import { billingUidAtom } from "@/lib/billing";
 import { useT } from "@/lib/i18n/I18nProvider";
+import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { useAppAtomValue, useAppSetAtom } from "@/lib/state/stores";
 
@@ -38,6 +41,7 @@ import {
   refundSheetAtom,
   sendRefundRequestAtom,
 } from "./refundAtoms";
+import { REPORT_PROBLEM_SUBJECT } from "./refundLink";
 
 /** English (tests); the sheet reads refunds.sheet.*. */
 export const REVIEW_LINE = "We'll review it within 2 business days.";
@@ -55,7 +59,9 @@ export function RefundSheet(): JSX.Element {
     <Dialog open={sheet.open} onOpenChange={(o) => !o && close()}>
       <DialogContent data-testid="refund-sheet" className="sm:max-w-md">
         {/* mounted per opening, so each one starts from its own picks */}
-        {sheet.open ? <RefundBody initialPlan={sheet.plan} initialRuns={sheet.conversionIds} onDone={close} /> : null}
+        {sheet.open ? (
+          <RefundBody initialPlan={sheet.plan} initialRuns={sheet.conversionIds} initialBalance={sheet.balance} onDone={close} />
+        ) : null}
       </DialogContent>
     </Dialog>
   );
@@ -64,10 +70,12 @@ export function RefundSheet(): JSX.Element {
 function RefundBody({
   initialPlan,
   initialRuns,
+  initialBalance,
   onDone,
 }: {
   initialPlan: boolean;
   initialRuns: string[];
+  initialBalance: boolean;
   onDone: () => void;
 }): JSX.Element {
   const t = useT();
@@ -79,6 +87,7 @@ function RefundBody({
   const options = state.uid === uid ? state.data : null;
   const [plan, setPlan] = useState(initialPlan);
   const [runs, setRuns] = useState<string[]>(initialRuns);
+  const [balance, setBalance] = useState(initialBalance);
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,13 +101,16 @@ function RefundBody({
   const runOptions = options?.runs ?? [];
   const planPicked = plan && planOption !== null && planOption.open_request_id === null;
   const runsPicked = runs.filter((id) => runOptions.some((r) => r.conversion_id === id && r.open_request_id === null));
-  const nothing = planOption === null && runOptions.length === 0;
+  const balanceOption = options?.balance && options.balance.unspent_cents > 0 ? options.balance : null;
+  const balanceAsked = balanceOption !== null && balanceOption.topups.length > 0 && balanceOption.topups.every((x) => x.open_request_id !== null);
+  const balancePicked = balance && balanceOption !== null && !balanceAsked;
+  const nothing = planOption === null && runOptions.length === 0 && balanceOption === null;
 
   async function submit(): Promise<void> {
     setBusy(true);
     setError(null);
     try {
-      const r = await send({ client: gateway, plan: planPicked, conversionIds: runsPicked, text: note });
+      const r = await send({ client: gateway, plan: planPicked, conversionIds: runsPicked, balance: balancePicked, text: note });
       setSent({ plan: planPicked, merged: r.merged });
     } catch (e) {
       setError(e instanceof Error ? e.message : t("refunds.sheet.sendFailed"));
@@ -136,7 +148,7 @@ function RefundBody({
     <>
       <DialogHeader>
         <DialogTitle>{t("refunds.sheet.title")}</DialogTitle>
-        <DialogDescription>{t("refunds.sheet.intro", { days: options?.window_days ?? 30 })}</DialogDescription>
+        <DialogDescription>{t("refunds.sheet.intro")}</DialogDescription>
       </DialogHeader>
       {options === null ? (
         state.error && state.uid === uid ? (
@@ -148,7 +160,13 @@ function RefundBody({
         )
       ) : nothing ? (
         <p data-testid="refund-nothing" className="text-sm text-fg-muted">
-          {t("refunds.sheet.nothing", { days: options.window_days ?? 30 })}
+          {rich(t, "refunds.sheet.nothing", {
+            link: (c) => (
+              <a href={supportMailto(REPORT_PROBLEM_SUBJECT, t)} className="text-primary underline underline-offset-2">
+                {c}
+              </a>
+            ),
+          })}
         </p>
       ) : (
         <ul data-testid="refund-items" className="max-h-64 divide-y divide-edge overflow-y-auto rounded-lg border border-edge">
@@ -160,6 +178,16 @@ function RefundBody({
               asked={planOption.open_request_id !== null}
               checked={planPicked}
               onChange={setPlan}
+            />
+          ) : null}
+          {balanceOption ? (
+            <PickRow
+              id="refund-balance"
+              label={t("refunds.sheet.balanceLabel")}
+              detail={t("refunds.sheet.balanceDetail", { amount: formatCents(balanceOption.unspent_cents, t) })}
+              asked={balanceAsked}
+              checked={balancePicked}
+              onChange={setBalance}
             />
           ) : null}
           {runOptions.map((r) => (
@@ -200,7 +228,7 @@ function RefundBody({
         <Button variant="outline" disabled={busy} onClick={onDone}>
           {t("refunds.sheet.cancel")}
         </Button>
-        <Button disabled={busy || (!planPicked && runsPicked.length === 0)} onClick={() => void submit()}>
+        <Button disabled={busy || (!planPicked && runsPicked.length === 0 && !balancePicked)} onClick={() => void submit()}>
           {busy ? t("refunds.sheet.sending") : t("refunds.sheet.send")}
         </Button>
       </DialogFooter>
