@@ -68,10 +68,11 @@ func (s *Service) scheduleDeletion(ctx context.Context, uid string, cust *store.
 
 // signInEmail is the account's sign-in email ("" when unknown).
 func (s *Service) signInEmail(ctx context.Context, uid string) string {
-	if s.Identities == nil {
+	admin := s.identities() // Identities in tests, Firebase Auth when deployed
+	if admin == nil {
 		return ""
 	}
-	if id, err := s.Identities.IdentityOf(ctx, uid); err == nil && id != nil {
+	if id, err := admin.IdentityOf(ctx, uid); err == nil && id != nil {
 		return id.Email
 	}
 	return ""
