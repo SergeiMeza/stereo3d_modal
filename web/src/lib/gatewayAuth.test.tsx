@@ -61,6 +61,16 @@ vi.mock("next/navigation", () => ({
   useSearchParams: () => new URLSearchParams(),
 }));
 
+// BL-34 item B: Apple's popup answers what the test sets
+const apple = vi.hoisted(() => ({
+  answer: { idToken: "mock-apple:new@example.com", rawNonce: "raw-nonce-1", name: null as string | null },
+}));
+vi.mock("@/lib/appleJs", async (orig) => ({
+  ...(await orig<typeof import("@/lib/appleJs")>()),
+  prepareApple: () => undefined,
+  appleAuthorize: () => Promise.resolve(apple.answer),
+}));
+
 const SESSION_KEY = "s3d-auth-session";
 
 const requestUrls: string[] = [];
@@ -392,5 +402,74 @@ describe("outside China", () => {
     expectNoPassword();
     await waitFor(() => expect(firebaseCalls.count).toBeGreaterThan(0));
     expect(requestUrls.some((u) => u.includes("/v1/auth/"))).toBe(false);
+  });
+});
+
+describe("Sign in with Apple in China mode (BL-34 item B)", () => {
+  beforeEach(() => {
+    vi.stubEnv("NEXT_PUBLIC_APPLE_SIGNIN", "1");
+    apple.answer = { idToken: "mock-apple:new@example.com", rawNonce: "raw-nonce-1", name: "Mei Lin" };
+  });
+
+  it("signs in through the cn gateway with Apple's token and raw nonce, never the SDK", async () => {
+    const { latest } = await renderAuth();
+    expect(latest().appleEnabled).toBe(true);
+    await act(() => latest().signInWithApple());
+    await waitFor(() => expect(latest().user?.email).toBe("new@example.com"));
+    expect(mockAuth.appleRequests).toEqual([{ id_token: "mock-apple:new@example.com", nonce: "raw-nonce-1" }]);
+    const call = requestUrls.find((u) => u.includes("/v1/auth/apple"));
+    expect(new URL(call!).hostname.startsWith("cn.")).toBe(true);
+    expect(storedSession()).toMatchObject({ email: "new@example.com" });
+    // Apple's first answer names the person: it fills the empty name
+    await waitFor(() => expect(latest().user?.displayName).toBe("Mei Lin"));
+    expect(firebaseCalls.count).toBe(0);
+  });
+
+  it("an address with an account confirms by email code, then Apple is linked onto it", async () => {
+    apple.answer = { idToken: "mock-apple:dev@example.com", rawNonce: "raw-nonce-2", name: null };
+    const { latest } = await renderAuth();
+    let thrown: unknown;
+    await act(async () => {
+      thrown = await latest().signInWithApple().catch((e: unknown) => e);
+    });
+    expect((thrown as Error).name).toBe("AccountExistsError");
+    expect(latest().pendingLink).toEqual({ email: "dev@example.com", providerId: "apple.com" });
+    expect(storedSession()).toBeNull();
+
+    let linkBody: Record<string, unknown> | null = null;
+    server.events.on("request:start", ({ request }) => {
+      if (request.url.includes("/v1/account/identities/link")) {
+        void request.clone().json().then((b) => (linkBody = b as Record<string, unknown>));
+      }
+    });
+    await signInByCode(latest, "dev@example.com");
+    await waitFor(() => expect(linkBody).not.toBeNull());
+    expect(linkBody).toMatchObject({ provider: "apple.com", id_token: "mock-apple:dev@example.com", nonce: "raw-nonce-2", session: true });
+    const link = requestUrls.find((u) => u.includes("/v1/account/identities/link"));
+    expect(new URL(link!).hostname.startsWith("cn.")).toBe(true);
+    expect(latest().pendingLink).toBeNull();
+    expect(latest().user?.email).toBe("dev@example.com");
+    expect(firebaseCalls.count).toBe(0);
+  });
+
+  it("a token the gateway refuses shows Apple's own failure copy", async () => {
+    apple.answer = { idToken: "not-a-mock-token", rawNonce: "n", name: null };
+    const { latest } = await renderAuth();
+    await expect(latest().signInWithApple()).rejects.toThrow("Sign in with Apple didn't work. Try again.");
+    expect(storedSession()).toBeNull();
+  });
+
+  it("the sign-in screen offers Apple and the email code, still no Google", async () => {
+    const { AuthProvider } = await import("@/lib/auth");
+    const { default: SignInScreen } = await import("@/components/auth/SignInScreen");
+    render(
+      <AuthProvider>
+        <SignInScreen />
+      </AuthProvider>,
+    );
+    expect(await screen.findByRole("button", { name: "Continue with Apple" })).toBeTruthy();
+    expect(screen.getByLabelText("Email")).toBeTruthy();
+    expect(screen.queryByText(/google/i)).toBeNull();
+    expectNoPassword();
   });
 });
