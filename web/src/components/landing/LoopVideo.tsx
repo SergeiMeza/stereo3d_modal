@@ -5,10 +5,13 @@
  * `<base>.webm` (VP9), with `<base>.jpg` as the poster. H.264 leads
  * because iPhone Safari picks a VP9 WebM it then paints as a black box. It plays only while on screen
  * and never when the viewer asked for reduced motion — then the poster is
- * all they see.
+ * all they see. In China mode a source on the samples CDN is left out
+ * (it can't load there); the poster stays.
  */
 
 import { useEffect, useRef } from "react";
+
+import { useSampleBlocked } from "@/components/SampleRegionNotice";
 
 export function LoopVideo({
   base,
@@ -20,6 +23,7 @@ export function LoopVideo({
   className?: string;
 }) {
   const ref = useRef<HTMLVideoElement>(null);
+  const blocked = useSampleBlocked(`${base}.mp4`);
 
   useEffect(() => {
     const video = ref.current;
@@ -70,8 +74,12 @@ export function LoopVideo({
       aria-label={label}
       className={className}
     >
-      <source src={`${base}.mp4`} type="video/mp4" />
-      <source src={`${base}.webm`} type="video/webm" />
+      {blocked ? null : (
+        <>
+          <source src={`${base}.mp4`} type="video/mp4" />
+          <source src={`${base}.webm`} type="video/webm" />
+        </>
+      )}
     </video>
   );
 }

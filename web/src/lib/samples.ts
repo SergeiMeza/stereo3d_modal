@@ -10,9 +10,33 @@
  */
 
 import { EN, type Tr } from "@/lib/i18n/t";
+import { currentRegion, type Region } from "@/lib/region";
 
-export const SAMPLES_CDN =
-  "https://cdn.public.spatial-video-studio.com/samples/2026-11";
+/** The public CDN the sample files live on (the landing samples and the
+ * onboarding sample project's files, gateway internal/api/sample.go). */
+export const SAMPLES_CDN_HOST = "cdn.public.spatial-video-studio.com";
+
+export const SAMPLES_CDN = `https://${SAMPLES_CDN_HOST}/samples/2026-11`;
+
+/**
+ * True when `url` is a file on the samples CDN and the visitor is in
+ * China mode, where that host can't be reached: the player or download
+ * shows the region notice instead (components/SampleRegionNotice.tsx).
+ * Paths on the web's own origin (posters, thumbnails) are never blocked,
+ * and nothing is outside China mode. `region` defaults to the region now;
+ * components pass useRegion()'s (null while hydrating: not blocked).
+ */
+export function sampleMediaBlocked(
+  url: string | null | undefined,
+  region: Region | null = currentRegion(),
+): boolean {
+  if (region !== "cn" || !url) return false;
+  try {
+    return new URL(url, "http://origin.invalid").hostname === SAMPLES_CDN_HOST;
+  } catch {
+    return false;
+  }
+}
 
 export type SampleDownloadKind = "spatial" | "sbs" | "2d";
 

@@ -2160,6 +2160,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "The sample isn't available right now.",
+      "sampleRegion": "Sample videos aren't available in your region yet.",
       "failed": "Couldn't load the files."
     },
     "groups": {

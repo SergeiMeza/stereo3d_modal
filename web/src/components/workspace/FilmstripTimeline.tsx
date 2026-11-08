@@ -53,6 +53,7 @@
    data-URLs at fixed strip height; next/image adds nothing for tiny
    repeated tiles. */
 
+import { useSampleBlocked } from "@/components/SampleRegionNotice";
 import { useAppAtom } from "@/lib/state/stores";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -185,7 +186,7 @@ export function FilmstripTimeline({
   fps,
   playhead,
   cuts = [],
-  previewUrl,
+  previewUrl: givenPreviewUrl,
   aspect,
   readOnly = false,
   selectedIndex = null,
@@ -366,6 +367,8 @@ export function FilmstripTimeline({
   const lanes = useMemo(() => bandLanes(bands), [bands]);
   const selectedBand = bands.find((b) => b.selected);
 
+  // China mode: a samples-CDN proxy can't load; the strip keeps its tiles
+  const previewUrl = useSampleBlocked(givenPreviewUrl) ? undefined : givenPreviewUrl;
   const extractionMode =
     !!previewUrl && isExtractionZoom(zoom, thumbs.length, numFrames, fps);
   const wantedFrames = useMemo(

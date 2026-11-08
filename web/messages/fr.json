@@ -2023,6 +2023,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "L’exemple est indisponible pour le moment.",
+      "sampleRegion": "Les vidéos d’exemple ne sont pas encore disponibles dans votre région.",
       "failed": "Impossible de charger les fichiers."
     },
     "groups": {

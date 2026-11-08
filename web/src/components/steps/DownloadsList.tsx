@@ -4,6 +4,9 @@ import { outputName } from "@/lib/glossary";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { DownloadGate } from "@/components/billing/PayToDownload";
+import { SampleRegionNotice } from "@/components/SampleRegionNotice";
+import { sampleMediaBlocked } from "@/lib/samples";
+import { useRegion } from "@/lib/useRegion";
 
 /**
  * Output name → signed URL list (from GET /v1/conversions/{id}/downloads).
@@ -74,11 +77,20 @@ export function DownloadsList({
   downloads: Record<string, string>;
 }): JSX.Element {
   const t = useT();
-  const entries = Object.entries(downloads).sort(([a], [b]) =>
+  const region = useRegion();
+  const all = Object.entries(downloads).sort(([a], [b]) =>
     compareOutputs(a, b),
   );
+  // China mode: samples-CDN files can't load; one region notice for them
+  const entries = all.filter(([, url]) => !sampleMediaBlocked(url, region));
+  const blocked = entries.length < all.length;
   return (
     <ul className="flex flex-col gap-3">
+      {blocked ? (
+        <li>
+          <SampleRegionNotice />
+        </li>
+      ) : null}
       {entries.map(([name, url]) => (
         <li key={name} className="flex flex-col gap-2">
           <DownloadGate className="w-fit text-sm text-primary underline underline-offset-2 hover:text-primary/80">

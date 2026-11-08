@@ -12,6 +12,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
+import { SampleRegionNotice, useSampleBlocked } from "@/components/SampleRegionNotice";
 import { PayLink, useOutstandingCents } from "@/components/billing/PayToDownload";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { useT } from "@/lib/i18n/I18nProvider";
@@ -81,6 +82,7 @@ export function ViewIn3D({
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const [playing, setPlaying] = useState(false);
   const choice = files ? playChoice(client, files) : null;
+  const blocked = useSampleBlocked(choice?.url);
 
   // leaving full screen stops the video and frees it
   useEffect(() => {
@@ -116,6 +118,8 @@ export function ViewIn3D({
   }, []);
 
   if (!choice) return null;
+  // China mode: a samples-CDN file can't load; the region notice instead
+  if (blocked) return <SampleRegionNotice />;
   if (owed > 0) {
     return (
       <PayLink

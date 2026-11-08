@@ -20,6 +20,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { JSX, ReactNode, RefObject } from "react";
 
+import { SampleRegionNotice, useSampleBlocked } from "@/components/SampleRegionNotice";
 import { FilmstripTimeline } from "@/components/workspace/FilmstripTimeline";
 import { PreviewViewer } from "@/components/workspace/PreviewViewer";
 import { usePlayerShortcuts } from "@/components/workspace/usePlayerShortcuts";
@@ -199,8 +200,8 @@ export function StepReview({
   heading,
   headingExtras,
   toolbar,
-  follower = null,
-  asideFallback = null,
+  follower: givenFollower = null,
+  asideFallback: givenAsideFallback = null,
   aside: customAside,
   belowPlayer,
   timelineHeading,
@@ -212,6 +213,13 @@ export function StepReview({
 }: StepReviewProps): JSX.Element {
   const probe = project.probe!;
   const numFrames = probe.num_frames;
+  // China mode: a samples-CDN output can't load; the region notice takes
+  // the follower's box
+  const followerBlocked = useSampleBlocked(givenFollower?.url);
+  const follower = followerBlocked ? null : givenFollower;
+  const asideFallback = followerBlocked
+    ? { testId: "follower-region", content: <SampleRegionNotice /> }
+    : givenAsideFallback;
 
   // Master: frame-exact preview player over the project proxy — same hook
   // the Cut tab uses. The playhead drives the timeline + scene highlights.
