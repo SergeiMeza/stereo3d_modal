@@ -43,6 +43,7 @@ vi.mock("@/lib/firebase", () => {
   return {
     getFirebaseApp: touched,
     getFirebaseAuth: touched,
+    loadedFirebaseAuth: () => null,
     firebaseConfig: () => ({}),
   };
 });

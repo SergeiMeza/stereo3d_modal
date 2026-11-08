@@ -2,28 +2,39 @@
  * BL-34: sign-in on the relay route. A browser outside China mode whose
  * direct host can't be reached moves to the cn. host and signs in through
  * the gateway (email code), never through the Firebase SDK. Someone
- * signed in through the SDK when the route moves is told plainly that
- * they need to sign in again with their email.
+ * signed in through the SDK when the route moves stays signed in: the
+ * SDK's refresh token becomes the gateway session (gap 3). When the
+ * gateway refuses it, they are told plainly that they need to sign in
+ * again with their email.
  */
 
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { MOCK_EMAIL_CODE, mockDb } from "@/mocks/handlers";
+import { MOCK_EMAIL_CODE, mockAuth, mockDb } from "@/mocks/handlers";
 import { server } from "@/mocks/server";
 
 import type { AuthContextValue } from "@/lib/auth";
 
 const fb = vi.hoisted(() => ({
   calls: 0,
+  signOuts: 0,
   user: null as null | Record<string, unknown>,
+  loaded: null as null | Record<string, unknown>,
 }));
 vi.mock("@/lib/firebase", () => {
   // the SDK's own onAuthStateChanged calls the auth object's method
   const auth = () => ({
-    currentUser: fb.user,
+    get currentUser() {
+      return fb.user;
+    },
     authStateReady: async () => {},
+    // firebase/auth's signOut(auth) calls this
+    signOut: async () => {
+      fb.signOuts++;
+      fb.user = null;
+    },
     onAuthStateChanged: (cb: (u: unknown) => void) => {
       cb(fb.user);
       return () => {};
@@ -36,9 +47,11 @@ vi.mock("@/lib/firebase", () => {
     },
     getFirebaseAuth: async () => {
       fb.calls++;
-      return auth();
+      fb.loaded ??= auth();
+      return fb.loaded;
     },
-    firebaseConfig: () => ({}),
+    loadedFirebaseAuth: () => (fb.loaded === null ? null : Promise.resolve(fb.loaded)),
+    firebaseConfig: () => ({ apiKey: "test-key" }),
   };
 });
 vi.mock("next/navigation", () => ({
@@ -63,7 +76,9 @@ beforeEach(() => {
   window.localStorage.clear();
   requestUrls.length = 0;
   fb.calls = 0;
+  fb.signOuts = 0;
   fb.user = null;
+  fb.loaded = null;
 });
 afterEach(() => {
   cleanup();
@@ -71,6 +86,7 @@ afterEach(() => {
   window.localStorage.clear();
   server.resetHandlers();
   mockDb.reset();
+  mockAuth.reset();
 });
 afterAll(() => server.close());
 
@@ -137,8 +153,45 @@ describe("sign-in on the relay route", () => {
     expect(fb.calls).toBe(0);
   });
 
-  it("someone signed in through the SDK is told to sign in again with their email", async () => {
-    fb.user = { uid: "u1", email: "sdk@example.com", displayName: null, photoURL: null, providerData: [] };
+  it("someone signed in through the SDK stays signed in on the cn. host", async () => {
+    mockAuth.refreshTokens.set("sdk-refresh", "dev-user");
+    fb.user = { uid: "dev-user", email: "dev@example.com", displayName: "Dev User", photoURL: null, providerData: [], refreshToken: "sdk-refresh" };
+    let release!: () => void;
+    healthHandlers(new Promise<void>((r) => (release = r)));
+    const { latest, region } = await renderAuth();
+    await waitFor(() => expect(screen.getByTestId("state").textContent).toBe("dev@example.com"));
+
+    release();
+    await act(() => region.prepareGatewayRoute());
+    await waitFor(() => expect(region.currentRegion()).toBe("cn"));
+    await waitFor(() => expect(fb.signOuts).toBe(1));
+    expect(screen.getByTestId("state").textContent).toBe("dev@example.com");
+    expect(latest().redirectError).toBeNull();
+    const refresh = requestUrls.filter((u) => u.includes("/v1/auth/refresh"));
+    expect(refresh).toHaveLength(1);
+    expect(new URL(refresh[0]).hostname).toBe(CN_HOST);
+    const stored = JSON.parse(window.localStorage.getItem("s3d-auth-session") ?? "null") as { uid: string; email: string };
+    expect(stored).toMatchObject({ uid: "dev-user", email: "dev@example.com" });
+    await expect(latest().getToken()).resolves.toMatch(/^mock-id-/);
+  });
+
+  it("arriving in China mode with an SDK sign-in keeps it, without loading the SDK", async () => {
+    mockAuth.refreshTokens.set("sdk-refresh", "dev-user");
+    window.localStorage.setItem("s3d-gateway-route", JSON.stringify({ route: "cn_relay", directCheckedAt: Date.now() }));
+    window.localStorage.setItem(
+      "firebase:authUser:test-key:[DEFAULT]",
+      JSON.stringify({ uid: "dev-user", email: "dev@example.com", displayName: null, stsTokenManager: { refreshToken: "sdk-refresh" } }),
+    );
+    healthHandlers();
+    const { latest } = await renderAuth();
+    expect(screen.getByTestId("state").textContent).toBe("dev@example.com");
+    expect(latest().redirectError).toBeNull();
+    expect(fb.calls).toBe(0);
+    expect(window.localStorage.getItem("firebase:authUser:test-key:[DEFAULT]")).toBeNull();
+  });
+
+  it("someone whose SDK sign-in the gateway refuses is told to sign in again with their email", async () => {
+    fb.user = { uid: "u1", email: "sdk@example.com", displayName: null, photoURL: null, providerData: [], refreshToken: "revoked" };
     let release!: () => void;
     healthHandlers(new Promise<void>((r) => (release = r)));
     const { latest, region } = await renderAuth();
@@ -151,6 +204,8 @@ describe("sign-in on the relay route", () => {
     expect(latest().redirectError).toBe(
       "We couldn't keep you signed in on this network. Sign in again with your email.",
     );
+    expect(fb.signOuts).toBe(0);
+    expect(window.localStorage.getItem("s3d-auth-session")).toBeNull();
   });
 
   it("a direct host that answers keeps the SDK sign-in, with no notice", async () => {
