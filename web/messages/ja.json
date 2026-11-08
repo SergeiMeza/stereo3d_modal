@@ -2023,6 +2023,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "現在サンプルを利用できません。",
+      "sampleRegion": "お住まいの地域では、サンプル動画はまだご利用いただけません。",
       "failed": "ファイルを読み込めませんでした。"
     },
     "groups": {

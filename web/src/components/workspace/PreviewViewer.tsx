@@ -12,7 +12,8 @@
  * Crop coordinates are in SOURCE pixels ("W:H:X:Y"); the container is fixed
  * to the source aspect ratio, so pure percentages of the source dimensions
  * scale the overlay exactly at any display size. When a project has no
- * preview proxy the viewer falls back to the nearest strip thumbnail.
+ * preview proxy the viewer falls back to the nearest strip thumbnail, and
+ * so it does in China mode for a samples-CDN proxy, with the region notice.
  *
  * The shared PlayerBadge corner badge names what is on screen ("Preview
  * Resolution 854×480" from the video's ACTUAL videoWidth×videoHeight, or
@@ -27,6 +28,7 @@
 import { useAppAtom } from "@/lib/state/stores";
 import { useState, type ReactNode, type RefObject } from "react";
 
+import { SampleRegionNotice, useSampleBlocked } from "@/components/SampleRegionNotice";
 import { PlayerBadge } from "@/components/steps/PlayerBadge";
 import { MuteToggle, SpeedSelect } from "@/components/steps/ScenePicker";
 import { Button } from "@/components/ui/button";
@@ -62,7 +64,7 @@ export function PreviewViewer({
   probe,
   fps,
   playhead,
-  previewUrl,
+  previewUrl: givenPreviewUrl,
   thumbs,
   crop,
   player,
@@ -71,6 +73,11 @@ export function PreviewViewer({
   aside,
 }: PreviewViewerProps) {
   const t = useT();
+  // China mode: a samples-CDN proxy can't load, so the thumbnail shows
+  // with the region notice over it (the sample project's thumbnails are
+  // on the web's own origin)
+  const blocked = useSampleBlocked(givenPreviewUrl);
+  const previewUrl = blocked ? undefined : givenPreviewUrl;
   const cropRect = parseCrop(crop);
   const fallback = previewUrl ? null : nearestThumb(thumbs, playhead);
   // The proxy's real decoded dimensions, read off the element at
@@ -135,6 +142,9 @@ export function PreviewViewer({
               dims={previewUrl ? proxyDims : null}
               title={t("workspace.viewer.proxyTitle", { size: `${probe.width}×${probe.height}` })}
             />
+          ) : null}
+          {blocked ? (
+            <SampleRegionNotice className="absolute inset-x-0 bottom-0 bg-black/70 px-3 py-2 text-center text-xs text-white" />
           ) : null}
           {cropRect ? (
             <div

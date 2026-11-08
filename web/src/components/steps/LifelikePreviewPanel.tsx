@@ -18,6 +18,7 @@
  * the quote is for the same length from the start of the video.
  */
 
+import { SampleRegionNotice, useSampleBlocked } from "@/components/SampleRegionNotice";
 import { useAtom } from "jotai";
 import { useRef, useState } from "react";
 import type { JSX, ReactNode } from "react";
@@ -177,6 +178,9 @@ function ReadyPreviewPanel({
   const downloads = useRunDownloads(shown?.state === "succeeded" ? shown : undefined);
   const output = bestPlayable(downloads);
   const client = useClient();
+  // China mode: a samples-CDN preview can't load; the region notice stands
+  // in for the player, View in 3D and the downloads
+  const blocked = useSampleBlocked(output?.url, downloads?.mvhevc);
 
   const probe = project.probe!;
   const sourceFps = parseRational(probe.fps_rational);
@@ -330,6 +334,21 @@ function ReadyPreviewPanel({
         </div>
       ) : downloads === null ? (
         <p className="text-xs text-fg-muted">{t("preview.card.fetching")}</p>
+      ) : blocked ? (
+        <>
+          <div
+            data-testid="preview-region"
+            className="flex flex-1 items-center justify-center rounded-md border border-dashed border-edge p-6 text-center"
+            style={{ aspectRatio: `${probe.width} / ${probe.height}` }}
+          >
+            <SampleRegionNotice />
+          </div>
+          <div className="flex items-center text-xs">
+            <a href="#tab=make" className="ms-auto text-primary hover:underline">
+              {t("preview.card.makeWhole")}
+            </a>
+          </div>
+        </>
       ) : output === null ? (
         // a headset's own format (Vision Pro spatial video) plays flat
         // inline; View in 3D shows it in 3D

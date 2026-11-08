@@ -2023,6 +2023,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "Örnek şu anda kullanılamıyor.",
+      "sampleRegion": "Örnek videolar bölgenizde henüz kullanılamıyor.",
       "failed": "Dosyalar yüklenemedi."
     },
     "groups": {

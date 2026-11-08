@@ -6,7 +6,8 @@
  * the friendly file name, its size and Download. "View in 3D" (S3D-47)
  * sits above the groups. Signed links expire: a click on an expired link
  * fetches fresh ones first. Files stay downloadable after a failed
- * payment (S3D-22).
+ * payment (S3D-22). In China mode the sample project's files (on the
+ * samples CDN) show the region notice instead of View in 3D and Download.
  */
 
 import { useAtom } from "jotai";
@@ -24,6 +25,9 @@ import { EN, type Tr } from "@/lib/i18n/t";
 import { splitPart, stepDownloads } from "./DownloadsList";
 import { useClient, ViewIn3D } from "./ViewIn3D";
 import { DownloadGate } from "@/components/billing/PayToDownload";
+import { SampleRegionNotice } from "@/components/SampleRegionNotice";
+import { sampleMediaBlocked } from "@/lib/samples";
+import { useRegion } from "@/lib/useRegion";
 import { AnotherFormat } from "./AnotherFormat";
 import { runFilesAtom } from "./runFilesAtoms";
 import { loadErrorText, useIsSample } from "./loadError";
@@ -202,8 +206,14 @@ function shortName(format: string, t: Tr): string {
 export function PreviewDownloads({ conversion }: { conversion: Conversion }): JSX.Element | null {
   const t = useT();
   const { files, expired, freshUrl } = useRunFiles(conversion);
+  const region = useRegion();
   if (!files || files.length === 0) return null;
-  const list = groupFiles(files).flatMap(([, l]) => l);
+  // China mode: samples-CDN files can't load; the player or View in 3D
+  // beside these links already shows the region notice
+  const list = groupFiles(files)
+    .flatMap(([, l]) => l)
+    .filter((f) => !sampleMediaBlocked(f.url, region));
+  if (list.length === 0) return null;
   return (
     <DownloadGate className="text-xs text-primary hover:underline">
       <span data-testid="preview-downloads" className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
@@ -244,6 +254,7 @@ export function RunFiles({
   const t = useT();
   const { files, error, expired, freshUrl, reload } = useRunFiles(conversion);
   const client = useClient();
+  const region = useRegion();
   const gateway = useGateway();
   // 00081: a play of View in 3D (fire-and-forget)
   const logPlay = (file: string) =>
@@ -281,6 +292,9 @@ export function RunFiles({
   const mine = groups.filter(([f]) => headsetFormats.includes(f as Format));
   const others = groups.filter(([f]) => !headsetFormats.includes(f as Format));
   const onHeadset = isHeadset(client) && mine.length > 0;
+  // China mode: samples-CDN files can't load (View in 3D says so above the
+  // groups; on a headset the notice stands there instead)
+  const blocked = (f: DownloadFile) => sampleMediaBlocked(f.url, region);
 
   function group([format, list]: [string, DownloadFile[]], thisHeadset: boolean): JSX.Element {
     const g = deviceGroup(format, conversion.step, t);
@@ -315,24 +329,26 @@ export function RunFiles({
               {f.size_bytes !== undefined ? (
                 <span className="text-fg-muted">{formatBytes(f.size_bytes)}</span>
               ) : null}
-              {thisHeadset ? (
+              {blocked(f) ? null : thisHeadset ? (
                 <ViewIn3D files={{ [format]: f.url }} size="lg" hideHint onPlay={() => logPlay(f.name)} />
               ) : null}
-              <DownloadGate
-                verb="download"
-                className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
-              >
-                <a
-                  href={f.url}
-                  // S3D-31: a bare download attribute — the saved name is the
-                  // one the gateway sends (Content-Disposition), never ours
-                  download
-                  onClick={(e) => open(e, f.name)}
+              {blocked(f) ? null : (
+                <DownloadGate
+                  verb="download"
                   className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
                 >
-                  {t("files.download")}
-                </a>
-              </DownloadGate>
+                  <a
+                    href={f.url}
+                    // S3D-31: a bare download attribute — the saved name is the
+                    // one the gateway sends (Content-Disposition), never ours
+                    download
+                    onClick={(e) => open(e, f.name)}
+                    className={`text-primary hover:underline ${thisHeadset ? "px-2 py-3" : ""}`}
+                  >
+                    {t("files.download")}
+                  </a>
+                </DownloadGate>
+              )}
             </li>
           ))}
         </ul>
@@ -348,6 +364,7 @@ export function RunFiles({
             {headsetHint(client, t)}
           </p>
         ) : null}
+        {files.some(blocked) ? <SampleRegionNotice /> : null}
         {mine.map((g) => group(g, true))}
         {another}
         {others.length > 0 ? (

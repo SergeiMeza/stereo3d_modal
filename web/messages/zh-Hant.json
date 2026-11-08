@@ -2023,6 +2023,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "目前無法使用範例。",
+      "sampleRegion": "您所在的地區暫時無法使用範例影片。",
       "failed": "無法載入檔案。"
     },
     "groups": {

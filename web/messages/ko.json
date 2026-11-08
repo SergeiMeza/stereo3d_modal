@@ -2023,6 +2023,7 @@
   "files": {
     "load": {
       "sampleUnavailable": "지금은 샘플을 사용할 수 없어요.",
+      "sampleRegion": "지금 계신 지역에서는 아직 샘플 동영상을 볼 수 없어요.",
       "failed": "파일을 불러오지 못했어요."
     },
     "groups": {
