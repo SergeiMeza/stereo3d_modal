@@ -2,16 +2,16 @@
 
 import { useSyncExternalStore } from "react";
 
-import { currentRegion } from "@/lib/region";
+import { currentRegion, subscribeRegion } from "@/lib/region";
 import type { Region } from "@/lib/region";
 
-const noSubscribe = () => () => {};
-
 /** Region for rendering (lib/region.ts): null while server rendering and
- * hydrating, so prerendered HTML never depends on the visitor. */
+ * hydrating, so prerendered HTML never depends on the visitor. Follows
+ * the route (BL-34): a browser that moves to the cn. host renders China
+ * mode from then on. */
 export function useRegion(): Region | null {
   return useSyncExternalStore<Region | null>(
-    noSubscribe,
+    subscribeRegion,
     currentRegion,
     () => null,
   );

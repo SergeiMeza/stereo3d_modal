@@ -6,6 +6,8 @@
  * URL is picked per request: the cn. host in China mode (lib/region.ts),
  * NEXT_PUBLIC_GATEWAY_URL otherwise. China mode also uploads in chunks
  * (resumable tickets), since its hosts carry at most 25 MB per request.
+ * Every request waits for the route to settle (BL-34, lib/gatewayRoute.ts)
+ * and reports a connection failure to it.
  */
 
 import { useMemo } from "react";
@@ -14,7 +16,12 @@ import { GatewayClient } from "@/lib/api/client";
 import { useAuth } from "@/lib/auth";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { confirmItsYou } from "@/lib/reauth";
-import { currentRegion, gatewayBaseUrl } from "@/lib/region";
+import {
+  currentRegion,
+  gatewayBaseUrl,
+  prepareGatewayRoute,
+  reportGatewayFailure,
+} from "@/lib/region";
 
 const chunkedUploads = () => currentRegion() === "cn";
 
@@ -25,6 +32,8 @@ export function useGateway(): GatewayClient {
     () =>
       new GatewayClient({
         baseUrl: gatewayBaseUrl,
+        prepare: prepareGatewayRoute,
+        onConnectionFailure: reportGatewayFailure,
         getToken,
         resumableUploads: chunkedUploads,
         // owner 2026-11-06: sensitive routes after an old sign-in

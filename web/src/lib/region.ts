@@ -11,12 +11,24 @@
  * `?region=auto` clears it. No cookie (local dev without the proxy, tests)
  * means "global": the default path is the one that always worked.
  *
+ * BL-34: a visitor outside China mode whose browser can't reach the
+ * gateway's direct host moves to the cn. host (lib/gatewayRoute.ts: a 5 s
+ * /health probe, connection failures only, remembered per browser,
+ * `direct` asked again every 6 h), and is then in China mode too: the
+ * same sign-in, uploads and payments as a visitor placed in China. A pin
+ * fixes the route (`?region=cn` the cn. host, `?region=global` the direct
+ * one), and China mode by country stays on the cn. host, as before.
+ *
  * Rendering reads the region through useRegion() (lib/useRegion.ts), which is null during
  * server rendering and hydration (static pages can't know the visitor),
  * so nothing region-specific is ever baked into prerendered HTML.
  * Non-render code (tokens, gateway URLs, analytics start) reads
- * currentRegion() at call time, which on the client is always settled.
+ * currentRegion() at call time; code that must know the route first
+ * awaits prepareGatewayRoute() (gatewayFetch does).
  */
+
+import { GatewayRoute, isConnectionFailure } from "@/lib/gatewayRoute";
+import type { RouteName } from "@/lib/gatewayRoute";
 
 export type Region = "cn" | "global";
 
@@ -89,12 +101,16 @@ function writeCookie(name: string, value: string | null): void {
  */
 export function currentRegion(): Region {
   if (typeof window === "undefined") return "global";
-  let param: string | null = null;
-  try {
-    param = new URLSearchParams(window.location.search).get(REGION_PARAM);
-  } catch {
-    param = null;
-  }
+  if (homeRegion() === "cn") return "cn";
+  return route.current() === "cn_relay" ? "cn" : "global";
+}
+
+/** The region from the country header or a pin, before the route
+ * (BL-34) has a say. Honors a `?region=` in the address too and stores
+ * it, in case the page was served without the proxy. */
+export function homeRegion(): Region {
+  if (typeof window === "undefined") return "global";
+  const param = regionParam();
   const asked = parseRegion(param);
   if (asked !== null) {
     if (readCookie(REGION_PIN_COOKIE) !== asked) {
@@ -105,6 +121,22 @@ export function currentRegion(): Region {
   }
   if (param === "auto") writeCookie(REGION_PIN_COOKIE, null);
   return parseRegion(readCookie(REGION_COOKIE)) ?? "global";
+}
+
+function regionParam(): string | null {
+  try {
+    return new URLSearchParams(window.location.search).get(REGION_PARAM);
+  } catch {
+    return null;
+  }
+}
+
+/** A `?region=cn|global` pin is in force (it fixes the route). */
+function regionPinned(): boolean {
+  if (typeof window === "undefined") return false;
+  const param = regionParam();
+  if (param === "auto") return false;
+  return parseRegion(param) !== null || parseRegion(readCookie(REGION_PIN_COOKIE)) !== null;
 }
 
 // ---------------------------------------------------------------- gateway
@@ -134,9 +166,107 @@ export function cnGatewayUrl(): string {
   );
 }
 
-/** The gateway base URL for this visitor, decided at call time. The mock
- * gateway (NEXT_PUBLIC_API_MOCK=1) only answers on the plain URL. */
+/** The gateway base URL for this visitor, decided at call time: the cn.
+ * host in China mode (by country, pin or route), the direct one otherwise.
+ * The mock gateway (NEXT_PUBLIC_API_MOCK=1) only answers on the plain URL. */
 export function gatewayBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_MOCK === "1") return globalGatewayUrl();
   return currentRegion() === "cn" ? cnGatewayUrl() : globalGatewayUrl();
+}
+
+// ---------------------------------------------------------- the route
+
+/** Whether the route may move by reachability: a real gateway with a cn.
+ * host of its own, not the mock or a test run, and not switched off with
+ * NEXT_PUBLIC_GATEWAY_FALLBACK=0. */
+function routeFallbackEnabled(): boolean {
+  return (
+    process.env.NEXT_PUBLIC_GATEWAY_FALLBACK !== "0" &&
+    process.env.NEXT_PUBLIC_API_MOCK !== "1" &&
+    process.env.NODE_ENV !== "test" &&
+    process.env.NEXT_PUBLIC_GATEWAY_URL !== undefined &&
+    cnGatewayUrl() !== globalGatewayUrl()
+  );
+}
+
+function browserStorage(): Storage | null {
+  try {
+    return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+const browserDeps = {
+  enabled: routeFallbackEnabled,
+  home: homeRegion,
+  pinned: regionPinned,
+  hosts: () => ({ direct: globalGatewayUrl(), cnRelay: cnGatewayUrl() }),
+  // late-bound: tests (MSW) replace the global fetch
+  fetch: ((input, init) => fetch(input, init)) as typeof fetch,
+  storage: browserStorage,
+  now: () => Date.now(),
+  online: () => typeof navigator === "undefined" || navigator.onLine !== false,
+};
+
+const regionListeners = new Set<() => void>();
+
+let route = new GatewayRoute(browserDeps);
+
+/** Tests: a fresh route, its dependencies overridden. */
+export function resetGatewayRouteForTests(
+  deps: Partial<ConstructorParameters<typeof GatewayRoute>[0]> = {},
+): GatewayRoute {
+  route = new GatewayRoute({ ...browserDeps, ...deps });
+  for (const fn of regionListeners) route.subscribe(fn);
+  return route;
+}
+
+/** Called when the region may have changed (the route moved); returns
+ * unsubscribe. For useRegion(). */
+export function subscribeRegion(fn: () => void): () => void {
+  regionListeners.add(fn);
+  const off = route.subscribe(fn);
+  return () => {
+    regionListeners.delete(fn);
+    off();
+  };
+}
+
+/** The route the next gateway request takes. */
+export function currentGatewayRoute(): RouteName {
+  return currentRegion() === "cn" ? "cn_relay" : "direct";
+}
+
+/** Settles the route before the first gateway request of a page load
+ * (at once when it's fixed). */
+export function prepareGatewayRoute(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  return route.prepare();
+}
+
+/** A gateway request failed before any answer: the route is asked again
+ * (connection failures only; HTTP statuses never reach here). */
+export function reportGatewayFailure(error: unknown): void {
+  route.reportFailure(error);
+}
+
+/** On the relay by choice for 6 h or more: ask the direct host again (the
+ * next page load goes back to it when it answers). */
+export function recheckDirectGatewayRoute(): Promise<boolean> {
+  if (typeof window === "undefined") return Promise.resolve(false);
+  return route.recheckDirect();
+}
+
+/** fetch on the gateway at `path`, on this visitor's route: waits for the
+ * route to settle, and reports a connection failure so the next request
+ * can take the other host. Throws what fetch throws. */
+export async function gatewayFetch(path: string, init?: RequestInit): Promise<Response> {
+  await prepareGatewayRoute();
+  try {
+    return await fetch(`${gatewayBaseUrl()}${path}`, init);
+  } catch (e) {
+    if (isConnectionFailure(e)) reportGatewayFailure(e);
+    throw e;
+  }
 }

@@ -64,6 +64,12 @@ export function getFirebaseApp(): Promise<FirebaseApp> {
 
 let authPromise: Promise<Auth> | null = null;
 
+/** The Auth instance when this page already loaded the SDK, else null:
+ * never loads it (China mode keeps the SDK out, lib/sessionHandover.ts). */
+export function loadedFirebaseAuth(): Promise<Auth> | null {
+  return authPromise;
+}
+
 /** Owner bug 2026-11-05: the persistence and the popup/redirect resolver
  * spelled out (what getAuth picks in a browser), so a redirect's answer
  * survives Safari's storage rules: IndexedDB first, then localStorage. */

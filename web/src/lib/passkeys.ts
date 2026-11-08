@@ -42,7 +42,7 @@ import type {
 import { copyKey, keyed } from "@/lib/authErrors";
 import { GatewayAuthError } from "@/lib/gatewayAuth";
 import { EN } from "@/lib/i18n/t";
-import { gatewayBaseUrl } from "@/lib/region";
+import { gatewayFetch } from "@/lib/region";
 
 export const PASSKEY_ROUTES = {
   signInOptions: "/v1/auth/passkey/options",
@@ -163,7 +163,7 @@ export function toPasskeyError(err: unknown): PasskeyError {
 async function anonymousPost<T>(path: string, body: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${gatewayBaseUrl()}${path}`, {
+    res = await gatewayFetch(path, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),

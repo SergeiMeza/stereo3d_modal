@@ -48,8 +48,7 @@ import type { JSX, ReactNode } from "react";
 
 import { getStripe } from "@/components/billing/stripeLoader";
 import { useT } from "@/lib/i18n/I18nProvider";
-
-const GATEWAY = process.env.NEXT_PUBLIC_GATEWAY_URL ?? "http://localhost:8787";
+import { gatewayBaseUrl } from "@/lib/region";
 
 export type ConfirmResult =
   | "paid"
@@ -442,7 +441,7 @@ function MockPane({
   async function mockConfirm(wallet: boolean): Promise<ConfirmResult> {
     setMessage(null);
     const res = await fetch(
-      `${GATEWAY}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
+      `${gatewayBaseUrl()}/__mock__/checkout/${encodeURIComponent(clientSecret)}/confirm`,
       { method: "POST" },
     ).catch(() => null);
     const result = res ? ((await res.json()) as { result: ConfirmResult }).result : "declined";

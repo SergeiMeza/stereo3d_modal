@@ -22,7 +22,7 @@
  *   it off.
  */
 
-import { currentRegion } from "@/lib/region";
+import { currentRegion, prepareGatewayRoute } from "@/lib/region";
 
 export const CLARITY_PROJECT_ID =
   process.env.NEXT_PUBLIC_CLARITY_PROJECT_ID ?? "xhpg7k1meg";
@@ -133,8 +133,15 @@ export function startAnalytics(opts: { consented: boolean }): void {
   // owner bug 2026-11-05: session recording starts once the page is quiet
   // (no dialog open, the browser idle), never under a first-run welcome
   // whose taps iOS Safari was dropping
-  clarityPromise = whenQuiet().then(() => import("@microsoft/clarity")).then(
-    ({ default: Clarity }) => {
+  // BL-34: a browser whose route moves to the cn. host is in China mode
+  // too, and China mode loads no analytics; the route settles first
+  clarityPromise = prepareGatewayRoute()
+    .then(whenQuiet)
+    .then(() => {
+      if (currentRegion() === "cn") throw new Error("analytics: China mode");
+      return import("@microsoft/clarity");
+    })
+    .then(({ default: Clarity }) => {
       Clarity.init(CLARITY_PROJECT_ID);
       if (opts.consented) {
         Clarity.consentV2({
@@ -143,8 +150,7 @@ export function startAnalytics(opts: { consented: boolean }): void {
         });
       }
       return Clarity;
-    },
-  );
+    });
   clarityPromise.catch(() => {});
 }
 

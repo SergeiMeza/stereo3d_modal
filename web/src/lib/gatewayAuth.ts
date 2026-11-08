@@ -13,7 +13,7 @@
 
 import { keyed } from "@/lib/authErrors";
 import { EN } from "@/lib/i18n/t";
-import { gatewayBaseUrl } from "@/lib/region";
+import { gatewayFetch } from "@/lib/region";
 
 export interface GatewaySession {
   uid: string;
@@ -133,7 +133,7 @@ async function post<T>(
 ): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${gatewayBaseUrl()}${path}`, {
+    res = await gatewayFetch(path, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -266,6 +266,38 @@ export function gatewayAdoptSession(answer: {
   expires_in?: number;
 }): GatewaySession {
   const session = sessionFrom(answer);
+  store(session);
+  return session;
+}
+
+/**
+ * BL-34 hand-over: turn a Firebase refresh token (the SDK's signed-in user,
+ * lib/sessionHandover.ts) into the gateway session, through /v1/auth/refresh
+ * on this visitor's route. The answer must be the same account (`profile.uid`);
+ * the SDK's email and name fill what the refresh answer leaves out. A session
+ * that appeared meanwhile (another tab, a sign-in) wins: nothing is stored
+ * and the answer is null. Throws GatewayAuthError when the gateway refuses
+ * or can't be reached; nothing is stored then either.
+ */
+export async function gatewayAdoptRefreshToken(
+  refreshToken: string,
+  profile: { uid: string; email: string | null; displayName: string | null },
+): Promise<GatewaySession | null> {
+  const answer = await post<SessionAnswer>("/v1/auth/refresh", {
+    refresh_token: refreshToken,
+  });
+  if (answer.uid !== profile.uid) {
+    throw new GatewayAuthError("auth_unavailable", "a different account answered", 502);
+  }
+  if (gatewaySession() !== null) return null;
+  const session = sessionFrom(answer, {
+    uid: profile.uid,
+    email: profile.email,
+    displayName: profile.displayName,
+    idToken: "",
+    refreshToken,
+    expiresAt: Date.now(),
+  });
   store(session);
   return session;
 }

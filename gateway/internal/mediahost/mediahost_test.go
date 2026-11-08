@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
 
@@ -114,5 +115,57 @@ func TestNonJSONPassesThrough(t *testing.T) {
 	})
 	if w.Code != 200 || w.Body.String() != public {
 		t.Fatalf("got %d %q", w.Code, w.Body)
+	}
+}
+
+// BL-34 gap 5: the answers a relay browser actually gets, in the shapes
+// they leave the gateway in. Lifelike and Classic outputs, previews and
+// thumbnails are Modal public URLs (app/common/storage.py public_url:
+// path style, key percent-encoded); downloads are V4 signed URLs whose
+// "&" Go's encoder writes as &. The onboarding sample's files live
+// on the public CDN, outside the bucket prefix the media host forwards,
+// so they stay as they are.
+func TestRelayAnswersInTheirRealShapes(t *testing.T) {
+	const (
+		media  = "https://cn.media.stereo3d.studio/spatial-video-studio-app/stereo3d/test/"
+		bucket = "https://storage.googleapis.com/spatial-video-studio-app/stereo3d/test/"
+		cdn    = "https://cdn.public.spatial-video-studio.com/samples/2026-11/sunset-session-spatial.mov"
+	)
+	signedAs := bucket + "outputs/ll0e3334bec71946/mvhevc.mov?X-Goog-Algorithm=GOOG4-RSA-SHA256&X-Goog-Expires=3600&X-Goog-Signature=ab&response-content-disposition=attachment%3B+filename%3D%22Beach+%E2%80%93+4K.mov%22"
+	answer := map[string]any{
+		// GET /v1/projects/{id}: analyze outputs (Classic and Lifelike share them)
+		"preview_url":  bucket + "outputs/04755c3d18d2/preview.mp4",
+		"poster":       map[string]any{"frame": 0, "url": bucket + "outputs/04755c3d18d2/thumbs/poster_00001.jpg"},
+		"scene_thumbs": []map[string]any{{"frame": 0, "url": bucket + "outputs/04755c3d18d2/thumbs/scene_00001.jpg"}},
+		// GET /v1/conversions/{id}/downloads (Lifelike run, Classic run)
+		"downloads": map[string]string{"mvhevc": signedAs, "sbs": bucket + "outputs/aa4db5f74dd3/sbs.mp4?X-Goog-Signature=cd"},
+		"files":     []map[string]any{{"name": "mvhevc", "url": signedAs}},
+		// a key with a space, as Python's quote() writes it
+		"quoted": bucket + "outputs/p1/My%20Clip/sbs.mp4",
+		"sample": cdn,
+	}
+	rw := New("https://cn.media.stereo3d.studio", "spatial-video-studio-app", "stereo3d/test/", relayByHeader)
+	w := serve(t, rw, "https://www.stereo3d.studio", true, func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(answer)
+	})
+	if strings.Contains(w.Body.String(), "storage.googleapis.com") {
+		t.Fatalf("a storage link reached a relay browser: %s", w.Body)
+	}
+	m := decode(t, w)
+	if got := m["downloads"].(map[string]any)["mvhevc"]; got != strings.Replace(signedAs, bucket, media, 1) {
+		t.Errorf("signed download: %v", got)
+	}
+	if got := m["files"].([]any)[0].(map[string]any)["url"]; got != strings.Replace(signedAs, bucket, media, 1) {
+		t.Errorf("files[0].url: %v", got)
+	}
+	if got := m["poster"].(map[string]any)["url"]; got != media+"outputs/04755c3d18d2/thumbs/poster_00001.jpg" {
+		t.Errorf("poster: %v", got)
+	}
+	if m["quoted"] != media+"outputs/p1/My%20Clip/sbs.mp4" {
+		t.Errorf("quoted key: %v", m["quoted"])
+	}
+	if m["sample"] != cdn {
+		t.Errorf("sample CDN link changed: %v", m["sample"])
 	}
 }
