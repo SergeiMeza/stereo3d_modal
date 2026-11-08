@@ -12,7 +12,8 @@
  *   is NO anonymous fallback — the web product requires a real account;
  *   getToken rejects when signed out and RequireAuth routes to /signin.
  * - "firebase", China mode: the same Firebase accounts, signed in through
- *   the gateway's /v1/auth/* routes (lib/gatewayAuth.ts), email only. The
+ *   the gateway's /v1/auth/* routes (lib/gatewayAuth.ts): the email code
+ *   and Sign in with Apple (BL-34 item B, Apple's JS then /v1/auth/apple). The
  *   Firebase SDK is never loaded: every SDK call below sits behind a
  *   region check made at call time.
  * - BL-34: China mode also follows the gateway route (lib/gatewayRoute.ts).
@@ -50,6 +51,7 @@ import { useEffect, useMemo, useRef } from "react";
 
 import { AuthDebugPanel } from "@/components/auth/AuthDebugPanel";
 import { track, upgradeSession } from "@/lib/analytics";
+import { AppleJsUnavailable, appleAuthorize } from "@/lib/appleJs";
 import { runAppleFlow, type AppleAuthApi, type AppleOp } from "@/lib/appleSignIn";
 import { copyKey, errorText, keyed, keyedError } from "@/lib/authErrors";
 import { appStore, useAppAtomValue } from "@/lib/state/stores";
@@ -73,7 +75,10 @@ import {
 } from "@/lib/authRedirect";
 import { firebaseConfig, getFirebaseAuth } from "@/lib/firebase";
 import {
+  GatewayAuthError,
   gatewayAdoptSession,
+  gatewayAppleSignIn,
+  gatewayLinkApple,
   gatewaySession,
   gatewaySignOut,
   gatewayUpdateDisplayName,
@@ -120,7 +125,8 @@ export interface AuthContextValue {
   user: AuthUser | null;
   ready: boolean;
   getToken(): Promise<string>;
-  /** Sign in with Apple is offered (configured, not China mode). */
+  /** Sign in with Apple is offered (configured; China mode too, through
+   * the gateway). */
   appleEnabled: boolean;
   signInWithApple(): Promise<void>;
   /** Mail a one-time code (S3D-70). */
@@ -201,6 +207,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   rate_limited: "tooManyAttempts",
   user_disabled: "accountDisabled",
   operation_not_allowed: "emailOnly",
+  apple_invalid: "appleFailed",
   invalid_refresh_token: "signedOut",
   invalid_token: "signedOut",
   signed_out: "signedOut",
@@ -220,7 +227,7 @@ const FRIENDLY_BY_CODE: Record<string, string> = {
   "auth/no-such-provider": "noSuchProvider",
 };
 
-/** China mode signs in by email only. */
+/** China mode signs in by email code or Apple: no Google, no passwords. */
 const emailOnlyError = (): Error => keyedError("auth.errors.emailOnly");
 const signedOutError = (): Error => keyedError("auth.errors.signedOut");
 const signInFailedError = (): Error => keyedError("auth.errors.signInFailed");
@@ -390,6 +397,32 @@ async function pendingCredentialNow(): Promise<AuthCredential | null> {
     if (!credential) return null;
     const { OAuthCredential } = await import("firebase/auth");
     return OAuthCredential.fromJSON(credential);
+  } catch {
+    return null;
+  }
+}
+
+/** China mode's pending Apple sign-in: Apple's ID token and raw nonce
+ * (no SDK credential), linked through the gateway once the email code
+ * confirms the address. Apple's token lasts 10 minutes. */
+interface GatewayPendingApple {
+  idToken: string;
+  rawNonce: string;
+}
+
+function saveGatewayPending(p: PendingLink, apple: GatewayPendingApple): void {
+  pendingCredential = null;
+  session()?.setItem(PENDING_KEY, JSON.stringify({ ...p, apple }));
+}
+
+function gatewayPendingApple(): GatewayPendingApple | null {
+  try {
+    const raw = session()?.getItem(PENDING_KEY);
+    if (!raw) return null;
+    const { apple } = JSON.parse(raw) as { apple?: Partial<GatewayPendingApple> };
+    return typeof apple?.idToken === "string" && typeof apple.rawNonce === "string"
+      ? { idToken: apple.idToken, rawNonce: apple.rawNonce }
+      : null;
   } catch {
     return null;
   }
@@ -587,6 +620,60 @@ function appleAuthApi(): AppleAuthApi<User, UserCredential> {
   };
 }
 
+interface GatewayAppleResult {
+  user: { displayName: string | null };
+  isNewUser: boolean;
+}
+
+/** BL-34 item B: Apple's answer → the gateway's /v1/auth/apple (China mode,
+ * no SDK). Sign-in only: linking on the account page stays global. */
+function gatewayAppleApi(): AppleAuthApi<GatewayAppleResult["user"], GatewayAppleResult> {
+  return {
+    credential: (answer) => answer,
+    signInWithCredential: async (answer) => {
+      const { idToken, rawNonce } = answer as { idToken: string; rawNonce: string };
+      const { session: s, isNewUser } = await gatewayAppleSignIn(idToken, rawNonce);
+      return { user: { displayName: s.displayName }, isNewUser };
+    },
+    linkWithCredential: () => Promise.reject(emailOnlyError()),
+    updateDisplayName: async (_user, name) => {
+      await gatewayUpdateDisplayName(name);
+    },
+    settled: (result) => {
+      track(result.isNewUser ? "sign_up" : "login", { method: "apple.com" });
+      logSignInEvent("apple");
+      if (result.isNewUser) upgradeSession("new-account");
+    },
+  };
+}
+
+async function appleViaGateway(): Promise<void> {
+  // the answer the gateway refuses keeps its token for the email-code link
+  let answer: { idToken: string; rawNonce: string } | null = null;
+  const flow = await runAppleFlow("signin", gatewayAppleApi(), {
+    authorize: async () => {
+      const a = await appleAuthorize();
+      answer = a;
+      return a;
+    },
+    capturePending: async (e) => {
+      if (!(e instanceof GatewayAuthError) || e.code !== "account_exists" || answer === null) return null;
+      const email = typeof e.details.email === "string" ? e.details.email : "";
+      if (!email) return null;
+      const p: PendingLink = { email, providerId: "apple.com" };
+      saveGatewayPending(p, answer);
+      return p;
+    },
+    track,
+  });
+  if (flow.kind === "pending") {
+    setAuthPending(flow.pending);
+    throw new AccountExistsError(flow.pending);
+  }
+  // no redirect fallback without the SDK
+  if (flow.kind === "fallback") throw new AppleJsUnavailable();
+}
+
 /** Apple's JS first; "fallback" when it couldn't load (use the redirect). */
 async function appleViaJs(op: AppleOp): Promise<"done" | "fallback"> {
   let flow: Awaited<ReturnType<typeof runAppleFlow<User, UserCredential, PendingLink>>>;
@@ -610,7 +697,15 @@ async function appleViaJs(op: AppleOp): Promise<"done" | "fallback"> {
 }
 
 const signInWithApple = async () => {
-  if (viaGateway() || !APPLE_SIGNIN) throw emailOnlyError();
+  if (!APPLE_SIGNIN) throw emailOnlyError();
+  if (viaGateway()) {
+    try {
+      await appleViaGateway();
+      return;
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+  }
   try {
     if ((await appleViaJs("signin")) === "done") return;
   } catch (e) {
@@ -660,6 +755,22 @@ const signInWithEmailCode = async (email: string, code: string) => {
         });
         logSignInEvent("email_code");
         if (answer.is_new_user) upgradeSession("new-account");
+        // S3D-69 in China mode: Apple said this address had an account;
+        // the code proved it, so link Apple's token onto it.
+        const pending = readPending();
+        if (pending && pending.email.toLowerCase() === email.trim().toLowerCase()) {
+          const apple = gatewayPendingApple();
+          if (apple) {
+            try {
+              await gatewayLinkApple(apple.idToken, apple.rawNonce);
+              track("link_provider", { method: "apple.com" });
+            } catch (e) {
+              console.warn("auth: pending link failed", errorCode(e));
+            }
+          }
+          dropPending();
+          setAuthPending(null);
+        }
         return;
       }
       const answer = await verifyEmailCode(email, code, false);
@@ -823,7 +934,16 @@ const reloadUser = async () => {
 };
 
 const signInWithAppleToken = async (idToken: string, rawNonce: string) => {
-  if (viaGateway()) throw emailOnlyError();
+  if (viaGateway()) {
+    try {
+      const { isNewUser } = await gatewayAppleSignIn(idToken, rawNonce);
+      track(isNewUser ? "sign_up" : "login", { method: "apple.com" });
+      logSignInEvent("apple");
+    } catch (e) {
+      throw friendlyAuthError(e);
+    }
+    return;
+  }
   try {
     const auth = await getFirebaseAuth();
     const { OAuthProvider, signInWithCredential } = await import("firebase/auth");
@@ -1079,7 +1199,7 @@ export function useAuth(): AuthContextValue {
             ...LIVE,
             user: s.user,
             ready: s.ready,
-            appleEnabled: APPLE_SIGNIN && s.mode === "firebase",
+            appleEnabled: APPLE_SIGNIN && (s.mode === "firebase" || s.mode === "gateway"),
             pendingLink: s.pendingLink,
             redirectError: s.redirectFailure ? errorText(s.redirectFailure, t) : s.redirectError,
           },

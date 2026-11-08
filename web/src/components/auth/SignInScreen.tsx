@@ -100,8 +100,8 @@ export default function SignInScreen() {
   // owner 2026-11-05: Apple's JS (popup) loads with the page, so the tap
   // opens Apple's window at once
   useEffect(() => {
-    if (appleEnabled && !emailOnly) prepareApple();
-  }, [appleEnabled, emailOnly]);
+    if (appleEnabled) prepareApple();
+  }, [appleEnabled]);
 
   const passkeys = usePasskeysSupported() && AUTH_MODE === "firebase" && !emailOnly;
   const passkeySignIn = useCallback(
@@ -216,7 +216,8 @@ export default function SignInScreen() {
         </p>
       </div>
 
-      {!emailOnly && (
+      {/* China mode (BL-34 item B): Apple through the gateway, no Google */}
+      {(!emailOnly || showApple) && (
         <div className="space-y-2.5">
           {showApple && (
             <button
@@ -230,16 +231,18 @@ export default function SignInScreen() {
               {t("auth.signIn.continueApple")}
             </button>
           )}
-          <button
-            type="button"
-            data-testid="signin-google"
-            disabled={pending}
-            onClick={() => void provider(signInWithGoogle)}
-            className={`${providerButton} border border-edge bg-surface-2 text-fg hover:border-primary/60`}
-          >
-            <GoogleLogo className="size-4" />
-            {t("auth.signIn.continueGoogle")}
-          </button>
+          {!emailOnly && (
+            <button
+              type="button"
+              data-testid="signin-google"
+              disabled={pending}
+              onClick={() => void provider(signInWithGoogle)}
+              className={`${providerButton} border border-edge bg-surface-2 text-fg hover:border-primary/60`}
+            >
+              <GoogleLogo className="size-4" />
+              {t("auth.signIn.continueGoogle")}
+            </button>
+          )}
           {passkeys && (
             <PasskeyButton
               signIn={passkeySignIn}
@@ -252,7 +255,7 @@ export default function SignInScreen() {
         </div>
       )}
 
-      {!emailOnly && (
+      {(!emailOnly || showApple) && (
         <div className="flex items-center gap-3 text-xs text-fg-muted">
           <span className="h-px flex-1 bg-edge" aria-hidden="true" />
           {t("auth.signIn.or")}

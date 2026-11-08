@@ -1381,11 +1381,18 @@ export const mockAuth = {
   users: new Map<string, MockAuthUser>(),
   /** refresh token → uid; revoke one to exercise a refused refresh */
   refreshTokens: new Map<string, string>(),
+  /** ID token → uid, so /v1/auth/profile names the caller */
+  idTokens: new Map<string, string>(),
   issued: 0,
   /** addresses a code was mailed to, oldest first */
   codesSent: [] as string[],
   /** each code mail's language, as asked (null when none was sent) */
   codeLanguages: [] as (string | null)[],
+  /** BL-34 item B: addresses whose account has Apple (China mode's
+   * /v1/auth/apple); the mock's Apple ID token is "mock-apple:<email>" */
+  appleLinked: new Set<string>(),
+  /** /v1/auth/apple requests, oldest first */
+  appleRequests: [] as { id_token?: string; nonce?: string }[],
   reset() {
     this.users = new Map([
       [
@@ -1398,9 +1405,12 @@ export const mockAuth = {
       ],
     ]);
     this.refreshTokens = new Map();
+    this.idTokens = new Map();
     this.issued = 0;
     this.codesSent = [];
     this.codeLanguages = [];
+    this.appleLinked = new Set();
+    this.appleRequests = [];
   },
 };
 mockAuth.reset();
@@ -1409,6 +1419,7 @@ function authSession(u: MockAuthUser) {
   const n = ++mockAuth.issued;
   const refreshToken = `mock-refresh-${n}`;
   mockAuth.refreshTokens.set(refreshToken, u.uid);
+  mockAuth.idTokens.set(`mock-id-${n}`, u.uid);
   return {
     uid: u.uid,
     email: u.email,
@@ -1479,6 +1490,26 @@ function authHandlers(base: string) {
           : { uid: u.uid, custom_token: `mock-custom-${u.uid}`, is_new_user: isNew },
       );
     }),
+    http.post(`${base}/v1/auth/apple`, async ({ request }) => {
+      const body = (await request.json().catch(() => ({}))) as { id_token?: string; nonce?: string };
+      mockAuth.appleRequests.push(body);
+      const email = (body.id_token ?? "").startsWith("mock-apple:") ? body.id_token!.slice(11).toLowerCase() : "";
+      if (!email) return err(401, "apple_invalid", "this Apple sign-in didn't go through; try again");
+      let u = mockAuth.users.get(email);
+      if (u && !mockAuth.appleLinked.has(email)) {
+        return HttpResponse.json(
+          { success: false, error: "account_exists", message: "this address already has an account", details: { email } },
+          { status: 409 },
+        );
+      }
+      const isNew = u === undefined;
+      if (!u) {
+        u = { uid: `mock-uid-${mockAuth.users.size + 1}`, email, displayName: null };
+        mockAuth.users.set(email, u);
+        mockAuth.appleLinked.add(email);
+      }
+      return HttpResponse.json({ ...authSession(u), is_new_user: isNew });
+    }),
     http.post(`${base}/v1/auth/refresh`, async ({ request }) => {
       const body = (await request.json().catch(() => ({}))) as {
         refresh_token?: string;
@@ -1506,8 +1537,9 @@ function authHandlers(base: string) {
       if (!name) {
         return err(400, "invalid_request", "display_name must be 1–120 characters");
       }
-      // The mock can't read a uid out of its tokens: the seeded user.
-      const u = mockAuth.users.get("dev@example.com")!;
+      // the caller's user; a token the mock didn't issue: the seeded user
+      const uid = mockAuth.idTokens.get(auth.slice(7));
+      const u = [...mockAuth.users.values()].find((x) => x.uid === uid) ?? mockAuth.users.get("dev@example.com")!;
       u.displayName = name;
       return HttpResponse.json(authSession(u));
     }),

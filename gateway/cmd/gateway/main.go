@@ -98,6 +98,7 @@ func main() {
 	mux.HandleFunc("POST /v1/auth/signin", idh.SignIn)
 	mux.HandleFunc("POST /v1/auth/signup", idh.SignUp)
 	mux.HandleFunc("POST /v1/auth/refresh", idh.Refresh)
+	mux.HandleFunc("POST /v1/auth/apple", idh.Apple)
 	mux.HandleFunc("POST /v1/auth/reset", idh.Reset)
 	mux.HandleFunc("POST /v1/auth/reset/confirm", idh.ResetConfirm)
 

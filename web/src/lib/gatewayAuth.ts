@@ -40,6 +40,8 @@ export class GatewayAuthError extends Error {
     public readonly code: string,
     message: string,
     public readonly status: number,
+    /** the error's details, e.g. account_exists names the address */
+    public readonly details: Record<string, unknown> = {},
   ) {
     super(message);
     this.name = "GatewayAuthError";
@@ -157,6 +159,9 @@ async function post<T>(
         ? parsed.message
         : `request failed (${res.status})`,
       res.status,
+      typeof parsed.details === "object" && parsed.details !== null
+        ? (parsed.details as Record<string, unknown>)
+        : {},
     );
   }
   return parsed as T;
@@ -300,4 +305,43 @@ export async function gatewayAdoptRefreshToken(
   });
   store(session);
   return session;
+}
+
+/**
+ * BL-34 item B: Sign in with Apple in China mode. Apple's ID token (and the
+ * raw nonce whose hash it carries, lib/appleJs.ts) goes to the gateway's
+ * /v1/auth/apple, which signs in to the same apple.com user the SDK would.
+ * An address that already has an account throws GatewayAuthError
+ * account_exists with details.email; nothing is stored then.
+ */
+export async function gatewayAppleSignIn(
+  idToken: string,
+  rawNonce: string,
+): Promise<{ session: GatewaySession; isNewUser: boolean }> {
+  const answer = await post<SessionAnswer & { is_new_user?: boolean }>(
+    "/v1/auth/apple",
+    { id_token: idToken, nonce: rawNonce },
+  );
+  const session = sessionFrom(answer);
+  store(session);
+  return { session, isNewUser: answer.is_new_user === true };
+}
+
+/** Link an Apple ID token onto the signed-in gateway account (the email
+ * code confirmed the address, S3D-69), through /v1/account/identities/link;
+ * the fresh tokens it answers become the session. */
+export async function gatewayLinkApple(
+  idToken: string,
+  rawNonce: string,
+): Promise<void> {
+  const token = await getGatewayToken();
+  const answer = await post<{ session?: SessionAnswer }>(
+    "/v1/account/identities/link",
+    { provider: "apple.com", id_token: idToken, nonce: rawNonce, session: true },
+    token,
+  );
+  const previous = gatewaySession();
+  if (answer.session && previous && answer.session.uid === previous.uid) {
+    store(sessionFrom(answer.session, previous));
+  }
 }
