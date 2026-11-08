@@ -372,6 +372,10 @@ func mapCode(op Op, code string) *httpx.APIError {
 		}
 	case "INVALID_ID_TOKEN", "CREDENTIAL_TOO_OLD_LOGIN_AGAIN":
 		return httpx.ErrUnauthorized()
+	case "INVALID_IDP_RESPONSE", "MISSING_OR_INVALID_NONCE", "INVALID_CREDENTIAL_OR_PROVIDER_ID":
+		if op == OpSignInIdP {
+			return httpx.Err(http.StatusUnauthorized, "apple_invalid", "this Apple sign-in didn't go through; try again")
+		}
 	}
 	return ErrUnavailable()
 }
