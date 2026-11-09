@@ -62,7 +62,7 @@ describe("/pro (mock mode)", () => {
       "Plus $20 of usage credit when you join Pro (or the first time you sign in here with Pro from the app), and Pro in the app on iPhone, iPad, Mac and Vision Pro.",
     );
     expect(screen.getByTestId("pro-credit-rules").textContent).toBe(
-      "Use it within 30 days. It isn't paid out.",
+      "Use it within 30 days.",
     );
     expect(screen.getByTestId("pro-plan-yearly").textContent).toContain("Save 17%");
     // Weekly, Monthly and Yearly only: no pass, no Lifetime (owner, 2026-11-03)

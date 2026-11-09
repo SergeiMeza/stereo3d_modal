@@ -1489,8 +1489,7 @@
       },
       "creditLine": "{amount} Nutzungsguthaben, wenn du Pro abschließt (oder beim ersten Anmelden hier mit Pro aus der App)",
       "creditShort": "{amount} Startguthaben",
-      "creditRules": "{days, plural, one {Nutze es innerhalb von # Tag.} other {Nutze es innerhalb von # Tagen.}} Es wird nicht ausgezahlt.",
-      "creditRulesNoDays": "Es wird nicht ausgezahlt.",
+      "creditRules": "{days, plural, one {Nutze es innerhalb von # Tag.} other {Nutze es innerhalb von # Tagen.}}",
       "loadFailed": "Die Pläne wurden nicht geladen.",
       "signIn": "Melde dich an, um Pro zu holen.",
       "termsRenews": "Verlängert sich zu {price}, bis du kündigst. Jederzeit unter Plan & Abrechnung kündbar."
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "{left} von {total} Pro-Gutschrift übrig · nutzbar bis {date}",
-      "notPaidOut": "Sie wird nicht ausgezahlt.",
       "title": "Pro-Gutschrift",
       "usedFirst": "Wird bei jeder Umwandlung vor deinem Guthaben verbraucht.",
       "trial": "Deine kostenlose Testphase enthält sie."
@@ -1651,7 +1649,7 @@
       "title": "Preise",
       "loading": "Preise werden geladen …",
       "howItWorks": "So funktionieren die Preise",
-      "perMinute": "<b>Pro Minute Video bei {fps} fps.</b> {fpsRule}. {roundedUp} Wandle nur einen Teil eines Videos um und zahle nur dafür.",
+      "perMinute": "<b>Pro Minute Video bei {fps} fps.</b> {fpsRule}. Wandle nur einen Teil eines Videos um und zahle nur dafür.",
       "discount": "<b>{pct} % Rabatt</b> auf jede Umwandlung über {threshold}.",
       "minimumPerRun": "<b>Mindestbetrag {min}</b> pro Umwandlung.",
       "minimumPerPreview": "<b>Mindestbetrag</b> {previewMin} pro Vorschau, {min} für andere Umwandlungen.",
@@ -1702,8 +1700,7 @@
       "perMinute": "Pro Minute, {fps} fps",
       "withPro": "Mit {pro}",
       "withProOff": "Mit {pro} (−{pct} %)",
-      "proCredit": "{pro} enthält außerdem {credit}.",
-      "limitAndPreviews": "{limit} · Vorschauen ab {price}"
+      "proCredit": "{pro} enthält außerdem {credit}."
     },
     "extras": {
       "foveated": "Mehr Details dort, wo du hinschaust",
@@ -1715,8 +1712,6 @@
       "freePreviews": "Kostenlose Vorschauen",
       "perMonth": "{count} im Monat",
       "firstFree": "Deine erste Vorschau ist gratis.",
-      "each": "je {seconds} s.",
-      "eachNoRollover": "je {seconds} s, nicht übertragbar.",
       "balance": "Guthaben",
       "addFunds": "Lade ab {amount} Guthaben auf und bezahle Umwandlungen davon."
     }
@@ -2162,7 +2157,6 @@
       "after": "Abgebucht, wenn es fertig ist.",
       "payBefore": "Du zahlst, bevor eine Umwandlung startet. Zuerst werden Gutschrift und Guthaben verwendet.",
       "payBeforePublic": "Du zahlst, bevor eine Umwandlung startet.",
-      "roundedUp": "Jede angefangene Minute zählt als volle Minute.",
       "rule": "Umwandlungen über {amount}: Abbuchung beim Start, Erstattung bei Fehlschlag. Umwandlungen bis {amount}: Abbuchung nach Fertigstellung. Fehlgeschlagene Umwandlungen kosten nichts.",
       "cancelBefore": "Die Abbuchung erfolgt beim Start. Brich ab, solange die Umwandlung wartet oder in ihrer ersten Minute ist, und du bekommst alles zurück.",
       "cancelAfter": "Umwandlungen bis {amount}, wie diese, werden nach Fertigstellung abgebucht. Brich ab, solange die Umwandlung wartet oder in ihrer ersten Minute ist, und du zahlst nichts."

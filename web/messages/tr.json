@@ -1489,8 +1489,7 @@
       },
       "creditLine": "Pro’ya katıldığınızda {amount} kullanım kredisi (veya uygulamadaki Pro ile burada ilk kez giriş yaptığınızda)",
       "creditShort": "Başlangıç için {amount} kredi",
-      "creditRules": "{days, plural, other {# gün içinde kullanın.}} Nakit olarak ödenmez.",
-      "creditRulesNoDays": "Nakit olarak ödenmez.",
+      "creditRules": "{days, plural, other {# gün içinde kullanın.}}",
       "loadFailed": "Planlar yüklenemedi.",
       "signIn": "Pro almak için giriş yapın.",
       "termsRenews": "İptal edene kadar {price} üzerinden yenilenir. Plan ve faturalandırma bölümünden istediğiniz zaman iptal edin."
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "{total} Pro kredisinden {left} kaldı · {date} tarihine kadar kullanın",
-      "notPaidOut": "Nakit olarak ödenmez.",
       "title": "Pro kredisi",
       "usedFirst": "Her dönüştürmede bakiyenizden önce kullanılır.",
       "trial": "Ücretsiz denemenize dahildir."
@@ -1651,7 +1649,7 @@
       "title": "Fiyatlar",
       "loading": "Fiyatlar yükleniyor…",
       "howItWorks": "Fiyatlandırma nasıl işler",
-      "perMinute": "<b>{fps} fps’te video dakikası başına.</b> {fpsRule}. {roundedUp} Videonun yalnızca bir kısmını yapın, yalnızca o kısmın ücretini ödeyin.",
+      "perMinute": "<b>{fps} fps’te video dakikası başına.</b> {fpsRule}. Videonun yalnızca bir kısmını yapın, yalnızca o kısmın ücretini ödeyin.",
       "discount": "{threshold} üzerindeki her dönüştürmede <b>%{pct} indirim</b>.",
       "minimumPerRun": "Dönüştürme başına <b>asgari ücret {min}</b>.",
       "minimumPerPreview": "Önizleme başına <b>asgari ücret</b> {previewMin}, diğer dönüştürmeler için {min}.",
@@ -1702,8 +1700,7 @@
       "perMinute": "Dakika başına, {fps} fps",
       "withPro": "{pro} ile",
       "withProOff": "{pro} ile (−%{pct})",
-      "proCredit": "{pro} ayrıca {credit} içerir.",
-      "limitAndPreviews": "{limit} · önizlemeler {price}’den"
+      "proCredit": "{pro} ayrıca {credit} içerir."
     },
     "extras": {
       "foveated": "Baktığınız yerde daha fazla ayrıntı",
@@ -1715,8 +1712,6 @@
       "freePreviews": "Ücretsiz önizlemeler",
       "perMonth": "Ayda {count}",
       "firstFree": "İlk önizlemeniz ücretsiz.",
-      "each": "Her biri {seconds} sn.",
-      "eachNoRollover": "Her biri {seconds} sn, devretmez.",
       "balance": "Bakiye",
       "addFunds": "{amount} tutarından başlayarak para ekleyin ve dönüştürmeleri bakiyenizden ödeyin."
     }
@@ -2162,7 +2157,6 @@
       "after": "Bittikten sonra tahsil edilir.",
       "payBefore": "Dönüştürme başlamadan önce ödersiniz. Önce kredi ve bakiyeniz kullanılır.",
       "payBeforePublic": "Dönüştürme başlamadan önce ödersiniz.",
-      "roundedUp": "Başlayan her dakika tam dakika sayılır.",
       "rule": "{amount} üzerindeki dönüştürmeler: başlarken tahsil edilir, başarısız olursa iade edilir. {amount} ve altındakiler: bittikten sonra tahsil edilir. Başarısız dönüştürmeler ücretsizdir.",
       "cancelBefore": "Başlattığınızda tahsil edilir. Sırada beklerken ya da ilk dakikada iptal edin, tam iade alın.",
       "cancelAfter": "{amount} ve altındaki dönüştürmeler, bunun gibi, bittikten sonra tahsil edilir. Sırada beklerken ya da ilk dakikada iptal edin, hiçbir şey ödemezsiniz."

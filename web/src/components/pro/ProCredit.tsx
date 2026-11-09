@@ -46,9 +46,6 @@ export function ProCreditLeft({ credit }: { credit: ProCreditStatus }): JSX.Elem
           date: dayMonth(credit.expires_at, t),
         })}
       </p>
-      <p data-testid="pro-credit-expires" className="text-xs text-fg-muted">
-        {t("pro.credit.notPaidOut")}
-      </p>
       <span aria-hidden className="h-1 w-full overflow-hidden rounded-full bg-surface-2">
         <span className="block h-full rounded-full bg-primary" style={{ width: `${used * 100}%` }} />
       </span>

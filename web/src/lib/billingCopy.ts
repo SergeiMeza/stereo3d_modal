@@ -32,10 +32,6 @@ export const PAY_BEFORE = "You pay before a run starts. Your credit and balance 
 /** The public /pricing page's version: S3D-45 keeps "balance" off it. */
 export const PAY_BEFORE_PUBLIC = "You pay before a run starts.";
 
-/** Prices round the video up to whole minutes (owner 2026-11-04; the
- * gateway's quote carries billable_minutes). */
-export const ROUNDED_UP_LINE = "Each started minute counts as a full minute.";
-
 /** The lines above in the reader's language. */
 export function chargedAtStart(t: Tr = EN): string {
   return t("quote.charge.atStart");
@@ -48,9 +44,6 @@ export function payBefore(t: Tr = EN): string {
 }
 export function payBeforePublic(t: Tr = EN): string {
   return t("quote.charge.payBeforePublic");
-}
-export function roundedUpLine(t: Tr = EN): string {
-  return t("quote.charge.roundedUp");
 }
 
 /** The general rule (deferred payments only, BL-32: nothing shows it

@@ -109,9 +109,9 @@ export function creditShort(cents: number | null | undefined, t: Tr = EN): strin
   return cents ? t("pro.plans.creditShort", { amount: creditAmount(cents, t) }) : null;
 }
 
-/** The credit's rules: "Use it within 30 days. It isn't paid out." */
+/** The credit's rule: "Use it within 30 days." ("" without an expiry; owner 2026-11-09: no "isn't paid out") */
 export function creditRules(days: number | null | undefined, t: Tr = EN): string {
-  return days ? t("pro.plans.creditRules", { days }) : t("pro.plans.creditRulesNoDays");
+  return days ? t("pro.plans.creditRules", { days }) : "";
 }
 
 /** Pro's credit from GET /v1/pricing: pro_credit.cents, else a plan's

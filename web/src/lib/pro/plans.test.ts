@@ -61,8 +61,8 @@ describe("Pro plans from /v1/pricing", () => {
     );
     expect(creditShort(2000)).toBe("$20 credit to start");
     expect(creditLine(null)).toBeNull();
-    expect(creditRules(30)).toBe("Use it within 30 days. It isn't paid out.");
-    expect(creditRules(null)).toBe("It isn't paid out.");
+    expect(creditRules(30)).toBe("Use it within 30 days.");
+    expect(creditRules(null)).toBe("");
     // a plan without its own credit_cents takes pro_credit's for its kind, else its amount
     const def = { cents: 1800, once: true, expires_days: 30, rollover: false, paid_only: true, trial_counts: true, stacks_with_plan: false };
     const [bare] = plansFromPricing([{ id: "pro_weekly", interval: "week", price_cents: 399 }], { ...def, cents_by_kind: { pro_weekly: 1500 } });

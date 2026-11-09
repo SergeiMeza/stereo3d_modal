@@ -1489,8 +1489,7 @@
       },
       "creditLine": "加入 Pro（或首次在此以 App 的 Pro 登入）即可獲得 {amount} 用量額度",
       "creditShort": "首次贈送 {amount} 額度",
-      "creditRules": "{days, plural, other {請於 # 天內使用。}}額度不可兌現。",
-      "creditRulesNoDays": "額度不可兌現。",
+      "creditRules": "{days, plural, other {請於 # 天內使用。}}",
       "loadFailed": "方案載入失敗。",
       "signIn": "請登入以取得 Pro。",
       "termsRenews": "以 {price} 續訂，直到你取消。可隨時在方案與帳務中取消。"
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "Pro 額度剩餘 {left}／{total} · 請於 {date} 前使用",
-      "notPaidOut": "額度不可兌現。",
       "title": "Pro 額度",
       "usedFirst": "每次轉換都會先使用，再扣餘額。",
       "trial": "你的免費試用已包含。"
@@ -1651,7 +1649,7 @@
       "title": "價格",
       "loading": "正在載入價格…",
       "howItWorks": "計價方式",
-      "perMinute": "<b>{fps} fps 影片每分鐘的價格。</b>{fpsRule}。{roundedUp} 只製作影片的一部分，就只付那一部分的費用。",
+      "perMinute": "<b>{fps} fps 影片每分鐘的價格。</b>{fpsRule}。只製作影片的一部分，就只付那一部分的費用。",
       "discount": "超過 {threshold} 的轉換享 <b>{pct}% 折扣</b>。",
       "minimumPerRun": "每次轉換<b>最低收費 {min}</b>。",
       "minimumPerPreview": "每次預覽<b>最低收費</b> {previewMin}，其他轉換 {min}。",
@@ -1702,8 +1700,7 @@
       "perMinute": "每分鐘，{fps} fps",
       "withPro": "使用 {pro}",
       "withProOff": "使用 {pro}（−{pct}%）",
-      "proCredit": "{pro} 另含 {credit}。",
-      "limitAndPreviews": "{limit} · 預覽 {price} 起"
+      "proCredit": "{pro} 另含 {credit}。"
     },
     "extras": {
       "foveated": "視線所到之處更多細節",
@@ -1715,8 +1712,6 @@
       "freePreviews": "免費預覽",
       "perMonth": "每月 {count}",
       "firstFree": "您的第一次預覽免費。",
-      "each": "每次 {seconds} 秒。",
-      "eachNoRollover": "每次 {seconds} 秒，不累積。",
       "balance": "餘額",
       "addFunds": "儲值 {amount} 起，並以餘額支付轉換費用。"
     }
@@ -2162,7 +2157,6 @@
       "after": "完成後收費。",
       "payBefore": "轉換開始前付款，會先使用您的額度和餘額。",
       "payBeforePublic": "轉換開始前付款。",
-      "roundedUp": "不足一分鐘以一分鐘計。",
       "rule": "超過 {amount} 的轉換：開始時收費，失敗則退款。{amount} 以下的轉換：完成後收費。失敗的轉換不收費。",
       "cancelBefore": "開始時收費。在排隊等候期間或開始後的第一分鐘內取消，可全額退款。",
       "cancelAfter": "{amount} 以下的轉換（例如這一次）在完成後收費。在排隊等候期間或開始後的第一分鐘內取消，無需付款。"

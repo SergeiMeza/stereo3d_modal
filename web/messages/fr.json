@@ -1489,8 +1489,7 @@
       },
       "creditLine": "{amount} de crédit d’utilisation en rejoignant Pro (ou à votre première connexion ici avec Pro depuis l’app)",
       "creditShort": "{amount} de crédit pour commencer",
-      "creditRules": "{days, plural, other {À utiliser sous # jours.}} Non remboursable en argent.",
-      "creditRulesNoDays": "Non remboursable en argent.",
+      "creditRules": "{days, plural, other {À utiliser sous # jours.}}",
       "loadFailed": "Les forfaits ne se sont pas chargés.",
       "signIn": "Connectez-vous pour obtenir Pro.",
       "termsRenews": "Renouvelé à {price} jusqu’à résiliation. Résiliable à tout moment dans Forfait et facturation."
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "{left} de crédit Pro restants sur {total} · à utiliser avant le {date}",
-      "notPaidOut": "Non remboursable en argent.",
       "title": "Crédit Pro",
       "usedFirst": "Utilisé avant votre solde à chaque conversion.",
       "trial": "Votre essai gratuit l’inclut."
@@ -1651,7 +1649,7 @@
       "title": "Prix",
       "loading": "Chargement des prix…",
       "howItWorks": "Comment fonctionnent les prix",
-      "perMinute": "<b>Par minute de vidéo à {fps} i/s.</b> {fpsRule}. {roundedUp} Passez seulement une partie d’une vidéo en 3D et ne payez que cette partie.",
+      "perMinute": "<b>Par minute de vidéo à {fps} i/s.</b> {fpsRule}. Passez seulement une partie d’une vidéo en 3D et ne payez que cette partie.",
       "discount": "<b>−{pct} %</b> sur toute conversion de plus de {threshold}.",
       "minimumPerRun": "<b>Facturation minimale {min}</b> par conversion.",
       "minimumPerPreview": "<b>Facturation minimale</b> {previewMin} par aperçu, {min} pour les autres conversions.",
@@ -1702,8 +1700,7 @@
       "perMinute": "Par minute, {fps} i/s",
       "withPro": "Avec {pro}",
       "withProOff": "Avec {pro} (−{pct} %)",
-      "proCredit": "{pro} inclut aussi {credit}.",
-      "limitAndPreviews": "{limit} · aperçus dès {price}"
+      "proCredit": "{pro} inclut aussi {credit}."
     },
     "extras": {
       "foveated": "Plus de détail là où vous regardez",
@@ -1715,8 +1712,6 @@
       "freePreviews": "Aperçus gratuits",
       "perMonth": "{count} par mois",
       "firstFree": "Votre premier aperçu est gratuit.",
-      "each": "{seconds} s chacun.",
-      "eachNoRollover": "{seconds} s chacun, sans report.",
       "balance": "Solde",
       "addFunds": "Ajoutez des fonds dès {amount} et payez vos conversions avec votre solde."
     }
@@ -2162,7 +2157,6 @@
       "after": "Débité une fois terminé.",
       "payBefore": "Vous payez avant le début d’une conversion. Votre crédit et votre solde sont utilisés en premier.",
       "payBeforePublic": "Vous payez avant le début d’une conversion.",
-      "roundedUp": "Chaque minute commencée compte comme une minute entière.",
       "rule": "Conversions de plus de {amount} : débitées au lancement, remboursées en cas d’échec. Conversions de {amount} ou moins : débitées une fois terminées. Une conversion échouée ne coûte rien.",
       "cancelBefore": "Débité au lancement. Annulez pendant l’attente ou dans la première minute pour un remboursement intégral.",
       "cancelAfter": "Les conversions de {amount} ou moins, comme celle-ci, sont débitées une fois terminées. Annulez pendant l’attente ou dans la première minute et vous ne payez rien."

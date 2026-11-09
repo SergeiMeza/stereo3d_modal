@@ -176,7 +176,7 @@ describe("Pricing 2026-11", () => {
     expect(addons.textContent).not.toMatch(/faster/);
     // owner 2026-11-07: Pro's monthly credit beside its column, from /v1/pricing
     expect(screen.getByTestId("pricing-pro-credit").textContent).toBe(
-      "Pro also includes $20 of usage credit when you join Pro (or the first time you sign in here with Pro from the app). Use it within 30 days. It isn't paid out.",
+      "Pro also includes $20 of usage credit when you join Pro (or the first time you sign in here with Pro from the app). Use it within 30 days.",
     );
     expect(screen.getByTestId("pricing-free-previews").textContent).toContain("Your first preview is free.");
     expect(screen.getByTestId("pricing-topups").textContent).toContain("from $10");

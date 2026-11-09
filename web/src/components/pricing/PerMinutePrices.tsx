@@ -158,14 +158,8 @@ export function LifelikePrices({
           <p data-testid="pricing-fps-rule" className="mt-2 text-xs text-fg-muted">
             {fpsRule(pricing, t)}
           </p>
-          <p data-testid="pricing-rounding" className="mt-1 text-xs text-fg-muted">
-            {t("quote.charge.roundedUp")}
-          </p>
           <p className="mt-1 text-xs text-fg-muted">
-            {t("pricing.table.limitAndPreviews", {
-              limit: sentenceCase(methodLimitText(method, null, pricing, t)),
-              price: formatCentsShort(pricing.preview_minimum_cents ?? pricing.minimum_cents, t),
-            })}
+            {sentenceCase(methodLimitText(method, null, pricing, t))}
           </p>
         </>
       )}
@@ -239,12 +233,10 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
               </li>
             ) : null}
           </ul>
-          <p className="text-xs text-fg-muted">
-            {(fp.allowances.intro ?? 0) > 0 ? `${t("pricing.extras.firstFree")} ` : ""}
-            {fp.rollover
-              ? t("pricing.extras.each", { seconds: fp.unit_seconds })
-              : t("pricing.extras.eachNoRollover", { seconds: fp.unit_seconds })}
-          </p>
+          {/* owner 2026-11-09: no "5 s each, no rollover" */}
+          {(fp.allowances.intro ?? 0) > 0 ? (
+            <p className="text-xs text-fg-muted">{t("pricing.extras.firstFree")}</p>
+          ) : null}
         </section>
       ) : null}
       <section data-testid="pricing-topups" className={card}>

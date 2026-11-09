@@ -518,7 +518,7 @@ describe("Pro's credit to start (owner 2026-11-07, gateway 00166)", () => {
     renderBilling();
     const card = await screen.findByTestId("pro-credit-card");
     expect(within(card).getByTestId("pro-credit-left").textContent).toBe("$12.40 of $20.00 Pro credit left · use by 7 Dec");
-    expect(within(card).getByTestId("pro-credit-expires").textContent).toBe("It isn't paid out.");
+    expect(within(card).queryByTestId("pro-credit-expires")).toBeNull(); // owner 2026-11-09
     await waitFor(() => expect(screen.getByTestId("balance-amount").textContent).toBe("$17.40"));
     expect(screen.getByTestId("balance-credits").textContent).toBe("available · includes $12.40 Pro credit (use by 7 Dec)");
     expect(screen.getByTestId("balance-prepaid").textContent).toBe("Prepaid $5.00");

@@ -1489,8 +1489,7 @@
       },
       "creditLine": "Proに加入すると(またはアプリのProでここに初めてサインインすると){amount}分の利用クレジットがもらえます",
       "creditShort": "{amount}のクレジット付き",
-      "creditRules": "{days, plural, other {#日以内にお使いください。}}現金での払い戻しはできません。",
-      "creditRulesNoDays": "現金での払い戻しはできません。",
+      "creditRules": "{days, plural, other {#日以内にお使いください。}}",
       "loadFailed": "プランを読み込めませんでした。",
       "signIn": "Proを利用するにはサインインしてください。",
       "termsRenews": "{price}で更新、解約するまで続きます。プランとお支払いからいつでも解約できます。"
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "Proクレジット 残り{left} / {total} · {date}まで",
-      "notPaidOut": "現金での払い戻しはできません。",
       "title": "Proクレジット",
       "usedFirst": "変換のたびに、残高より先に使われます。",
       "trial": "無料トライアルに含まれています。"
@@ -1651,7 +1649,7 @@
       "title": "料金",
       "loading": "料金を読み込み中…",
       "howItWorks": "料金のしくみ",
-      "perMinute": "<b>{fps} fpsの動画1分あたり。</b>{fpsRule}。{roundedUp} 動画の一部だけ作れば、その分だけのお支払いです。",
+      "perMinute": "<b>{fps} fpsの動画1分あたり。</b>{fpsRule}。動画の一部だけ作れば、その分だけのお支払いです。",
       "discount": "<b>{pct}%オフ</b>：{threshold}を超える変換が対象。",
       "minimumPerRun": "1回の変換につき<b>最低料金{min}</b>。",
       "minimumPerPreview": "<b>最低料金</b>：プレビューは{previewMin}、その他の変換は{min}。",
@@ -1702,8 +1700,7 @@
       "perMinute": "1分あたり、{fps} fps",
       "withPro": "{pro}の場合",
       "withProOff": "{pro}の場合（−{pct}%）",
-      "proCredit": "{pro}には{credit}も含まれます。",
-      "limitAndPreviews": "{limit} · プレビューは{price}から"
+      "proCredit": "{pro}には{credit}も含まれます。"
     },
     "extras": {
       "foveated": "見ている場所をより詳細に",
@@ -1715,8 +1712,6 @@
       "freePreviews": "無料プレビュー",
       "perMonth": "月{count}",
       "firstFree": "最初のプレビューは無料です。",
-      "each": "1回{seconds}秒。",
-      "eachNoRollover": "1回{seconds}秒、繰り越しなし。",
       "balance": "残高",
       "addFunds": "{amount}からチャージして、残高から変換の料金を支払えます。"
     }
@@ -2162,7 +2157,6 @@
       "after": "完了後に請求。",
       "payBefore": "変換の開始前にお支払いいただきます。クレジットと残高が先に使われます。",
       "payBeforePublic": "変換の開始前にお支払いいただきます。",
-      "roundedUp": "開始した分は1分として数えます。",
       "rule": "{amount}を超える変換は、開始時に請求され、失敗した場合は返金されます。{amount}以下の変換は、完了後に請求されます。失敗した変換は無料です。",
       "cancelBefore": "開始時に請求されます。順番待ちの間、または開始後1分以内にキャンセルすると、全額返金されます。",
       "cancelAfter": "{amount}以下の変換（今回のような場合）は、完了後に請求されます。順番待ちの間、または開始後1分以内にキャンセルすれば、お支払いはありません。"

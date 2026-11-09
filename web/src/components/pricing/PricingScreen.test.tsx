@@ -30,9 +30,9 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     const lifelike = await screen.findByTestId("pricing-lifelike");
     // Classic 3D is retired for new projects (owner 2026-11-04)
     expect(lifelike.textContent).not.toMatch(/Classic|Older method/);
-    expect(screen.getByTestId("pricing-rounding").textContent).toBe(
-      "Each started minute counts as a full minute.",
-    );
+    // owner 2026-11-09: no rounding line, no "previews from"
+    expect(screen.queryByTestId("pricing-rounding")).toBeNull();
+    expect(document.body.textContent).not.toMatch(/started minute|previews from|paid out|rollover/);
     // headline in whole dollars, table in cents
     expect(lifelike.textContent).toContain("from $3 a minute at 24 fps");
     expect(lifelike.textContent).toContain("Per minute, 24 fps");
@@ -42,7 +42,7 @@ describe("Pricing page (S3D-18, S3D-45)", () => {
     expect(lifelike.textContent).toContain("1080p1920×1080 per eye$3.00");
     expect(lifelike.textContent).toContain("4K3840×2160 per eye$8.50");
     expect(lifelike.textContent).toContain("8K7680×4320 per eye$22.00");
-    expect(lifelike.textContent).toContain("Any length, up to 8K · previews from $1");
+    expect(lifelike.textContent).toContain("Any length, up to 8K");
     // no Classic on the public page
     expect(screen.queryByTestId("pricing-classic")).toBeNull();
     expect(document.body.textContent).not.toMatch(/Classic/);

@@ -1490,8 +1490,7 @@
       },
       "creditLine": "{amount} of usage credit when you join Pro (or the first time you sign in here with Pro from the app)",
       "creditShort": "{amount} credit to start",
-      "creditRules": "{days, plural, other {Use it within # days.}} It isn't paid out.",
-      "creditRulesNoDays": "It isn't paid out.",
+      "creditRules": "{days, plural, other {Use it within # days.}}",
       "loadFailed": "Plans didn't load.",
       "signIn": "Sign in to get Pro.",
       "termsRenews": "Renews at {price} until you cancel. Cancel any time in Plan & billing."
@@ -1534,7 +1533,6 @@
     },
     "credit": {
       "left": "{left} of {total} Pro credit left · use by {date}",
-      "notPaidOut": "It isn't paid out.",
       "title": "Pro credit",
       "usedFirst": "Used before your balance on every run.",
       "trial": "Your free trial includes it."
@@ -1788,7 +1786,7 @@
       "title": "Prices",
       "loading": "Loading prices…",
       "howItWorks": "How pricing works",
-      "perMinute": "<b>Per minute of video at {fps} fps.</b> {fpsRule}. {roundedUp} Make only part of a video and pay only for that part.",
+      "perMinute": "<b>Per minute of video at {fps} fps.</b> {fpsRule}. Make only part of a video and pay only for that part.",
       "discount": "<b>{pct}% off</b> any run over {threshold}.",
       "minimumPerRun": "<b>Minimum charge {min}</b> per run.",
       "minimumPerPreview": "<b>Minimum charge</b> {previewMin} per preview, {min} for other runs.",
@@ -1839,8 +1837,7 @@
       "perMinute": "Per minute, {fps} fps",
       "withPro": "With {pro}",
       "withProOff": "With {pro} (−{pct}%)",
-      "proCredit": "{pro} also includes {credit}.",
-      "limitAndPreviews": "{limit} · previews from {price}"
+      "proCredit": "{pro} also includes {credit}."
     },
     "extras": {
       "foveated": "More detail where you look",
@@ -1852,8 +1849,6 @@
       "freePreviews": "Free previews",
       "perMonth": "{count} a month",
       "firstFree": "Your first preview is free.",
-      "each": "{seconds} s each.",
-      "eachNoRollover": "{seconds} s each, no rollover.",
       "balance": "Balance",
       "addFunds": "Add funds from {amount} and pay runs from your balance."
     }
@@ -2299,7 +2294,6 @@
       "after": "Charged after it's done.",
       "payBefore": "You pay before a run starts. Your credit and balance are used first.",
       "payBeforePublic": "You pay before a run starts.",
-      "roundedUp": "Each started minute counts as a full minute.",
       "rule": "Runs over {amount} are charged when they start and refunded if they fail. Runs of {amount} or less are charged after they're done. Failed runs cost nothing.",
       "cancelBefore": "Charged when you start it. Cancel while it waits in line or in its first minute for a full refund.",
       "cancelAfter": "Runs of {amount} or less, like this one, are charged after they're done. Cancel while it waits in line or in its first minute and you pay nothing."

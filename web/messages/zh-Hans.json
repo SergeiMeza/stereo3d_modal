@@ -1489,8 +1489,7 @@
       },
       "creditLine": "加入 Pro（或首次在此用 App 中的 Pro 登录）即送 {amount} 用量额度",
       "creditShort": "开通即送 {amount} 额度",
-      "creditRules": "{days, plural, other {请在 # 天内使用。}}不可提现。",
-      "creditRulesNoDays": "不可提现。",
+      "creditRules": "{days, plural, other {请在 # 天内使用。}}",
       "loadFailed": "套餐未能加载。",
       "signIn": "登录以获取 Pro。",
       "termsRenews": "按 {price} 续费，直到你取消。可随时在套餐与账单中取消。"
@@ -1533,7 +1532,6 @@
     },
     "credit": {
       "left": "Pro 额度剩余 {left}（共 {total}）· 请于 {date} 前使用",
-      "notPaidOut": "不可提现。",
       "title": "Pro 额度",
       "usedFirst": "每次转换都会优先使用，之后才动用余额。",
       "trial": "免费试用已包含此额度。"
@@ -1651,7 +1649,7 @@
       "title": "价格",
       "loading": "正在加载价格…",
       "howItWorks": "价格如何计算",
-      "perMinute": "<b>按 {fps} fps 每分钟视频计价。</b>{fpsRule}。{roundedUp} 只转换视频的一部分，就只为那一部分付费。",
+      "perMinute": "<b>按 {fps} fps 每分钟视频计价。</b>{fpsRule}。只转换视频的一部分，就只为那一部分付费。",
       "discount": "任何超过 {threshold} 的转换<b>立减 {pct}%</b>。",
       "minimumPerRun": "每次转换<b>最低收费 {min}</b>。",
       "minimumPerPreview": "<b>最低收费</b>：每次预览 {previewMin}，其他转换 {min}。",
@@ -1702,8 +1700,7 @@
       "perMinute": "每分钟，{fps} fps",
       "withPro": "使用 {pro}",
       "withProOff": "使用 {pro}（−{pct}%）",
-      "proCredit": "{pro} 还包含 {credit}。",
-      "limitAndPreviews": "{limit} · 预览 {price} 起"
+      "proCredit": "{pro} 还包含 {credit}。"
     },
     "extras": {
       "foveated": "你看的地方细节更多",
@@ -1715,8 +1712,6 @@
       "freePreviews": "免费预览",
       "perMonth": "每月 {count}",
       "firstFree": "你的第一次预览免费。",
-      "each": "每次 {seconds} 秒。",
-      "eachNoRollover": "每次 {seconds} 秒，不可顺延。",
       "balance": "余额",
       "addFunds": "充值 {amount} 起，用余额支付转换。"
     }
@@ -2162,7 +2157,6 @@
       "after": "完成后扣费。",
       "payBefore": "开始前付费，先用你的额度和余额。",
       "payBeforePublic": "开始前付费。",
-      "roundedUp": "不足一分钟按一分钟计。",
       "rule": "超过 {amount} 的转换：开始时扣费，失败会退款。{amount} 及以下的转换：完成后扣费。失败的转换不收费。",
       "cancelBefore": "开始时扣费。排队期间或开始后的第一分钟内取消，可全额退款。",
       "cancelAfter": "{amount} 及以下的转换（如这一次）完成后才扣费。排队期间或开始后的第一分钟内取消，无需付费。"
