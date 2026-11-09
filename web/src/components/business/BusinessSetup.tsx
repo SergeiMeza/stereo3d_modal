@@ -7,7 +7,7 @@
  *
  * 1. Plan: Business (monthly) or Studio (yearly), every number from
  *    /v1/pricing — the share off, the monthly usage, frame rates up to
- *    the plan's max_fps, the intro switch, invoices, Express (owner
+ *    the plan's max_fps, invoices, Express (owner
  *    2026-11-09: Commercial use is an add-on on any plan, not included).
  *    No seat counts (no team accounts yet). Company emails also get Talk to
  *    us.
@@ -22,9 +22,8 @@
  *    note; a web Pro gets today's charge from POST /v1/plans/preview-change
  *    and confirms with POST /v1/plans/change; everyone else pays through
  *    the plan sheet. Nothing is charged until they confirm.
- * 5. Welcome: higher frame rates, the intro switch (on by default), a
- *    line that Commercial use is added per video, and "Make your 3D
- *    video".
+ * 5. Welcome: higher frame rates, a line that Commercial use is added
+ *    per video (it also leaves out the intro), and "Make your 3D video".
  *
  * Funnel events: business_setup_opened, _plan_picked {plan},
  * _details_done, _checkout_started {plan}, _purchased {plan}.

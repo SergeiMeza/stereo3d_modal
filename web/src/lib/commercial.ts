@@ -10,6 +10,7 @@
 
 import type { AccountPlan, Params, PublicPricing, QuoteBreakdown } from "@/lib/api/types";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { SITE_NAME } from "@/lib/site";
 
 /** The add-on's name. */
 export function commercialName(t: Tr = EN): string {
@@ -18,7 +19,7 @@ export function commercialName(t: Tr = EN): string {
 
 /** The one-line explanation beside the toggle. */
 export function commercialHint(t: Tr = EN): string {
-  return t("commercial.hint");
+  return t("commercial.hint", { site: SITE_NAME });
 }
 
 /** /v1/pricing offers it for Lifelike (its share, e.g. 0.5), else null. */

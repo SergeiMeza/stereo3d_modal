@@ -59,8 +59,11 @@ func addRunMedia(out map[string]any, c *store.Conversion) {
 	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
 	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
 	out["quality"] = nilIfEmpty(c.Params.OutputQuality)
-	// Commercial use (owner 2026-11-09): always both, so the console can say "no"
-	out["commercial"], out["commercial_included"] = c.Params.Commercial, c.Params.CommercialIncluded
+	// Commercial use (owner 2026-11-09): both, on Lifelike runs only, so the
+	// console can say "no" there and nothing on runs that can't have it
+	if c.Method == store.MethodLifelike {
+		out["commercial"], out["commercial_included"] = c.Params.Commercial, c.Params.CommercialIncluded
+	}
 	out["bitrate_requested"] = nil
 	if c.ProjectID != "" {
 		req := c.Params.Bitrate
