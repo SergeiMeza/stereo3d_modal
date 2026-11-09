@@ -769,6 +769,17 @@ func fpsFactor(effectiveFPS float64) float64 {
 	return math.Min(fpsMaxFactor, math.Max(fpsMinFactor, effectiveFPS/fpsBase))
 }
 
+// lifelikeFPSFactor is Lifelike production's fps factor: fps/24 with the
+// same floor and no ceiling (owner 2026-11-09), so 120 fps costs 5× a 24 fps
+// minute, as it costs us. Classic and the app paths keep fpsFactor's 2.5×
+// cap.
+func lifelikeFPSFactor(effectiveFPS float64) float64 {
+	if effectiveFPS <= 0 {
+		return 1.0
+	}
+	return math.Max(fpsMinFactor, effectiveFPS/fpsBase)
+}
+
 // depthFactor prices the depth work: LINEAR in working megapixels
 // (depth_res² × elongation — the same quantity that routes the depth GPU),
 // relative to DepthResBase² × 16/9. Equals the legacy (res/base)² quadratic
@@ -1424,7 +1435,7 @@ func (s *Service) quoteLifelike(ctx context.Context, in StepInputs) (*Quote, err
 			},
 		}, nil
 	}
-	fpsF := fpsFactor(in.EffectiveFPS)
+	fpsF := lifelikeFPSFactor(in.EffectiveFPS)
 	base := int64(math.Ceil(billedMinutes(in.Step, in.BillableS, in.SourceFPS) * float64(perMin) * fpsF))
 	fov := int64(math.Round(float64(base) * (mult - 1))) // its own line (S3D-50)
 	subtotal := base + fov
@@ -1629,10 +1640,10 @@ func (s *Service) Public(ctx context.Context) map[string]any {
 			},
 		},
 		// Prices are per minute of output at 24 fps; the frame rate scales
-		// them by fps/24, clamped. Output rates above 30 fps need a
+		// them by fps/24, clamped (Lifelike: floored only, owner 2026-11-09). Output rates above 30 fps need a
 		// Business or Studio plan (2026-11-04); without one a faster
 		// source is divided down.
-		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor,
+		"fps": map[string]any{"base": fpsBase, "min_factor": fpsMinFactor, "max_factor": fpsMaxFactor, "lifelike_max_factor": nil, // Lifelike: no ceiling (owner 2026-11-09)
 			"max_fps_without_plan": 30, "max_fps_with_plan": PlanMaxFPS},
 		"discount": map[string]any{
 			"threshold_cents": rates.DiscountThresholdCents,

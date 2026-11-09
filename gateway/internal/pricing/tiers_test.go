@@ -55,6 +55,9 @@ func TestTierPricing(t *testing.T) {
 		{"business 4k", with(min1, func(i *StepInputs) { i.Tier = TierBusiness }), 1280, "tier"},
 		{"studio 1080p", with(min1, func(i *StepInputs) { i.Tier, i.Preset = TierStudio, "1080p" }), 300, "tier"},
 		{"30 fps", with(min1, func(i *StepInputs) { i.EffectiveFPS = 30 }), 2000, ""},
+		// owner 2026-11-09: Lifelike's fps factor has no ceiling, 120 fps = 5×
+		{"business 60 fps", with(min1, func(i *StepInputs) { i.Tier, i.EffectiveFPS = TierBusiness, 60 }), 3200, "tier"},
+		{"business 120 fps", with(min1, func(i *StepInputs) { i.Tier, i.EffectiveFPS = TierBusiness, 120 }), 6400, "tier"},
 		// add-ons on the base: 1600 + 480 (foveated 30%) + 800 (master 50%) + 800 (express 50%) = 3680, not over $50
 		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 3680, ""},
 		{"express", with(min1, func(i *StepInputs) { i.Express = true }), 2400, ""},
