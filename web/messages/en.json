@@ -2654,7 +2654,7 @@
   },
   "commercial": {
     "name": "Commercial use",
-    "hint": "You may use the video commercially, and it has no Spatial Video Studio intro clip.",
+    "hint": "You may use the video commercially, and it has no {site} intro clip.",
     "includedWithPlan": "Included with your plan",
     "includedUntil": "Included with your plan until {date}",
     "runIncluded": "Commercial use (included)",

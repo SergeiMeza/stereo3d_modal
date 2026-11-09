@@ -84,11 +84,12 @@ export default function TermsPage() {
           <li>Outputs of runs bought with the Commercial use add-on may be
             used commercially: client work, advertising, sale or licensing,
             monetised channels and stock libraries. The add-on is available
-            whether or not you have a plan.</li>
+            for Lifelike 3D videos, whether or not you have a plan.</li>
           <li>Outputs made while you had an active Business or Studio plan
             before 9 November 2026 may be used commercially in the same way.
-            A plan active on that day includes Commercial use until its next
-            renewal, so outputs made on it until then may be too.</li>
+            A plan that was active when this change took effect on that day
+            includes Commercial use until its next renewal, so outputs made
+            on it until then may be too.</li>
           <li>These rights stay with those outputs after a plan ends.</li>
           <li>All other outputs are for personal, non-commercial use.</li>
           <li>Outputs made before {LEGAL_EFFECTIVE_DATE} keep the rights
