@@ -25,8 +25,8 @@ func TestNormalizeLocale(t *testing.T) {
 }
 
 // BL-25: flag off → no intro fields; on → 3 s previews, 4 s otherwise, in
-// the account's or the browser's language; a Business/Studio plan's
-// opt-out sends 0, the setting is ignored without a plan; the intro never
+// the account's or the browser's language; the old Business/Studio opt-out
+// is ignored (owner 2026-11-09: only Commercial use removes it); the intro never
 // changes a quote (so neither a hold nor a charge, which use the quote).
 func TestLifelikeIntro(t *testing.T) {
 	s, _ := e0Service(t)
@@ -58,7 +58,8 @@ func TestLifelikeIntro(t *testing.T) {
 		t.Fatalf("body %v", body)
 	}
 
-	// An active Business plan with the opt-out: 0; the saved locale wins.
+	// An active Business plan with the old opt-out stored: the intro stays;
+	// the saved locale wins.
 	end := time.Now().Add(20 * 24 * time.Hour)
 	s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		c.Plan = &store.Plan{Tier: "business", SubscriptionID: "sub_1", Status: "active", CurrentPeriodEnd: &end}
@@ -67,11 +68,8 @@ func TestLifelikeIntro(t *testing.T) {
 	})
 	var optOut store.Params
 	s.applyIntro(ctx, r, uid, store.StepProduction, &optOut)
-	if *optOut.IntroS != 0 || optOut.IntroLanguage != "ja" {
-		t.Fatalf("opt-out %v %q", *optOut.IntroS, optOut.IntroLanguage)
-	}
-	if b := lifelikeBody(&store.Conversion{Method: store.MethodLifelike, Params: optOut}, 4); b["intro_s"] != nil || b["intro_language"] != nil {
-		t.Fatalf("an opt-out omits the intro fields: %v", b)
+	if *optOut.IntroS != 4 || optOut.IntroLanguage != "ja" {
+		t.Fatalf("old opt-out %v %q", *optOut.IntroS, optOut.IntroLanguage)
 	}
 
 	// Quotes are the customer's own length, intro or not.
@@ -86,7 +84,8 @@ func TestLifelikeIntro(t *testing.T) {
 	}
 }
 
-// GET/PATCH /v1/account/settings: lifelike_intro only with a plan.
+// GET/PATCH /v1/account/settings: lifelike_intro is gone (owner
+// 2026-11-09); a PATCH carrying it changes nothing.
 func TestAccountSettings(t *testing.T) {
 	s, _ := e0Service(t)
 	ctx := context.Background()
@@ -99,11 +98,11 @@ func TestAccountSettings(t *testing.T) {
 		json.Unmarshal(rec.Body.Bytes(), &out)
 		return rec.Code, out
 	}
-	if code, out := call("GET", ""); code != 200 || out["lifelike_intro"] != true || out["lifelike_intro_editable"] != false || out["locale"] != nil {
+	if code, out := call("GET", ""); code != 200 || out["lifelike_intro"] != nil || out["lifelike_intro_editable"] != nil || out["locale"] != nil {
 		t.Fatalf("get %d %v", code, out)
 	}
-	if code, out := call("PATCH", `{"lifelike_intro":false}`); code != http.StatusConflict || out["error"] != "plan_required" {
-		t.Fatalf("no plan %d %v", code, out)
+	if code, _ := call("PATCH", `{"lifelike_intro":false}`); code != http.StatusOK {
+		t.Fatalf("ignored %d", code)
 	}
 	if code, out := call("PATCH", `{"locale":"pt_BR"}`); code != 200 || out["locale"] != "pt-BR" {
 		t.Fatalf("locale %d %v", code, out)
@@ -113,8 +112,11 @@ func TestAccountSettings(t *testing.T) {
 		c.Plan = &store.Plan{Tier: "studio", SubscriptionID: "sub_2", Status: "active", CurrentPeriodEnd: &end}
 		return nil
 	})
-	if code, out := call("PATCH", `{"lifelike_intro":false,"locale":null}`); code != 200 || out["lifelike_intro"] != false || out["lifelike_intro_editable"] != true || out["locale"] != nil {
+	if code, out := call("PATCH", `{"lifelike_intro":false,"locale":null}`); code != 200 || out["lifelike_intro"] != nil || out["locale"] != nil {
 		t.Fatalf("plan %d %v", code, out)
+	}
+	if c, _ := s.Store.GetCustomer(ctx, uid); c.LifelikeIntroOff {
+		t.Fatal("the opt-out isn't stored any more")
 	}
 }
 

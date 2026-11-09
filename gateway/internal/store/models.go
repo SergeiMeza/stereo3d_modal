@@ -626,8 +626,8 @@ type Customer struct {
 	// list gate, H).
 	DefaultFingerprint string `firestore:"default_fingerprint,omitempty"`
 	// Locale: the account's language for the Lifelike intro (BCP-47; ""
-	// = the browser's). LifelikeIntroOff: a Business/Studio plan's
-	// opt-out (honoured only while such a plan is active).
+	// = the browser's). LifelikeIntroOff: the removed Business/Studio
+	// opt-out (owner 2026-11-09), kept on old records and ignored.
 	Locale           string `firestore:"locale,omitempty"`
 	LifelikeIntroOff bool   `firestore:"lifelike_intro_off,omitempty"`
 	// MailLocale: the language the web asked mails to use (BCP-47; the UI

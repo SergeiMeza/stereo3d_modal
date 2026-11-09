@@ -12,14 +12,13 @@ import (
 	"golang.org/x/text/language"
 
 	"spatial-ai-labs/stereo3d-gateway/internal/httpx"
-	"spatial-ai-labs/stereo3d-gateway/internal/pricing"
 	"spatial-ai-labs/stereo3d-gateway/internal/store"
 )
 
 // Lifelike brand intro (BL-25). Every Lifelike run gets the intro: 3 s on
 // previews, 4 s otherwise (free, paid, Express), in the customer's
-// language. Only an account with an active Business or Studio plan may
-// turn it off; a Commercial use run never has it (owner 2026-11-09). The intro is never billed: quotes, holds and charges use
+// language. Only Commercial use removes it, on any plan (owner 2026-11-09;
+// the Business/Studio opt-out is gone, its stored value ignored). The intro is never billed: quotes, holds and charges use
 // the customer's own video length. Behind lifelike_intro_enabled (code
 // default false until the pipeline's API is live on test): off, no intro
 // field is sent at all.
@@ -78,12 +77,6 @@ func introLanguage(cust *store.Customer, r *http.Request) string {
 	return "en"
 }
 
-// introOptOutAllowed: only an active Business or Studio plan may turn the
-// intro off.
-func introOptOutAllowed(cust *store.Customer, now time.Time) bool {
-	return cust != nil && cust.Plan.Active(now) && (cust.Plan.Tier == pricing.TierBusiness || cust.Plan.Tier == pricing.TierStudio)
-}
-
 // applyIntro records the intro on a new Lifelike run's params (sent by
 // lifelikeBody at submit). Nothing when the flag is off.
 func (s *Service) applyIntro(ctx context.Context, r *http.Request, uid, step string, params *store.Params) {
@@ -98,9 +91,6 @@ func (s *Service) applyIntro(ctx context.Context, r *http.Request, uid, step str
 	if step == store.StepLifelikePreview {
 		secs = introPreviewS
 	}
-	if cust != nil && cust.LifelikeIntroOff && introOptOutAllowed(cust, time.Now()) {
-		secs = 0 // a Business/Studio plan's opt-out
-	}
 	if params.Commercial {
 		secs = 0 // Commercial use has no brand intro (owner 2026-11-09)
 	}
@@ -108,14 +98,14 @@ func (s *Service) applyIntro(ctx context.Context, r *http.Request, uid, step str
 	params.IntroLanguage = introLanguage(cust, r)
 }
 
-// GET /v1/account/settings → {lifelike_intro, lifelike_intro_editable,
-// locale, mail_locale, notify_ready, …}; PATCH {lifelike_intro?, locale?
+// GET /v1/account/settings → {locale, mail_locale, notify_ready, …};
+// PATCH {locale?
 // (null clears), mail_locale? (null clears), notify_ready?} → the same.
 // locale is the Lifelike intro's language; mail_locale the mails' (the
 // web's UI language); notify_ready (default true) the "3D video ready"
 // mail.
-// lifelike_intro (default true) can be changed only while a Business or
-// Studio plan is active (409 plan_required); without one it reads true.
+// lifelike_intro (the removed Business/Studio opt-out, owner 2026-11-09) is
+// ignored in a PATCH.
 func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, user *AuthedUser) {
 	ctx := r.Context()
 	if r.Method == http.MethodPatch {
@@ -196,14 +186,8 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			httpx.WriteErr(ctx, w, err)
 			return
 		}
-		cust, err := s.Store.GetCustomer(ctx, user.UID)
-		if err != nil {
+		if _, err := s.Store.GetCustomer(ctx, user.UID); err != nil {
 			httpx.WriteErr(ctx, w, err)
-			return
-		}
-		if req.LifelikeIntro != nil && !introOptOutAllowed(cust, time.Now()) {
-			httpx.WriteErr(ctx, w, httpx.Err(http.StatusConflict, "plan_required",
-				"Only Business and Studio plans can turn the intro off."))
 			return
 		}
 		var locale *string
@@ -223,9 +207,6 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 			locale = &n
 		}
 		if _, err := s.Store.UpdateCustomer(ctx, user.UID, func(c *store.Customer) error {
-			if req.LifelikeIntro != nil {
-				c.LifelikeIntroOff = !*req.LifelikeIntro
-			}
 			if locale != nil {
 				c.Locale = *locale
 			}
@@ -268,8 +249,7 @@ func (s *Service) HandleAccountSettings(w http.ResponseWriter, r *http.Request, 
 		}
 	}
 	cust, _ := s.Store.GetCustomer(ctx, user.UID)
-	editable := introOptOutAllowed(cust, time.Now())
-	out := map[string]any{"lifelike_intro": !(editable && cust.LifelikeIntroOff), "lifelike_intro_editable": editable, "locale": nil}
+	out := map[string]any{"locale": nil}
 	if cust != nil && cust.Locale != "" {
 		out["locale"] = cust.Locale
 	}
