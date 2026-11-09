@@ -564,9 +564,8 @@ interface DB {
   /** owner 2026-11-04: above 30 fps needs Business or Studio (gateway
    * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
   fpsCap: boolean;
-  /** BL-25: account settings (lifelike_intro_editable follows the plan) */
+  /** BL-25: account settings (owner 2026-11-09: no intro on/off any more) */
   accountSettings: {
-    lifelike_intro: boolean;
     locale: string | null;
     /** feat/mail-polish: the mails' language */
     mail_locale?: string | null;
@@ -580,8 +579,6 @@ interface DB {
     /** the Business setup's optional answers */
     business_setup?: { team_size?: string; main_use?: string; headsets?: string[] };
   };
-  /** the next settings save fails with a 500 */
-  nextSettingsFails: boolean;
   /** onboarding (owner 2026-11-04): the sample project for new accounts
    * (seeded on the first project list; off in unit tests) */
   sampleSeeding: boolean;
@@ -920,7 +917,6 @@ function accountSettings() {
   const st = mockDb.accountSettings;
   return {
     ...st,
-    lifelike_intro_editable: isTeamPlan(mockDb.billing.plan),
     simulate_app_pro: st.simulate_app_pro === true,
     onboarding: {
       ...st.onboarding,
@@ -1225,9 +1221,8 @@ function seed(): DB {
     // unit tests start as an account that has seen the welcome, tips and
     // hints (onboarding tests clear these); the browser mock starts new
     accountSettings: VITEST_MOCK
-      ? { lifelike_intro: true, locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true }, dismissed: {} }
-      : { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} },
-    nextSettingsFails: false,
+      ? { locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true }, dismissed: {} }
+      : { locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} },
     sampleSeeding: !(typeof process !== "undefined" && process.env?.VITEST),
     sampleSeeded: false,
     events: [],
@@ -2211,8 +2206,8 @@ function detailFields(req: StepConversionRequest, freeUnits: number | null = nul
     started_at: null,
     free_preview_units: freeUnits,
     quick_look: req.quick_look === true,
-    // owner 2026-11-09: a Commercial use run has no intro clip
-    intro: mockDb.accountSettings.lifelike_intro === true && req.commercial !== true && !mockCommercialIncluded(),
+    // owner 2026-11-09: only Commercial use leaves the intro out
+    intro: req.commercial !== true && !mockCommercialIncluded(),
   };
 }
 
@@ -4383,11 +4378,10 @@ export const handlers = [
     return HttpResponse.json({ removed: true });
   }),
 
-  // BL-25 (gateway 00087): account settings; the intro switch needs a plan
+  // BL-25 (gateway 00087): account settings
   http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(accountSettings())),
   http.patch(`${GATEWAY}/v1/account/settings`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
-      lifelike_intro?: boolean;
       locale?: string | null;
       mail_locale?: string;
       headsets?: string[];
@@ -4418,19 +4412,6 @@ export const handlers = [
     if (body.headsets !== undefined) st.headsets = [...body.headsets];
     if (body.hints_seen_add) st.hints_seen = [...new Set([...st.hints_seen, ...body.hints_seen_add])];
     if (body.onboarding) st.onboarding = { ...st.onboarding, ...body.onboarding };
-    if (body.lifelike_intro !== undefined) {
-      if (!isTeamPlan(mockDb.billing.plan))
-        return err(
-          409,
-          "plan_required",
-          "a Business or Studio plan is needed for that",
-        );
-      if (mockDb.nextSettingsFails) {
-        mockDb.nextSettingsFails = false;
-        return err(500, "server_error", "couldn't save");
-      }
-      st.lifelike_intro = body.lifelike_intro;
-    }
     if (body.locale !== undefined) st.locale = body.locale;
     if (body.mail_locale !== undefined) st.mail_locale = body.mail_locale;
     return HttpResponse.json(accountSettings());

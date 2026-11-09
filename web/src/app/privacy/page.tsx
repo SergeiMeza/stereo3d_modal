@@ -80,8 +80,7 @@ export default function PrivacyPage() {
         <p>
           <strong>Account settings.</strong>{" "}We keep the settings you choose
           in the app: your language, which we also use for the short title
-          at the start of your videos, and whether that title is on (Business
-          and Studio plans can turn it off), your answers to the welcome
+          at the start of your videos, your answers to the welcome
           questions (such as which headsets you watch on), and which tips
           you&rsquo;ve already seen.
         </p>

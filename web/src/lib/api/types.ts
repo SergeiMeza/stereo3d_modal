@@ -1002,11 +1002,8 @@ export interface AccountDeletionCancel {
 
 /** GET/PATCH /v1/account/settings (BL-25, gateway 00087) */
 export interface AccountSettings {
-  /** the Spatial Video Studio intro before the account's videos */
-  lifelike_intro: boolean;
-  /** true only with an active Business or Studio plan */
-  lifelike_intro_editable: boolean;
-  /** the Lifelike intro's language (never the mails') */
+  /** the Lifelike intro's language (never the mails'); owner 2026-11-09:
+   * no intro on/off setting any more, only Commercial use leaves it out */
   locale: string | null;
   /** feat/mail-polish: the language customer mails use; the web keeps it
    * at the UI's language (MailLocaleSync). Older gateways leave it out. */
@@ -1059,7 +1056,6 @@ export interface OnboardingState {
 
 /** PATCH /v1/account/settings */
 export interface AccountSettingsPatch {
-  lifelike_intro?: boolean;
   locale?: string | null;
   mail_locale?: string;
   headsets?: string[];

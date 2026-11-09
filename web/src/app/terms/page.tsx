@@ -184,8 +184,7 @@ export default function TermsPage() {
         </p>
         <p>
           Videos may start with a short Spatial Video Studio title. Videos
-          made with Commercial use have none, and Business and Studio plans
-          can turn it off.
+          made with Commercial use have none.
         </p>
         <p>
           Outputs may carry metadata (content credentials) and an invisible

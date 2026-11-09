@@ -98,7 +98,6 @@
         "pctOff": "{pct}% off every video",
         "usage": "{amount} of usage every month",
         "frameRates": "Frame rates up to {fps} fps",
-        "intro": "Turn the {site} intro on or off",
         "invoices": "Invoices with your company details",
         "express": "Express included"
       },
@@ -153,7 +152,7 @@
       "welcome": {
         "eyebrow": "Welcome",
         "title": "{plan} is on",
-        "commercialAddOn": "Need to use a video commercially? Add Commercial use when you make it.",
+        "commercialAddOn": "Need to use a video commercially? Add Commercial use when you make it. It also leaves out the {site} intro.",
         "frameRates": "Higher frame rates: up to {fps} fps when your video has them.",
         "usage": "{amount} of usage every month, then {plan} prices.",
         "make": "Make your 3D video"
@@ -448,10 +447,7 @@
       "usageResets": "Usage resets on {date}.",
       "renewsOn": "Renews on {date}.",
       "billedYearlyRenewsOn": "Billed yearly. Renews on {date}.",
-      "plansLink": "Plans",
-      "introLabel": "Add the {app} intro to my videos",
-      "introHint": "A short {app} title plays before your videos.",
-      "introSaveFailed": "Couldn't save that. Try again."
+      "plansLink": "Plans"
     },
     "planMove": {
       "expired": "This offer expired. Contact support.",

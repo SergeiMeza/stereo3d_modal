@@ -97,7 +97,7 @@ describe("the mails' language follows the web's", () => {
     server.use(
       // answers without mail_locale, as gateways before feat/mail-polish do
       http.get(`${GATEWAY}/v1/account/settings`, () =>
-        HttpResponse.json({ lifelike_intro: true, lifelike_intro_editable: false, locale: null, hints_seen: [], onboarding: {}, dismissed: {} }),
+        HttpResponse.json({ locale: null, hints_seen: [], onboarding: {}, dismissed: {} }),
       ),
       http.patch(`${GATEWAY}/v1/account/settings`, () =>
         HttpResponse.json({ error: { code: "invalid_request", message: "unknown field mail_locale" } }, { status: 400 }),
@@ -111,7 +111,7 @@ describe("the mails' language follows the web's", () => {
   });
 
   it("an older gateway that drops the field: one send, no loop", async () => {
-    const old = { lifelike_intro: true, lifelike_intro_editable: false, locale: null, hints_seen: [], onboarding: {}, dismissed: {} };
+    const old = { locale: null, hints_seen: [], onboarding: {}, dismissed: {} };
     server.use(
       http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(old)),
       // accepts the PATCH and answers without mail_locale, a moment later

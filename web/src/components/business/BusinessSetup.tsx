@@ -36,7 +36,6 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { IntroSwitch } from "@/components/billing/PlanCard";
 import {
   confirmPlanChangeAtom,
   planChangeAtom,
@@ -110,7 +109,6 @@ export function planIncludes(
       : []),
     t("business.setup.includes.usage", { amount: formatCentsShort(def.credit_cents, t) }),
     ...(maxFps && maxFps > 30 ? [t("business.setup.includes.frameRates", { fps: maxFps })] : []),
-    t("business.setup.includes.intro", { site: SITE_NAME }),
     t("business.setup.includes.invoices"),
     ...(def.express_included ? [t("business.setup.includes.express")] : []),
     ...(qualitySteps(pricing).length > 2 ? [PLAN_FILE_QUALITY] : []),
@@ -634,11 +632,8 @@ export function BusinessSetup(): JSX.Element {
           </ul>
           {/* owner 2026-11-09: Commercial use is an add-on on any plan */}
           <p data-testid="setup-commercial" className="text-sm text-fg-muted">
-            {t("business.setup.welcome.commercialAddOn")}
+            {t("business.setup.welcome.commercialAddOn", { site: SITE_NAME })}
           </p>
-          <div className="rounded-xl border border-edge bg-surface-1 p-4">
-            <IntroSwitch />
-          </div>
           {/* owner 2026-11-04: optional, never blocking */}
           <p className="text-sm text-fg-muted">
             <Link

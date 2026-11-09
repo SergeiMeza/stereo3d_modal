@@ -36,7 +36,7 @@ beforeAll(() => server.listen({ onUnhandledRequest: "error" }));
 beforeEach(() => {
   resetAccountSettingsCache();
   // a brand-new account
-  mockDb.accountSettings = { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} };
+  mockDb.accountSettings = { locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} };
 });
 afterEach(() => {
   cleanup();
@@ -272,7 +272,7 @@ describe("app Pro welcome (owner 2026-11-04)", () => {
     server.use(
       http.get("*/v1/account/settings", async () => {
         return HttpResponse.json({
-          lifelike_intro: true, lifelike_intro_editable: false, locale: null, headsets: null, hints_seen: [], dismissed: {},
+          locale: null, headsets: null, hints_seen: [], dismissed: {},
           simulate_app_pro: true,
           onboarding: { variant: "app_pro", app_pro_welcome_done: false, headsets_from_app: [], headsets_from_app_source: null, app_viewing_device: "other_headset" },
         });
@@ -351,8 +351,6 @@ describe("the welcome's Business line follows the nudge rule (QA 2026-11-05)", (
 describe("getting-started steps", () => {
   it("follow the account and the gateway's steps", () => {
     const steps = checklistSteps({
-      lifelike_intro: true,
-      lifelike_intro_editable: false,
       locale: null,
       headsets: ["avp"],
       onboarding: { steps: { first_video: true, first_preview: true } },
