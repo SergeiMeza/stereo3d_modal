@@ -32,6 +32,7 @@ import { useRunFiles } from "./RunFiles";
 import { runDetailsOpenAtom, runReceiptsAtom, type RunReceipts } from "./runDetailsAtoms";
 import { ltrRuns } from "@/lib/i18n/bidi";
 import { offerLabel } from "@/lib/campaign";
+import { depthName, isDepthChoice } from "@/lib/depthChoice";
 
 const TERMINAL: ReadonlySet<Conversion["state"]> = new Set(["succeeded", "failed", "canceled", "expired"]);
 
@@ -154,6 +155,9 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
 
   // Look and depth, as the run stored them
   add("strength", p.depth_scale !== undefined ? `×${p.depth_scale.toFixed(2)}` : null);
+  // owner 2026-11-10: Lifelike's 3D depth (Comfortable, Standard, Strong);
+  // nothing on runs before
+  add("depthChoice", isDepthChoice(p.depth) ? depthName(p.depth, t) : null);
   add("depthDetail", p.depth_res !== undefined ? t("files.details.px", { value: String(p.depth_res) }) : null);
   add("scenesTuned", p.scene_overrides && p.scene_overrides.length > 0 ? String(p.scene_overrides.length) : null);
   add(
@@ -178,6 +182,8 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
     // owner 2026-11-09: Commercial use, or included by a plan active on
     // 2026-11-09 (until its renewal)
     add("commercial", p.commercial_included === true ? t("files.details.included") : onOff(p.commercial === true));
+    // owner 2026-11-10: Smoother motion
+    add("stabilize", onOff(p.stabilize === true));
     // gateway 00178: the run's own flags
     if (c.step === "lifelike_preview" && c.quick_look !== undefined) add("quickLook", onOff(c.quick_look));
     if (c.intro !== undefined) add("intro", onOff(c.intro));

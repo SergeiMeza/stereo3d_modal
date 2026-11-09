@@ -4,7 +4,7 @@ import { buildCsp } from "./csp";
 import { ageHours, formatMoney, formatUsdLabeled, money, paidLocal, parseDollars, parseSignedDollars, until } from "./format";
 import { safeExternalUrl } from "./links";
 import { parseRoute } from "./router";
-import { audioLine, fileQualityLine } from "./fileQuality";
+import { audioLine, depthLine, fileQualityLine, stabilizeLine } from "./fileQuality";
 
 describe("formatMoney counts minor units as Stripe does, not Intl (REV-02)", () => {
   it("HUF, IDR and ISK have two; KWD three; JPY none; USD two", () => {
@@ -126,5 +126,19 @@ describe("File quality (owner 2026-11-07)", () => {
     expect(fileQualityLine({})).toBeNull();
     expect(audioLine({ outputs_media: { sbs: { video_kbps: 1, audio_codec: "aac", audio_kbps: 255.6 } } })).toBe("AAC 256 kbit/s");
     expect(audioLine({ outputs_media: { sbs: { video_kbps: 1 } } })).toBeNull();
+  });
+});
+
+describe("Smoother motion and the 3D depth (owner 2026-11-10)", () => {
+  it("yes or no when the run says; the depth by name, nothing for runs before", () => {
+    expect(stabilizeLine({ stabilize: true })).toBe("yes");
+    expect(stabilizeLine({ stabilize: false })).toBe("no");
+    expect(stabilizeLine({})).toBeNull();
+    expect(stabilizeLine({ stabilize: null })).toBeNull();
+    expect(depthLine({ depth: "comfortable" })).toBe("Comfortable");
+    expect(depthLine({ depth: "standard" })).toBe("Standard");
+    expect(depthLine({ depth: "strong" })).toBe("Strong");
+    expect(depthLine({ depth: "" })).toBeNull();
+    expect(depthLine({})).toBeNull();
   });
 });

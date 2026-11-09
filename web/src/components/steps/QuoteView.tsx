@@ -21,6 +21,7 @@ import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { offerLabel } from "@/lib/campaign";
 import { commercialName } from "@/lib/commercial";
+import { stabilizeName } from "@/lib/stabilize";
 
 const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
 
@@ -364,6 +365,17 @@ export function QuoteView({
         />
       ) : (b as Record<string, unknown>).express_included === true ? (
         <Line label={t("quote.view.express")} value={t("quote.view.included")} testId="quote-express" />
+      ) : null}
+      {/* owner 2026-11-10: Smoother motion, +10% on any plan */}
+      {(addons.stabilize ?? b.stabilize_cents) ? (
+        <Line
+          label={t("quote.view.namePct", {
+            name: stabilizeName(t),
+            pct: addonPct(addons.stabilize ?? b.stabilize_cents ?? 0, b, t),
+          })}
+          value={`+${formatCents(addons.stabilize ?? b.stabilize_cents ?? 0, t)}`}
+          testId="quote-stabilize"
+        />
       ) : null}
       {/* owner 2026-11-09: Commercial use, +50% on any plan; a plan active
           on 2026-11-09 includes it until its renewal */}

@@ -45,6 +45,10 @@ const (
 	// on every plan: the output may be used commercially and the run has
 	// no brand intro.
 	AddOnCommercial = "commercial"
+	// AddOnStabilize: Smoother motion (owner 2026-11-10, LL-18), Lifelike
+	// only, on every plan: the worker's temporal stabilizer, off unless
+	// bought.
+	AddOnStabilize = "stabilize"
 )
 
 // PlanDef is a web plan (Business, Studio): Stripe Billing subscription on
@@ -185,7 +189,7 @@ func defaultAddOnPct() map[string]float64 {
 	// Master +50% and High +30% (owner 2026-11-07, the quality tiers; Master
 	// was +20%).
 	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 0.20,
-		AddOnCommercial: 0.50}
+		AddOnCommercial: 0.50, AddOnStabilize: 0.10}
 }
 
 // testAddOnPct: master bitrate +100% on TEST (owner 2026-11-07; was 20%);
@@ -193,7 +197,7 @@ func defaultAddOnPct() map[string]float64 {
 // (owner 2026-11-09, was +30%).
 func testAddOnPct() map[string]float64 {
 	return map[string]float64{AddOnFoveated: 0.50, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 1.00,
-		AddOnCommercial: 0.50}
+		AddOnCommercial: 0.50, AddOnStabilize: 0.10}
 }
 
 // AddOnClassicMaster: Classic's master bitrate keeps its own share (owner
@@ -432,6 +436,9 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 	if in.Commercial && !in.CommercialIncluded {
 		addOns = append(addOns, AddOnCommercial)
 	}
+	if in.Stabilize { // Smoother motion (owner 2026-11-10)
+		addOns = append(addOns, AddOnStabilize)
+	}
 	bd := map[string]any{
 		"step": in.Step, "method": MethodLifelike, "preset": in.Preset,
 		"billable_seconds":      math.Round(in.BillableS*100) / 100,
@@ -439,6 +446,7 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 		"tier": in.Tier, "pro": in.Tier != TierNone, "pricing": "tiers",
 		"express": in.Express, "express_included": expressIncluded,
 		"commercial": in.Commercial || in.CommercialIncluded, "commercial_included": in.CommercialIncluded,
+		"stabilize":            in.Stabilize,
 		"analyze_credit_cents": in.CreditCents,
 	}
 	var q tierQuote
@@ -517,6 +525,9 @@ func (r *Rates) fillTierBreakdown(bd map[string]any, q tierQuote, in StepInputs)
 	}
 	if c, ok := q.AddOns[AddOnCommercial]; ok { // "Commercial use +50%"
 		bd["commercial_cents"], bd["commercial_label"] = c, fmt.Sprintf("Commercial use +%d%%", int(math.Round(r.AddOnPct(AddOnCommercial)*100)))
+	}
+	if c, ok := q.AddOns[AddOnStabilize]; ok { // "Smoother motion +10%"
+		bd["stabilize_cents"], bd["stabilize_label"] = c, fmt.Sprintf("Smoother motion +%d%%", int(math.Round(r.AddOnPct(AddOnStabilize)*100)))
 	}
 	if c, ok := q.AddOns[AddOnFoveated]; ok {
 		bd["foveation_cents"], bd["foveation_multiplier"] = c, 1+r.AddOnPct(AddOnFoveated)
@@ -597,6 +608,11 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		AddOnCommercial: map[string]any{"pct": r.AddOnPct(AddOnCommercial), "methods": []string{"lifelike"},
 			"steps": []string{StepLifelikePreview, "production"}, "request": map[string]any{"commercial": true},
 			"included_in": []string{}, "effect": "commercial use of the output; no brand intro", "free_previews": false},
+		// owner 2026-11-10 (LL-18): the worker's stabilizer, every plan pays it
+		AddOnStabilize: map[string]any{"pct": r.AddOnPct(AddOnStabilize), "methods": []string{"lifelike"},
+			"steps": []string{StepLifelikePreview, "production"}, "request": map[string]any{"stabilize": true},
+			"included_in": []string{}, "effect": "steadier 3D from frame to frame", "free_previews": false,
+			"enabled": !r.StabilizeOff},
 		"on": "the run's price at its tier, before the bulk discount",
 	}
 	hfr := r.QualityHFRFactor

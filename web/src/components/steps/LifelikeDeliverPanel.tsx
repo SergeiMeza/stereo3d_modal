@@ -76,6 +76,9 @@ import {
   commercialName,
   commercialPct,
 } from "@/lib/commercial";
+import { depthField } from "@/lib/depthChoice";
+import { stabilizeHint, stabilizeName, stabilizePct, stabilizeShare } from "@/lib/stabilize";
+import { DepthChoice } from "./DepthChoice";
 
 /** "Your video is N minutes long. …" — the split question. */
 export function splitQuestion(outputSeconds: number, t: Tr = EN): string {
@@ -200,6 +203,10 @@ export function LifelikeDeliverPanel({
   ) as Partial<Record<Preset, string>>;
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
   const [commercialChoice, setCommercial] = useMake3dChoice(pid, "commercial");
+  // owner 2026-11-10: Smoother motion (+10% on any plan, its share from
+  // /v1/pricing) and the 3D depth (no price change, shared with the preview)
+  const [stabilizeChoice, setStabilize] = useMake3dChoice(pid, "stabilize");
+  const [depth, setDepth] = useMake3dChoice(pid, "depth");
   const plan = useBilling().status?.plan;
   // plans canvas, Quote A: pay once (always first) or with Pro
   const [payMode, setPayMode] = useMake3dChoice(pid, "payMode");
@@ -244,6 +251,8 @@ export function LifelikeDeliverPanel({
   const commercialUntil = commercialIncludedUntil(plan);
   const commercialFree = commercialIncluded(plan, ck.lastQuote?.quote.breakdown);
   const commercial = commercialShare !== null && (commercialFree || commercialChoice);
+  const stabilizeOffered = stabilizePct(pricing);
+  const stabilize = stabilizeOffered !== null && stabilizeChoice;
   const plain: StepConversionRequest = {
     step: "production",
     preset,
@@ -254,6 +263,8 @@ export function LifelikeDeliverPanel({
     ...(qualityOffered ? { quality: fileQuality } : {}),
     ...(addons?.express && express ? { express: true } : {}),
     ...(commercial ? { commercial: true } : {}),
+    ...(stabilize ? { stabilize: true } : {}),
+    ...depthField(depth),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
@@ -417,7 +428,10 @@ export function LifelikeDeliverPanel({
               />
             </div>
           ) : null}
-          {eyeRequired || foveationOffered || foveationShownIncluded || qualityOffered || addons?.express || commercialShare !== null ? (
+          <div className="border-t border-edge pt-3">
+            <DepthChoice value={depth} onChange={(d) => change(() => setDepth(d))} />
+          </div>
+          {eyeRequired || foveationOffered || foveationShownIncluded || qualityOffered || addons?.express || stabilizeOffered !== null || commercialShare !== null ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -476,6 +490,16 @@ export function LifelikeDeliverPanel({
                 hint={t("make.lifelike.expressHint")}
                 checked={express}
                 onChange={(v) => change(() => setExpress(v))}
+              />
+            ) : null}
+            {stabilizeOffered !== null ? (
+              <AddOnRow
+                testId="addon-stabilize"
+                label={stabilizeName(t)}
+                price={stabilizeShare(stabilizeOffered)}
+                hint={stabilizeHint(t)}
+                checked={stabilize}
+                onChange={(v) => change(() => setStabilize(v))}
               />
             ) : null}
             {commercialShare !== null ? (

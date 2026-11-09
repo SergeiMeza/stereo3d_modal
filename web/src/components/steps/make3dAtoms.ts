@@ -17,7 +17,8 @@ import { atomWithStorage } from "jotai/utils";
 import { atomFamily } from "jotai-family";
 
 import type { PayMode } from "@/components/plans/QuotePlans";
-import type { Format, OutputQuality, Preset } from "@/lib/api/types";
+import type { Format, LifelikeDepth, OutputQuality, Preset } from "@/lib/api/types";
+import { isDepthChoice } from "@/lib/depthChoice";
 
 import { safeJSONStorage } from "@/lib/state/safeStorage";
 
@@ -41,6 +42,11 @@ export interface Make3dChoices {
   /** owner 2026-11-09: Commercial use, unticked by default (a plan that
    * still includes it shows it ticked and included instead) */
   commercial: boolean;
+  /** owner 2026-11-10: Smoother motion, unticked by default */
+  stabilize: boolean;
+  /** owner 2026-11-10: the 3D depth, Standard by default; the preview
+   * shares it */
+  depth: LifelikeDepth;
   payMode: PayMode;
 }
 
@@ -56,6 +62,8 @@ export const MAKE3D_DEFAULTS: Make3dChoices = {
   quality: "standard",
   express: null,
   commercial: false,
+  stabilize: false,
+  depth: "standard",
   payMode: "once",
 };
 
@@ -83,7 +91,9 @@ const make3dStorage = {
       const known = Object.fromEntries(
         Object.entries(saved).filter(([k]) => k in MAKE3D_DEFAULTS && k !== "payMode"),
       ) as Partial<Make3dChoices>;
-      return { ...initial, ...known, quality: savedQuality(saved) };
+      // a stored depth the gateway wouldn't take falls back to Standard
+      const depth = isDepthChoice(saved.depth) ? saved.depth : initial.depth;
+      return { ...initial, ...known, quality: savedQuality(saved), depth };
     } catch {
       return initial;
     }

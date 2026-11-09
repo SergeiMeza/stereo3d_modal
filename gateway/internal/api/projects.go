@@ -692,6 +692,11 @@ type stepConvReq struct {
 	// Commercial (add-on, owner 2026-11-09, Lifelike): Commercial use, no
 	// brand intro.
 	Commercial bool `json:"commercial"`
+	// Stabilize (add-on, owner 2026-11-10, Lifelike): Smoother motion.
+	Stabilize bool `json:"stabilize"`
+	// Depth (owner 2026-11-10, Lifelike): "comfortable" | "standard"
+	// (default) | "strong", the 3D strength; no price change.
+	Depth string `json:"depth"`
 	// Quality (web Lifelike, owner 2026-11-07): "standard" (free, the
 	// default for web requests) | "high" (+30%) | "master" (+50%).
 	Quality string `json:"quality"`
@@ -1083,13 +1088,14 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		in.Quality = params.OutputQuality                              // high +30% / master +50%, one per run
 		in.CommercialIncluded = at.Plan.CommercialIncluded(time.Now()) // grandfathered Business/Studio
 		in.Commercial = params.Commercial || in.CommercialIncluded
+		in.Stabilize = params.Stabilize
 		in.Web, in.OutputPreset = params.Web, params.Preset // the launch offer: web only, by output preset
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
-			// a Commercial use preview is paid (owner 2026-11-09), unless the
-			// plan still includes it
-			paidCommercial := in.Commercial && !in.CommercialIncluded
-			in.FreePreview = !alt && !paidCommercial && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
+			// a Commercial use or Smoother motion preview is paid (owner
+			// 2026-11-09/10), unless the plan still includes Commercial use
+			paidAddOn := (in.Commercial && !in.CommercialIncluded) || in.Stabilize
+			in.FreePreview = !alt && !paidAddOn && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
 		}
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
@@ -1335,7 +1341,7 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		if rates.FreePreviewsEnabled {
 			fp := s.freePreviewStatus(ctx, user.UID, at, units)
 			if req.Step == store.StepLifelikePreview && quote.Breakdown["free_preview"] != true {
-				fp.Free = false // a paid Commercial use preview (owner 2026-11-09)
+				fp.Free = false // a paid Commercial use / Smoother motion preview (owner 2026-11-09/10)
 			}
 			resp["free_previews"] = fp.JSON()
 		}

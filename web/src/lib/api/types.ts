@@ -346,6 +346,13 @@ export interface Params {
    * active on 2026-11-09 gave it at no charge (until its renewal) */
   commercial?: boolean;
   commercial_included?: boolean;
+  /** owner 2026-11-10 (Lifelike): Smoother motion, bought on the run
+   * (absent when not) */
+  stabilize?: boolean;
+  /** owner 2026-11-10 (Lifelike): the 3D depth the run used and its cap
+   * as a % of the frame width (3 / 4 / 5); absent on runs before */
+  depth?: LifelikeDepth;
+  max_disparity_pct?: number;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -406,12 +413,22 @@ export interface QuoteBreakdown {
   commercial_included?: boolean;
   commercial_cents?: number;
   commercial_label?: string;
+  /** owner 2026-11-10: Smoother motion on the run; when bought, its cents
+   * (also in addons.stabilize) and its words ("Smoother motion +10%") */
+  stabilize?: boolean;
+  stabilize_cents?: number;
+  stabilize_label?: string;
 }
 
 /** Pricing 2026-11 add-ons: Foveated Detail, High and Master file
  * quality (owner 2026-11-07; master was the Master bitrate), Express,
- * Commercial use (owner 2026-11-09, every plan, Lifelike only). */
-export type AddOn = "foveated" | "high" | "master" | "express" | "commercial";
+ * Commercial use (owner 2026-11-09, every plan, Lifelike only), Smoother
+ * motion (owner 2026-11-10, every plan, Lifelike only). */
+export type AddOn = "foveated" | "high" | "master" | "express" | "commercial" | "stabilize";
+
+/** Owner 2026-11-10: a Lifelike run's 3D depth (no price change); absent
+ * in a request = standard. */
+export type LifelikeDepth = "comfortable" | "standard" | "strong";
 
 /** Owner 2026-11-07, gateway 00172: the web's file quality, one per run
  * (absent = standard). */
@@ -919,8 +936,9 @@ export interface PublicPricing {
         /** gateway 00172: qualities where the add-on is free and always on
          * (Foveated Detail at 1080p) */
         included_presets?: string[];
-        /** Commercial use: the steps it applies to (lifelike_preview,
-         * production), what it does, and false: its previews are never free */
+        /** Commercial use and Smoother motion: the steps they apply to
+         * (lifelike_preview, production), what they do, and false: their
+         * previews are never free */
         steps?: string[];
         effect?: string;
         free_previews?: boolean;
@@ -1768,6 +1786,12 @@ export interface StepConversionRequest {
   /** owner 2026-11-09: Commercial use (Lifelike runs and previews only; a
    * Classic project answers 400 feature_unavailable) */
   commercial?: boolean;
+  /** owner 2026-11-10: Smoother motion (Lifelike runs and previews only,
+   * its share from /v1/pricing addons; Classic answers 400) */
+  stabilize?: boolean;
+  /** owner 2026-11-10: the 3D depth (Lifelike only; absent = standard;
+   * Classic answers 400) */
+  depth?: LifelikeDepth;
   /** owner 2026-11-07: the file quality (Lifelike on the web) */
   quality?: OutputQuality;
   /** gateway 00178: ordered as a Quick look (shown with the run) */

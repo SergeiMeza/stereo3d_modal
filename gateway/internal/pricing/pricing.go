@@ -210,6 +210,10 @@ type Rates struct {
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
 	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// StabilizeOff withdraws the Smoother motion add-on (owner 2026-11-10)
+	// without a deploy: /v1/pricing lists it as disabled and requests for
+	// it get a 400. Absent = offered.
+	StabilizeOff bool `firestore:"stabilize_off"`
 	// LifelikeSourceCropEnabled: Lifelike runs take black bars off
 	// (source_crop on /convert, BL-03) and are sized and priced on the
 	// picture inside. Code default off; on for test, where Lifelike
@@ -848,8 +852,10 @@ type StepInputs struct {
 	// CommercialIncluded: a grandfathered Business/Studio plan, no charge.
 	Commercial         bool
 	CommercialIncluded bool
-	FreePreview        bool
-	Units              int
+	// Stabilize: Smoother motion (owner 2026-11-10), +AddOnPct(stabilize).
+	Stabilize   bool
+	FreePreview bool
+	Units       int
 	// Web: the run comes from the web app (the launch campaign is web
 	// only); OutputPreset the run's output preset when the price row
 	// differs; Now the quote's time (zero = now).
