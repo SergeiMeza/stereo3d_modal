@@ -42,7 +42,7 @@ func (s *Service) GrandfatherCommercial(ctx context.Context, apply bool) (*Comme
 	out := &CommercialGrandfather{DryRun: !apply, ByPlan: map[string]int{}, UIDs: []string{}}
 	now := time.Now()
 	for uid, c := range custs {
-		if c.AccountDeleted || !grandfatherable(c.Plan, now) {
+		if !grandfatherable(c.Plan, now) { // deleted accounts too: Restore Purchases moves the plan
 			continue
 		}
 		out.Plans++

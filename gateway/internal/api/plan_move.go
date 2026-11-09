@@ -388,6 +388,7 @@ func (s *Service) acceptPlanMove(ctx context.Context, to string, m *store.PlanMo
 	if fc.Plan != nil && fc.Plan.SubscriptionID == m.ID {
 		next.LastInvoiceID, next.LastCreditCents, next.StartedAt = fc.Plan.LastInvoiceID, fc.Plan.LastCreditCents, fc.Plan.StartedAt
 		next.PeriodPaidCents, next.Intro, next.AppProChecked = fc.Plan.PeriodPaidCents, fc.Plan.Intro, fc.Plan.AppProChecked
+		next.CommercialUntil = fc.Plan.CommercialUntil // grandfathered Commercial use moves with the plan
 	}
 	if err := s.Store.MovePlanBetween(ctx, from, to, m.ID, next, now); err != nil {
 		return errors.New("customers: move")

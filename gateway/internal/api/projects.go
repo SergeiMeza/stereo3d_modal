@@ -1268,6 +1268,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, qerr)
 		return
 	}
+	if quote.Breakdown["commercial_included"] == true { // as the run will record it
+		params.Commercial, params.CommercialIncluded = true, true
+	}
 	resp := map[string]any{
 		"step":          req.Step,
 		"method":        method,
@@ -1330,7 +1333,11 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), probeFPS(p), effectiveFPS(p, params))
 		}
 		if rates.FreePreviewsEnabled {
-			resp["free_previews"] = s.freePreviewStatus(ctx, user.UID, at, units).JSON()
+			fp := s.freePreviewStatus(ctx, user.UID, at, units)
+			if req.Step == store.StepLifelikePreview && quote.Breakdown["free_preview"] != true {
+				fp.Free = false // a paid Commercial use preview (owner 2026-11-09)
+			}
+			resp["free_previews"] = fp.JSON()
 		}
 		if d, ok := quote.Breakdown["discount"].(map[string]any); ok && d != nil {
 			resp["discount"] = d // one line: {kind: tier|bulk, tier?, cents, pct}

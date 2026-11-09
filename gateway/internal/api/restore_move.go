@@ -456,6 +456,7 @@ func (s *Service) movePlan(ctx context.Context, uid string, rec *store.PlanResto
 	if old.Plan != nil && old.Plan.SubscriptionID == rec.ID {
 		next.LastInvoiceID, next.LastCreditCents, next.StartedAt = old.Plan.LastInvoiceID, old.Plan.LastCreditCents, old.Plan.StartedAt
 		next.PeriodPaidCents, next.Intro, next.AppProChecked = old.Plan.PeriodPaidCents, old.Plan.Intro, old.Plan.AppProChecked
+		next.CommercialUntil = old.Plan.CommercialUntil // grandfathered Commercial use moves with the plan
 	}
 	if _, err := s.Store.UpdateCustomer(ctx, uid, func(c *store.Customer) error {
 		if c.Plan != nil && c.Plan.SubscriptionID == rec.ID {

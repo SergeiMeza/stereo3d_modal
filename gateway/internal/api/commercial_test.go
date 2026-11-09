@@ -72,6 +72,11 @@ func TestCommercialGrandfather(t *testing.T) {
 	s.Store.PutCustomer(ctx, pro, &store.Customer{StripeCustomerID: "cus_2",
 		Plan: &store.Plan{Tier: "pro", PlanID: "pro_monthly", SubscriptionID: "sub_p", Status: "active", CurrentPeriodEnd: &end}})
 
+	// a deleted account's plan waiting for Restore Purchases is marked too
+	gone := "u" + store.NewID()
+	s.Store.PutCustomer(ctx, gone, &store.Customer{StripeCustomerID: "cus_4", AccountDeleted: true,
+		Plan: &store.Plan{Tier: "studio", SubscriptionID: "sub_g", Status: "active", CurrentPeriodEnd: &end}})
+
 	dry, err := s.GrandfatherCommercial(ctx, false)
 	if err != nil || dry.Written != 0 || len(dry.UIDs) < 1 {
 		t.Fatalf("dry run %+v %v", dry, err)
@@ -84,6 +89,9 @@ func TestCommercialGrandfather(t *testing.T) {
 	pc, _ := s.Store.GetCustomer(ctx, pro)
 	if b.Plan.CommercialUntil == nil || !b.Plan.CommercialUntil.Equal(end) || pc.Plan.CommercialUntil != nil {
 		t.Fatalf("marks: business %v pro %v", b.Plan.CommercialUntil, pc.Plan.CommercialUntil)
+	}
+	if g, _ := s.Store.GetCustomer(ctx, gone); g.Plan.CommercialUntil == nil {
+		t.Fatal("the deleted account's plan isn't marked")
 	}
 	if again, _ := s.GrandfatherCommercial(ctx, true); again.Written != 0 {
 		t.Fatalf("second run writes nothing: %+v", again)
