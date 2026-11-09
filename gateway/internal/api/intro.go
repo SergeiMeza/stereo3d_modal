@@ -19,7 +19,7 @@ import (
 // Lifelike brand intro (BL-25). Every Lifelike run gets the intro: 3 s on
 // previews, 4 s otherwise (free, paid, Express), in the customer's
 // language. Only an account with an active Business or Studio plan may
-// turn it off. The intro is never billed: quotes, holds and charges use
+// turn it off; a Commercial use run never has it (owner 2026-11-09). The intro is never billed: quotes, holds and charges use
 // the customer's own video length. Behind lifelike_intro_enabled (code
 // default false until the pipeline's API is live on test): off, no intro
 // field is sent at all.
@@ -100,6 +100,9 @@ func (s *Service) applyIntro(ctx context.Context, r *http.Request, uid, step str
 	}
 	if cust != nil && cust.LifelikeIntroOff && introOptOutAllowed(cust, time.Now()) {
 		secs = 0 // a Business/Studio plan's opt-out
+	}
+	if params.Commercial {
+		secs = 0 // Commercial use has no brand intro (owner 2026-11-09)
 	}
 	params.IntroS = &secs
 	params.IntroLanguage = introLanguage(cust, r)

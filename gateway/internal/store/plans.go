@@ -62,6 +62,19 @@ type Plan struct {
 	// Dunning: a renewal that didn't go through (D5), cleared when an
 	// invoice of the plan is paid.
 	Dunning *PlanDunning `firestore:"dunning,omitempty" json:"-"`
+	// CommercialUntil (owner 2026-11-09): a Business/Studio plan active
+	// when Commercial use became an add-on keeps it included, at no charge
+	// and without the brand intro, until this time (its period's end then,
+	// so the next renewal ends it). Set once by svs-admin
+	// commercial-grandfather; nil = not grandfathered.
+	CommercialUntil *time.Time `firestore:"commercial_until,omitempty" json:"-"`
+}
+
+// CommercialIncluded: a grandfathered Business/Studio plan still includes
+// Commercial use.
+func (p *Plan) CommercialIncluded(now time.Time) bool {
+	return p != nil && p.CommercialUntil != nil && now.Before(*p.CommercialUntil) && p.Active(now) &&
+		(p.Tier == "business" || p.Tier == "studio")
 }
 
 // Key is the plan's id: PlanID, else Tier.

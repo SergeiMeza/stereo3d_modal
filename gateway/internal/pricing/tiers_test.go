@@ -58,8 +58,8 @@ func TestTierPricing(t *testing.T) {
 		// owner 2026-11-09: Lifelike's fps factor has no ceiling, 120 fps = 5×
 		{"business 60 fps", with(min1, func(i *StepInputs) { i.Tier, i.EffectiveFPS = TierBusiness, 60 }), 3200, "tier"},
 		{"business 120 fps", with(min1, func(i *StepInputs) { i.Tier, i.EffectiveFPS = TierBusiness, 120 }), 6400, "tier"},
-		// add-ons on the base: 1600 + 480 (foveated 30%) + 800 (master 50%) + 800 (express 50%) = 3680, not over $50
-		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 3680, ""},
+		// add-ons on the base: 1600 + 800 (foveated 50%, owner 2026-11-09) + 800 (master 50%) + 800 (express 50%) = 4000, not over $50
+		{"all add-ons", with(min1, func(i *StepInputs) { i.Foveated, i.Master, i.Express = true, true, true }), 4000, ""},
 		{"express", with(min1, func(i *StepInputs) { i.Express = true }), 2400, ""},
 		{"master", with(min1, func(i *StepInputs) { i.Master = true }), 2400, ""},
 		{"quality master", with(min1, func(i *StepInputs) { i.Quality = QualityMaster }), 2400, ""},
@@ -69,8 +69,8 @@ func TestTierPricing(t *testing.T) {
 		{"business pays high", with(min1, func(i *StepInputs) { i.Tier, i.Quality = TierBusiness, QualityHigh }), 1664, "tier"},
 		{"master and express", with(min1, func(i *StepInputs) { i.Master, i.Express = true, true }), 3200, ""},
 		{"pro master and express", with(min1, func(i *StepInputs) { i.Tier, i.Master, i.Express = TierPro, true, true }), 2720, "tier"},
-		// Express included for Business: 1280 + 30% foveated
-		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1664, "tier"},
+		// Express included for Business: 1280 + 50% foveated
+		{"business express", with(min1, func(i *StepInputs) { i.Tier, i.Express, i.Foveated = TierBusiness, true, true }), 1920, "tier"},
 		// 6 min of 4K list = 9600 > 5000 → bulk 960 → 8640
 		{"bulk", with(min1, func(i *StepInputs) { i.BillableS = 360 }), 8640, "bulk"},
 		// Pro 6 min = 8160 beats bulk 8640: the tier, not both

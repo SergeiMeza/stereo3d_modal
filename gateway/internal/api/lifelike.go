@@ -203,6 +203,7 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		params.Foveation = fov
 	}
 	params.Express = req.Express                   // the add-on (pricing 2026-11)
+	params.Commercial = req.Commercial             // Commercial use (owner 2026-11-09)
 	if c, ok := barsCrop(p); ok && removeBars(p) { // BL-03: the run keeps what it took off
 		params.RemoveBars, params.SourceCrop = true, &c
 	}
@@ -744,6 +745,10 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 	params.Web = req.web // the launch campaign is web only
 	params.QuickLook = req.QuickLook
 	rates := s.Pricing.Rates(ctx)
+	if req.Commercial && (projectMethod(p) != store.MethodLifelike || !rates.TierPricing) {
+		// Classic isn't offered Commercial use (owner 2026-11-09)
+		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "Commercial use is available for Lifelike videos only")
+	}
 	// HDR output is automatic and free (owner 2026-11-05): every Lifelike
 	// run of an HDR source gets it while the switch is on. A request's
 	// "hdr" (older web builds) is ignored.

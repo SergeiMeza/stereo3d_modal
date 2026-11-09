@@ -15,7 +15,8 @@ import (
 //     prices (production).
 //   - Add-ons ride on top of the run's price, as shares of its base:
 //     Foveated Detail +30%, Master bitrate +20%, Express +50% (included
-//     in Business and Studio).
+//     in Business and Studio), Commercial use +50% (every plan, owner
+//     2026-11-09; Business and Studio included it before).
 //   - Bulk: bulk_pct off runs whose list total is over the threshold
 //     ($50). Never stacked: a run gets the bigger of bulk and its tier.
 //     The quote names the one discount that applied.
@@ -40,6 +41,10 @@ const (
 	AddOnMaster   = "master"
 	AddOnHigh     = "high" // High quality (owner 2026-11-07)
 	AddOnExpress  = "express"
+	// AddOnCommercial: Commercial use (owner 2026-11-09), Lifelike only,
+	// on every plan: the output may be used commercially and the run has
+	// no brand intro.
+	AddOnCommercial = "commercial"
 )
 
 // PlanDef is a web plan (Business, Studio): Stripe Billing subscription on
@@ -179,13 +184,16 @@ func defaultTierPct() map[string]float64 {
 func defaultAddOnPct() map[string]float64 {
 	// Master +50% and High +30% (owner 2026-11-07, the quality tiers; Master
 	// was +20%).
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 0.20}
+	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 0.20,
+		AddOnCommercial: 0.50}
 }
 
 // testAddOnPct: master bitrate +100% on TEST (owner 2026-11-07; was 20%);
-// Express stays +50% (owner 2026-11-07, after a +100% try), foveated +30%.
+// Express stays +50% (owner 2026-11-07, after a +100% try), foveated +50%
+// (owner 2026-11-09, was +30%).
 func testAddOnPct() map[string]float64 {
-	return map[string]float64{AddOnFoveated: 0.30, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 1.00}
+	return map[string]float64{AddOnFoveated: 0.50, AddOnMaster: 0.50, AddOnHigh: 0.30, AddOnExpress: 0.50, AddOnClassicMaster: 1.00,
+		AddOnCommercial: 0.50}
 }
 
 // AddOnClassicMaster: Classic's master bitrate keeps its own share (owner
@@ -419,12 +427,18 @@ func (r *Rates) quoteLifelikeTiers(in StepInputs, listPerMin int64) (*Quote, err
 			addOns = append(addOns, AddOnExpress)
 		}
 	}
+	// Commercial use: a share like the others, unless a grandfathered
+	// Business/Studio plan still includes it.
+	if in.Commercial && !in.CommercialIncluded {
+		addOns = append(addOns, AddOnCommercial)
+	}
 	bd := map[string]any{
 		"step": in.Step, "method": MethodLifelike, "preset": in.Preset,
 		"billable_seconds":      math.Round(in.BillableS*100) / 100,
 		"list_cents_per_minute": listPerMin, "cents_per_minute": tierPerMin,
 		"tier": in.Tier, "pro": in.Tier != TierNone, "pricing": "tiers",
 		"express": in.Express, "express_included": expressIncluded,
+		"commercial": in.Commercial || in.CommercialIncluded, "commercial_included": in.CommercialIncluded,
 		"analyze_credit_cents": in.CreditCents,
 	}
 	var q tierQuote
@@ -501,6 +515,9 @@ func (r *Rates) fillTierBreakdown(bd map[string]any, q tierQuote, in StepInputs)
 			bd["quality"], bd["quality_label"] = a, fmt.Sprintf("%s quality +%d%%", qualityName[a], int(math.Round(r.AddOnPct(a)*100)))
 		}
 	}
+	if c, ok := q.AddOns[AddOnCommercial]; ok { // "Commercial use +50%"
+		bd["commercial_cents"], bd["commercial_label"] = c, fmt.Sprintf("Commercial use +%d%%", int(math.Round(r.AddOnPct(AddOnCommercial)*100)))
+	}
 	if c, ok := q.AddOns[AddOnFoveated]; ok {
 		bd["foveation_cents"], bd["foveation_multiplier"] = c, 1+r.AddOnPct(AddOnFoveated)
 	} else {
@@ -575,6 +592,11 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		AddOnHigh: map[string]any{"pct": r.AddOnPct(AddOnHigh), "methods": []string{"lifelike"}, "request": map[string]any{"quality": "high"}},
 		AddOnExpress: map[string]any{"pct": r.AddOnPct(AddOnExpress), "methods": []string{"lifelike"}, "request": map[string]any{"express": true},
 			"included_in": []string{TierBusiness, TierStudio}, "effect": "first in the GPU line"},
+		// owner 2026-11-09: every plan pays it; a Business/Studio plan active
+		// on 2026-11-09 keeps it included until its next renewal
+		AddOnCommercial: map[string]any{"pct": r.AddOnPct(AddOnCommercial), "methods": []string{"lifelike"},
+			"steps": []string{StepLifelikePreview, "production"}, "request": map[string]any{"commercial": true},
+			"included_in": []string{}, "effect": "commercial use of the output; no brand intro", "free_previews": false},
 		"on": "the run's price at its tier, before the bulk discount",
 	}
 	hfr := r.QualityHFRFactor

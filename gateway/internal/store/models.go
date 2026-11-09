@@ -257,6 +257,11 @@ type Params struct {
 	BitDepth      int    `firestore:"bit_depth,omitempty" json:"bit_depth,omitempty"`
 	// Express (add-on, pricing 2026-11): first in the GPU line.
 	Express bool `firestore:"express,omitempty" json:"express,omitempty"`
+	// Commercial (add-on, owner 2026-11-09, Lifelike): the output may be
+	// used commercially and the run has no brand intro. CommercialIncluded:
+	// a grandfathered Business/Studio plan gave it at no charge.
+	Commercial         bool `firestore:"commercial,omitempty" json:"commercial,omitempty"`
+	CommercialIncluded bool `firestore:"commercial_included,omitempty" json:"commercial_included,omitempty"`
 	// RemoveBars / SourceCrop (BL-03): the run takes the project's black
 	// bars off, keeping SourceCrop (displayed source pixels, sent as
 	// source_crop). False / nil: the whole frame.
