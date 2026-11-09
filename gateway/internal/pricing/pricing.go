@@ -210,6 +210,10 @@ type Rates struct {
 	// (S3D-50; off by default while its delivery format is worked out);
 	// FoveationPriceMultiplier scales a foveated run's price (1.3).
 	FoveationEnabled bool `firestore:"foveation_enabled"`
+	// StabilizeOff withdraws the Smoother motion add-on (owner 2026-11-10)
+	// without a deploy: /v1/pricing lists it as disabled and requests for
+	// it get a 400. Absent = offered.
+	StabilizeOff bool `firestore:"stabilize_off"`
 	// LifelikeSourceCropEnabled: Lifelike runs take black bars off
 	// (source_crop on /convert, BL-03) and are sized and priced on the
 	// picture inside. Code default off; on for test, where Lifelike

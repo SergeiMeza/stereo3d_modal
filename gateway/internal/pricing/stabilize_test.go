@@ -35,7 +35,12 @@ func TestStabilizeAddOn(t *testing.T) {
 	}
 	out := map[string]any{}
 	r.publicTiers(out, []string{"4k"})
-	if a, _ := out["addons"].(map[string]any)[AddOnStabilize].(map[string]any); a == nil || a["pct"] != 0.10 {
+	if a, _ := out["addons"].(map[string]any)[AddOnStabilize].(map[string]any); a == nil || a["pct"] != 0.10 || a["enabled"] != true {
 		t.Errorf("listed: %v", out["addons"])
+	}
+	r.StabilizeOff = true
+	r.publicTiers(out, []string{"4k"})
+	if a, _ := out["addons"].(map[string]any)[AddOnStabilize].(map[string]any); a["enabled"] != false {
+		t.Errorf("withdrawn: %v", a)
 	}
 }

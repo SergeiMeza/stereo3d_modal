@@ -895,7 +895,7 @@ function publicTiers(): Record<string, unknown> {
         steps: ["lifelike_preview", "production"],
         request: { stabilize: true },
         included_in: [],
-        effect: "smoother camera motion",
+        effect: "steadier 3D from frame to frame",
         free_previews: false,
       },
     },
@@ -1057,7 +1057,7 @@ function mockCommercialIncluded(): boolean {
  * cap, % of the frame width; absent or "" is Standard; null: not one. */
 const MOCK_DEPTH_PCT: Record<string, number> = { comfortable: 3, standard: 4, strong: 5 };
 function mockDepth(d: unknown): "comfortable" | "standard" | "strong" | null {
-  if (d === undefined || d === "") return "standard";
+  if (d === undefined || d === null || d === "") return "standard"; // as the gateway reads null
   return typeof d === "string" && Object.hasOwn(MOCK_DEPTH_PCT, d) ? (d as "comfortable" | "standard" | "strong") : null;
 }
 

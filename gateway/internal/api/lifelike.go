@@ -393,11 +393,15 @@ func (s *Service) stepETA(ctx context.Context, p *store.Project, params store.Pa
 		if step == store.StepLifelikePreview {
 			gpus = 1
 		}
-		return s.Pricing.EstimateLifelikeETA(ctx, pricing.LifelikeInputs{
+		eta := s.Pricing.EstimateLifelikeETA(ctx, pricing.LifelikeInputs{
 			Step: step, Preset: params.Preset, OutputSeconds: billable,
 			EffectiveFPS: in.EffectiveFPS, GPUs: gpus,
 			OutputBitrateBps: params.OutputBitrateBps, MasterBitrateBps: masterBitrateBps(params.Preset),
 		})
+		if params.Stabilize {
+			eta += eta / 10 // the stabilizer: ~7-12% more GPU time a frame (ADR-0019 § 32)
+		}
+		return eta
 	}
 	in.ReuseStages = reuseStages
 	return s.Pricing.EstimateStepETA(ctx, in)
@@ -761,7 +765,7 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		// Classic isn't offered Commercial use (owner 2026-11-09)
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "Commercial use is available for Lifelike videos only")
 	}
-	if req.Stabilize && (projectMethod(p) != store.MethodLifelike || !rates.TierPricing) {
+	if req.Stabilize && (projectMethod(p) != store.MethodLifelike || !rates.TierPricing || rates.StabilizeOff) {
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "Smoother motion is available for Lifelike videos only")
 	}
 	if req.Depth != "" && projectMethod(p) != store.MethodLifelike {

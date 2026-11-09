@@ -89,6 +89,12 @@ func TestStabilizeRun(t *testing.T) {
 	if ep != nil || qp.AmountCents <= 0 || qp.Breakdown["free_preview"] == true {
 		t.Fatalf("preview %v %v", qp, ep)
 	}
+	off := pricing.DefaultsFor("test")
+	off.StabilizeOff = true
+	s.Pricing = pricing.NewStatic(off)
+	if _, oerr := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction, Preset: "4k", Stabilize: true}, p); oerr == nil || oerr.Status != http.StatusBadRequest {
+		t.Fatalf("withdrawn: %v", oerr)
+	}
 	classic := proProject()
 	classic.UID = uid
 	if _, cerr := s.resolveParams(ctx, &stepConvReq{Step: store.StepProduction, Preset: "1080p", Stabilize: true}, classic); cerr == nil || cerr.Status != http.StatusBadRequest {

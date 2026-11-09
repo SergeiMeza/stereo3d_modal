@@ -611,7 +611,8 @@ func (r *Rates) publicTiers(out map[string]any, enabled []string) {
 		// owner 2026-11-10 (LL-18): the worker's stabilizer, every plan pays it
 		AddOnStabilize: map[string]any{"pct": r.AddOnPct(AddOnStabilize), "methods": []string{"lifelike"},
 			"steps": []string{StepLifelikePreview, "production"}, "request": map[string]any{"stabilize": true},
-			"included_in": []string{}, "effect": "smoother camera motion", "free_previews": false},
+			"included_in": []string{}, "effect": "steadier 3D from frame to frame", "free_previews": false,
+			"enabled": !r.StabilizeOff},
 		"on": "the run's price at its tier, before the bulk discount",
 	}
 	hfr := r.QualityHFRFactor
