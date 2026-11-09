@@ -25,6 +25,7 @@ import { activeCampaign, campaignBadge, campaignNote, offerUntil } from "@/lib/c
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { commercialName, commercialPct } from "@/lib/commercial";
+import { stabilizeHint, stabilizeName, stabilizePct } from "@/lib/stabilize";
 
 /** Whose prices: the list, or a plan's own column. */
 export type PriceKey = "list" | "pro" | "business" | "studio";
@@ -196,6 +197,10 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
         QUALITY_STEPS.some((s) => s.value === q && s.hint) ? t(`make.fileQuality.hint.${q}`) : "",
       ]),
     ...(a.express ? ([[t("pricing.extras.express"), pct(a.express.pct), t("pricing.extras.expressWhat")]] as [string, string, string][]) : []),
+    // owner 2026-11-10: Smoother motion, on any plan, Lifelike only
+    ...(stabilizePct(pricing) !== null
+      ? ([[stabilizeName(t), pct(stabilizePct(pricing)!), stabilizeHint(t)]] as [string, string, string][])
+      : []),
     // owner 2026-11-09: Commercial use, on any plan, Lifelike only
     ...(commercialPct(pricing) !== null
       ? ([[commercialName(t), pct(commercialPct(pricing)!), t("pricing.extras.commercialWhat")]] as [string, string, string][])

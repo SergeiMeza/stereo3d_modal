@@ -1479,6 +1479,8 @@ describe("Make 3D: Previous runs (owner 2026-11-07)", () => {
         params: {
           preset: asked.preset as Conversion["params"]["preset"],
           formats: asked.formats as Conversion["params"]["formats"],
+          // owner 2026-11-10: every Lifelike run carries its 3D depth
+          depth: "standard",
         },
       }),
     ];

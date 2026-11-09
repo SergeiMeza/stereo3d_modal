@@ -72,6 +72,10 @@ import {
   commercialName,
   commercialPct,
 } from "@/lib/commercial";
+import { depthField } from "@/lib/depthChoice";
+import { stabilizeHint, stabilizeName, stabilizePct, stabilizeShare } from "@/lib/stabilize";
+import { DepthChoice } from "./DepthChoice";
+import { useMake3dChoice } from "./make3dAtoms";
 
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
@@ -164,6 +168,11 @@ function ReadyPreviewPanel({
   // preview), unticked here whatever Make 3D has; a plan that still
   // includes it shows it ticked and included
   const [commercialPick, setCommercialPick] = useState(false);
+  // owner 2026-11-10: Smoother motion on a preview too (+10%, never a free
+  // preview), unticked here whatever Make 3D has; the 3D depth is the
+  // project's, the same as Make 3D's
+  const [stabilizePick, setStabilizePick] = useState(false);
+  const [depth, setDepth] = useMake3dChoice(project.project_id, "depth");
   const plan = useBilling().status?.plan;
   const [mode, setMode] = useState<CheckMode>(DEFAULT_CHECK_MODE);
   const [pick, setPick] = useAtom(pastPreviewPickAtom(project.project_id));
@@ -231,6 +240,8 @@ function ReadyPreviewPanel({
   const commercialUntil = commercialIncludedUntil(plan);
   const commercialFree = commercialIncluded(plan, ck.lastQuote?.quote.breakdown);
   const commercial = commercialShare !== null && (commercialFree || commercialPick);
+  const stabilizeOffered = stabilizePct(pricing);
+  const stabilize = stabilizeOffered !== null && stabilizePick;
   const plainAt = (start: number): StepConversionRequest => {
     const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
     return {
@@ -242,6 +253,8 @@ function ReadyPreviewPanel({
       from_frame: from,
       to_frame: to,
       ...(commercial ? { commercial: true } : {}),
+      ...(stabilize ? { stabilize: true } : {}),
+      ...depthField(depth),
       platform: "web",
     };
   };
@@ -534,6 +547,21 @@ function ReadyPreviewPanel({
                   </label>
                 )}
               </div>
+              <DepthChoice compact value={depth} onChange={(d) => change(() => setDepth(d))} />
+              {stabilizeOffered !== null ? (
+                <div data-testid="preview-stabilize" className="flex flex-col gap-0.5">
+                  <label className="flex cursor-pointer items-center gap-2 text-xs">
+                    <input
+                      type="checkbox"
+                      checked={stabilize}
+                      onChange={(e) => change(() => setStabilizePick(e.target.checked))}
+                      className="accent-primary"
+                    />
+                    {stabilizeName(t)} <span className="ltr text-fg-muted">{stabilizeShare(stabilizeOffered)}</span>
+                  </label>
+                  <p className="ps-6 text-[11px] text-fg-muted">{stabilizeHint(t)}</p>
+                </div>
+              ) : null}
               {commercialShare !== null ? (
                 <div data-testid="preview-commercial" className="flex flex-col gap-0.5">
                   <label className={`flex items-center gap-2 text-xs ${commercialFree ? "" : "cursor-pointer"}`}>

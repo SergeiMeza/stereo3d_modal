@@ -70,6 +70,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { commercialRunWords } from "@/lib/commercial";
+import { stabilizeRunWords } from "@/lib/stabilize";
 
 import { stepCheckoutAtom, type BillingBlock, type OneTapRun, type StepCheckoutState } from "./checkoutStore";
 import { invalidateQuoteAtom, QUOTE_TIMED_OUT, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
@@ -622,8 +623,11 @@ function oneTapShown(ck: StepCheckout): boolean {
  * 2026-11-05: what's paid for is visible before paying). */
 export function payLine(conv: Conversion, t: Tr = EN): string {
   const files = formatsText(conv.params?.formats, t);
-  // owner 2026-11-09: what's paid for includes Commercial use
-  return [runLine(conv, { price: false }), files, commercialRunWords(conv.params, t)].filter(Boolean).join(" · ");
+  // owner 2026-11-09/10: what's paid for includes Smoother motion and
+  // Commercial use
+  return [runLine(conv, { price: false }), files, stabilizeRunWords(conv.params, t), commercialRunWords(conv.params, t)]
+    .filter(Boolean)
+    .join(" · ");
 }
 
 /** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */

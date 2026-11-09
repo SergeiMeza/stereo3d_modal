@@ -2253,6 +2253,8 @@
         "foveation": "Foveated Detail",
         "express": "Express",
         "commercial": "Commercial use",
+        "stabilize": "Smoother motion",
+        "depthChoice": "3D depth",
         "quickLook": "Quick look",
         "intro": "Intro",
         "ordered": "Ordered",
@@ -2659,6 +2661,20 @@
     "includedUntil": "Included with your plan until {date}",
     "runIncluded": "Commercial use (included)",
     "anyPlan": "Commercial use is a {pct} add-on on any plan, for Lifelike 3D videos."
+  },
+  "depthChoice": {
+    "label": "3D depth",
+    "choice": {
+      "comfortable": "Comfortable",
+      "standard": "Standard",
+      "strong": "Strong"
+    },
+    "hint": "Standard suits most videos. Comfortable is easier on the eyes; Strong brings things further out.",
+    "run": "3D depth: {depth}"
+  },
+  "stabilize": {
+    "name": "Smoother motion",
+    "hint": "Steadier 3D from frame to frame, with less flicker."
   },
   "offer": {
     "name": "Launch offer",

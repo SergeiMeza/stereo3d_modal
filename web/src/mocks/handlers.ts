@@ -662,8 +662,9 @@ const TIERS = {
   } as Record<string, Record<string, number>>,
   pct: { pro: 0.15, business: 0.2, studio: 0.25 } as Record<string, number>,
   // gateway 00172: High +30%, Master +50% (File quality, owner 2026-11-07)
-  // owner 2026-11-09: Commercial use +50%, every plan, Lifelike only
-  addons: { foveated: 0.3, high: 0.3, master: 0.5, express: 0.5, commercial: 0.5 } as Record<string, number>,
+  // owner 2026-11-09: Commercial use +50%, every plan, Lifelike only;
+  // owner 2026-11-10: Smoother motion +10%, the same way
+  addons: { foveated: 0.3, high: 0.3, master: 0.5, express: 0.5, commercial: 0.5, stabilize: 0.1 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
     business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
@@ -686,6 +687,11 @@ function tierQuoteExtras(
   // projects.go sends free_previews on every quote (units 0 off previews);
   // the intro's free says the first preview is free, whatever the step
   out.free_previews = freePreviewState(req.step === "lifelike_preview" ? ((bd.free_preview_units as number) ?? 1) : 0);
+  // a paid Commercial use / Smoother motion preview isn't a free one
+  // (projects.go, owner 2026-11-09/10)
+  if (req.step === "lifelike_preview" && bd.free_preview !== true && (bd.stabilize === true || (bd.commercial === true && bd.commercial_included !== true))) {
+    (out.free_previews as { free: boolean }).free = false;
+  }
   if (bd.free_preview === true) {
     out.payment_flow = "free_preview";
     out.charge_timing = "before";
@@ -882,6 +888,16 @@ function publicTiers(): Record<string, unknown> {
         effect: "commercial use of the output; no brand intro",
         free_previews: false,
       },
+      // owner 2026-11-10: every plan pays it; its previews are never free
+      stabilize: {
+        pct: TIERS.addons.stabilize,
+        methods: ["lifelike"],
+        steps: ["lifelike_preview", "production"],
+        request: { stabilize: true },
+        included_in: [],
+        effect: "smoother camera motion",
+        free_previews: false,
+      },
     },
     // gateway 00172: the web's File quality tiers
     quality: {
@@ -1035,6 +1051,20 @@ function mockCommercialIncluded(): boolean {
   const plan = mockDb.billing.plan;
   const until = plan?.commercial_included_until;
   return !!plan?.active && !!until && Date.parse(until) > Date.now();
+}
+
+/** owner 2026-11-10 (lifelike.go lifelikeDepth): the depth choice and its
+ * cap, % of the frame width; absent or "" is Standard; null: not one. */
+const MOCK_DEPTH_PCT: Record<string, number> = { comfortable: 3, standard: 4, strong: 5 };
+function mockDepth(d: unknown): "comfortable" | "standard" | "strong" | null {
+  if (d === undefined || d === "") return "standard";
+  return typeof d === "string" && Object.hasOwn(MOCK_DEPTH_PCT, d) ? (d as "comfortable" | "standard" | "strong") : null;
+}
+
+/** Every Lifelike run carries its depth and cap (Standard by default). */
+function lifelikeDepthParams(d: unknown): { depth: "comfortable" | "standard" | "strong"; max_disparity_pct: number } {
+  const depth = mockDepth(d) ?? "standard";
+  return { depth, max_disparity_pct: MOCK_DEPTH_PCT[depth] };
 }
 
 /** set while pricing the same run on another tier (alt_prices) */
@@ -1680,6 +1710,13 @@ function validateStepRequest(
   if (body.commercial === true) {
     return err(400, "feature_unavailable", "Commercial use is available for Lifelike videos only");
   }
+  // owner 2026-11-10: nor Smoother motion, nor the depth choice
+  if (body.stabilize === true) {
+    return err(400, "feature_unavailable", "Smoother motion is available for Lifelike videos only");
+  }
+  if (body.depth !== undefined && body.depth !== "") {
+    return err(400, "feature_unavailable", "The 3D depth choice is available for Lifelike videos only");
+  }
   if (body.split_max_seconds !== undefined) {
     // Classic's pipeline doesn't split yet: the gateway rejects it rather
     // than silently dropping it
@@ -1963,6 +2000,13 @@ function validateLifelikeRequest(
   // owner 2026-11-09: Commercial use is priced only under the tiers
   if (body.commercial === true && !mockDb.tierPricing) {
     return err(400, "feature_unavailable", "Commercial use is available for Lifelike videos only");
+  }
+  // owner 2026-11-10: Smoother motion the same way; the depth is one of three
+  if (body.stabilize === true && !mockDb.tierPricing) {
+    return err(400, "feature_unavailable", "Smoother motion is available for Lifelike videos only");
+  }
+  if (mockDepth(body.depth) === null) {
+    return err(400, "invalid_request", "depth must be comfortable, standard or strong");
   }
   const maxFps = mockMaxFps();
   if (maxFps !== null && typeof body.target_fps === "number" && body.target_fps > maxFps + 0.01) {
@@ -2253,6 +2297,8 @@ function lifelikeQuoteFor(
     const commercialIncluded = mockCommercialIncluded();
     const commercial = req.commercial === true || commercialIncluded;
     if (commercial && !commercialIncluded) addOns.push("commercial");
+    // owner 2026-11-10: Smoother motion +10% of the base, every plan
+    if (req.stabilize === true) addOns.push("stabilize");
     const preview = req.step === "lifelike_preview";
     let q;
     if (preview) {
@@ -2272,8 +2318,9 @@ function lifelikeQuoteFor(
         : 0;
     let total = Math.max(q.final - campaign, minimumFor(req.step));
     const units = preview ? previewUnits(priced, outputSeconds, effFPS) : 0;
-    // a Commercial use preview is never a free one (unless included)
-    const free = preview && !(commercial && !commercialIncluded) && freePreviewState(units).free;
+    // a Commercial use (unless included) or Smoother motion preview is
+    // never a free one
+    const free = preview && !(commercial && !commercialIncluded) && req.stabilize !== true && freePreviewState(units).free;
     const priceWithoutFree = total;
     if (free) total = 0;
     return {
@@ -2306,6 +2353,13 @@ function lifelikeQuoteFor(
             ? {
                 commercial_cents: q.adds.commercial,
                 commercial_label: `Commercial use +${Math.round(TIERS.addons.commercial * 100)}%`,
+              }
+            : {}),
+          stabilize: req.stabilize === true,
+          ...(q.adds.stabilize
+            ? {
+                stabilize_cents: q.adds.stabilize,
+                stabilize_label: `Smoother motion +${Math.round(TIERS.addons.stabilize * 100)}%`,
               }
             : {}),
           campaign_cents: campaign,
@@ -2343,6 +2397,8 @@ function lifelikeQuoteFor(
         ...(req.express ? { express: true } : {}),
         ...(commercial ? { commercial: true } : {}),
         ...(commercialIncluded ? { commercial_included: true } : {}),
+        ...(req.stabilize ? { stabilize: true } : {}),
+        ...lifelikeDepthParams(req.depth),
         ...(req.quick_look ? { quick_look: true } : {}),
       },
       outputSeconds,
@@ -2406,6 +2462,7 @@ function lifelikeQuoteFor(
       split_max_seconds: req.split_max_seconds,
       ...(req.original_eye ? { original_eye: req.original_eye } : {}),
       ...(req.foveation ? { foveation: req.foveation } : {}),
+      ...lifelikeDepthParams(req.depth),
     },
     outputSeconds,
     eta: lifelikeEta(outputSeconds, probe.fps, preset),
