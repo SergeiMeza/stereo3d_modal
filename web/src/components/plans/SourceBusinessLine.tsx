@@ -3,8 +3,8 @@
 /**
  * High-end sources (owner 2026-11-04): guide, never gate. Once the video
  * is analysed, one quiet line under the project's source facts:
- * "Working in 8K? Business and Studio save 20–25% and include commercial
- * use. See Business" (the size word from the source, the shares from
+ * "Working in 8K? Business and Studio save 20–25%. See Business" (the
+ * size word from the source, the shares from
  * /v1/pricing), or for a source above 30 fps "High frame rates come with
  * Business and Studio, which also save 20–25%." Not for Business or Studio
  * subscribers; dismissed once per project.
@@ -58,7 +58,7 @@ export function SourceBusinessLine({
       <span className="flex-1">
         {reason === "source_fps"
           ? t("plans.sourceLine.fps", { business: "Business", studio: "Studio", range })
-          : t("plans.sourceLine.size", { size: sourceSizeWord(probe), business: "Business", studio: "Studio", range })}{" "}
+          : t("plans.sourceLine.sizeSave", { size: sourceSizeWord(probe), business: "Business", studio: "Studio", range })}{" "}
         <Link
           href="/plans"
           onClick={() => send("click", { target: "/plans" })}

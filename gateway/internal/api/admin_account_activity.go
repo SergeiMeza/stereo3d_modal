@@ -52,12 +52,15 @@ func adminRunJSON(c *store.Conversion) map[string]any {
 
 // addRunMedia adds what the run read sends of its encode (the console's
 // run rows): quality (standard | high | master, web Lifelike),
+// commercial and commercial_included (Commercial use),
 // bitrate_requested (projects' runs: auto, match_source, Mbit/s or
 // master), outputs_media and the worker's output_bit_depth (+ reason).
 func addRunMedia(out map[string]any, c *store.Conversion) {
 	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
 	out["campaign_cents"] = campaignCentsOf(c) // the launch offer's line, 0 without
 	out["quality"] = nilIfEmpty(c.Params.OutputQuality)
+	// Commercial use (owner 2026-11-09): always both, so the console can say "no"
+	out["commercial"], out["commercial_included"] = c.Params.Commercial, c.Params.CommercialIncluded
 	out["bitrate_requested"] = nil
 	if c.ProjectID != "" {
 		req := c.Params.Bitrate

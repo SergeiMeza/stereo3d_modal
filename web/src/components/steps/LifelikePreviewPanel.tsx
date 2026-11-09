@@ -63,6 +63,15 @@ import { bestPlayable, StepReview, useRunDownloads } from "./StepReview";
 import { PlansSheet, usePlansSheet } from "@/components/plans/PlansSheet";
 import { FrameRatePicker, fpsLabel, pickFrameRate, useFpsChoice } from "./frameRate";
 import { withoutBars } from "@/lib/bars";
+import { useBilling } from "@/lib/billing";
+import {
+  commercialHint,
+  commercialIncluded,
+  commercialIncludedLine,
+  commercialIncludedUntil,
+  commercialName,
+  commercialPct,
+} from "@/lib/commercial";
 
 import { InstantCheckout, useStepCheckout } from "./useStepCheckout";
 import { useClient, ViewIn3D } from "./ViewIn3D";
@@ -151,6 +160,11 @@ function ReadyPreviewPanel({
   const [chosenPreset, setPreset] = useState<Preset | null>(null);
   const [seconds, setSeconds] = useState<number>(LIFELIKE_PREVIEW_SECONDS);
   const [quickLook, setQuickLook] = useState(false);
+  // owner 2026-11-09: Commercial use on a preview too (+50%, never a free
+  // preview), unticked here whatever Make 3D has; a plan that still
+  // includes it shows it ticked and included
+  const [commercialPick, setCommercialPick] = useState(false);
+  const plan = useBilling().status?.plan;
   const [mode, setMode] = useState<CheckMode>(DEFAULT_CHECK_MODE);
   const [pick, setPick] = useAtom(pastPreviewPickAtom(project.project_id));
 
@@ -213,6 +227,10 @@ function ReadyPreviewPanel({
     gateway.logPlay(shown.conversion_id, file, "preview");
   };
 
+  const commercialShare = commercialPct(pricing);
+  const commercialUntil = commercialIncludedUntil(plan);
+  const commercialFree = commercialIncluded(plan, ck.lastQuote?.quote.breakdown);
+  const commercial = commercialShare !== null && (commercialFree || commercialPick);
   const plainAt = (start: number): StepConversionRequest => {
     const [from, to] = previewRange(start, probe.num_frames, sourceFps, seconds);
     return {
@@ -223,6 +241,7 @@ function ReadyPreviewPanel({
       formats: previewFormats,
       from_frame: from,
       to_frame: to,
+      ...(commercial ? { commercial: true } : {}),
       platform: "web",
     };
   };
@@ -515,6 +534,26 @@ function ReadyPreviewPanel({
                   </label>
                 )}
               </div>
+              {commercialShare !== null ? (
+                <div data-testid="preview-commercial" className="flex flex-col gap-0.5">
+                  <label className={`flex items-center gap-2 text-xs ${commercialFree ? "" : "cursor-pointer"}`}>
+                    <input
+                      type="checkbox"
+                      checked={commercial}
+                      disabled={commercialFree}
+                      onChange={(e) => change(() => setCommercialPick(e.target.checked))}
+                      className="accent-primary"
+                    />
+                    {commercialName(t)}{" "}
+                    <span className="ltr text-fg-muted">
+                      {commercialFree
+                        ? commercialIncludedLine(commercialUntil, t)
+                        : `+${Math.round(commercialShare * 100)}%`}
+                    </span>
+                  </label>
+                  <p className="ps-6 text-[11px] text-fg-muted">{commercialHint(t)}</p>
+                </div>
+              ) : null}
               {fpsChoice.required ? (
                 <div className="flex flex-col gap-1">
                   <span className="text-[11px] text-fg-muted">

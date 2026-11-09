@@ -235,12 +235,12 @@ export function PlansSheet({
               </span>
               <span className="text-xs text-fg-muted">
                 {maxFps && maxFps > 30
-                  ? t("plans.sheet.businessLineFps", {
+                  ? t("plans.sheet.businessUsageFps", {
                       price: formatCentsShort(biz.price_cents ?? biz.monthly_cents, t),
                       credit: formatCentsShort(biz.credit_cents, t),
                       fps: maxFps,
                     })
-                  : t("plans.sheet.businessLine", {
+                  : t("plans.sheet.businessUsage", {
                       price: formatCentsShort(biz.price_cents ?? biz.monthly_cents, t),
                       credit: formatCentsShort(biz.credit_cents, t),
                     })}

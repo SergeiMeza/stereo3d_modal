@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { dateOnly, dateTime, money, time, words } from "../lib/format";
 import { stripeLinkLabel } from "../lib/links";
 import { Link, paths } from "../lib/router";
-import { audioLine, fileQualityLine } from "../lib/fileQuality";
+import { audioLine, commercialLine, fileQualityLine } from "../lib/fileQuality";
 import { sourceOf, sourceRows } from "../lib/sourceDetails";
 import type { Evidence, EvidenceRun } from "../lib/types";
 
@@ -76,6 +76,14 @@ function RunTimeline({ run }: { run: EvidenceRun }) {
     steps.push({
       at: run.created_at,
       text: <span data-testid="run-campaign">Launch offer −{money(run.campaign_cents)}</span>,
+    });
+  }
+  // owner 2026-11-09: the Commercial use add-on (bought, plan-included or not)
+  const commercial = commercialLine(run);
+  if (commercial) {
+    steps.push({
+      at: run.created_at,
+      text: <span data-testid="run-commercial">Commercial use: {commercial}</span>,
     });
   }
   // owner 2026-11-07: the File quality asked for, with what the files measure

@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import type { PlanDef, PublicPricing } from "@/lib/api/types";
 import { useAuth } from "@/lib/auth";
 import { useBilling } from "@/lib/billing";
+import { commercialPct } from "@/lib/commercial";
 import { isTeamPlan } from "@/lib/api/types";
 import { isStripePro, useProStatus } from "@/lib/pro/usePro";
 import { useT } from "@/lib/i18n/I18nProvider";
@@ -94,8 +95,8 @@ export function planLines(
   return [
     t("pricing.plans.lines.usage", { amount: formatCentsShort(def.credit_cents, t) }),
     ...(pct ? [t("pricing.plans.lines.off", { pct: Math.round(pct * 100) })] : []),
-    // owner 2026-11-04: Terms "Using your 3D outputs"
-    t("pricing.plans.lines.commercial"),
+    // owner 2026-11-09: no commercial use line; it's an add-on on any
+    // plan (the note under the cards)
     t("pricing.plans.lines.freePreviews", { count: def.free_previews_per_period }),
     ...(def.express_included ? [t("pricing.plans.lines.express")] : []),
     ...(fileQuality ? [planFileQuality(t)] : []),
@@ -249,6 +250,12 @@ export function PlansSection({ pricing }: { pricing: PublicPricing }): JSX.Eleme
           );
         })}
       </div>
+      {/* owner 2026-11-09: Commercial use is an add-on on any plan */}
+      {commercialPct(pricing) !== null ? (
+        <p data-testid="plans-commercial" className="text-center text-xs text-fg-muted">
+          {t("commercial.anyPlan", { pct: `+${Math.round(commercialPct(pricing)! * 100)}%` })}
+        </p>
+      ) : null}
       {open && plans[open.plan] ? (
         open.change && open.plan !== "business_yearly" ? (
           <PlanChangeSheet

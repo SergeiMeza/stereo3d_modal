@@ -6,7 +6,6 @@
  */
 
 import Link from "next/link";
-import { useState } from "react";
 import type { JSX } from "react";
 
 import { isTeamPlan } from "@/lib/api/types";
@@ -15,12 +14,9 @@ import { planPrice } from "@/components/pricing/planCopy";
 
 import { PlanChangeMenu, ScheduledChange } from "./PlanChange";
 import { formatCents } from "@/components/steps/money";
-import { GatewayError } from "@/lib/api/client";
 import { useBilling } from "@/lib/billing";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
-import { SITE_NAME } from "@/lib/site";
-import { useAccountSettings } from "@/lib/useAccountSettings";
 
 /** "10 Jan 2027" in English (en-GB order); the language's own order else. */
 export function longDate(iso: string, t: Tr = EN): string {
@@ -104,83 +100,6 @@ export function PlanCard(): JSX.Element | null {
           </Link>
         </p>
       ) : null}
-      <IntroSwitch />
     </section>
-  );
-}
-
-/**
- * BL-25: Business and Studio can turn the Spatial Video Studio intro off. Shown only
- * when GET /v1/account/settings says it's editable; the switch moves at
- * once and goes back if the save fails. 409 plan_required hides it and
- * reads the settings again.
- */
-export function IntroSwitch(): JSX.Element | null {
-  const t = useT();
-  const billing = useBilling();
-  // ADR 0138: the account's settings atom (useAccountSettings), shared
-  // with onboarding and Make 3D
-  const { settings, replace, save, refresh } = useAccountSettings();
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState(false);
-
-  if (!settings?.lifelike_intro_editable) return null;
-  const on = settings.lifelike_intro;
-
-  async function toggle(): Promise<void> {
-    if (!settings || saving) return;
-    const before = settings;
-    replace({ ...before, lifelike_intro: !on });
-    setSaving(true);
-    setError(false);
-    try {
-      await save({ lifelike_intro: !on });
-    } catch (e) {
-      if (e instanceof GatewayError && e.code === "plan_required") {
-        // the plan ended meanwhile: no switch, and the page catches up
-        replace({ ...before, lifelike_intro_editable: false });
-        refresh();
-        void billing.refresh();
-      } else {
-        replace(before);
-        setError(true);
-      }
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div
-      data-testid="intro-switch"
-      className="flex flex-col gap-1 border-t border-edge pt-3"
-    >
-      <label className="flex items-center justify-between gap-3 text-sm text-fg">
-        {t("billing.plan.introLabel", { app: SITE_NAME })}
-        <button
-          type="button"
-          role="switch"
-          aria-checked={on}
-          aria-label={t("billing.plan.introLabel", { app: SITE_NAME })}
-          disabled={saving}
-          onClick={() => void toggle()}
-          className={`relative h-6 w-10 shrink-0 rounded-full transition-colors disabled:opacity-70 ${
-            on ? "bg-primary" : "bg-surface-2 ring-1 ring-edge"
-          }`}
-        >
-          <span
-            className={`absolute top-0.5 size-5 rounded-full bg-white transition-all ${on ? "start-[18px]" : "start-0.5"}`}
-          />
-        </button>
-      </label>
-      <p className="text-xs text-fg-muted">
-        {t("billing.plan.introHint", { app: SITE_NAME })}
-      </p>
-      {error ? (
-        <p className="text-xs text-red-400">
-          {t("billing.plan.introSaveFailed")}
-        </p>
-      ) : null}
-    </div>
   );
 }

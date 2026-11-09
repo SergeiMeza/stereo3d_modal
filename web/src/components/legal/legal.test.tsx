@@ -41,6 +41,10 @@ describe("TermsPage", () => {
     expect(screen.getByText(/that is the most you are/)).toBeTruthy();
     expect(screen.getByText(/each started minute/)).toBeTruthy();
     expect(screen.getByText(/All other outputs are for personal, non-commercial use/)).toBeTruthy();
+    // owner 2026-11-09: Commercial use is an add-on; plans active that day
+    // keep it until their next renewal
+    expect(screen.getByText(/Outputs of runs bought with the Commercial use add-on may be\s+used commercially/)).toBeTruthy();
+    expect(screen.getByText(/includes Commercial use until its next\s+renewal/)).toBeTruthy();
     expect(document.body.textContent).not.toMatch(/Classic|\bbeta\b/i);
     expect(document.body.textContent).toContain("Notice and takedown");
     expect(document.body.textContent).toContain("content credentials");

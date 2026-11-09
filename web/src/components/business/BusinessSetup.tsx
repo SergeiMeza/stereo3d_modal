@@ -6,8 +6,9 @@
  * browser.
  *
  * 1. Plan: Business (monthly) or Studio (yearly), every number from
- *    /v1/pricing — the share off, the monthly usage, commercial use, frame
- *    rates up to the plan's max_fps, the intro switch, invoices, Express.
+ *    /v1/pricing — the share off, the monthly usage, frame rates up to
+ *    the plan's max_fps, the intro switch, invoices, Express (owner
+ *    2026-11-09: Commercial use is an add-on on any plan, not included).
  *    No seat counts (no team accounts yet). Company emails also get Talk to
  *    us.
  * 2. (Owner 2026-11-04: no company step. Owner 2026-11-05: Checkout asks
@@ -21,8 +22,9 @@
  *    note; a web Pro gets today's charge from POST /v1/plans/preview-change
  *    and confirms with POST /v1/plans/change; everyone else pays through
  *    the plan sheet. Nothing is charged until they confirm.
- * 5. Welcome: commercial use, higher frame rates, the intro switch (on by
- *    default) and "Make your 3D video".
+ * 5. Welcome: higher frame rates, the intro switch (on by default), a
+ *    line that Commercial use is added per video, and "Make your 3D
+ *    video".
  *
  * Funnel events: business_setup_opened, _plan_picked {plan},
  * _details_done, _checkout_started {plan}, _purchased {plan}.
@@ -34,7 +36,6 @@ import { useAtomValue, useSetAtom } from "jotai";
 import { useEffect, useRef, useState } from "react";
 import type { JSX } from "react";
 
-import { IntroSwitch } from "@/components/billing/PlanCard";
 import {
   confirmPlanChangeAtom,
   planChangeAtom,
@@ -107,9 +108,7 @@ export function planIncludes(
       ? [t("business.setup.includes.pctOff", { pct: Math.round(pct * 100) })]
       : []),
     t("business.setup.includes.usage", { amount: formatCentsShort(def.credit_cents, t) }),
-    t("business.setup.includes.commercial"),
     ...(maxFps && maxFps > 30 ? [t("business.setup.includes.frameRates", { fps: maxFps })] : []),
-    t("business.setup.includes.intro", { site: SITE_NAME }),
     t("business.setup.includes.invoices"),
     ...(def.express_included ? [t("business.setup.includes.express")] : []),
     ...(qualitySteps(pricing).length > 2 ? [PLAN_FILE_QUALITY] : []),
@@ -609,13 +608,6 @@ export function BusinessSetup(): JSX.Element {
             {t("business.setup.welcome.title", { plan: def.name })}
           </h1>
           <ul className="flex flex-col gap-2 text-sm text-fg">
-            <li className="flex items-start gap-2">
-              <Check
-                className="mt-0.5 size-4 shrink-0 text-primary"
-                aria-hidden
-              />
-              {t("business.setup.welcome.commercial")}
-            </li>
             {(def.max_fps ?? pricing?.fps?.max_fps_with_plan ?? 0) > 30 ? (
               <li className="flex items-start gap-2">
                 <Check
@@ -638,9 +630,10 @@ export function BusinessSetup(): JSX.Element {
               })}
             </li>
           </ul>
-          <div className="rounded-xl border border-edge bg-surface-1 p-4">
-            <IntroSwitch />
-          </div>
+          {/* owner 2026-11-09: Commercial use is an add-on on any plan */}
+          <p data-testid="setup-commercial" className="text-sm text-fg-muted">
+            {t("business.setup.welcome.commercialAddOn", { site: SITE_NAME })}
+          </p>
           {/* owner 2026-11-04: optional, never blocking */}
           <p className="text-sm text-fg-muted">
             <Link

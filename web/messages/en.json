@@ -76,7 +76,7 @@
     "entry": {
       "card": "Using {site} for work? Set up {business} or {studio}",
       "setUp": "Set up",
-      "proLine": "Working for clients or a team? {business} and {studio} save {range} and include commercial use. <link>See plans</link>",
+      "proLineSave": "Working for clients or a team? {business} and {studio} save {range}. <link>See plans</link>",
       "appStoreActive": "{pro} from the App Store is still active.",
       "howToCancel": "How to cancel"
     },
@@ -97,9 +97,7 @@
       "includes": {
         "pctOff": "{pct}% off every video",
         "usage": "{amount} of usage every month",
-        "commercial": "Commercial use of your videos",
         "frameRates": "Frame rates up to {fps} fps",
-        "intro": "Turn the {site} intro on or off",
         "invoices": "Invoices with your company details",
         "express": "Express included"
       },
@@ -154,7 +152,7 @@
       "welcome": {
         "eyebrow": "Welcome",
         "title": "{plan} is on",
-        "commercial": "Commercial use: your 3D videos can go to clients, ads and paid channels.",
+        "commercialAddOn": "Need to use a video commercially? Add Commercial use when you make it. It also leaves out the {site} intro.",
         "frameRates": "Higher frame rates: up to {fps} fps when your video has them.",
         "usage": "{amount} of usage every month, then {plan} prices.",
         "make": "Make your 3D video"
@@ -281,8 +279,8 @@
       "includes": "{pro} includes {credit}.",
       "freePreviewsMonthly": "{count, plural, other {# free previews a month}}",
       "businessTitle": "{business} for work",
-      "businessLine": "{price} a month with {credit} of usage, commercial use, invoices",
-      "businessLineFps": "{price} a month with {credit} of usage, commercial use, {fps} fps, invoices"
+      "businessUsage": "{price} a month with {credit} of usage and invoices",
+      "businessUsageFps": "{price} a month with {credit} of usage, {fps} fps, invoices"
     },
     "quote": {
       "howToPay": "How to pay",
@@ -318,7 +316,7 @@
         "talk": "Talk to us"
       },
       "cinema": {
-        "share": "{pct}% off · commercial use",
+        "pctOff": "{pct}% off",
         "seeBusinessSave": "See {business} · save {range}"
       },
       "today": "{price} today",
@@ -342,7 +340,7 @@
       "getPro": "Get {pro}"
     },
     "talkToUs": {
-      "banner": "Using {site} at work? {business} gives you {amount} of usage a month, commercial use and invoices.",
+      "bannerUsage": "Using {site} at work? {business} gives you {amount} of usage a month and invoices.",
       "open": "Talk to us",
       "see": "See {business}",
       "sent": "Thanks. We'll reply to {email}.",
@@ -371,7 +369,7 @@
     },
     "sourceLine": {
       "fps": "High frame rates come with {business} and {studio}, which also save {range}.",
-      "size": "Working in {size}? {business} and {studio} save {range} and include commercial use.",
+      "sizeSave": "Working in {size}? {business} and {studio} save {range}.",
       "see": "See {business}"
     },
     "header": {
@@ -449,10 +447,7 @@
       "usageResets": "Usage resets on {date}.",
       "renewsOn": "Renews on {date}.",
       "billedYearlyRenewsOn": "Billed yearly. Renews on {date}.",
-      "plansLink": "Plans",
-      "introLabel": "Add the {app} intro to my videos",
-      "introHint": "A short {app} title plays before your videos.",
-      "introSaveFailed": "Couldn't save that. Try again."
+      "plansLink": "Plans"
     },
     "planMove": {
       "expired": "This offer expired. Contact support.",
@@ -1257,7 +1252,7 @@
       "payAndStart": "Pay {amount} and start",
       "paidMoreWaiting": "Paid {amount}. One more payment is waiting.",
       "settleSubtitle": "{count, plural, one {# run · charged after it was done} other {# runs · charged after they were done}}",
-      "personalUse": "For personal use. Commercial use comes with Business and Studio plans.",
+      "personalUseAddOn": "For personal use. Commercial use is an add-on for Lifelike 3D videos.",
       "localAtCheckout": "You'll see your local price at checkout.",
       "formShowsLocal": "The payment form shows the price in your currency. Base price {usd}.",
       "timedOut": "This payment timed out. Nothing was charged.",
@@ -1815,7 +1810,6 @@
       "lines": {
         "usage": "{amount} of usage every month",
         "off": "{pct}% off every run",
-        "commercial": "Commercial use of your videos",
         "freePreviews": "{count, plural, one {# free previews a month} other {# free previews a month}}",
         "express": "Express included",
         "fileQuality": "{high} and {master} file quality for client reviews and editing",
@@ -1845,6 +1839,7 @@
       "fileQuality": "{quality} file quality",
       "express": "Express",
       "expressWhat": "First in line",
+      "commercialWhat": "Use the video commercially. No intro clip.",
       "addons": "Add-ons",
       "freePreviews": "Free previews",
       "perMonth": "{count} a month",
@@ -2002,7 +1997,7 @@
       "continue": "Continue",
       "later": "I'll do it later",
       "stepOf": "Step {step} of {total}",
-      "business": "Working for clients? <link>{plan}</link> adds monthly usage, commercial use and invoices.",
+      "businessUsage": "Working for clients? <link>{plan}</link> adds monthly usage and invoices.",
       "pro": {
         "title": "Your {pro} works here too",
         "prices": "{pro} prices on every video.",
@@ -2257,6 +2252,7 @@
         "audio": "Audio",
         "foveation": "Foveated Detail",
         "express": "Express",
+        "commercial": "Commercial use",
         "quickLook": "Quick look",
         "intro": "Intro",
         "ordered": "Ordered",
@@ -2655,6 +2651,14 @@
         "right": "Original picture in the right eye"
       }
     }
+  },
+  "commercial": {
+    "name": "Commercial use",
+    "hint": "You may use the video commercially, and it has no Spatial Video Studio intro clip.",
+    "includedWithPlan": "Included with your plan",
+    "includedUntil": "Included with your plan until {date}",
+    "runIncluded": "Commercial use (included)",
+    "anyPlan": "Commercial use is a {pct} add-on on any plan, for Lifelike 3D videos."
   },
   "offer": {
     "name": "Launch offer",

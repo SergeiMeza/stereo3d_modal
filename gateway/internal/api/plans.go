@@ -164,7 +164,10 @@ func (s *Service) planJSON(ctx context.Context, uid string) map[string]any {
 		out["current_period_end"] = p.CurrentPeriodEnd.Format(time.RFC3339)
 	}
 	out["scheduled_change"] = scheduledChangeJSON(p) // {to, effective_at} or null
-	s.addDunningJSON(out, p)                         // D5: past_due, payment_failed_at, next_payment_attempt_at, action_required, amount_due_cents, pay_url
+	if p.CommercialIncluded(time.Now()) {            // grandfathered Commercial use (owner 2026-11-09)
+		out["commercial_included_until"] = p.CommercialUntil.Format(time.RFC3339)
+	}
+	s.addDunningJSON(out, p) // D5: past_due, payment_failed_at, next_payment_attempt_at, action_required, amount_due_cents, pay_url
 	if b, berr := s.Store.GetBalance(ctx, uid); berr == nil {
 		out["credit_left_cents"] = b.PeriodCreditCents() // the plan's own; grants are in balance.credits
 	}
@@ -203,6 +206,7 @@ func (s *Service) syncPlan(ctx context.Context, sub *stripex.Subscription) {
 			next.ScheduleID, next.ScheduledTo, next.ScheduledAt = c.Plan.ScheduleID, c.Plan.ScheduledTo, c.Plan.ScheduledAt
 			next.RestoredFrom = c.Plan.RestoredFrom
 			next.Dunning = c.Plan.Dunning
+			next.CommercialUntil = c.Plan.CommercialUntil
 		}
 		c.Plan = next
 		return nil

@@ -542,7 +542,7 @@ function BusinessLine(): JSX.Element | null {
     <p data-testid="welcome-business" className="text-[13px] text-fg-muted">
       {rich(
         t,
-        "onboarding.welcome.business",
+        "onboarding.welcome.businessUsage",
         {
           link: (c) => (
             <Link

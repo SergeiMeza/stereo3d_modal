@@ -38,6 +38,9 @@ export interface Make3dChoices {
   /** owner 2026-11-07: File quality, Standard · High · Master */
   quality: OutputQuality;
   express: boolean | null;
+  /** owner 2026-11-09: Commercial use, unticked by default (a plan that
+   * still includes it shows it ticked and included instead) */
+  commercial: boolean;
   payMode: PayMode;
 }
 
@@ -52,6 +55,7 @@ export const MAKE3D_DEFAULTS: Make3dChoices = {
   foveated: true,
   quality: "standard",
   express: null,
+  commercial: false,
   payMode: "once",
 };
 

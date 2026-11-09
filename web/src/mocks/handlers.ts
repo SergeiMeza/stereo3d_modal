@@ -564,9 +564,8 @@ interface DB {
   /** owner 2026-11-04: above 30 fps needs Business or Studio (gateway
    * max_fps / fps_capped / 422 plan_required_fps); off in unit tests */
   fpsCap: boolean;
-  /** BL-25: account settings (lifelike_intro_editable follows the plan) */
+  /** BL-25: account settings (owner 2026-11-09: no intro on/off any more) */
   accountSettings: {
-    lifelike_intro: boolean;
     locale: string | null;
     /** feat/mail-polish: the mails' language */
     mail_locale?: string | null;
@@ -580,8 +579,6 @@ interface DB {
     /** the Business setup's optional answers */
     business_setup?: { team_size?: string; main_use?: string; headsets?: string[] };
   };
-  /** the next settings save fails with a 500 */
-  nextSettingsFails: boolean;
   /** onboarding (owner 2026-11-04): the sample project for new accounts
    * (seeded on the first project list; off in unit tests) */
   sampleSeeding: boolean;
@@ -665,7 +662,8 @@ const TIERS = {
   } as Record<string, Record<string, number>>,
   pct: { pro: 0.15, business: 0.2, studio: 0.25 } as Record<string, number>,
   // gateway 00172: High +30%, Master +50% (File quality, owner 2026-11-07)
-  addons: { foveated: 0.3, high: 0.3, master: 0.5, express: 0.5 } as Record<string, number>,
+  // owner 2026-11-09: Commercial use +50%, every plan, Lifelike only
+  addons: { foveated: 0.3, high: 0.3, master: 0.5, express: 0.5, commercial: 0.5 } as Record<string, number>,
   bulk: { threshold_cents: 5000, pct: 0.1 },
   plans: {
     business: { name: "Business", monthly_cents: 29900, credit_cents: 40000, max_active_runs: 3, free_previews_per_period: 50, express_included: true, max_fps: 120, interval: "month", price_cents: 29900, credit_interval: "month" },
@@ -873,6 +871,17 @@ function publicTiers(): Record<string, unknown> {
       master: { pct: TIERS.addons.master, methods: ["lifelike", "classic"], request: { quality: "master" } },
       high: { pct: TIERS.addons.high, methods: ["lifelike"], request: { quality: "high" } },
       express: { pct: TIERS.addons.express, methods: ["lifelike"], request: { express: true }, included_in: ["business", "studio"] },
+      // owner 2026-11-09: every plan pays it; a plan active on 2026-11-09
+      // keeps it included until its renewal (plan.commercial_included_until)
+      commercial: {
+        pct: TIERS.addons.commercial,
+        methods: ["lifelike"],
+        steps: ["lifelike_preview", "production"],
+        request: { commercial: true },
+        included_in: [],
+        effect: "commercial use of the output; no brand intro",
+        free_previews: false,
+      },
     },
     // gateway 00172: the web's File quality tiers
     quality: {
@@ -908,7 +917,6 @@ function accountSettings() {
   const st = mockDb.accountSettings;
   return {
     ...st,
-    lifelike_intro_editable: isTeamPlan(mockDb.billing.plan),
     simulate_app_pro: st.simulate_app_pro === true,
     onboarding: {
       ...st.onboarding,
@@ -1018,6 +1026,15 @@ function fpsPolicy(p: Project, target: number | undefined) {
       },
     },
   };
+}
+
+/** owner 2026-11-09: a Business or Studio plan active on 2026-11-09
+ * keeps Commercial use included until its renewal; tests mark one with
+ * plan.commercial_included_until (a time still ahead). */
+function mockCommercialIncluded(): boolean {
+  const plan = mockDb.billing.plan;
+  const until = plan?.commercial_included_until;
+  return !!plan?.active && !!until && Date.parse(until) > Date.now();
 }
 
 /** set while pricing the same run on another tier (alt_prices) */
@@ -1204,9 +1221,8 @@ function seed(): DB {
     // unit tests start as an account that has seen the welcome, tips and
     // hints (onboarding tests clear these); the browser mock starts new
     accountSettings: VITEST_MOCK
-      ? { lifelike_intro: true, locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true }, dismissed: {} }
-      : { lifelike_intro: true, locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} },
-    nextSettingsFails: false,
+      ? { locale: null, headsets: null, hints_seen: ALL_HINTS, onboarding: { welcome_done: true, tips_done: true, checklist_hidden: true }, dismissed: {} }
+      : { locale: null, headsets: null, hints_seen: [], onboarding: {}, dismissed: {} },
     sampleSeeding: !(typeof process !== "undefined" && process.env?.VITEST),
     sampleSeeded: false,
     events: [],
@@ -1660,6 +1676,10 @@ function validateStepRequest(
 ): ReturnType<typeof err> | null {
   if (projectMethod(p) === "lifelike") return validateLifelikeRequest(p, body);
   const step = body.step as Step;
+  // owner 2026-11-09: Classic isn't offered Commercial use
+  if (body.commercial === true) {
+    return err(400, "feature_unavailable", "Commercial use is available for Lifelike videos only");
+  }
   if (body.split_max_seconds !== undefined) {
     // Classic's pipeline doesn't split yet: the gateway rejects it rather
     // than silently dropping it
@@ -1940,6 +1960,10 @@ function validateLifelikeRequest(
   }
   const bitrateErr = checkBitrate(body.bitrate);
   if (bitrateErr) return bitrateErr;
+  // owner 2026-11-09: Commercial use is priced only under the tiers
+  if (body.commercial === true && !mockDb.tierPricing) {
+    return err(400, "feature_unavailable", "Commercial use is available for Lifelike videos only");
+  }
   const maxFps = mockMaxFps();
   if (maxFps !== null && typeof body.target_fps === "number" && body.target_fps > maxFps + 0.01) {
     return err(422, "plan_required_fps", "frame rates above 30 fps need a Business or Studio plan");
@@ -2182,7 +2206,8 @@ function detailFields(req: StepConversionRequest, freeUnits: number | null = nul
     started_at: null,
     free_preview_units: freeUnits,
     quick_look: req.quick_look === true,
-    intro: mockDb.accountSettings.lifelike_intro === true,
+    // owner 2026-11-09: only Commercial use leaves the intro out
+    intro: req.commercial !== true && !mockCommercialIncluded(),
   };
 }
 
@@ -2223,6 +2248,11 @@ function lifelikeQuoteFor(
     const plan = tier === "business" || tier === "studio" ? TIERS.plans[tier] : null;
     const expressIncluded = req.express === true && plan?.express_included === true;
     if (req.express && !expressIncluded) addOns.push("express");
+    // owner 2026-11-09: Commercial use +50% of the base, unless the plan
+    // still includes it (then every run is commercial, at no charge)
+    const commercialIncluded = mockCommercialIncluded();
+    const commercial = req.commercial === true || commercialIncluded;
+    if (commercial && !commercialIncluded) addOns.push("commercial");
     const preview = req.step === "lifelike_preview";
     let q;
     if (preview) {
@@ -2242,7 +2272,8 @@ function lifelikeQuoteFor(
         : 0;
     let total = Math.max(q.final - campaign, minimumFor(req.step));
     const units = preview ? previewUnits(priced, outputSeconds, effFPS) : 0;
-    const free = preview && freePreviewState(units).free;
+    // a Commercial use preview is never a free one (unless included)
+    const free = preview && !(commercial && !commercialIncluded) && freePreviewState(units).free;
     const priceWithoutFree = total;
     if (free) total = 0;
     return {
@@ -2269,6 +2300,14 @@ function lifelikeQuoteFor(
           pro_discount_pct: q.kind === "tier" ? q.dpct : 0,
           express: req.express === true,
           express_included: expressIncluded,
+          commercial,
+          commercial_included: commercialIncluded,
+          ...(q.adds.commercial
+            ? {
+                commercial_cents: q.adds.commercial,
+                commercial_label: `Commercial use +${Math.round(TIERS.addons.commercial * 100)}%`,
+              }
+            : {}),
           campaign_cents: campaign,
           ...(campaign > 0
             ? {
@@ -2302,6 +2341,8 @@ function lifelikeQuoteFor(
         ...(req.foveation ? { foveation: req.foveation } : {}),
         ...(req.bitrate ? { bitrate: req.bitrate } : {}),
         ...(req.express ? { express: true } : {}),
+        ...(commercial ? { commercial: true } : {}),
+        ...(commercialIncluded ? { commercial_included: true } : {}),
         ...(req.quick_look ? { quick_look: true } : {}),
       },
       outputSeconds,
@@ -4337,11 +4378,10 @@ export const handlers = [
     return HttpResponse.json({ removed: true });
   }),
 
-  // BL-25 (gateway 00087): account settings; the intro switch needs a plan
+  // BL-25 (gateway 00087): account settings
   http.get(`${GATEWAY}/v1/account/settings`, () => HttpResponse.json(accountSettings())),
   http.patch(`${GATEWAY}/v1/account/settings`, async ({ request }) => {
     const body = (await request.json().catch(() => ({}))) as {
-      lifelike_intro?: boolean;
       locale?: string | null;
       mail_locale?: string;
       headsets?: string[];
@@ -4372,19 +4412,6 @@ export const handlers = [
     if (body.headsets !== undefined) st.headsets = [...body.headsets];
     if (body.hints_seen_add) st.hints_seen = [...new Set([...st.hints_seen, ...body.hints_seen_add])];
     if (body.onboarding) st.onboarding = { ...st.onboarding, ...body.onboarding };
-    if (body.lifelike_intro !== undefined) {
-      if (!isTeamPlan(mockDb.billing.plan))
-        return err(
-          409,
-          "plan_required",
-          "a Business or Studio plan is needed for that",
-        );
-      if (mockDb.nextSettingsFails) {
-        mockDb.nextSettingsFails = false;
-        return err(500, "server_error", "couldn't save");
-      }
-      st.lifelike_intro = body.lifelike_intro;
-    }
     if (body.locale !== undefined) st.locale = body.locale;
     if (body.mail_locale !== undefined) st.mail_locale = body.mail_locale;
     return HttpResponse.json(accountSettings());

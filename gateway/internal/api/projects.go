@@ -689,6 +689,9 @@ type stepConvReq struct {
 	Bitrate bitrateReq `json:"bitrate"`
 	// Express (add-on, pricing 2026-11, Lifelike): first in the GPU line.
 	Express bool `json:"express"`
+	// Commercial (add-on, owner 2026-11-09, Lifelike): Commercial use, no
+	// brand intro.
+	Commercial bool `json:"commercial"`
 	// Quality (web Lifelike, owner 2026-11-07): "standard" (free, the
 	// default for web requests) | "high" (+30%) | "master" (+50%).
 	Quality string `json:"quality"`
@@ -1077,11 +1080,16 @@ func (s *Service) quoteStep(ctx context.Context, p *store.Project, params store.
 		}
 		in.Pro, in.Tier = at.Tier != "", at.Tier
 		in.Master, in.Express = params.Bitrate == bitrateMaster && params.OutputQuality == "", params.Express
-		in.Quality = params.OutputQuality                   // high +30% / master +50%, one per run
+		in.Quality = params.OutputQuality                              // high +30% / master +50%, one per run
+		in.CommercialIncluded = at.Plan.CommercialIncluded(time.Now()) // grandfathered Business/Studio
+		in.Commercial = params.Commercial || in.CommercialIncluded
 		in.Web, in.OutputPreset = params.Web, params.Preset // the launch offer: web only, by output preset
 		if step == store.StepLifelikePreview {
 			in.Units = s.Pricing.Rates(ctx).PreviewUnits(in.Preset, billable, in.SourceFPS, in.EffectiveFPS)
-			in.FreePreview = !alt && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
+			// a Commercial use preview is paid (owner 2026-11-09), unless the
+			// plan still includes it
+			paidCommercial := in.Commercial && !in.CommercialIncluded
+			in.FreePreview = !alt && !paidCommercial && allowFree(ctx) && s.freePreviewStatus(ctx, p.UID, at, in.Units).Free
 		}
 		q, err := s.Pricing.QuoteLifelike(ctx, in)
 		if err != nil {
@@ -1260,6 +1268,9 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 		httpx.WriteErr(ctx, w, qerr)
 		return
 	}
+	if quote.Breakdown["commercial_included"] == true { // as the run will record it
+		params.Commercial, params.CommercialIncluded = true, true
+	}
 	resp := map[string]any{
 		"step":          req.Step,
 		"method":        method,
@@ -1322,7 +1333,11 @@ func (s *Service) HandleQuoteStep(w http.ResponseWriter, r *http.Request, user *
 			units = s.Pricing.Rates(ctx).PreviewUnits(pricePreset(params), billableOr0(p, params), probeFPS(p), effectiveFPS(p, params))
 		}
 		if rates.FreePreviewsEnabled {
-			resp["free_previews"] = s.freePreviewStatus(ctx, user.UID, at, units).JSON()
+			fp := s.freePreviewStatus(ctx, user.UID, at, units)
+			if req.Step == store.StepLifelikePreview && quote.Breakdown["free_preview"] != true {
+				fp.Free = false // a paid Commercial use preview (owner 2026-11-09)
+			}
+			resp["free_previews"] = fp.JSON()
 		}
 		if d, ok := quote.Breakdown["discount"].(map[string]any); ok && d != nil {
 			resp["discount"] = d // one line: {kind: tier|bulk, tier?, cents, pct}
@@ -1449,6 +1464,11 @@ func (s *Service) HandleCreateStepConversion(w http.ResponseWriter, r *http.Requ
 	}
 	method := projectMethod(p)
 	if method == store.MethodLifelike {
+		// a grandfathered Business/Studio plan: every run is Commercial use,
+		// at no charge (owner 2026-11-09)
+		if at := s.accountTier(ctx, user.UID); at.Plan.CommercialIncluded(time.Now()) {
+			params.Commercial, params.CommercialIncluded = true, true
+		}
 		s.applyIntro(ctx, r, user.UID, req.Step, &params) // BL-25, after pricing inputs are fixed
 	}
 	if method == store.MethodLifelike && !s.lifelikeIn(p) {

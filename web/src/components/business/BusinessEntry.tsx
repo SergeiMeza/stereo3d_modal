@@ -39,8 +39,9 @@ export function BusinessEntry(): JSX.Element | null {
   );
 }
 
-/** /pro: "Working for clients or a team? Business and Studio save 20–25%
- * and include commercial use. See plans". */
+/** /pro: "Working for clients or a team? Business and Studio save
+ * 20–25%. See plans" (owner 2026-11-09: commercial use is an add-on on
+ * any plan, no longer part of them). */
 export function ProBusinessLine(): JSX.Element | null {
   const t = useT();
   const tier = usePlanTier();
@@ -50,7 +51,7 @@ export function ProBusinessLine(): JSX.Element | null {
     <p data-testid="pro-business-line" className="text-sm text-fg-muted">
       {rich(
         t,
-        "business.entry.proLine",
+        "business.entry.proLineSave",
         {
           link: (c) => (
             <Link href={SETUP_PATH} className="text-primary hover:underline">

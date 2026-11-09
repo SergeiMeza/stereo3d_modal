@@ -25,8 +25,20 @@ Updated 2026-11-04 on `feat/lifelike-web` (owner decisions):
   `src/components/legal/effectiveDate.ts`, a placeholder the owner sets
   when deploying.
 
-Related copy: plan cards say "Commercial use of your videos"; the pay
-sheet without a plan says "For personal use. Commercial use comes with
-Business and Studio plans."
+Updated 2026-11-09 (owner): Commercial use is a +50% add-on on any plan
+(Lifelike runs and previews; no title on those videos). Terms "Using your
+3D outputs": outputs of runs bought with it may be used commercially;
+Business and Studio no longer include it, except that outputs made on such
+a plan before 9 November 2026, and on a plan active that day until its
+next renewal, keep commercial use. The effective date was not changed.
+
+Updated 2026-11-09 (owner): Business and Studio can no longer turn the
+title off; only Commercial use removes it, on any plan. Terms section 8
+and the Privacy Policy's "Account settings" no longer mention the switch.
+
+Related copy: plan cards no longer list commercial use (the Plans section
+notes it as an add-on on any plan); the pay sheet for a run without it
+says "For personal use. Commercial use is an add-on for Lifelike 3D
+videos."
 
 The older file-retention draft is in `docs/drafts/files-retention-terms-privacy.md`.

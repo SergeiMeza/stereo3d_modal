@@ -725,7 +725,7 @@ export class GatewayClient {
     return this.request("GET", "/v1/account/settings");
   }
 
-  /** BL-25: change them; lifelike_intro without a plan → 409 plan_required */
+  /** BL-25: change them */
   patchAccountSettings(patch: AccountSettingsPatch): Promise<AccountSettings> {
     return this.request("PATCH", "/v1/account/settings", patch);
   }
