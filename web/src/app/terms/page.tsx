@@ -2,9 +2,10 @@
  * /terms — static Terms of Use. Mirrors how billing actually works
  * (pay per video, a quote before every paid step, plans, prepaid balance)
  * — keep in sync with the gateway README and BL-19 when they change.
- * Plain-language on purpose. Commercial use of outputs needs a Business or
- * Studio plan (owner 2026-11-04). BL-08: a lawyer reviews this page before
- * production.
+ * Plain-language on purpose. Commercial use of outputs is an add-on on any
+ * plan (owner 2026-11-09; it was part of Business and Studio, owner
+ * 2026-11-04, and plans active on 9 November 2026 keep it until their next
+ * renewal). BL-08: a lawyer reviews this page before production.
  */
 
 import type { Metadata } from "next";
@@ -80,10 +81,15 @@ export default function TermsPage() {
           the outputs.
         </p>
         <ul>
-          <li>Outputs made while you have an active Business or Studio
-            plan may be used commercially: client work, advertising, sale
-            or licensing, monetised channels and stock libraries. These
-            rights stay with those outputs after the plan ends.</li>
+          <li>Outputs of runs bought with the Commercial use add-on may be
+            used commercially: client work, advertising, sale or licensing,
+            monetised channels and stock libraries. The add-on is available
+            whether or not you have a plan.</li>
+          <li>Outputs made while you had an active Business or Studio plan
+            before 9 November 2026 may be used commercially in the same way.
+            A plan active on that day includes Commercial use until its next
+            renewal, so outputs made on it until then may be too.</li>
+          <li>These rights stay with those outputs after a plan ends.</li>
           <li>All other outputs are for personal, non-commercial use.</li>
           <li>Outputs made before {LEGAL_EFFECTIVE_DATE} keep the rights
             they had when they were made.</li>
@@ -177,8 +183,9 @@ export default function TermsPage() {
           responsible for how and where you use the outputs.
         </p>
         <p>
-          Videos may start with a short Spatial Video Studio title. Business and
-          Studio plans can turn it off.
+          Videos may start with a short Spatial Video Studio title. Videos
+          made with Commercial use have none, and Business and Studio plans
+          can turn it off.
         </p>
         <p>
           Outputs may carry metadata (content credentials) and an invisible

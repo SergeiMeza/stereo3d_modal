@@ -69,6 +69,7 @@ import { outstandingCents } from "@/lib/billingCopy";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { commercialRunWords } from "@/lib/commercial";
 
 import { stepCheckoutAtom, type BillingBlock, type OneTapRun, type StepCheckoutState } from "./checkoutStore";
 import { invalidateQuoteAtom, QUOTE_TIMED_OUT, quoteView, requestQuoteAtom, useAutoQuote } from "./quoteAtoms";
@@ -621,18 +622,20 @@ function oneTapShown(ck: StepCheckout): boolean {
  * 2026-11-05: what's paid for is visible before paying). */
 export function payLine(conv: Conversion, t: Tr = EN): string {
   const files = formatsText(conv.params?.formats, t);
-  return [runLine(conv, { price: false }), files].filter(Boolean).join(" · ");
+  // owner 2026-11-09: what's paid for includes Commercial use
+  return [runLine(conv, { price: false }), files, commercialRunWords(conv.params, t)].filter(Boolean).join(" · ");
 }
 
 /** P1/P3 for the checkout's waiting run; China mode: P6 (no Stripe.js). */
 function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.Element | null {
   const t = useT();
-  const plan = useBilling().status?.plan;
   const chinaOff = useChinaPaymentsOff();
   const conv = ck.payNow;
   if (conv === null) return null;
-  const commercial =
-    plan?.active === true && (plan.plan === "business" || plan.plan === "studio");
+  // owner 2026-11-09: a run with Commercial use (bought, or included by
+  // a plan until its renewal) may be used commercially; others are for
+  // personal use (Terms "Using your 3D outputs")
+  const commercial = commercialRunWords(conv.params, t) !== null;
   if (chinaOff) {
     return (
       <ChinaComingSoonSheet testId="china-sheet" title={t("pay.china.title")} onClose={() => ck.closePayNow(false)} />
@@ -658,7 +661,7 @@ function PaySheetFor({ ck, action }: { ck: StepCheckout; action: string }): JSX.
       billing={conv.billing}
       publishableKey={conv.publishable_key}
       projectId={conv.project_id}
-      note={commercial ? undefined : t("pay.copy.personalUse")}
+      note={commercial ? undefined : t("pay.copy.personalUseAddOn")}
       onClose={(outcome) => ck.closePayNow(outcome === "paid")}
       // the tracker's poll: an expired or paid run ends "Paying…"
       run={ck.active?.conversion_id === conv.conversion_id ? ck.active : null}

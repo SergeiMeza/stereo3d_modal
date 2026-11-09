@@ -341,6 +341,11 @@ export interface Params {
   foveation?: "static" | null;
   /** pricing 2026-11: Express run (first in line) */
   express?: boolean;
+  /** owner 2026-11-09: Commercial use (Lifelike): the output may be used
+   * commercially and has no intro clip; commercial_included when a plan
+   * active on 2026-11-09 gave it at no charge (until its renewal) */
+  commercial?: boolean;
+  commercial_included?: boolean;
   /** depth_preview only: the pipeline stops after the depth stage (no
    * stereo warp, no encodes) — outputs are depth + depth_vis */
   depth_only?: boolean;
@@ -393,11 +398,20 @@ export interface QuoteBreakdown {
   addons?: Partial<Record<AddOn, number>>;
   /** pricing 2026-11: a free preview (amount 0) */
   free_preview?: boolean;
+  /** owner 2026-11-09: Commercial use on the run (also true when the plan
+   * includes it), commercial_included when the plan gives it at no
+   * charge; when charged, its cents (also in addons.commercial) and its
+   * words ("Commercial use +50%") */
+  commercial?: boolean;
+  commercial_included?: boolean;
+  commercial_cents?: number;
+  commercial_label?: string;
 }
 
 /** Pricing 2026-11 add-ons: Foveated Detail, High and Master file
- * quality (owner 2026-11-07; master was the Master bitrate), Express. */
-export type AddOn = "foveated" | "high" | "master" | "express";
+ * quality (owner 2026-11-07; master was the Master bitrate), Express,
+ * Commercial use (owner 2026-11-09, every plan, Lifelike only). */
+export type AddOn = "foveated" | "high" | "master" | "express" | "commercial";
 
 /** Owner 2026-11-07, gateway 00172: the web's file quality, one per run
  * (absent = standard). */
@@ -905,6 +919,11 @@ export interface PublicPricing {
         /** gateway 00172: qualities where the add-on is free and always on
          * (Foveated Detail at 1080p) */
         included_presets?: string[];
+        /** Commercial use: the steps it applies to (lifelike_preview,
+         * production), what it does, and false: its previews are never free */
+        steps?: string[];
+        effect?: string;
+        free_previews?: boolean;
       }
     >
   >;
@@ -1092,6 +1111,10 @@ export interface AccountPlan {
   action_required?: boolean;
   amount_due_cents?: number | null;
   pay_url?: string | null;
+  /** owner 2026-11-09: a Business or Studio plan active on 2026-11-09
+   * keeps Commercial use included until this renewal (RFC 3339); absent
+   * otherwise */
+  commercial_included_until?: string;
 }
 
 export interface ProDiscount {
@@ -1746,6 +1769,9 @@ export interface StepConversionRequest {
   bitrate?: Bitrate;
   /** pricing 2026-11: Express (its share from /v1/pricing addons; included in Business and Studio) */
   express?: boolean;
+  /** owner 2026-11-09: Commercial use (Lifelike runs and previews only; a
+   * Classic project answers 400 feature_unavailable) */
+  commercial?: boolean;
   /** owner 2026-11-07: the file quality (Lifelike on the web) */
   quality?: OutputQuality;
   /** gateway 00178: ordered as a Quick look (shown with the run) */

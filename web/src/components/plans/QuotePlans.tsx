@@ -567,7 +567,7 @@ export function CinemaTierPrices({
         <span className="text-sm text-fg">{t("plans.quote.withPlan", { plan: name })}</span>
         {share ? (
           <span className="text-[11px] text-fg-muted">
-            {t("plans.quote.cinema.share", { pct: Math.round(share * 100) })}
+            {t("plans.quote.cinema.pctOff", { pct: Math.round(share * 100) })}
           </span>
         ) : null}
       </span>

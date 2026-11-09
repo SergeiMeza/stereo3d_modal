@@ -344,7 +344,7 @@ describe("Pricing 2026-11", () => {
         { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, free_previews_per_period: 200, express_included: true, max_fps: 120 },
         0.25,
       ),
-    ).toEqual(["$1,500 of usage every month", "25% off every run", "Commercial use of your videos", "200 free previews a month", "Express included", "Up to 120 fps", "Invoices"]);
+    ).toEqual(["$1,500 of usage every month", "25% off every run", "200 free previews a month", "Express included", "Up to 120 fps", "Invoices"]);
     expect(
       planLines(
         { name: "Studio", monthly_cents: 99900, credit_cents: 150000, max_active_runs: 8, free_previews_per_period: 200, express_included: true, max_fps: 120 },

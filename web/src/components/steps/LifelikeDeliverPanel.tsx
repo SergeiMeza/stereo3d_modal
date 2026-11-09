@@ -67,6 +67,15 @@ import { useClient } from "./ViewIn3D";
 import { FileQualityScale, qualitySteps } from "./FileQuality";
 import { campaignBadge, campaignNote } from "@/lib/campaign";
 import { foveatedDetail, foveatedHint, foveationIncludedApplied, foveationIncludedAt } from "@/lib/foveation";
+import { useBilling } from "@/lib/billing";
+import {
+  commercialHint,
+  commercialIncluded,
+  commercialIncludedLine,
+  commercialIncludedUntil,
+  commercialName,
+  commercialPct,
+} from "@/lib/commercial";
 
 /** "Your video is N minutes long. …" — the split question. */
 export function splitQuestion(outputSeconds: number, t: Tr = EN): string {
@@ -85,6 +94,7 @@ function AddOnRow({
   hint,
   checked,
   onChange,
+  disabled = false,
 }: {
   testId: string;
   label: string;
@@ -92,13 +102,16 @@ function AddOnRow({
   hint: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  /** shown ticked and fixed (a plan includes it) */
+  disabled?: boolean;
 }): JSX.Element {
   return (
     <div data-testid={testId} className="flex flex-col gap-1.5">
-      <label className="flex cursor-pointer items-center gap-2 text-sm">
+      <label className={`flex items-center gap-2 text-sm ${disabled ? "" : "cursor-pointer"}`}>
         <input
           type="checkbox"
           checked={checked}
+          disabled={disabled}
           onChange={(e) => onChange(e.target.checked)}
           className="accent-primary"
         />
@@ -186,6 +199,8 @@ export function LifelikeDeliverPanel({
     }),
   ) as Partial<Record<Preset, string>>;
   const [expressChoice, setExpress] = useMake3dChoice(pid, "express");
+  const [commercialChoice, setCommercial] = useMake3dChoice(pid, "commercial");
+  const plan = useBilling().status?.plan;
   // plans canvas, Quote A: pay once (always first) or with Pro
   const [payMode, setPayMode] = useMake3dChoice(pid, "payMode");
   const [proSheet, setProSheet] = useState(false);
@@ -222,6 +237,13 @@ export function LifelikeDeliverPanel({
     foveationIncludedApplied(ck.lastQuote?.foveation);
   const expressIncluded = addons?.express?.included_in?.includes(tier) === true;
   const express = expressChoice ?? expressIncluded;
+  // owner 2026-11-09: Commercial use, +50% on any plan (its share from
+  // /v1/pricing); a plan active on 2026-11-09 includes it until its
+  // renewal, shown ticked and included
+  const commercialShare = commercialPct(pricing);
+  const commercialUntil = commercialIncludedUntil(plan);
+  const commercialFree = commercialIncluded(plan, ck.lastQuote?.quote.breakdown);
+  const commercial = commercialShare !== null && (commercialFree || commercialChoice);
   const plain: StepConversionRequest = {
     step: "production",
     preset,
@@ -231,6 +253,7 @@ export function LifelikeDeliverPanel({
     // always sent where offered, so the quote says what the files come to
     ...(qualityOffered ? { quality: fileQuality } : {}),
     ...(addons?.express && express ? { express: true } : {}),
+    ...(commercial ? { commercial: true } : {}),
     // shown: ticked sends "static", unticked sends null; hidden: absent
     ...(foveationOffered ? { foveation: foveated ? ("static" as const) : null } : {}),
     platform: "web",
@@ -394,7 +417,7 @@ export function LifelikeDeliverPanel({
               />
             </div>
           ) : null}
-          {eyeRequired || foveationOffered || foveationShownIncluded || qualityOffered || addons?.express ? (
+          {eyeRequired || foveationOffered || foveationShownIncluded || qualityOffered || addons?.express || commercialShare !== null ? (
           <div className="flex flex-col gap-3 border-t border-edge pt-3">
             {eyeRequired ? (
               // S3D-65: always on at 5K, 6K and 8K — shown as fixed
@@ -453,6 +476,17 @@ export function LifelikeDeliverPanel({
                 hint={t("make.lifelike.expressHint")}
                 checked={express}
                 onChange={(v) => change(() => setExpress(v))}
+              />
+            ) : null}
+            {commercialShare !== null ? (
+              <AddOnRow
+                testId="addon-commercial"
+                label={commercialName(t)}
+                price={commercialFree ? commercialIncludedLine(commercialUntil, t) : `+${Math.round(commercialShare * 100)}%`}
+                hint={commercialHint(t)}
+                checked={commercial}
+                disabled={commercialFree}
+                onChange={(v) => change(() => setCommercial(v))}
               />
             ) : null}
           </div>

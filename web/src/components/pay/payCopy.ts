@@ -199,6 +199,7 @@ export function reloadConsent(method: string | null, addCents: number, belowCent
     : t("balance.copy.reloadConsent", values);
 }
 
-/** Owner 2026-11-04: outputs without a Business or Studio plan are for
- * personal use (Terms "Using your 3D outputs"). */
-export const PERSONAL_USE_LINE = EN("pay.copy.personalUse");
+/** Owner 2026-11-09: outputs without Commercial use are for personal use
+ * (Terms "Using your 3D outputs"); Commercial use is a Lifelike add-on on
+ * any plan. */
+export const PERSONAL_USE_LINE = EN("pay.copy.personalUseAddOn");

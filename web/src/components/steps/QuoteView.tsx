@@ -20,6 +20,7 @@ import { useT } from "@/lib/i18n/I18nProvider";
 import { rich } from "@/lib/i18n/rich";
 import { EN, type Tr } from "@/lib/i18n/t";
 import { offerLabel } from "@/lib/campaign";
+import { commercialName } from "@/lib/commercial";
 
 const TIER_NAMES: Record<string, string> = { pro: "Pro", business: "Business", studio: "Studio" };
 
@@ -363,6 +364,20 @@ export function QuoteView({
         />
       ) : (b as Record<string, unknown>).express_included === true ? (
         <Line label={t("quote.view.express")} value={t("quote.view.included")} testId="quote-express" />
+      ) : null}
+      {/* owner 2026-11-09: Commercial use, +50% on any plan; a plan active
+          on 2026-11-09 includes it until its renewal */}
+      {b.commercial_included === true ? (
+        <Line label={commercialName(t)} value={t("quote.view.included")} testId="quote-commercial" />
+      ) : (addons.commercial ?? b.commercial_cents) ? (
+        <Line
+          label={t("quote.view.namePct", {
+            name: commercialName(t),
+            pct: addonPct(addons.commercial ?? b.commercial_cents ?? 0, b, t),
+          })}
+          value={`+${formatCents(addons.commercial ?? b.commercial_cents ?? 0, t)}`}
+          testId="quote-commercial"
+        />
       ) : null}
       {reuseStages.length > 0 ? (
         <Line

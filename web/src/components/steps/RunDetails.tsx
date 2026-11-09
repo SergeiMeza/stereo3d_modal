@@ -175,6 +175,9 @@ export function detailRows(project: Project, c: Conversion, t: Tr = EN): DetailR
     if (c.foveation?.included === true) add("foveation", c.foveation.applied ? t("files.details.included") : null);
     else add("foveation", onOff(p.foveation === "static" || c.foveation?.applied === true));
     add("express", onOff(p.express === true));
+    // owner 2026-11-09: Commercial use, or included by a plan active on
+    // 2026-11-09 (until its renewal)
+    add("commercial", p.commercial_included === true ? t("files.details.included") : onOff(p.commercial === true));
     // gateway 00178: the run's own flags
     if (c.step === "lifelike_preview" && c.quick_look !== undefined) add("quickLook", onOff(c.quick_look));
     if (c.intro !== undefined) add("intro", onOff(c.intro));

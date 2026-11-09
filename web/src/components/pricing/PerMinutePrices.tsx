@@ -24,6 +24,7 @@ import { QUALITY_STEPS, qualityName as fileQualityName, qualityPct, qualitySteps
 import { activeCampaign, campaignBadge, campaignNote, offerUntil } from "@/lib/campaign";
 import { useT } from "@/lib/i18n/I18nProvider";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { commercialName, commercialPct } from "@/lib/commercial";
 
 /** Whose prices: the list, or a plan's own column. */
 export type PriceKey = "list" | "pro" | "business" | "studio";
@@ -195,6 +196,10 @@ export function Extras({ pricing }: { pricing: PublicPricing }): JSX.Element {
         QUALITY_STEPS.some((s) => s.value === q && s.hint) ? t(`make.fileQuality.hint.${q}`) : "",
       ]),
     ...(a.express ? ([[t("pricing.extras.express"), pct(a.express.pct), t("pricing.extras.expressWhat")]] as [string, string, string][]) : []),
+    // owner 2026-11-09: Commercial use, on any plan, Lifelike only
+    ...(commercialPct(pricing) !== null
+      ? ([[commercialName(t), pct(commercialPct(pricing)!), t("pricing.extras.commercialWhat")]] as [string, string, string][])
+      : []),
   ];
   const card = "flex flex-col gap-3 rounded-xl border border-edge bg-card p-5";
   return (

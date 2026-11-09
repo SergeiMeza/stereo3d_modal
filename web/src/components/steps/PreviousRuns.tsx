@@ -109,9 +109,11 @@ function span(p: { from_frame?: number; to_frame?: number }, numFrames: number):
 }
 
 /** The form would order what this run made (or is making): same part,
- * quality, frame rate and files. */
+ * quality, frame rate and files; asking for Commercial use, a run without
+ * it doesn't count (owner 2026-11-09). */
 export function sameOrder(c: Conversion, request: StepConversionRequest, numFrames: number): boolean {
   if (c.params.preset !== request.preset) return false;
+  if (request.commercial === true && c.params.commercial !== true && c.params.commercial_included !== true) return false;
   const [a0, a1] = span(c.params, numFrames);
   const [b0, b1] = span(request, numFrames);
   if (a0 !== b0 || a1 !== b1) return false;

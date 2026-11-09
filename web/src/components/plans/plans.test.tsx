@@ -554,9 +554,9 @@ describe("high-end sources guide to Business (owner 2026-11-04)", () => {
     const p = sourced(7680, 4320, 24);
     wrap(<SourceBusinessLine project={p} />);
     const line = await screen.findByTestId("source-business-line");
-    expect(line.textContent).toContain(
-      "Working in 8K? Business and Studio save 20–25% and include commercial use.",
-    );
+    expect(line.textContent).toContain("Working in 8K? Business and Studio save 20–25%.");
+    // owner 2026-11-09: plans no longer include commercial use
+    expect(line.textContent).not.toMatch(/commercial/i);
     await waitFor(() =>
       expect(
         mockDb.events.some(

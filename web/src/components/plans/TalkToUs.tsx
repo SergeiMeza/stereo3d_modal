@@ -114,7 +114,7 @@ export function TalkToUs(): JSX.Element | null {
     return (
       <PlanNudge
         testId="talk-to-us"
-        text={t("plans.talkToUs.banner", {
+        text={t("plans.talkToUs.bannerUsage", {
           site: SITE_NAME,
           business: "Business",
           amount: formatCentsShort(biz.credit_cents, t),

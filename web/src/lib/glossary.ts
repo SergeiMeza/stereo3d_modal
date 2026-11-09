@@ -19,6 +19,7 @@ import type {
 } from "@/lib/api/types";
 import { formatVideoLength } from "@/lib/format";
 import { EN, type Tr } from "@/lib/i18n/t";
+import { commercialRunWords } from "@/lib/commercial";
 import { ltrRuns } from "@/lib/i18n/bidi";
 
 /** Name helpers take `t` last; used as `.map(helper)` they get an index
@@ -312,6 +313,8 @@ export function runSummary(p: Params, step?: Step, foveation?: FoveationInfo, t:
     // owner 2026-11-07: included at 1080p, so the run (not the request)
     // says whether it applied
     p.foveation === "static" || foveation?.applied === true ? t("glossary.foveatedDetail") : null,
+    // owner 2026-11-09: "Commercial use" / "Commercial use (included)"
+    commercialRunWords(p, t),
   ]
     .filter(Boolean)
     .join(" · "), t);
