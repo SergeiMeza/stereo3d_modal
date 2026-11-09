@@ -62,6 +62,26 @@ describe("case page (A2)", () => {
     expect(await screen.findByTestId("run-campaign")).toHaveTextContent("Launch offer −$2.25");
   });
 
+  it("shows Commercial use on a run: yes, included or no (owner 2026-11-09)", async () => {
+    for (const [fields, want] of [
+      [{ commercial: true }, "Commercial use: yes"],
+      [{ commercial: true, commercial_included: true }, "Commercial use: included"],
+      [{ commercial: false }, "Commercial use: no"],
+    ] as const) {
+      const page = casePage();
+      page.evidence!.runs![0] = { ...page.evidence!.runs![0], ...fields };
+      const { unmount } = renderApp("/cases/CASE-0042", base(page));
+      expect(await screen.findByTestId("run-commercial")).toHaveTextContent(want);
+      unmount();
+    }
+  });
+
+  it("no Commercial use line when the run doesn't say", async () => {
+    renderApp("/cases/CASE-0042", base());
+    await screen.findByTestId("run-quality");
+    expect(screen.queryByTestId("run-commercial")).toBeNull();
+  });
+
   it("no offer line without campaign_cents", async () => {
     renderApp("/cases/CASE-0042", base());
     await screen.findByTestId("run-quality");

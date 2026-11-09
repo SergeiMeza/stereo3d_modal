@@ -192,7 +192,7 @@ describe("account page (A3)", () => {
               json: {
                 ...account,
                 account: { ...account.account, created_at: "2026-07-12T00:00:00Z" },
-                runs: { count: 3, items: [{ ...run("r1"), campaign_cents: 1417 }, { ...run("r2"), campaign_cents: 0 }], next_before: "r2" },
+                runs: { count: 3, items: [{ ...run("r1"), campaign_cents: 1417, commercial: true, commercial_included: true }, { ...run("r2"), campaign_cents: 0 }], next_before: "r2" },
                 usage: { period: "plan", period_start: "2026-11-01T00:00:00Z", period_end: "2026-12-01T00:00:00Z", tier: "business", runs: 5, succeeded: 4, spent_cents: 11400, plan_credit_left_cents: 18800 },
                 sign_in: { methods: ["apple", "passkey"], passkey_count: 2, firebase_created_at: "2026-07-12T00:00:00Z", last_sign_in_at: new Date().toISOString() },
               },
@@ -207,6 +207,9 @@ describe("account page (A3)", () => {
     // owner 2026-11-07: the launch offer's line on the runs it covered
     expect(screen.getByTestId("run-campaign-r1")).toHaveTextContent("offer −$14.17");
     expect(screen.queryByTestId("run-campaign-r2")).toBeNull();
+    // owner 2026-11-09: the Commercial use add-on, only when the run says
+    expect(screen.getByTestId("run-commercial-r1")).toHaveTextContent("commercial: included");
+    expect(screen.queryByTestId("run-commercial-r2")).toBeNull();
     expect(within(runs).getAllByRole("row")).toHaveLength(3);
     await userEvent.click(screen.getByRole("button", { name: "Older runs" }));
     await waitFor(() => expect(within(runs).getAllByRole("row")).toHaveLength(4));

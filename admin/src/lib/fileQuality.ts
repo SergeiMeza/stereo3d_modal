@@ -20,6 +20,10 @@ export interface QualityFields {
   outputs_media?: Record<string, OutputMedia> | null;
   /** the launch offer's line on the run (gateway 00175), 0 without */
   campaign_cents?: number;
+  /** the Commercial use add-on (owner 2026-11-09): bought on the run */
+  commercial?: boolean | null;
+  /** ...or included by a plan active on 2026-11-09, until its renewal */
+  commercial_included?: boolean | null;
 }
 
 const QUALITY: Record<string, string> = { standard: "Standard", high: "High", master: "Master" };
@@ -81,4 +85,13 @@ export function audioLine(r: QualityFields): string | null {
   return [m.audio_codec.toUpperCase(), typeof m.audio_kbps === "number" && m.audio_kbps > 0 ? `${Math.round(m.audio_kbps)} kbit/s` : null]
     .filter(Boolean)
     .join(" ");
+}
+
+/** Commercial use on a run: "included" (a grandfathered plan), "yes"
+ * (bought), "no", or null when the run doesn't say (older gateway). */
+export function commercialLine(r: QualityFields): "yes" | "included" | "no" | null {
+  if (r.commercial_included === true) return "included";
+  if (r.commercial === true) return "yes";
+  if (r.commercial === false || r.commercial_included === false) return "no";
+  return null;
 }

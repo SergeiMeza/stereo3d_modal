@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Textarea } from "@/components/ui/textarea";
 import { ApiError, errorMessage } from "../lib/api";
+import { commercialLine } from "../lib/fileQuality";
 import { ago, dateOnly, dateTime, money, paidLocal, parseSignedDollars, words } from "../lib/format";
 import { REASONS, statusLabel } from "../lib/labels";
 import { Link, paths, useRouter } from "../lib/router";
@@ -786,6 +787,12 @@ function RunsPanel({ uid, runs }: { uid: string; runs: AccountRuns }) {
                   {(r.campaign_cents ?? 0) > 0 && (
                     <span data-testid={`run-campaign-${r.id}`} className="block text-xs text-success-foreground">
                       offer −{money(r.campaign_cents)}
+                    </span>
+                  )}
+                  {/* owner 2026-11-09: the Commercial use add-on */}
+                  {commercialLine(r) && (
+                    <span data-testid={`run-commercial-${r.id}`} className="block text-xs text-muted-foreground">
+                      commercial: {commercialLine(r)}
                     </span>
                   )}
                 </TableCell>
