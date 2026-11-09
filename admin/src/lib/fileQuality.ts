@@ -24,6 +24,11 @@ export interface QualityFields {
   commercial?: boolean | null;
   /** ...or included by a plan active on 2026-11-09, until its renewal */
   commercial_included?: boolean | null;
+  /** Smoother motion (owner 2026-11-10): bought on the run; Lifelike only */
+  stabilize?: boolean | null;
+  /** the 3D depth (owner 2026-11-10): comfortable | standard | strong on
+   * Lifelike runs, "" on runs before */
+  depth?: string | null;
 }
 
 const QUALITY: Record<string, string> = { standard: "Standard", high: "High", master: "Master" };
@@ -94,4 +99,20 @@ export function commercialLine(r: QualityFields): "yes" | "included" | "no" | nu
   if (r.commercial === true) return "yes";
   if (r.commercial === false || r.commercial_included === false) return "no";
   return null;
+}
+
+/** Smoother motion on a run: "yes" (bought), "no", or null when the run
+ * doesn't say (Classic, older gateway). */
+export function stabilizeLine(r: QualityFields): "yes" | "no" | null {
+  if (r.stabilize === true) return "yes";
+  if (r.stabilize === false) return "no";
+  return null;
+}
+
+const DEPTH: Record<string, string> = { comfortable: "Comfortable", standard: "Standard", strong: "Strong" };
+
+/** The 3D depth a Lifelike run used ("Strong"), or null when it doesn't
+ * say (runs before 2026-11-10, Classic). */
+export function depthLine(r: QualityFields): string | null {
+  return r.depth ? (DEPTH[r.depth] ?? r.depth) : null;
 }

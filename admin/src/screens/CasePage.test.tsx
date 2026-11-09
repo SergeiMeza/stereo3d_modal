@@ -82,6 +82,33 @@ describe("case page (A2)", () => {
     expect(screen.queryByTestId("run-commercial")).toBeNull();
   });
 
+  it("shows Smoother motion and the 3D depth on a Lifelike run (owner 2026-11-10)", async () => {
+    for (const [fields, stabilize, depth] of [
+      [{ stabilize: true, depth: "strong" }, "Smoother motion: yes", "3D depth: Strong"],
+      [{ stabilize: false, depth: "comfortable" }, "Smoother motion: no", "3D depth: Comfortable"],
+    ] as const) {
+      const page = casePage();
+      page.evidence!.runs![0] = { ...page.evidence!.runs![0], ...fields };
+      const { unmount } = renderApp("/cases/CASE-0042", base(page));
+      expect(await screen.findByTestId("run-stabilize")).toHaveTextContent(stabilize);
+      expect(screen.getByTestId("run-depth")).toHaveTextContent(depth);
+      unmount();
+    }
+  });
+
+  it("no depth line on a run from before the choice; neither line when the run doesn't say", async () => {
+    const page = casePage();
+    page.evidence!.runs![0] = { ...page.evidence!.runs![0], stabilize: false, depth: "" };
+    const { unmount } = renderApp("/cases/CASE-0042", base(page));
+    expect(await screen.findByTestId("run-stabilize")).toHaveTextContent("Smoother motion: no");
+    expect(screen.queryByTestId("run-depth")).toBeNull();
+    unmount();
+    renderApp("/cases/CASE-0042", base());
+    await screen.findByTestId("run-quality");
+    expect(screen.queryByTestId("run-stabilize")).toBeNull();
+    expect(screen.queryByTestId("run-depth")).toBeNull();
+  });
+
   it("no offer line without campaign_cents", async () => {
     renderApp("/cases/CASE-0042", base());
     await screen.findByTestId("run-quality");

@@ -6,7 +6,7 @@ import { cn } from "@/lib/utils";
 import { dateOnly, dateTime, money, time, words } from "../lib/format";
 import { stripeLinkLabel } from "../lib/links";
 import { Link, paths } from "../lib/router";
-import { audioLine, commercialLine, fileQualityLine } from "../lib/fileQuality";
+import { audioLine, commercialLine, depthLine, fileQualityLine, stabilizeLine } from "../lib/fileQuality";
 import { sourceOf, sourceRows } from "../lib/sourceDetails";
 import type { Evidence, EvidenceRun } from "../lib/types";
 
@@ -84,6 +84,21 @@ function RunTimeline({ run }: { run: EvidenceRun }) {
     steps.push({
       at: run.created_at,
       text: <span data-testid="run-commercial">Commercial use: {commercial}</span>,
+    });
+  }
+  // owner 2026-11-10: Smoother motion and the 3D depth (Lifelike runs)
+  const stabilize = stabilizeLine(run);
+  if (stabilize) {
+    steps.push({
+      at: run.created_at,
+      text: <span data-testid="run-stabilize">Smoother motion: {stabilize}</span>,
+    });
+  }
+  const depth = depthLine(run);
+  if (depth) {
+    steps.push({
+      at: run.created_at,
+      text: <span data-testid="run-depth">3D depth: {depth}</span>,
     });
   }
   // owner 2026-11-07: the File quality asked for, with what the files measure
