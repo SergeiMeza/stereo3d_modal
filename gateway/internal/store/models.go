@@ -262,6 +262,14 @@ type Params struct {
 	// a grandfathered Business/Studio plan gave it at no charge.
 	Commercial         bool `firestore:"commercial,omitempty" json:"commercial,omitempty"`
 	CommercialIncluded bool `firestore:"commercial_included,omitempty" json:"commercial_included,omitempty"`
+	// Stabilize (add-on, owner 2026-11-10, Lifelike): the worker's temporal
+	// stabilizer, sent as stabilize: true only when bought.
+	Stabilize bool `firestore:"stabilize,omitempty" json:"stabilize,omitempty"`
+	// Depth / MaxDisparityPct (owner 2026-11-10, Lifelike): comfortable 3 |
+	// standard 4 | strong 5, sent as max_disparity_pct; "" / 0 = runs
+	// before, which used the worker's default (5% until 2026-11-10).
+	Depth           string  `firestore:"depth,omitempty" json:"depth,omitempty"`
+	MaxDisparityPct float64 `firestore:"max_disparity_pct,omitempty" json:"max_disparity_pct,omitempty"`
 	// RemoveBars / SourceCrop (BL-03): the run takes the project's black
 	// bars off, keeping SourceCrop (displayed source pixels, sent as
 	// source_crop). False / nil: the whole frame.

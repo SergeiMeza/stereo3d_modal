@@ -848,8 +848,10 @@ type StepInputs struct {
 	// CommercialIncluded: a grandfathered Business/Studio plan, no charge.
 	Commercial         bool
 	CommercialIncluded bool
-	FreePreview        bool
-	Units              int
+	// Stabilize: Smoother motion (owner 2026-11-10), +AddOnPct(stabilize).
+	Stabilize   bool
+	FreePreview bool
+	Units       int
 	// Web: the run comes from the web app (the launch campaign is web
 	// only); OutputPreset the run's output preset when the price row
 	// differs; Now the quote's time (zero = now).

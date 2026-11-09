@@ -202,8 +202,14 @@ func resolveLifelikeParams(req *stepConvReq, p *store.Project, enabled []string)
 		}
 		params.Foveation = fov
 	}
-	params.Express = req.Express                   // the add-on (pricing 2026-11)
-	params.Commercial = req.Commercial             // Commercial use (owner 2026-11-09)
+	params.Express = req.Express       // the add-on (pricing 2026-11)
+	params.Commercial = req.Commercial // Commercial use (owner 2026-11-09)
+	params.Stabilize = req.Stabilize   // Smoother motion (owner 2026-11-10)
+	depth, pct, ok := lifelikeDepth(req.Depth)
+	if !ok {
+		return params, httpx.ErrInvalid("depth must be comfortable, standard or strong")
+	}
+	params.Depth, params.MaxDisparityPct = depth, pct
 	if c, ok := barsCrop(p); ok && removeBars(p) { // BL-03: the run keeps what it took off
 		params.RemoveBars, params.SourceCrop = true, &c
 	}
@@ -307,6 +313,12 @@ func lifelikeBody(c *store.Conversion, maxGPUWorkers int) map[string]any {
 	}
 	if c.Params.Foveation != "" {
 		body["foveation"] = c.Params.Foveation
+	}
+	if c.Params.MaxDisparityPct > 0 {
+		body["max_disparity_pct"] = c.Params.MaxDisparityPct // the depth choice (owner 2026-11-10); absent = the worker's default
+	}
+	if c.Params.Stabilize {
+		body["stabilize"] = true // Smoother motion, bought (owner 2026-11-10); absent = off
 	}
 	if c.Params.HDR {
 		body["hdr_output"] = true // owner 2026-11-05; absent = SDR as before
@@ -749,6 +761,12 @@ func (s *Service) resolveParams(ctx context.Context, req *stepConvReq, p *store.
 		// Classic isn't offered Commercial use (owner 2026-11-09)
 		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "Commercial use is available for Lifelike videos only")
 	}
+	if req.Stabilize && (projectMethod(p) != store.MethodLifelike || !rates.TierPricing) {
+		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "Smoother motion is available for Lifelike videos only")
+	}
+	if req.Depth != "" && projectMethod(p) != store.MethodLifelike {
+		return params, httpx.Err(http.StatusBadRequest, "feature_unavailable", "The 3D depth choice is available for Lifelike videos only")
+	}
 	// HDR output is automatic and free (owner 2026-11-05): every Lifelike
 	// run of an HDR source gets it while the switch is on. A request's
 	// "hdr" (older web builds) is ignored.
@@ -1035,4 +1053,20 @@ func (s *Service) qualityView(ctx context.Context, params store.Params, outputSe
 			int(math.Round(pct*100)))
 	}
 	return out
+}
+
+// lifelikeDepth maps the web's depth choice to the worker's comfort cap
+// (owner 2026-11-10, LL-19): the scene's near disparity as a % of the frame
+// width. Standard 4% is the default (the owner's pick from the 3/4/5%
+// samples); Strong 5% was the default before.
+func lifelikeDepth(choice string) (string, float64, bool) {
+	switch choice {
+	case "", "standard":
+		return "standard", 4, true
+	case "comfortable":
+		return "comfortable", 3, true
+	case "strong":
+		return "strong", 5, true
+	}
+	return "", 0, false
 }

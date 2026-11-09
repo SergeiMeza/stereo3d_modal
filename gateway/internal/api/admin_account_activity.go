@@ -52,7 +52,8 @@ func adminRunJSON(c *store.Conversion) map[string]any {
 
 // addRunMedia adds what the run read sends of its encode (the console's
 // run rows): quality (standard | high | master, web Lifelike),
-// commercial and commercial_included (Commercial use),
+// commercial and commercial_included (Commercial use), stabilize and
+// depth (Smoother motion and the depth choice, owner 2026-11-10),
 // bitrate_requested (projects' runs: auto, match_source, Mbit/s or
 // master), outputs_media and the worker's output_bit_depth (+ reason).
 func addRunMedia(out map[string]any, c *store.Conversion) {
@@ -63,6 +64,7 @@ func addRunMedia(out map[string]any, c *store.Conversion) {
 	// console can say "no" there and nothing on runs that can't have it
 	if c.Method == store.MethodLifelike {
 		out["commercial"], out["commercial_included"] = c.Params.Commercial, c.Params.CommercialIncluded
+		out["stabilize"], out["depth"] = c.Params.Stabilize, c.Params.Depth // owner 2026-11-10
 	}
 	out["bitrate_requested"] = nil
 	if c.ProjectID != "" {
