@@ -24,14 +24,15 @@ describe("/vision-pro: the web app introduced for Apple Vision Pro", () => {
     expect(String(meta.description)).not.toContain("$");
   });
 
-  it("names no other headset and has one button to /", async () => {
+  it("names no other headset and has one button into the app, not the landing page", async () => {
     const { container } = render(await VisionProPage());
     const text = container.textContent ?? "";
     for (const other of ["Quest", "Pico", "Galaxy", "side by side"])
       expect(text).not.toContain(other);
     expect(text).not.toContain("$");
     const links = [...container.querySelectorAll("a")];
-    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/"]);
+    // Mock auth in tests is signed in: the button goes to the projects.
+    expect(links.map((a) => a.getAttribute("href"))).toEqual(["/projects"]);
   });
 
   it("lists the samples, each loading its spatial file only on the tap", async () => {
