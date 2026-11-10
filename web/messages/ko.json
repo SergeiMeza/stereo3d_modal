@@ -3127,5 +3127,25 @@
     },
     "account": "{app} 앱과 같은 계정으로 로그인하세요.",
     "cta": "웹 앱 열기"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "Apple Vision Pro에서 {lifelike}",
+      "description": "브라우저에서 2D 비디오를 {lifelike} 최고 품질의 공간 비디오로 만들고, Apple Vision Pro의 Safari에서 3D로 감상하세요. {app} 계정으로 로그인합니다."
+    },
+    "eyebrow": "Apple Vision Pro에서 {site}",
+    "title": "내 비디오를 바로 여기서 3D로",
+    "lede": "웹 앱이 2D 비디오를 {lifelike} 최고 품질의 공간 비디오로 만듭니다. Safari에서 전체 화면으로 재생하면 3D로 보입니다. 설치할 것은 없습니다.",
+    "samplesTitle": "샘플을 3D로 보기",
+    "samplesHint": "모두 {lifelike}로 만들었으며 전체 화면으로 열립니다. 파일이 커서 재생까지 몇 초 걸립니다.",
+    "notVisionPro": "샘플을 3D로 보려면 Apple Vision Pro의 Safari에서 이 페이지를 여세요. 다른 곳에서는 평면으로 재생됩니다.",
+    "watch": "3D로 보기",
+    "stepsTitle": "이용 방법",
+    "steps": {
+      "signIn": "{app} 앱과 같은 계정으로 <b>로그인</b>합니다.",
+      "add": "<b>2D 비디오를 추가</b>하면 웹 앱이 {lifelike}로 3D로 만듭니다.",
+      "watch": "<b>3D로 감상</b>: 결과를 전체 화면으로 재생하거나 공간 비디오를 다운로드해 보관하세요."
+    },
+    "cta": "웹 앱 열기"
   }
 }

@@ -3284,5 +3284,25 @@
     },
     "account": "Sign in with the same account you use in the {app} app.",
     "cta": "Open the web app"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "{lifelike} on Apple Vision Pro",
+      "description": "Turn your 2D videos into spatial videos at full {lifelike} quality in the browser, and watch them in 3D in Safari on Apple Vision Pro. Sign in with your {app} account."
+    },
+    "eyebrow": "{site} on Apple Vision Pro",
+    "title": "Your videos in 3D, right here",
+    "lede": "The web app turns your 2D videos into spatial videos at full {lifelike} quality. Play one in full screen in Safari and it's in 3D, with nothing to install.",
+    "samplesTitle": "Watch a sample in 3D",
+    "samplesHint": "Each one was made with {lifelike} and opens in full screen. The files are large, so give them a few seconds to start.",
+    "notVisionPro": "Open this page in Safari on Apple Vision Pro to watch the samples in 3D. Anywhere else they play flat.",
+    "watch": "Watch in 3D",
+    "stepsTitle": "How it works",
+    "steps": {
+      "signIn": "<b>Sign in</b> with the same account you use in the {app} app.",
+      "add": "<b>Add a 2D video</b> and the web app makes it 3D with {lifelike}.",
+      "watch": "<b>Watch it in 3D</b>: play the result in full screen, or download the spatial video to keep it."
+    },
+    "cta": "Open the web app"
   }
 }

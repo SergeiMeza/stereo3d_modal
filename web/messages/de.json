@@ -3127,5 +3127,25 @@
     },
     "account": "Melde dich mit demselben Konto an wie in der App {app}.",
     "cta": "Web-App öffnen"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "{lifelike} auf der Apple Vision Pro",
+      "description": "Mach aus deinen 2D-Videos im Browser räumliche Videos in voller {lifelike}-Qualität und sieh sie in Safari auf der Apple Vision Pro in 3D. Melde dich mit deinem {app}-Account an."
+    },
+    "eyebrow": "{site} auf der Apple Vision Pro",
+    "title": "Deine Videos in 3D, genau hier",
+    "lede": "Die Web-App macht aus deinen 2D-Videos räumliche Videos in voller {lifelike}-Qualität. Spiel eines in Safari im Vollbild ab, und es ist in 3D, ganz ohne Installation.",
+    "samplesTitle": "Ein Beispiel in 3D ansehen",
+    "samplesHint": "Jedes wurde mit {lifelike} erstellt und öffnet sich im Vollbild. Die Dateien sind groß, gib ihnen ein paar Sekunden zum Starten.",
+    "notVisionPro": "Öffne diese Seite in Safari auf der Apple Vision Pro, um die Beispiele in 3D zu sehen. Überall sonst laufen sie flach.",
+    "watch": "In 3D ansehen",
+    "stepsTitle": "So geht's",
+    "steps": {
+      "signIn": "<b>Melde dich an</b> mit demselben Account wie in der {app}-App.",
+      "add": "<b>Füge ein 2D-Video hinzu</b>, und die Web-App macht es mit {lifelike} zu 3D.",
+      "watch": "<b>Sieh es in 3D</b>: Spiel das Ergebnis im Vollbild ab oder lade das räumliche Video herunter, um es zu behalten."
+    },
+    "cta": "Web-App öffnen"
   }
 }

@@ -3127,5 +3127,25 @@
     },
     "account": "Inicia sesión con la misma cuenta que usas en la app {app}.",
     "cta": "Abrir la app web"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "{lifelike} en Apple Vision Pro",
+      "description": "Convierte tus videos 2D en videos espaciales con la calidad completa de {lifelike} en el navegador y míralos en 3D en Safari en Apple Vision Pro. Inicia sesión con tu cuenta de {app}."
+    },
+    "eyebrow": "{site} en Apple Vision Pro",
+    "title": "Tus videos en 3D, aquí mismo",
+    "lede": "La app web convierte tus videos 2D en videos espaciales con la calidad completa de {lifelike}. Reproduce uno en pantalla completa en Safari y estará en 3D, sin instalar nada.",
+    "samplesTitle": "Ver una muestra en 3D",
+    "samplesHint": "Cada una se hizo con {lifelike} y se abre en pantalla completa. Los archivos son grandes: dales unos segundos para empezar.",
+    "notVisionPro": "Abre esta página en Safari en Apple Vision Pro para ver las muestras en 3D. En otros lugares se ven planas.",
+    "watch": "Ver en 3D",
+    "stepsTitle": "Cómo funciona",
+    "steps": {
+      "signIn": "<b>Inicia sesión</b> con la misma cuenta que usas en la app {app}.",
+      "add": "<b>Añade un video 2D</b> y la app web lo convierte en 3D con {lifelike}.",
+      "watch": "<b>Míralo en 3D</b>: reproduce el resultado en pantalla completa o descarga el video espacial para guardarlo."
+    },
+    "cta": "Abrir la app web"
   }
 }

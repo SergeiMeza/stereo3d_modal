@@ -37,6 +37,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.6,
     },
+    // the headset app's own introduction, with spatial samples
+    {
+      url: `${SITE_URL}/vision-pro`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
     ...DEVICE_PAGES.map((d) => ({
       url: `${SITE_URL}/devices/${d.slug}`,
       lastModified,

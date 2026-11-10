@@ -41,7 +41,7 @@ export function useHeaderPlans(): "none" | "signed_out" | null {
 }
 
 /** Pages that must show no plans or prices in the header. */
-const NO_PLANS_PATHS: ReadonlySet<string> = new Set(["/app"]);
+const NO_PLANS_PATHS: ReadonlySet<string> = new Set(["/app", "/vision-pro"]);
 
 export function HeaderPlans(): JSX.Element | null {
   const who = useHeaderPlans();

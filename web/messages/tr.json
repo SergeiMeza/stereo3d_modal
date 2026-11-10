@@ -3127,5 +3127,25 @@
     },
     "account": "{app} uygulamasında kullandığınız hesapla oturum açın.",
     "cta": "Web uygulamasını aç"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "Apple Vision Pro'da {lifelike}",
+      "description": "2D videolarınızı tarayıcıda tam {lifelike} kalitesinde uzamsal videolara dönüştürün ve Apple Vision Pro'daki Safari'de 3D izleyin. {app} hesabınızla oturum açın."
+    },
+    "eyebrow": "Apple Vision Pro'da {site}",
+    "title": "Videolarınız, tam burada 3D",
+    "lede": "Web uygulaması 2D videolarınızı tam {lifelike} kalitesinde uzamsal videolara dönüştürür. Birini Safari'de tam ekran oynatın, 3D olsun; kurulacak bir şey yok.",
+    "samplesTitle": "Bir örneği 3D izleyin",
+    "samplesHint": "Her biri {lifelike} ile yapıldı ve tam ekran açılır. Dosyalar büyük, başlamaları için birkaç saniye bekleyin.",
+    "notVisionPro": "Örnekleri 3D izlemek için bu sayfayı Apple Vision Pro'daki Safari'de açın. Başka yerlerde düz oynatılırlar.",
+    "watch": "3D izle",
+    "stepsTitle": "Nasıl çalışır",
+    "steps": {
+      "signIn": "{app} uygulamasında kullandığınız hesapla <b>oturum açın</b>.",
+      "add": "<b>Bir 2D video ekleyin</b>, web uygulaması onu {lifelike} ile 3D yapar.",
+      "watch": "<b>3D izleyin</b>: sonucu tam ekran oynatın ya da saklamak için uzamsal videoyu indirin."
+    },
+    "cta": "Web uygulamasını aç"
   }
 }
