@@ -10,9 +10,13 @@
  * see it; subscribers find Plans in the account menu. Nothing renders
  * while the session or the tier is still loading, so the link never
  * flashes in and out.
+ *
+ * Never on /app (WEB-02, owner 2026-11-10): the apps link there, and App
+ * Review wants that page to introduce the web app, not sell plans.
  */
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { JSX } from "react";
 
 import { useAuth } from "@/lib/auth";
@@ -36,8 +40,13 @@ export function useHeaderPlans(): "none" | "signed_out" | null {
   return tier === "none" ? "none" : null;
 }
 
+/** Pages that must show no plans or prices in the header. */
+const NO_PLANS_PATHS: ReadonlySet<string> = new Set(["/app"]);
+
 export function HeaderPlans(): JSX.Element | null {
   const who = useHeaderPlans();
+  const pathname = usePathname();
+  if (pathname !== null && NO_PLANS_PATHS.has(pathname)) return null;
   return who === null ? null : <HeaderPlansLink withChip={who === "none"} />;
 }
 

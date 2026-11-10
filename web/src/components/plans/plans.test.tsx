@@ -59,7 +59,9 @@ import { BUSINESS_SIZED_CENTS } from "./TalkToUs";
 import { authStateAtom } from "@/lib/auth";
 import { appStore } from "@/lib/state/stores";
 
+const pathname = vi.hoisted(() => ({ current: "/projects" }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => pathname.current,
   useRouter: () => ({
     push: vi.fn(),
     replace: vi.fn(),
@@ -265,6 +267,18 @@ describe("header B", () => {
     // let the pricing answer land in this test, not the next one
     await new Promise((r) => setTimeout(r, 200));
     expect(screen.queryByTestId("header-save-chip")).toBeNull();
+  });
+
+  it("shows nothing on /app, the apps' intro page (WEB-02)", async () => {
+    pathname.current = "/app";
+    try {
+      wrap(<HeaderPlans />);
+      await new Promise((r) => setTimeout(r, 300));
+      expect(screen.queryByTestId("header-plans")).toBeNull();
+      expect(mockDb.events.filter((e) => e.props.placement === "header")).toEqual([]);
+    } finally {
+      pathname.current = "/projects";
+    }
   });
 });
 
