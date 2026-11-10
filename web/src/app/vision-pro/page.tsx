@@ -5,7 +5,8 @@
  * one and lets the samples speak: Vision Pro Safari plays spatial video in
  * 3D in full screen, so each sample opens there (components/visionPro).
  * Like /app it introduces and sells nothing: no prices, no plan links,
- * one button to /. Public and indexed.
+ * one button straight into the app: /projects when signed in, /signin
+ * otherwise (owner 2026-11-11: not the landing page). Public and indexed.
  *
  * The app adds utm_source/medium/campaign/content/term; the button's event
  * carries utm_content and utm_term, as on /app.
@@ -140,7 +141,7 @@ export default async function VisionProPage() {
         </ol>
       </section>
       <div className="flex max-w-2xl flex-col gap-3">
-        <OpenWebAppButton label={t("visionPro.cta")} />
+        <OpenWebAppButton label={t("visionPro.cta")} start />
       </div>
     </main>
   );

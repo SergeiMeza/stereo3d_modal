@@ -6,12 +6,17 @@
  * (which card: settings, intro, cloud_project, whats_new) and utm_term
  * (platform-version) when the address has them. The address itself is
  * left alone, so Vercel Analytics keeps the whole utm set.
+ *
+ * `start` skips the landing page (owner 2026-11-11, /vision-pro): the
+ * button goes to /projects with a session and /signin without one, as the
+ * landing page's own button does.
  */
 
 import Link from "next/link";
 import type { JSX } from "react";
 
 import { track, type EventParams } from "@/lib/analytics";
+import { useAuth } from "@/lib/auth";
 
 /** utm_content and utm_term from a query string, when present. */
 export function appIntroParams(search: string): EventParams {
@@ -24,10 +29,18 @@ export function appIntroParams(search: string): EventParams {
   return params;
 }
 
-export function OpenWebAppButton({ label }: { label: string }): JSX.Element {
+export function OpenWebAppButton({
+  label,
+  start = false,
+}: {
+  label: string;
+  start?: boolean;
+}): JSX.Element {
+  const { user } = useAuth();
+  const href = !start ? "/" : user !== null ? "/projects" : "/signin";
   return (
     <Link
-      href="/"
+      href={href}
       data-testid="app-intro-open"
       onClick={() => track("app_intro_open_click", appIntroParams(window.location.search))}
       className="inline-flex min-h-14 w-full items-center justify-center rounded-lg bg-primary px-8 py-4 text-base font-medium text-primary-foreground transition-colors hover:bg-primary/80 sm:w-auto"
