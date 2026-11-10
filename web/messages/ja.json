@@ -3108,5 +3108,24 @@
       "hideArchivedCount": "アーカイブを隠す({count})",
       "showArchivedCount": "アーカイブを表示({count})"
     }
+  },
+  "appIntro": {
+    "meta": {
+      "title": "Web版の{lifelike}",
+      "description": "ブラウザで2D動画を{lifelike}のフル品質で3Dにして、VRヘッドセットで見たり、ダウンロードしたりできます。{app}のアカウントでサインインします。"
+    },
+    "eyebrow": "Web版{site}",
+    "title": "ブラウザで動画を3Dに",
+    "lede": "Webアプリは{lifelike}のフル品質で3D動画を作ります。VRヘッドセットのブラウザでも、どのパソコンでも使えます。",
+    "beforeAfter": "ビフォー・アフター:左が2D動画、右が{lifelike}です。",
+    "whereTitle": "使える場所",
+    "where": {
+      "visionPro": "<b>Apple Vision Pro</b>:SafariでWebアプリを開きます。動画はフルスクリーンで3D再生されます。",
+      "sideBySide": "<b>Meta Quest、Pico、Samsung Galaxy XR</b>:ブラウザでWebアプリを開き、ブラウザの動画プレーヤーで3Dサイドバイサイドを選びます。",
+      "computer": "<b>どのパソコンでも</b>:ブラウザで3D動画を作れます。",
+      "download": "<b>ダウンロード</b>はどこでもできるので、3D動画をすべて手元に残せます。"
+    },
+    "account": "{app}アプリと同じアカウントでサインインします。",
+    "cta": "Webアプリを開く"
   }
 }

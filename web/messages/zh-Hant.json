@@ -3108,5 +3108,24 @@
       "hideArchivedCount": "隱藏已封存（{count}）",
       "showArchivedCount": "顯示已封存（{count}）"
     }
+  },
+  "appIntro": {
+    "meta": {
+      "title": "網頁版 {lifelike}",
+      "description": "在瀏覽器中以完整的 {lifelike} 畫質將 2D 影片轉成 3D，再於 VR 頭戴裝置中觀看或下載。使用您的 {app} 帳號登入。"
+    },
+    "eyebrow": "網頁版 {site}",
+    "title": "在瀏覽器中將影片轉成 3D",
+    "lede": "網頁版以完整的 {lifelike} 畫質製作 3D 影片。可在 VR 頭戴裝置的瀏覽器和任何電腦上使用。",
+    "beforeAfter": "前後對照：左側是 2D 影片，右側是 {lifelike}。",
+    "whereTitle": "可在哪裡使用",
+    "where": {
+      "visionPro": "<b>Apple Vision Pro</b>：在 Safari 中開啟網頁版。影片全螢幕時以 3D 播放。",
+      "sideBySide": "<b>Meta Quest、Pico 和 Samsung Galaxy XR</b>：在瀏覽器中開啟網頁版。在其影片播放器中選擇 3D 左右並排。",
+      "computer": "<b>任何電腦</b>：在瀏覽器中製作 3D 影片。",
+      "download": "<b>下載</b>在所有裝置上都能使用，每支 3D 影片都能保存。"
+    },
+    "account": "使用您在 {app} App 中的同一個帳號登入。",
+    "cta": "開啟網頁版"
   }
 }

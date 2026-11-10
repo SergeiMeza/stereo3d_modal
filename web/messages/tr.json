@@ -3108,5 +3108,24 @@
       "hideArchivedCount": "Arşivlenenleri gizle ({count})",
       "showArchivedCount": "Arşivlenenleri göster ({count})"
     }
+  },
+  "appIntro": {
+    "meta": {
+      "title": "Web’de {lifelike}",
+      "description": "2D videolarınızı tarayıcıda tam {lifelike} kalitesinde 3D yapın, sonra bir VR başlığında izleyin ya da indirin. {app} hesabınızla oturum açın."
+    },
+    "eyebrow": "Web’de {site}",
+    "title": "Videolarınızı tarayıcıda 3D yapın",
+    "lede": "Web uygulaması tam {lifelike} kalitesinde 3D videolar yapar. Bir VR başlığının tarayıcısında ve her bilgisayarda çalışır.",
+    "beforeAfter": "Önce ve sonra: solda 2D video, sağda {lifelike}.",
+    "whereTitle": "Nerede çalışır",
+    "where": {
+      "visionPro": "<b>Apple Vision Pro</b>: Web uygulamasını Safari’de açın. Videolarınız tam ekranda 3D oynatılır.",
+      "sideBySide": "<b>Meta Quest, Pico ve Samsung Galaxy XR</b>: Web uygulamasını tarayıcıda açın. Tarayıcının video oynatıcısında 3D yan yana’yı seçin.",
+      "computer": "<b>Her bilgisayar</b>: 3D videolarınızı tarayıcıda yapın.",
+      "download": "<b>İndirme</b> her yerde çalışır, her 3D videonuzu saklayabilirsiniz."
+    },
+    "account": "{app} uygulamasında kullandığınız hesapla oturum açın.",
+    "cta": "Web uygulamasını aç"
   }
 }
