@@ -3127,5 +3127,25 @@
     },
     "account": "使用你在 {app} App 中的同一账户登录。",
     "cta": "打开网页版"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "在 Apple Vision Pro 上使用{lifelike}",
+      "description": "在浏览器中以完整的{lifelike}画质把 2D 视频制作成空间视频，并在 Apple Vision Pro 的 Safari 中以 3D 观看。使用你的{app}账户登录。"
+    },
+    "eyebrow": "Apple Vision Pro 上的{site}",
+    "title": "你的视频，就在这里变成 3D",
+    "lede": "网页版会以完整的{lifelike}画质把你的 2D 视频制作成空间视频。在 Safari 中全屏播放即可看到 3D，无需安装任何东西。",
+    "samplesTitle": "以 3D 观看示例",
+    "samplesHint": "每个示例都由{lifelike}制作，并以全屏打开。文件较大，请稍等几秒开始播放。",
+    "notVisionPro": "请在 Apple Vision Pro 的 Safari 中打开此页面，以 3D 观看示例。在其他设备上将以平面播放。",
+    "watch": "以 3D 观看",
+    "stepsTitle": "使用方法",
+    "steps": {
+      "signIn": "使用与{app} App 相同的账户<b>登录</b>。",
+      "add": "<b>添加一个 2D 视频</b>，网页版会用{lifelike}把它变成 3D。",
+      "watch": "<b>以 3D 观看</b>：全屏播放结果，或下载空间视频保存。"
+    },
+    "cta": "打开网页版"
   }
 }

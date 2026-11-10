@@ -3127,5 +3127,25 @@
     },
     "account": "{app}アプリと同じアカウントでサインインします。",
     "cta": "Webアプリを開く"
+  },
+  "visionPro": {
+    "meta": {
+      "title": "Apple Vision Proで{lifelike}",
+      "description": "ブラウザで2D動画を{lifelike}のフル品質で空間ビデオにして、Apple Vision ProのSafariで3Dで見られます。{app}のアカウントでサインインします。"
+    },
+    "eyebrow": "Apple Vision Proで{site}",
+    "title": "あなたの動画を、ここで3Dに",
+    "lede": "Webアプリは2D動画を{lifelike}のフル品質で空間ビデオにします。Safariでフルスクリーン再生すれば3Dに。インストールは不要です。",
+    "samplesTitle": "サンプルを3Dで見る",
+    "samplesHint": "どれも{lifelike}で作られ、フルスクリーンで開きます。ファイルが大きいので、再生まで数秒お待ちください。",
+    "notVisionPro": "サンプルを3Dで見るには、Apple Vision ProのSafariでこのページを開いてください。それ以外では2Dで再生されます。",
+    "watch": "3Dで見る",
+    "stepsTitle": "使い方",
+    "steps": {
+      "signIn": "{app}アプリと同じアカウントで<b>サインイン</b>します。",
+      "add": "<b>2D動画を追加</b>すると、Webアプリが{lifelike}で3Dにします。",
+      "watch": "<b>3Dで見る</b>:結果をフルスクリーンで再生するか、空間ビデオをダウンロードして残せます。"
+    },
+    "cta": "Webアプリを開く"
   }
 }
