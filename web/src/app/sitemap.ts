@@ -30,6 +30,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly",
       priority: 0.7,
     },
+    // WEB-02: the introduction the Spatial Video Studio apps open
+    {
+      url: `${SITE_URL}/app`,
+      lastModified,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    },
     ...DEVICE_PAGES.map((d) => ({
       url: `${SITE_URL}/devices/${d.slug}`,
       lastModified,

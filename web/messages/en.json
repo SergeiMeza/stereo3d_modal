@@ -3265,5 +3265,24 @@
       "hideArchivedCount": "Hide archived ({count})",
       "showArchivedCount": "Show archived ({count})"
     }
+  },
+  "appIntro": {
+    "meta": {
+      "title": "{lifelike} on the web",
+      "description": "Make your 2D videos 3D in the browser at full {lifelike} quality, then watch them in a VR headset or download them. Sign in with your {app} account."
+    },
+    "eyebrow": "{site} on the web",
+    "title": "Make your videos 3D in the browser",
+    "lede": "The web app makes 3D videos at full {lifelike} quality. It works in a VR headset's browser and on any computer.",
+    "beforeAfter": "Before and after: the 2D video on the left, {lifelike} on the right.",
+    "whereTitle": "Where it works",
+    "where": {
+      "visionPro": "<b>Apple Vision Pro</b>: open the web app in Safari. Your videos play in 3D in full screen.",
+      "sideBySide": "<b>Meta Quest, Pico and Samsung Galaxy XR</b>: open the web app in the browser. In its video player, choose 3D side by side.",
+      "computer": "<b>Any computer</b>: make your 3D videos in the browser.",
+      "download": "<b>Downloads</b> work everywhere, so you can keep every 3D video."
+    },
+    "account": "Sign in with the same account you use in the {app} app.",
+    "cta": "Open the web app"
   }
 }

@@ -3108,5 +3108,24 @@
       "hideArchivedCount": "Ocultar archivados ({count})",
       "showArchivedCount": "Mostrar archivados ({count})"
     }
+  },
+  "appIntro": {
+    "meta": {
+      "title": "{lifelike} en la web",
+      "description": "Convierte tus videos 2D en 3D en el navegador con toda la calidad de {lifelike}, y míralos en un visor de VR o descárgalos. Inicia sesión con tu cuenta de {app}."
+    },
+    "eyebrow": "{site} en la web",
+    "title": "Convierte tus videos en 3D en el navegador",
+    "lede": "La app web crea videos 3D con toda la calidad de {lifelike}. Funciona en el navegador de un visor de VR y en cualquier computadora.",
+    "beforeAfter": "Antes y después: el video 2D a la izquierda, {lifelike} a la derecha.",
+    "whereTitle": "Dónde funciona",
+    "where": {
+      "visionPro": "<b>Apple Vision Pro</b>: abre la app web en Safari. Tus videos se reproducen en 3D a pantalla completa.",
+      "sideBySide": "<b>Meta Quest, Pico y Samsung Galaxy XR</b>: abre la app web en el navegador. En su reproductor de video, elige 3D lado a lado.",
+      "computer": "<b>Cualquier computadora</b>: crea tus videos 3D en el navegador.",
+      "download": "<b>Las descargas</b> funcionan en todas partes: guarda cada video 3D."
+    },
+    "account": "Inicia sesión con la misma cuenta que usas en la app {app}.",
+    "cta": "Abrir la app web"
   }
 }
